@@ -1,7 +1,7 @@
 # HANDOFF — Udgam
 
 **Stage just completed:** Stage 2 · Solution Design (brainstormed in four approved sections: system shape + domain model, verification pipeline, ledger + certificate, capture/errors/eval/testing).
-**Awaiting:** user sign-off on `Solution-PRD.md` §13. No build begins without it.
+**Solution-PRD.md approved** by Tushar Pathak on 2026-09-28 (§13 ticked).
 **Where next stages run:** a claude.ai/code cloud session on the private repo `007U5H4R/udgam` (Stages 3, 4, 5, and 7 onward). Stage 6 (Campfire onboarding) runs locally. See `CLAUDE.md` for path mapping and cloud limits.
 
 ## Outputs

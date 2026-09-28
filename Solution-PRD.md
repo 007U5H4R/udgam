@@ -1,7 +1,7 @@
 # Solution PRD — Udgam
 
 **Stage:** 2 · Solution Design (build-workflow)
-**Status:** Draft for user sign-off
+**Status:** Approved by Tushar Pathak, 2026-09-28
 **Date:** 2026-09-24
 **Inputs:** `Discovery-PRD.md` (approved 2026-09-24), `decisions.md` DISC1–DISC16
 **Decisions appended by this stage:** `decisions.md` S1–S9
@@ -173,5 +173,5 @@ S1–S7 as defined in `Discovery-PRD.md` §7; they become Stage 3 release gates 
 | ARM binaries (Foundry, sharp for thumbnails) | validate on the instance in week 1 of M2 / M3 |
 
 ## 13. Sign-off
-- [ ] Approach, requirements, architecture, pipeline, ledger, flows, error handling, testing approved by Tushar Pathak
-- [ ] Next: Stage 3 Evaluation Design (`bw-evaluation-design`), Fable / High
+- [x] Approach, requirements, architecture, pipeline, ledger, flows, error handling, testing approved by Tushar Pathak
+- [x] Next: Stage 3 Evaluation Design (`bw-evaluation-design`), Fable / High
