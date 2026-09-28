@@ -32,3 +32,6 @@ broadcast/
 
 # agent worktrees (local, never committed)
 .claude/worktrees/
+
+# third-party reference screenshots (Mobbin/Opal) — local only, never committed
+.design/exploration/ref/

@@ -193,3 +193,47 @@
 **Context.** Stage 3 found that under S4's equal-weight scoring one non-hard `fail` scores about 91.7 and two about 83.3, both Verified, so single-signal attacks (e.g. capture outside the plot) pass and S1 cannot be met. Adopted from EV7 at the Stage 3 gate, 2026-09-28.
 **Decision.** Any check with status `fail`, any `deforestation_overlap` or `yield_plausibility` `flag`, or any `unavailable` check caps the verdict at Needs Review regardless of score. Amends S4; Solution-PRD §4.3 and F6 updated.
 **Rejected.** Tuning weights until the test set passes (overfits the eval set); making every `fail` a hard fail (rejects honest agents on noisy GPS).
+
+## S11 · Stage 7 Execution runs in a claude.ai/code cloud session — accepted
+**Context.** Owner requirement, 2026-09-28: "I want the execution stage should happen in cloud session anyhow." A background cloud agent launched from the local session fell back to a local worktree in Stage 3, so the reliable route is a session the owner opens at claude.ai/code on the private repo `007U5H4R/udgam`.
+**Decision.** All Stage 7 build work (code, tests, eval runs, per-phase QA) happens in owner-opened cloud sessions on the GitHub repo. Stage 6 must therefore deliver: a cloud environment setup script (Node, pnpm, Foundry for Milestone 2, Playwright browsers), `.env.example` naming every variable, the fixture remote-sensing provider as the default so the build and eval harness run with no API keys, and a "To sync locally" list in HANDOFF for Campfire and the Obsidian vault after each phase. Provider keys (GFW, Copernicus, ArcGIS) are entered only as cloud environment secrets, never committed.
+**Rejected.** Running Stage 7 locally (owner requirement); background cloud agents launched from the local session (fell back to local in Stage 3); committing keys to make the cloud build work.
+
+## D1 · Visual direction: Opal-inspired glow, made Udgam's own — accepted
+**Context.** Stage 4 explored three directions (Estate Record Book, Your Plot Proven, One Thing at a Time) in a gallery; the owner rejected all three and named the Opal iOS app as the reference, then approved the built final on 2026-09-29.
+**Decision.** Near-black green-biased ground with a coffee-leaf ambient glow, frosted dark cards with hairline borders, Figtree + Noto Sans Kannada, one gradient-lit word or number per screen, glowing pill buttons, floating glass tab bar, tinted sheets for serious states. Tokens in Design.md §12; mockup `.design/exploration/final/`.
+**Rejected.** A (record book: cream-palette risk, owner preference); B (plot map: recommended, owner preferred Opal); C (bilingual one-question flow: plainest look); copying Opal literally (no gem, logo, names, copy).
+**Evidence.** Mobbin Opal screens (`.design/exploration/ref/`, local only); 48 measured page states pass; body text 13.9–15.9:1 on cards.
+**Consequence.** Dark UI in direct sun is a field-test risk (Design.md §22) with a light "Sunlight" token set as fallback; glass/glow justified in Design.md §24.
+
+## D2 · Brand object: a three-cherry coffee cluster — accepted
+**Context.** The first object, a single round cherry, read as a plum or apple at large sizes.
+**Decision.** `final/cherry.svg` v2: three small oval cherries with flower scars at a branch node, two long glossy leaves, iridescent rim light, light pool beneath; green rim on Verified, amber on Needs a check, absent on failure states (no green allowed there).
+**Rejected.** Single cherry (misread); Opal-style gem (not ours); generated raster image (not needed; SVG scales and is deterministic).
+
+## D3 · Plot card is the Home hero; proof card is the certificate hero — accepted
+**Context.** Opal leads with one hero data card. Udgam's most meaningful fact for a farmer is "you are inside your plot"; for a buyer it is "this proof checked out on your device".
+**Decision.** Home hero = the plot outline glowing with the live location dot and "You're inside Plot 2". Certificate hero = the in-browser proof result, above any map on phones (EVAL-087).
+**Rejected.** KPI or earnings summary on Home (dashboard-by-default); map-first certificate on phones.
+
+## D4 · Capture app IA: three-tab floating bar, full-screen record flow — accepted
+**Decision.** Tabs Home · Pickings · Help; the record flow (photos → review → weight → checking → verdict) is a full-screen stack with the tab bar hidden. One primary action per screen.
+**Rejected.** Single stack with no tabs (loses quick access to past pickings and help); more tabs.
+
+## D5 · Farmer-facing verdict words and the verdict template — accepted
+**Decision.** Verified · Needs a check · Not accepted (system states stay Verified / Needs Review / Rejected). One template for all three: brand object or mark, the lit verdict word, up to three evidence lines with icons, one pill. Needs a check always says who checks, when, and that nothing is needed from the farmer; Not accepted always names the reason and what to do.
+**Rejected.** "Rejected" shown to farmers (reads as an accusation); verdicts by colour alone.
+
+## D6 · Capture uses the phone's own camera, with slots before and review after — accepted
+**Context.** Solution-PRD F4 requires the native camera so EXIF survives; there is no custom viewfinder to design.
+**Decision.** Three labelled slots with example drawings (The branch · Basket on the scale · The day's pile), minimum one photo, a "Check:" review with Use this photo / Take again. Weight via big lit number, custom keypad and "Send 42.5 kg"; hint shows the farmer's own recent range, never the fraud threshold.
+**Rejected.** Custom in-app viewfinder (breaks F4); wheel or ruler pickers for weight.
+
+## D7 · Certificate prints light; admin overrides need a reason — accepted
+**Decision.** The certificate has a light print stylesheet (warnings ≥ 7.4:1 on paper, controls hidden). Admin Accept/Not accepted opens a required reason (≥ 10 characters) and states the decision is signed and recorded permanently; hard-failed items show no override controls.
+**Rejected.** Printing the dark screen design; one-click overrides.
+
+## D8 · Phone roles unchanged pending owner decision — accepted
+**Context.** The owner said farmers will mostly use the app; DISC10 made the field agent the login and the farmer a record. Asked twice at the Stage 4 gate; the owner approved the design without changing roles.
+**Decision.** Keep DISC10. The capture app is designed for a farmer's comfort level regardless of who holds the phone. Revisit if the owner decides farmers should log in (affects enrolment and Home, not the visual design).
+**Rejected.** Changing roles without an explicit owner decision.

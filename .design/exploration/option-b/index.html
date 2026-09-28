@@ -1,0 +1,863 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Udgam capture · Option B · Your Plot, Proven</title>
+<meta name="description" content="Design prototype, Option B: the farmer's own plot outline, with their location dot inside it, sits at the centre of every capture screen.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anek+Kannada:wdth,wght@75..125,400..700&family=Anek+Latin:wdth,wght@75..125,400..700&display=swap" rel="stylesheet">
+<style>
+/* ── Tokens (plan B, OKLCH) ─────────────────────────────── */
+:root{
+  --bg:        oklch(0.975 0.006 150);   /* mist */
+  --surface:   oklch(0.995 0.003 150);
+  --ink:       oklch(0.30 0.060 155);    /* canopy */
+  --ink-2:     oklch(0.42 0.035 155);
+  --line:      oklch(0.89 0.012 150);
+  --line-strong:oklch(0.78 0.020 150);
+  --fence:     oklch(0.56 0.130 45);     /* laterite boundary */
+  --fence-ink: oklch(0.48 0.120 45);
+  --you:       oklch(0.55 0.160 250);    /* location dot */
+  --you-ink:   oklch(0.45 0.150 250);
+  --action:    oklch(0.50 0.120 150);    /* leaf */
+  --action-press: oklch(0.44 0.110 150);
+  --on-action: oklch(0.99 0.004 150);
+  --ok:        oklch(0.50 0.120 150);
+  --ok-ink:    oklch(0.43 0.110 150);
+  --ok-tint:   oklch(0.945 0.035 150);
+  --check:     oklch(0.78 0.150 75);     /* amber */
+  --check-ink: oklch(0.47 0.100 65);
+  --check-tint:oklch(0.955 0.045 85);
+  --bad:       oklch(0.52 0.180 27);     /* cherry */
+  --map-bg:    oklch(0.955 0.013 140);
+  --plot-fill: oklch(0.925 0.035 145);
+  --leaf-tint: oklch(0.86 0.060 145);
+  --contour:   oklch(0.30 0.060 155);
+  --focus:     oklch(0.55 0.160 250);
+
+  --fs-body: clamp(17px, 16.4px + 0.2vw, 18px);
+  --fs-h1:   clamp(26px, 24px + 0.6vw, 30px);
+  --banner-h: 32px;
+  --z: .8;
+}
+@media (max-width: 999.98px){ :root{ --banner-h: 48px; } }
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-padding-top:calc(var(--banner-h) + 16px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Anek Latin","Anek Kannada",system-ui,sans-serif;font-size:var(--fs-body);line-height:1.5;padding-top:var(--banner-h);-webkit-font-smoothing:antialiased}
+:lang(kn){font-family:"Anek Kannada","Anek Latin",system-ui,sans-serif;line-height:1.6}
+h1,h2,p,ol,ul,figure{margin:0}
+ol,ul{padding:0;list-style:none}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:var(--you-ink)}
+:focus-visible{outline:3px solid var(--focus);outline-offset:3px;border-radius:6px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+[hidden]{display:none !important}
+.ic{width:24px;height:24px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.assume{display:inline-block;font-size:14px;line-height:1.35;font-weight:500;color:var(--ink-2);border:1px dashed var(--line-strong);border-radius:6px;padding:1px 6px;letter-spacing:.01em}
+
+/* ── Prototype chrome ───────────────────────────────────── */
+.proto-banner{position:fixed;inset:0 0 auto 0;height:var(--banner-h);z-index:50;background:var(--ink);color:var(--bg);display:flex;align-items:center;gap:8px;padding:0 0 0 16px;font-size:12.5px;font-weight:500;letter-spacing:.03em}
+.proto-banner .bn-text{flex:1;min-width:0;line-height:1.25}
+.proto-banner .bn-text b{font-weight:700}
+.bn-screens{display:none;align-items:center;gap:6px;height:48px;min-width:48px;padding:0 16px;border:0;border-left:1px solid oklch(0.45 0.05 155);background:transparent;color:var(--bg);font-weight:600;font-size:15px}
+.proto-foot{display:none}
+.params-toggle{min-height:48px;padding:0 16px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface);color:var(--ink-2);font-size:15px;font-weight:600}
+.params{position:fixed;left:16px;bottom:72px;z-index:60;width:min(460px,calc(100vw - 32px));max-height:calc(100dvh - var(--banner-h) - 96px);overflow:auto;background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;padding:16px}
+.params h2{font-size:17px;margin-bottom:8px}
+.params pre{margin:0;font:14px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;color:var(--ink)}
+.params .close{margin-top:12px}
+
+/* ── Storyboard (wide) ──────────────────────────────────── */
+.sb-head{display:none}
+.frame-cap{display:none}
+
+/* ── Screen anatomy ─────────────────────────────────────── */
+.screen, .view{display:flex;flex-direction:column;background:var(--bg)}
+.appbar{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:60px;padding:6px 8px 6px 16px}
+.wordmark{font-weight:700;font-size:23px;letter-spacing:.01em;font-stretch:95%}
+.btn-bar{display:inline-flex;align-items:center;gap:8px;min-height:48px;min-width:48px;padding:0 12px;border:0;border-radius:12px;background:transparent;font-weight:600;font-size:17px;color:var(--ink)}
+.btn-bar:active{background:var(--line)}
+.btn-bar.back{margin-left:-8px}
+.content{flex:1;display:flex;flex-direction:column;gap:18px;padding:2px 16px 20px}
+.actions{position:sticky;bottom:0;margin-top:auto;display:grid;gap:10px;padding:12px 16px calc(16px + env(safe-area-inset-bottom));background:var(--bg);z-index:2}
+h1{font-size:var(--fs-h1);line-height:1.15;font-weight:650;letter-spacing:-.005em}
+h2{font-size:18px;line-height:1.3;font-weight:650}
+.muted{color:var(--ink-2)}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;padding:0 20px;border-radius:14px;border:2px solid transparent;font-size:19px;font-weight:650;letter-spacing:.005em;text-align:center}
+.btn-primary{background:var(--action);color:var(--on-action)}
+.btn-primary:active{background:var(--action-press)}
+.btn-primary[disabled]{background:var(--line-strong);color:var(--ink-2);cursor:not-allowed}
+.btn-secondary{background:transparent;border-color:var(--line-strong);color:var(--ink)}
+.btn-xl{min-height:60px;font-size:20px}
+.link-btn{min-height:48px;padding:0 4px;border:0;background:none;color:var(--you-ink);font-weight:600;font-size:17px;text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1.5px}
+
+/* ── Plot map (the hero) ────────────────────────────────── */
+.map{position:relative;border-radius:16px;overflow:hidden;background:var(--map-bg);border:1px solid var(--line)}
+.map svg.plot{display:block;width:100%;height:auto}
+.map.mini{width:112px;flex:none;border-radius:12px}
+.map.mini svg.plot{aspect-ratio:4/3}
+.map-chip{position:absolute;left:10px;bottom:10px;display:inline-flex;align-items:center;gap:8px;max-width:calc(100% - 20px);padding:7px 12px 7px 10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;font-weight:650;font-size:17px;line-height:1.25}
+.map-chip .ic{color:var(--you-ink)}
+.map-chip.ok .ic{color:var(--ok-ink)}
+.map-chip.cloud{left:auto;right:10px;bottom:auto;top:10px}
+.map-chip.cloud .ic{color:var(--check-ink)}
+.m-bg{fill:var(--map-bg)}
+.m-contour-out path{fill:none;stroke:var(--contour);stroke-opacity:.09;stroke-width:1.2}
+.m-plot{fill:var(--plot-fill)}
+.m-contour-in path{fill:none;stroke:var(--contour);stroke-opacity:.2;stroke-width:1.3}
+.m-trees circle{fill:var(--leaf-tint);fill-opacity:.6;stroke:var(--contour);stroke-opacity:.22;stroke-width:1.2}
+.m-fence{fill:none;stroke:var(--fence);stroke-width:3.5;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:9 7;transition:stroke-dasharray 240ms ease-out, stroke-width 240ms ease-out}
+.m-label{font:650 17px/1 "Anek Latin",sans-serif;fill:var(--fence-ink);paint-order:stroke;stroke:var(--plot-fill);stroke-width:5px;stroke-linejoin:round}
+.m-you{transform:translate(212px,128px);transition:transform 240ms cubic-bezier(.2,.8,.2,1)}
+.m-ring{fill:var(--you);fill-opacity:.14;stroke:var(--you);stroke-opacity:.45;stroke-width:1.5;transform:scale(1.5);transition:transform 240ms cubic-bezier(.2,.8,.2,1)}
+.m-dot{fill:var(--you);stroke:#fff;stroke-width:3}
+.m-you-label{font:650 16px/1 "Anek Latin",sans-serif;fill:var(--you-ink);paint-order:stroke;stroke:var(--plot-fill);stroke-width:5px;stroke-linejoin:round}
+.st-settling .m-you{transform:translate(228px,116px)}
+.st-settling .m-ring{transform:scale(2.7)}
+.st-settle .m-you{transform:translate(228px,116px)}
+.st-settle .m-ring{transform:scale(2.7)}
+.st-settle.settled .m-you{transform:translate(212px,128px)}
+.st-settle.settled .m-ring{transform:scale(1)}
+.st-settle.settled .m-fence{stroke-dasharray:16 0;stroke-width:4}
+.mini .m-fence{stroke-width:5}
+@media (prefers-reduced-motion: reduce){
+  .m-you,.m-ring,.m-fence{transition:none !important}
+}
+
+/* ── s1 Home ────────────────────────────────────────────── */
+.plot-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.facts{color:var(--ink-2);margin-top:2px}
+.last{display:flex;align-items:center;gap:10px;color:var(--ink)}
+.last .ic{color:var(--ink-2)}
+.entries{border-top:1px solid var(--line);margin-top:8px}
+.entries li{display:grid;grid-template-columns:5.2em 1fr auto;align-items:center;gap:8px;min-height:52px;border-bottom:1px solid var(--line)}
+.entries .kg{font-weight:600;font-variant-numeric:tabular-nums}
+.vmark{display:inline-flex;align-items:center;gap:8px;font-weight:600}
+.vmark svg{width:22px;height:22px;flex:none}
+.vmark.ok{color:var(--ok-ink)} .vmark.check{color:var(--check-ink)} .vmark.bad{color:var(--bad)}
+
+/* ── s2 Photos ──────────────────────────────────────────── */
+.plotline{display:flex;align-items:center;gap:14px}
+.plotline p{display:flex;gap:8px;align-items:flex-start;line-height:1.35}
+.plotline .ic{color:var(--ok-ink);margin-top:-1px}
+.title-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.counter{flex:none;font-weight:650;font-variant-numeric:tabular-nums;color:var(--ink);padding:2px 10px;border:1.5px solid var(--line-strong);border-radius:999px;font-size:17px}
+.slots{display:grid;gap:10px}
+.slot{display:flex;align-items:center;gap:14px;padding:8px;border-radius:12px;border:1.5px dashed var(--line-strong)}
+.slot[data-state="filled"]{border-style:solid;border-color:var(--ok)}
+.slot[data-state="next"]{border-style:solid;border-color:var(--ink)}
+.thumb{position:relative;width:112px;flex:none;border-radius:8px;overflow:hidden;background:var(--line)}
+.thumb svg{display:block;width:100%;height:auto;aspect-ratio:4/3}
+.slot[data-state="todo"] .thumb svg,.slot[data-state="next"] .thumb svg{opacity:.55;filter:saturate(.6)}
+.tag{position:absolute;left:4px;bottom:4px;padding:1px 5px;white-space:nowrap;border-radius:4px;background:oklch(0.30 0.06 155 / .82);color:#fff;font-size:11px;font-weight:600;letter-spacing:.02em;line-height:1.4}
+.slot-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.slot-name{font-weight:650}
+.slot-state{display:inline-flex;align-items:center;gap:6px;color:var(--ink-2);font-size:17px}
+.slot[data-state="filled"] .slot-state{color:var(--ok-ink);font-weight:600}
+.slot[data-state="next"] .slot-state{color:var(--ink);font-weight:600}
+.slot-state .ic{width:20px;height:20px}
+.note{color:var(--ink-2)}
+
+/* ── s3 Review + Weight ─────────────────────────────────── */
+.eyebrow{color:var(--ink-2);font-weight:600;margin-bottom:4px}
+.photo{position:relative;border-radius:12px;overflow:hidden;background:var(--line)}
+.photo > svg{display:block;width:100%;height:auto;aspect-ratio:4/3}
+.photo .tag{left:auto;right:8px;top:8px;bottom:auto;font-size:12px;padding:2px 7px}
+.photo-badge{position:absolute;left:8px;bottom:8px;display:inline-flex;align-items:center;gap:8px;padding:5px 10px 5px 6px;background:var(--surface);border-radius:10px;font-size:17px;font-weight:600;line-height:1.25}
+.plotglyph{width:34px;height:24px;flex:none}
+.checklist{display:grid;gap:4px}
+.checklist .cl-h{font-weight:650}
+.checklist li{display:flex;align-items:center;gap:10px;min-height:32px}
+.checklist li::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ink-2);flex:none;margin:0 4px}
+.plotref{display:flex;align-items:center;gap:10px;color:var(--ink-2);margin-top:-8px}
+.readout{display:flex;align-items:baseline;justify-content:center;gap:10px;padding:6px 0 0;border-bottom:2px solid var(--ink);margin:0 8px}
+.readout output{font-size:clamp(64px,54px + 2vw,84px);line-height:1.05;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.02em;font-stretch:92%}
+.readout output.empty{color:var(--line-strong)}
+.readout .unit{font-size:30px;font-weight:600;color:var(--ink-2)}
+.hint{text-align:center;color:var(--ink-2);margin-top:-8px}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.key{min-height:58px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:28px;font-weight:600;font-variant-numeric:tabular-nums;display:flex;align-items:center;justify-content:center;gap:6px}
+.key:active{background:var(--line)}
+.key.del{font-size:17px;color:var(--ink-2)}
+@media (max-width:999.98px) and (max-height:640px){
+  .appbar{min-height:52px;padding-block:2px}
+  .key{min-height:48px;font-size:24px}
+  .keypad{gap:6px}
+  .readout output{font-size:52px}
+  [data-view="weight"] .content{gap:8px}
+  [data-view="weight"] .plotref{display:none}
+  .hint{margin-top:0}
+}
+@media (max-width:359.98px){ .proto-banner{font-size:11px} }
+
+/* ── s4 Checking ────────────────────────────────────────── */
+.sub{color:var(--ink-2);margin-top:-10px}
+.checks{border-top:1px solid var(--line)}
+.checks li{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:50px;border-bottom:1px solid var(--line)}
+.ck-state{display:inline-flex;align-items:center;gap:6px;flex:none;font-weight:600;font-size:17px}
+.ck-state .ic{width:22px;height:22px}
+.checks .done .ck-state{color:var(--ok-ink)}
+.checks .now .ck-state{color:var(--you-ink)}
+.checks .wait .ck-state{color:var(--ink-2);font-weight:500}
+.checks .wait .ck-name{color:var(--ink-2)}
+.checks .now .ck-name{font-weight:650}
+
+/* ── s5 / s6 verdicts ───────────────────────────────────── */
+.verdict{display:flex;align-items:center;gap:14px}
+.verdict .mark{width:48px;height:48px;flex:none}
+.verdict h1{font-size:clamp(36px,32px + 1vw,42px);line-height:1.05;font-weight:700}
+.verdict.ok h1{color:var(--ok-ink)}
+.verdict.check h1{color:var(--check-ink)}
+.verdict-sub{margin-top:-8px}
+.evidence{border-top:1px solid var(--line)}
+.evidence li{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);line-height:1.4}
+.evidence .ic{color:var(--ink-2);margin-top:1px}
+.evidence .assume{margin-top:6px}
+
+/* ── s7 Couldn't send ───────────────────────────────────── */
+.err-head{display:flex;align-items:center;gap:14px}
+.err-icon{width:52px;height:52px;border-radius:50%;background:var(--line);display:grid;place-items:center;flex:none}
+.err-icon .ic{width:28px;height:28px}
+.safe{display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:12px;background:var(--ok-tint);line-height:1.4}
+.safe .ic{color:var(--ok-ink)}
+
+/* ── Dialogs ────────────────────────────────────────────── */
+dialog{border:0;padding:0;background:transparent;max-width:none;max-height:none;width:100%;height:100%;margin:0}
+dialog::backdrop{background:oklch(0.30 0.06 155 / .42)}
+.sheet{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:min(560px,100%);background:var(--bg);border-radius:20px 20px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom));display:grid;gap:12px;max-height:calc(100% - var(--banner-h) - 16px);overflow:auto}
+.sheet h2{font-size:22px}
+.btn-lang{font-size:21px}
+.menu-list{display:grid;gap:4px}
+.menu-list button,.menu-list a{display:flex;align-items:center;min-height:48px;padding:0 12px;border:0;border-radius:10px;background:transparent;text-align:left;font-weight:600;font-size:17px;color:var(--ink);text-decoration:none;width:100%}
+.menu-list button[aria-current="true"]{background:var(--ok-tint)}
+
+/* ── Narrow: one real phone screen at a time ────────────── */
+@media (max-width: 999.98px){
+  .bn-screens{display:inline-flex}
+  .params{bottom:16px}
+  .frame{display:none}
+  .frame.active{display:block}
+  .screen{min-height:calc(100vh - var(--banner-h));min-height:calc(100dvh - var(--banner-h));max-width:560px;margin:0 auto}
+  #s3 .view{display:none;flex:1}
+  #s3 .view.active{display:flex}
+}
+
+/* ── Wide: storyboard of phone frames ───────────────────── */
+@media (min-width: 1000px){
+  body{padding-bottom:96px}
+  .proto-foot{display:flex;position:fixed;inset:auto 0 0 0;height:72px;align-items:center;padding:0 16px;background:var(--bg);border-top:1px solid var(--line);z-index:40}
+  main{padding:28px 40px 0}
+  .sb-head{display:block;max-width:calc(4 * 390px * var(--z) + 72px);margin:0 auto 36px}
+  .sb-kicker{font-size:16px;font-weight:600;color:var(--ink-2);letter-spacing:.02em}
+  .sb-title{font-size:44px;line-height:1.1;font-weight:700;margin:6px 0 10px;letter-spacing:-.01em}
+  .sb-hyp{font-size:20px;line-height:1.5;max-width:52em}
+  .sb-links{margin-top:10px}
+  .board{display:grid;grid-template-columns:repeat(4, calc(390px * var(--z)));gap:44px 24px;justify-content:center}
+  .frame{scroll-margin-top:calc(var(--banner-h) + 16px)}
+  .frame.wide2{grid-column:span 2}
+  .frame-cap{display:block;font-weight:650;font-size:17px;margin:0 0 10px 4px}
+  .frame-cap span{color:var(--ink-2);font-weight:500}
+  .frame-body{zoom:var(--z);width:390px;height:844px;border:1px solid var(--line-strong);border-radius:40px;overflow:hidden;background:var(--bg)}
+  .screen{width:390px;height:844px;overflow:auto;padding-top:14px}
+  .frame.wide2 .frame-body{width:auto;height:auto;border:0;border-radius:0;overflow:visible;background:none}
+  #s3.screen{flex-direction:row;gap:calc(24px / var(--z));width:auto;height:auto;padding:0;overflow:visible;background:none}
+  #s3 .view{width:390px;height:844px;overflow:auto;padding-top:14px;border:1px solid var(--line-strong);border-radius:40px}
+}
+</style>
+</head>
+<body>
+
+<div class="proto-banner" role="note">
+  <p class="bn-text"><b>DESIGN PROTOTYPE — NOT PRODUCTION</b> · Option B · Your Plot, Proven</p>
+  <button class="bn-screens" type="button" id="screens-btn" aria-haspopup="dialog">Screens</button>
+</div>
+
+<!-- Shared SVG: icon set (one line style, 24 grid), verdict marks, photo placeholders -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8.5h3l1.6-2.5h6.8L17 8.5h3a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.3" r="3.4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7.5 18.5h9.6a4 4 0 0 0 .5-7.96A5.5 5.5 0 0 0 7 9.7a4.4 4.4 0 0 0 .5 8.8z"/></symbol>
+    <symbol id="i-location" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></symbol>
+    <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M8.6 16.1a5 5 0 0 1 6-.5"/><path d="M5.3 12.7a9.6 9.6 0 0 1 4.2-2.2"/><path d="M14 10.5a9.6 9.6 0 0 1 4.8 2.3"/><path d="M2 9.3a14.4 14.4 0 0 1 3.3-2.2"/><path d="M9.7 5.2A14.4 14.4 0 0 1 22 9.3"/><path d="M12 19.6h.01"/></symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.4 2.6 3.5 5.5 3.5 8.5s-1.1 5.9-3.5 8.5c-2.4-2.6-3.5-5.5-3.5-8.5s1.1-5.9 3.5-8.5z"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 10.5l5 5 5-5"/><path d="M4.5 19.5h15"/></symbol>
+    <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V4h10v5"/><rect x="3.5" y="9" width="17" height="7.5" rx="1.5"/><path d="M7 14h10v6H7z"/></symbol>
+    <symbol id="i-tree" viewBox="0 0 24 24"><path d="M12 21v-6"/><path d="M12 3.5a5 5 0 0 1 4.9 4 4.2 4.2 0 0 1-1.4 8H8.5a4.2 4.2 0 0 1-1.4-8 5 5 0 0 1 4.9-4z"/><path d="M12 15l-2.5-2.5M12 13l2-2"/></symbol>
+    <symbol id="i-seal" viewBox="0 0 24 24"><path d="M12 3.5l7 2.8v5.2c0 4.4-3 7.8-7 9-4-1.2-7-4.6-7-9V6.3z"/><path d="M9 12l2.2 2.2L15.3 10"/></symbol>
+    <symbol id="i-delete" viewBox="0 0 24 24"><path d="M9 5.5h10.5a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H9L3.5 12z"/><path d="M11.5 9.5l5 5M16.5 9.5l-5 5"/></symbol>
+    <symbol id="i-retry" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4.2h-4.2"/></symbol>
+    <symbol id="i-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke-dasharray="3.2 3.2"/><circle cx="12" cy="12" r="2.2"/></symbol>
+
+    <!-- Verdict marks: shape + colour + word (word is always written beside) -->
+    <symbol id="mk-ok" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" style="fill:var(--ok)"/><path d="M11.5 20.5l6 6L29 14.5" style="fill:none;stroke:var(--on-action);stroke-width:3.6;stroke-linecap:round;stroke-linejoin:round"/></symbol>
+    <symbol id="mk-check" viewBox="0 0 40 40"><path d="M20 3 37 20 20 37 3 20z" style="fill:var(--check);stroke:var(--check);stroke-width:4;stroke-linejoin:round"/><path d="M20 11.5v10" style="stroke:var(--ink);stroke-width:3.6;stroke-linecap:round"/><circle cx="20" cy="27.5" r="2.2" style="fill:var(--ink)"/></symbol>
+    <symbol id="mk-bad" viewBox="0 0 40 40"><rect x="2" y="2" width="36" height="36" rx="7" style="fill:var(--bad)"/><path d="M13.5 13.5l13 13M26.5 13.5l-13 13" style="stroke:#fff;stroke-width:3.6;stroke-linecap:round"/></symbol>
+
+    <!-- Mini plot glyph (same outline as the map) -->
+    <symbol id="plot-mini" viewBox="40 22 322 202"><path d="M62 62 L150 32 L238 48 L316 36 L352 100 L328 170 L262 206 L172 194 L98 214 L50 150 Z" style="fill:var(--plot-fill);stroke:var(--fence);stroke-width:18;stroke-linejoin:round"/><circle cx="212" cy="128" r="30" style="fill:var(--you);stroke:#fff;stroke-width:10"/></symbol>
+
+    <!-- Photo placeholders (illustrated, not photos) -->
+    <path id="leaf" d="M0 0C9-10 29-11 40 0 29 11 9 10 0 0z" style="fill:oklch(0.50 0.10 150)"/>
+    <path id="leaf2" d="M0 0C9-10 29-11 40 0 29 11 9 10 0 0z" style="fill:oklch(0.60 0.11 145)"/>
+    <symbol id="ph-branch" viewBox="0 0 160 120">
+      <rect width="160" height="120" style="fill:oklch(0.90 0.035 140)"/>
+      <ellipse cx="28" cy="16" rx="50" ry="28" style="fill:oklch(0.85 0.05 145)"/>
+      <ellipse cx="142" cy="106" rx="54" ry="30" style="fill:oklch(0.85 0.05 145)"/>
+      <path d="M-4 86C40 72 84 64 164 36" style="fill:none;stroke:oklch(0.46 0.05 60);stroke-width:4;stroke-linecap:round"/>
+      <use href="#leaf" transform="translate(30 77) rotate(-128) scale(1.05)"/>
+      <use href="#leaf2" transform="translate(30 77) rotate(-38)"/>
+      <use href="#leaf2" transform="translate(72 66) rotate(-150) scale(1.1)"/>
+      <use href="#leaf" transform="translate(72 66) rotate(-62) scale(1.15)"/>
+      <use href="#leaf" transform="translate(112 53) rotate(-118)"/>
+      <use href="#leaf2" transform="translate(112 53) rotate(-24) scale(1.05)"/>
+      <use href="#leaf" transform="translate(146 42) rotate(-140) scale(.9)"/>
+      <g id="cherries-branch"></g>
+    </symbol>
+    <symbol id="ph-basket" viewBox="0 0 160 120">
+      <rect width="160" height="120" style="fill:oklch(0.93 0.012 80)"/>
+      <rect y="94" width="160" height="26" style="fill:oklch(0.86 0.02 70)"/>
+      <rect x="30" y="82" width="100" height="7" rx="2" style="fill:oklch(0.55 0.02 250)"/>
+      <rect x="38" y="88" width="84" height="16" rx="3" style="fill:oklch(0.38 0.02 250)"/>
+      <rect x="67" y="92" width="26" height="8" rx="1.5" style="fill:oklch(0.82 0.06 150)"/>
+      <path d="M42 42h76l-8 40H50z" style="fill:oklch(0.66 0.08 70)"/>
+      <path d="M44 52h72M46 62h68M48 72h64" style="stroke:oklch(0.56 0.08 65);stroke-width:2"/>
+      <g id="cherries-basket"></g>
+      <rect x="38" y="38" width="84" height="7" rx="3.5" style="fill:oklch(0.58 0.08 65)"/>
+    </symbol>
+    <symbol id="ph-pile" viewBox="0 0 160 120">
+      <rect width="160" height="120" style="fill:oklch(0.74 0.035 240)"/>
+      <path d="M0 30L160 44M0 88L160 74M52 0L40 120" style="stroke:oklch(0.69 0.04 240);stroke-width:2"/>
+      <g id="cherries-pile"></g>
+    </symbol>
+  </defs>
+</svg>
+
+<main id="app">
+  <header class="sb-head">
+    <p class="sb-kicker">Udgam · Stage 4 design exploration · Option B</p>
+    <p class="sb-title">Your Plot, Proven</p>
+    <p class="sb-hyp">Hypothesis: a farmer understands and trusts the check best when they see their own plot outline with their dot inside it — so the plot sits at the centre of every screen, and the one bold moment is the fence line turning solid when a picking is verified.</p>
+    <p class="sb-links"><a href="verify.html">Open the public certificate page (verify.html)</a></p>
+  </header>
+
+  <div class="board">
+
+  <!-- 1 HOME -->
+  <figure class="frame" data-for="s1">
+    <figcaption class="frame-cap">1 Home <span>· task first</span></figcaption>
+    <div class="frame-body">
+    <section class="screen" id="s1" aria-labelledby="s1-h">
+      <header class="appbar">
+        <span class="wordmark">Udgam</span>
+        <button class="btn-bar lang-btn" type="button"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg><span lang="kn">ಕನ್ನಡ</span></button>
+      </header>
+      <div class="content">
+        <div class="map" data-map="home">
+          <p class="map-chip"><svg class="ic" aria-hidden="true"><use href="#i-location"/></svg>You are inside Plot 2</p>
+        </div>
+        <div class="plot-head">
+          <div>
+            <h1 id="s1-h" tabindex="-1">Plot 2 · Hosahalli</h1>
+            <p class="facts">1.8 ha · Arabica</p>
+          </div>
+          <button class="link-btn" type="button">Change plot</button>
+        </div>
+        <p class="last"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg>Last picked 27 Sep · 42 kg</p>
+        <section aria-labelledby="s1-recent">
+          <h2 id="s1-recent">Your last 3 pickings</h2>
+          <ol class="entries">
+            <li><span>27 Sep</span><span class="kg">42 kg</span><span class="vmark ok"><svg aria-hidden="true"><use href="#mk-ok"/></svg>Verified</span></li>
+            <li><span>22 Sep</span><span class="kg">38 kg</span><span class="vmark ok"><svg aria-hidden="true"><use href="#mk-ok"/></svg>Verified</span></li>
+            <li><span>16 Sep</span><span class="kg">51 kg</span><span class="vmark ok"><svg aria-hidden="true"><use href="#mk-ok"/></svg>Verified</span></li>
+          </ol>
+        </section>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary btn-xl" type="button" data-act="record"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg>Record a picking</button>
+      </div>
+    </section>
+    </div>
+  </figure>
+
+  <!-- 2 PHOTOS -->
+  <figure class="frame" data-for="s2">
+    <figcaption class="frame-cap">2 Photos <span>· after photo 1</span></figcaption>
+    <div class="frame-body">
+    <section class="screen" id="s2" aria-labelledby="s2-h">
+      <header class="appbar">
+        <button class="btn-bar back" type="button" data-go="s1"><svg class="ic" aria-hidden="true"><use href="#i-arrow-left"/></svg>Back</button>
+        <button class="btn-bar lang-btn" type="button"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg><span lang="kn">ಕನ್ನಡ</span></button>
+      </header>
+      <div class="content">
+        <div class="plotline">
+          <div class="map mini" data-map="mini"></div>
+          <p><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><span><strong>You're inside Plot 2</strong> — ready</span></p>
+        </div>
+        <div class="title-row">
+          <h1 id="s2-h" tabindex="-1">Photos of today's picking</h1>
+          <p class="counter" id="counter">1 of 3</p>
+        </div>
+        <ol class="slots" id="slots"></ol>
+        <p class="note">At least 1 photo is needed. 3 is best.</p>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" type="button" id="cam-btn"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg><span>Open camera</span></button>
+        <button class="btn btn-secondary" type="button" id="to-weight" data-go="s3-weight"><span>Next: enter weight</span><svg class="ic" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
+      </div>
+    </section>
+    </div>
+  </figure>
+
+  <!-- 3 REVIEW + WEIGHT -->
+  <figure class="frame wide2" data-for="s3">
+    <figcaption class="frame-cap">3 Review photo + Weight <span>· one screen, two steps</span></figcaption>
+    <div class="frame-body">
+    <section class="screen" id="s3" aria-label="Review photo, then weight">
+      <div class="view active" data-view="review">
+        <header class="appbar">
+          <button class="btn-bar back" type="button" data-go="s2"><svg class="ic" aria-hidden="true"><use href="#i-arrow-left"/></svg>Back</button>
+          <button class="btn-bar lang-btn" type="button"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg><span lang="kn">ಕನ್ನಡ</span></button>
+        </header>
+        <div class="content">
+          <div>
+            <p class="eyebrow" id="review-eyebrow">Photo 1 of 3 · The branch</p>
+            <h1 id="s3r-h" tabindex="-1">Check this photo</h1>
+          </div>
+          <figure class="photo">
+            <svg viewBox="0 0 160 120" role="img" aria-label="Photo placeholder: coffee branch with ripe cherries"><use id="review-use" href="#ph-branch"/></svg>
+            <span class="tag">Photo placeholder</span>
+            <figcaption class="photo-badge"><svg class="plotglyph" aria-hidden="true"><use href="#plot-mini"/></svg>Taken inside Plot 2 · just now</figcaption>
+          </figure>
+          <div class="checklist">
+            <p class="cl-h">Check:</p>
+            <ul>
+              <li>In focus, not blurry</li>
+              <li>Cherries are easy to see</li>
+              <li>Not too dark</li>
+            </ul>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" type="button" data-act="use-photo"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Use this photo</button>
+          <button class="btn btn-secondary" type="button" data-act="retake"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg>Take again</button>
+        </div>
+      </div>
+
+      <div class="view" data-view="weight">
+        <header class="appbar">
+          <button class="btn-bar back" type="button" data-go="s2"><svg class="ic" aria-hidden="true"><use href="#i-arrow-left"/></svg>Back</button>
+          <button class="btn-bar lang-btn" type="button"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg><span lang="kn">ಕನ್ನಡ</span></button>
+        </header>
+        <div class="content">
+          <h1 id="s3w-h" tabindex="-1">How many kg of cherries?</h1>
+          <p class="plotref"><svg class="plotglyph" aria-hidden="true"><use href="#plot-mini"/></svg><span>Plot 2 · <span id="photo-count-w">3 photos</span> added</span></p>
+          <div class="readout" aria-label="Weight">
+            <output id="kg" for="keypad">42.5</output><span class="unit">kg</span>
+          </div>
+          <p class="hint">Your last pickings: 38–51 kg</p>
+          <div class="keypad" id="keypad" role="group" aria-label="Number keys">
+            <button class="key" type="button" data-k="1">1</button><button class="key" type="button" data-k="2">2</button><button class="key" type="button" data-k="3">3</button>
+            <button class="key" type="button" data-k="4">4</button><button class="key" type="button" data-k="5">5</button><button class="key" type="button" data-k="6">6</button>
+            <button class="key" type="button" data-k="7">7</button><button class="key" type="button" data-k="8">8</button><button class="key" type="button" data-k="9">9</button>
+            <button class="key" type="button" data-k="." aria-label="Decimal point">.</button><button class="key" type="button" data-k="0">0</button>
+            <button class="key del" type="button" data-k="del"><svg class="ic" aria-hidden="true"><use href="#i-delete"/></svg>Delete</button>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary btn-xl" type="button" id="send-btn">Send 42.5 kg</button>
+        </div>
+      </div>
+    </section>
+    </div>
+  </figure>
+
+  <!-- 4 CHECKING -->
+  <figure class="frame" data-for="s4">
+    <figcaption class="frame-cap">4 Checking <span>· real checks, in order</span></figcaption>
+    <div class="frame-body">
+    <section class="screen" id="s4" aria-labelledby="s4-h">
+      <header class="appbar">
+        <span class="wordmark">Udgam</span>
+        <button class="btn-bar lang-btn" type="button"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg><span lang="kn">ಕನ್ನಡ</span></button>
+      </header>
+      <div class="content">
+        <div class="map" data-map="checking"></div>
+        <h1 id="s4-h" tabindex="-1">Checking your picking</h1>
+        <p class="sub">This usually takes under 30 seconds.</p>
+        <ol class="checks" id="checks"></ol>
+        <p class="sr-only" id="checks-live" aria-live="polite"></p>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" type="button" id="see-result" data-go="s5" hidden><span>See result</span><svg class="ic" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
+      </div>
+    </section>
+    </div>
+  </figure>
+
+  <!-- 5 VERIFIED -->
+  <figure class="frame" data-for="s5">
+    <figcaption class="frame-cap">5 Verdict · Verified <span>· the one bold moment</span></figcaption>
+    <div class="frame-body">
+    <section class="screen" id="s5" aria-labelledby="s5-h">
+      <header class="appbar">
+        <span class="wordmark">Udgam</span>
+        <button class="btn-bar lang-btn" type="button"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg><span lang="kn">ಕನ್ನಡ</span></button>
+      </header>
+      <div class="content">
+        <div class="map" data-map="verified">
+          <p class="map-chip ok"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Inside the fence of Plot 2</p>
+        </div>
+        <div class="verdict ok">
+          <svg class="mark" aria-hidden="true"><use href="#mk-ok"/></svg>
+          <h1 id="s5-h" tabindex="-1">Verified</h1>
+        </div>
+        <p class="verdict-sub">Your 42.5 kg from Plot 2 is recorded.</p>
+        <ul class="evidence">
+          <li><svg class="ic" aria-hidden="true"><use href="#i-location"/></svg><span>You were 14 m inside Plot 2</span></li>
+          <li><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg><span>3 new photos, taken today</span></li>
+          <li><svg class="ic" aria-hidden="true"><use href="#i-tree"/></svg><span>Forest map: no trees cleared since 2020</span></li>
+        </ul>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" type="button" data-go="s1">Done</button>
+      </div>
+    </section>
+    </div>
+  </figure>
+
+  <!-- 6 NEEDS A CHECK -->
+  <figure class="frame" data-for="s6">
+    <figcaption class="frame-cap">6 Verdict · Needs a check <span>· cloud over satellite</span></figcaption>
+    <div class="frame-body">
+    <section class="screen" id="s6" aria-labelledby="s6-h">
+      <header class="appbar">
+        <span class="wordmark">Udgam</span>
+        <button class="btn-bar lang-btn" type="button"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg><span lang="kn">ಕನ್ನಡ</span></button>
+      </header>
+      <div class="content">
+        <div class="map" data-map="pending">
+          <p class="map-chip"><svg class="ic" aria-hidden="true"><use href="#i-location"/></svg>You were inside Plot 2</p>
+        </div>
+        <div class="verdict check">
+          <svg class="mark" aria-hidden="true"><use href="#mk-check"/></svg>
+          <h1 id="s6-h" tabindex="-1">Needs a check</h1>
+        </div>
+        <p class="verdict-sub">Your 42.5 kg from Plot 2 is recorded and safe.</p>
+        <ul class="evidence">
+          <li><svg class="ic" aria-hidden="true"><use href="#i-cloud"/></svg><span>The satellite picture for this month was cloudy, so the office will look at it.</span></li>
+          <li><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span>The office usually checks within 1 working day <span class="assume">(ASSUMPTION)</span></span></li>
+          <li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><span>You don't need to do anything.</span></li>
+        </ul>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" type="button" data-go="s1">Done</button>
+      </div>
+    </section>
+    </div>
+  </figure>
+
+  <!-- 7 COULDN'T SEND -->
+  <figure class="frame" data-for="s7">
+    <figcaption class="frame-cap">7 Couldn't send <span>· saved on the phone</span></figcaption>
+    <div class="frame-body">
+    <section class="screen" id="s7" aria-labelledby="s7-h">
+      <header class="appbar">
+        <span class="wordmark">Udgam</span>
+        <button class="btn-bar lang-btn" type="button"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg><span lang="kn">ಕನ್ನಡ</span></button>
+      </header>
+      <div class="content">
+        <div class="err-head">
+          <span class="err-icon"><svg class="ic" aria-hidden="true"><use href="#i-wifi-off"/></svg></span>
+          <div>
+            <h1 id="s7-h" tabindex="-1">Couldn't send</h1>
+            <p class="muted">No network here.</p>
+          </div>
+        </div>
+        <p class="safe"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><span><strong>Nothing is lost:</strong> 3 photos and 42.5 kg are saved on this phone.</span></p>
+        <div class="plotline">
+          <div class="map mini" data-map="saved"></div>
+          <p><span>Recorded inside Plot 2 at 10:42 today. The time and place stay the same when it sends.</span></p>
+        </div>
+        <p class="muted">When you have signal, tap Try again. You can also close the app — it stays saved.</p>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" type="button" data-go="s4"><svg class="ic" aria-hidden="true"><use href="#i-retry"/></svg>Try again</button>
+        <button class="btn btn-secondary" type="button" data-go="s1"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg>Try later</button>
+      </div>
+    </section>
+    </div>
+  </figure>
+
+  </div>
+</main>
+
+<!-- Language sheet: same two buttons as the first-run choice -->
+<dialog id="lang-dialog" aria-labelledby="lang-h">
+  <div class="sheet">
+    <h2 id="lang-h">Choose your language</h2>
+    <button class="btn btn-primary btn-lang" type="button" data-close><span><span lang="kn">ಕನ್ನಡ</span> / Kannada</span></button>
+    <button class="btn btn-secondary btn-lang" type="button" data-close><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>English</button>
+    <p class="muted">The same two buttons appear the first time the app opens. <span class="assume">ASSUMPTION: Kannada screens not drawn in this prototype</span></p>
+    <button class="btn-bar" type="button" data-close>Close</button>
+  </div>
+</dialog>
+
+<!-- Reviewer screen switcher (narrow only) -->
+<dialog id="screens-dialog" aria-labelledby="screens-h">
+  <div class="sheet">
+    <h2 id="screens-h">Prototype screens</h2>
+    <nav class="menu-list" aria-label="Jump to screen">
+      <button type="button" data-jump="s1">1 Home</button>
+      <button type="button" data-jump="s2">2 Photos</button>
+      <button type="button" data-jump="s3">3a Review photo</button>
+      <button type="button" data-jump="s3-weight">3b Weight</button>
+      <button type="button" data-jump="s4">4 Checking</button>
+      <button type="button" data-jump="s5">5 Verdict · Verified</button>
+      <button type="button" data-jump="s6">6 Verdict · Needs a check</button>
+      <button type="button" data-jump="s7">7 Couldn't send</button>
+      <a href="verify.html">Public certificate (verify.html)</a>
+      <button type="button" id="params-from-menu">Parameters</button>
+    </nav>
+    <button class="btn btn-secondary" type="button" data-close>Close</button>
+  </div>
+</dialog>
+
+<div class="proto-foot"><button class="params-toggle" type="button" id="params-toggle" aria-expanded="false" aria-controls="params">Parameters</button></div>
+<aside class="params" id="params" hidden aria-labelledby="params-h">
+  <h2 id="params-h">Direction parameters</h2>
+<pre>visual_direction: "Your Plot, Proven — the farmer's own plot outline is the one contained, illustrated object; everything around it is flat mist"
+narrative: "This is your plot → you are inside it → the photo is proven to be from here"
+hero: "Illustrated plot map from the GeoJSON polygon: laterite fence line, contour texture, blue You dot with accuracy ring"
+navigation: "Task-first single flow, no tab bar; Back + language switch in the top bar; one primary action per screen"
+layout: "Single column; map on top, plot facts, then the action pinned in the thumb zone"
+mobile_scroll: native
+motion: "One moment only: the dot settles inside the fence and the fence turns solid (240 ms); reduced motion shows it static"
+surface: "Map panel 16 px radius; everything else flat — no cards, no shadows, no gradients"
+typography: "Anek Latin + Anek Kannada (one family, both scripts); body 17–18 px, big tabular numbers for kg"
+conversion: n/a</pre>
+  <button class="btn btn-secondary close" type="button" id="params-close">Close</button>
+</aside>
+
+<script>
+(() => {
+  const wideMQ = matchMedia('(min-width: 1000px)');
+  const rmMQ = matchMedia('(prefers-reduced-motion: reduce)');
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+  /* ── Photo placeholders: cherries ─────────────────────── */
+  const CH = ['oklch(0.52 0.18 27)','oklch(0.42 0.15 20)','oklch(0.52 0.18 27)','oklch(0.62 0.16 45)','oklch(0.50 0.17 25)','oklch(0.42 0.15 20)','oklch(0.72 0.13 115)','oklch(0.55 0.18 30)'];
+  const cherry = (x, y, r, i) => `<circle cx="${x}" cy="${y}" r="${r}" style="fill:${CH[i % CH.length]}"/><circle cx="${x - r*0.35}" cy="${y - r*0.35}" r="${r*0.28}" style="fill:#fff;fill-opacity:.35"/>`;
+  let b = '';
+  [[27,84,5.5,0],[34,85,5.5,1],[30,91,5,2],[37,91,4.8,3],[68,73,5.5,4],[75,74,5.5,0],[71,80,5,1],[78,80,5,6],[64,79,4.6,3],[108,61,5.5,1],[115,62,5.5,0],[111,68,5,4],[118,68,4.6,6],[143,50,5,6],[150,50,5,3],[146,56,4.6,6]].forEach(([x,y,r,i]) => b += cherry(x,y,r,i));
+  $('#cherries-branch').innerHTML = b;
+  let k = '', n = 0;
+  const rows = [[44,39,9,9],[50,32,8,9],[58,25,6,9.5],[70,19,3,10]];
+  rows.forEach(([x0,y,c,step]) => { for (let i = 0; i < c; i++) k += cherry(x0 + i*step, y, 5.4, n++); });
+  $('#cherries-basket').innerHTML = k;
+  let p = ''; n = 3;
+  [[18,98,13,10],[23,90,12,10],[33,82,10,10],[43,74,8,10],[58,66,5,10],[70,58,3,10]].forEach(([x0,y,c,step]) => { for (let i = 0; i < c; i++) p += cherry(x0 + i*step + ((i*7)%3), y + ((i*5)%3) - 1, 5.6, n++); });
+  $('#cherries-pile').innerHTML = p;
+
+  /* ── Plot map (inline SVG, illustrated) ───────────────── */
+  const PLOT = 'M62 62 L150 32 L238 48 L316 36 L352 100 L328 170 L262 206 L172 194 L98 214 L50 150 Z';
+  const TREES = [[118,124,10],[146,166,8],[178,80,11],[256,86,9],[292,140,10],[238,180,7],[302,68,8],[92,170,8],[164,124,7],[324,114,6],[200,176,6],[124,70,7]];
+  const C = (() => { let s = ''; for (let i = 0; i < 14; i++) { const y = -8 + i*24, a = 9 + (i % 4)*3; s += `<path d="M-20 ${y+8} C 60 ${y-a}, 140 ${y+a+12}, 220 ${y+4} S 350 ${y-a-4}, 430 ${y+10}"/>`; } return s; })();
+  const trees = TREES.map(([x,y,r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('');
+  const MAPS = {
+    home:     { st: 'inside',   label: 'Map of Plot 2, Hosahalli. The blue dot that shows where you are is inside the fence line of the plot.' },
+    mini:     { st: 'inside',   mini: true, label: 'Small map: your dot is inside Plot 2.' },
+    saved:    { st: 'inside',   mini: true, label: 'Small map: this picking was recorded inside Plot 2.' },
+    checking: { st: 'settling', label: 'Map of Plot 2. Your location is being confirmed; the dot is inside the fence line.' },
+    verified: { st: 'settle',   label: 'Map of Plot 2. Your dot is settled inside the fence and the fence line is now solid: verified.' },
+    pending:  { st: 'inside',   label: 'Map of Plot 2. Your dot was inside the fence line.' },
+  };
+  let mapN = 0;
+  function plotMap(kind) {
+    const m = MAPS[kind], id = 'clip' + (mapN++);
+    return `<svg class="plot st-${m.st}" viewBox="${m.mini ? '0 0 400 240' : '0 14 400 274'}" preserveAspectRatio="xMidYMid ${m.mini ? 'slice' : 'meet'}" role="img" aria-label="${m.label}">
+      <defs><clipPath id="${id}"><path d="${PLOT}"/></clipPath></defs>
+      <rect class="m-bg" x="-10" y="-10" width="420" height="310"/>
+      <g class="m-contour-out">${C}</g>
+      <path class="m-plot" d="${PLOT}"/>
+      <g clip-path="url(#${id})"><g class="m-contour-in">${C}</g><g class="m-trees">${trees}</g></g>
+      <path class="m-fence" d="${PLOT}"/>
+      ${m.mini ? '' : '<text class="m-label" x="84" y="98">Plot 2</text>'}
+      <g class="m-you"><circle class="m-ring" r="16"/><circle class="m-dot" r="8"/>${m.mini ? '' : '<text class="m-you-label" x="16" y="-12">You</text>'}</g>
+    </svg>`;
+  }
+  $$('[data-map]').forEach(el => el.insertAdjacentHTML('afterbegin', plotMap(el.dataset.map)));
+
+  function settle() {
+    const svg = $('[data-map="verified"] svg');
+    svg.classList.remove('settled');
+    if (rmMQ.matches) { svg.classList.add('settled'); return; }
+    void svg.getBoundingClientRect();
+    setTimeout(() => svg.classList.add('settled'), 380);
+  }
+
+  /* ── Photos (s2) ─────────────────────────────────────── */
+  const SLOTS = [['The branch','ph-branch'],['Basket on the scale','ph-basket'],["The day's pile",'ph-pile']];
+  let photos = 1;
+  function renderSlots() {
+    $('#slots').innerHTML = SLOTS.map(([name, ph], i) => {
+      const st = i < photos ? 'filled' : i === photos ? 'next' : 'todo';
+      const stateTxt = st === 'filled' ? '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Added'
+                     : st === 'next' ? '<svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg>Take this next'
+                     : 'After that';
+      return `<li class="slot" data-state="${st}">
+        <div class="thumb"><svg viewBox="0 0 160 120" aria-hidden="true"><use href="#${ph}"/></svg><span class="tag">${st === 'filled' ? 'Photo placeholder' : 'Example'}</span></div>
+        <div class="slot-text"><span class="slot-name">${i + 1}. ${name}</span><span class="slot-state">${stateTxt}</span></div>
+      </li>`;
+    }).join('');
+    $('#counter').textContent = `${photos} of 3`;
+    $('#cam-btn').hidden = photos >= 3;
+    const tw = $('#to-weight');
+    tw.hidden = photos < 1;
+    tw.className = 'btn ' + (photos >= 3 ? 'btn-primary' : 'btn-secondary');
+    const idx = Math.min(photos, 2);
+    $('#review-use').setAttribute('href', '#' + SLOTS[idx][1]);
+    $('#review-eyebrow').textContent = `Photo ${idx + 1} of 3 · ${SLOTS[idx][0]}`;
+  }
+  renderSlots();
+
+  /* ── Weight keypad (s3) ──────────────────────────────── */
+  let kg = '42.5';
+  function renderKg() {
+    const out = $('#kg'), v = parseFloat(kg);
+    out.textContent = kg || '0';
+    out.classList.toggle('empty', !kg);
+    const send = $('#send-btn');
+    send.disabled = !(v > 0);
+    send.textContent = v > 0 ? `Send ${v} kg` : 'Type the weight';
+  }
+  $('#keypad').addEventListener('click', e => {
+    const key = e.target.closest('[data-k]'); if (!key) return;
+    const kk = key.dataset.k;
+    if (kk === 'del') kg = kg.slice(0, -1);
+    else if (kk === '.') { if (!kg.includes('.')) kg = (kg || '0') + '.'; }
+    else if (kg.includes('.')) { if (kg.split('.')[1].length < 1) kg += kk; }
+    else if (kg.length < 3) kg = kg === '0' ? kk : kg + kk;
+    renderKg();
+  });
+  renderKg();
+
+  /* ── Checking (s4) ───────────────────────────────────── */
+  const CHECKS = ["Your phone's seal", 'Inside Plot 2', 'Photos are new', 'Forest map for Plot 2', 'Satellite view this month', 'Harvest size for this plot'];
+  function renderChecks(done) {
+    $('#checks').innerHTML = CHECKS.map((name, i) => {
+      const st = i < done ? 'done' : i === done ? 'now' : 'wait';
+      const s = st === 'done' ? ['i-check','Done'] : st === 'now' ? ['i-ring','Checking'] : ['i-clock','Waiting'];
+      return `<li class="${st}"><span class="ck-name">${name}</span><span class="ck-state"><svg class="ic" aria-hidden="true"><use href="#${s[0]}"/></svg>${s[1]}</span></li>`;
+    }).join('');
+  }
+  renderChecks(3); // storyboard still: halfway through
+  let timers = [];
+  function runChecks(from = 0, delay = 0) {
+    timers.forEach(clearTimeout); timers = [];
+    const live = $('#checks-live'), see = $('#see-result');
+    see.hidden = true; renderChecks(from); live.textContent = '';
+    CHECKS.forEach((name, i) => { if (i < from) return; timers.push(setTimeout(() => {
+      renderChecks(i + 1);
+      live.textContent = `${name}: done.`;
+      if (i === CHECKS.length - 1) {
+        live.textContent = 'All checks done. Your result is ready.';
+        see.hidden = false;
+        if (!rmMQ.matches) timers.push(setTimeout(() => { if (current === 's4') go('s5'); }, 500));
+      }
+    }, delay + 450 * (i + 1 - from))); });
+  }
+
+  /* ── Routing ─────────────────────────────────────────── */
+  let current = null, firstLoad = true, flowUsed = false;
+  function parse() {
+    const h = decodeURIComponent(location.hash.slice(1));
+    const [id, sub] = h.split('-');
+    return /^s[1-7]$/.test(id) ? { id, sub } : { id: 's1' };
+  }
+  function route() {
+    const { id, sub } = parse();
+    if (wideMQ.matches) {
+      $$('.frame').forEach(f => f.classList.remove('active'));
+      if (location.hash) $(`.frame[data-for="${id}"]`).scrollIntoView({ block: 'start' });
+      return;
+    }
+    const prev = current; current = id;
+    $$('.frame').forEach(f => f.classList.toggle('active', f.dataset.for === id));
+    let focusEl = $(`#${id} h1`);
+    if (id === 's3') {
+      const v = sub === 'weight' ? 'weight' : 'review';
+      $$('#s3 .view').forEach(el => el.classList.toggle('active', el.dataset.view === v));
+      focusEl = $(`#s3 .view[data-view="${v}"] h1`);
+    }
+    if (id === 's4' && prev !== 's4') firstLoad ? runChecks(3, 1400) : runChecks();
+    if (id !== 's4') { timers.forEach(clearTimeout); timers = []; }
+    if (id === 's5') settle();
+    if (id === 's2') renderSlots();
+    if (id === 's3' && flowUsed) { const c = Math.max(photos, 1); $('#photo-count-w').textContent = c + (c === 1 ? ' photo' : ' photos'); }
+    window.scrollTo(0, 0);
+    if (!firstLoad && focusEl) focusEl.focus({ preventScroll: true });
+    firstLoad = false;
+  }
+  function go(target) {
+    if (wideMQ.matches) { const id = target.split('-')[0]; $(`.frame[data-for="${id}"]`).scrollIntoView({ behavior: rmMQ.matches ? 'auto' : 'smooth', block: 'start' }); return; }
+    if (location.hash.slice(1) === target) route(); else location.hash = target;
+  }
+  window.addEventListener('hashchange', route);
+
+  document.addEventListener('click', e => {
+    const g = e.target.closest('[data-go]');
+    if (g) { go(g.dataset.go); return; }
+    const a = e.target.closest('[data-act]');
+    if (!a) return;
+    const act = a.dataset.act;
+    if (act === 'record') { flowUsed = true; photos = 0; renderSlots(); go('s2'); }
+    if (act === 'use-photo') { photos = Math.min(3, photos + 1); renderSlots(); go(photos < 3 ? 's2' : 's3-weight'); }
+  });
+  $('#cam-btn').addEventListener('click', () => go('s3'));
+  $('#send-btn').addEventListener('click', () => go('s4'));
+
+  /* ── Wide storyboard scaling ─────────────────────────── */
+  function fit() {
+    if (!wideMQ.matches) return;
+    const avail = Math.min(innerWidth, 1720) - 80 - 3 * 24;
+    const z = Math.max(0.5, Math.min(0.9, avail / (4 * 390)));
+    document.documentElement.style.setProperty('--z', z.toFixed(3));
+  }
+  addEventListener('resize', fit);
+  wideMQ.addEventListener('change', () => { fit(); route(); if (wideMQ.matches) settle(); });
+
+  /* ── Dialogs + parameters ────────────────────────────── */
+  const langD = $('#lang-dialog'), scrD = $('#screens-dialog');
+  $$('.lang-btn').forEach(bn => bn.addEventListener('click', () => langD.showModal()));
+  $('#screens-btn').addEventListener('click', () => {
+    const cur = location.hash.slice(1) || 's1';
+    $$('[data-jump]', scrD).forEach(bn => bn.setAttribute('aria-current', String(bn.dataset.jump === cur)));
+    scrD.showModal();
+  });
+  $$('[data-jump]').forEach(bn => bn.addEventListener('click', () => { scrD.close(); go(bn.dataset.jump); }));
+  $$('dialog').forEach(d => {
+    d.addEventListener('click', e => { if (e.target === d || e.target.closest('[data-close]')) d.close(); });
+  });
+  const params = $('#params'), pt = $('#params-toggle');
+  const setParams = open => { params.hidden = !open; pt.setAttribute('aria-expanded', String(open)); if (open) $('#params-close').focus(); };
+  pt.addEventListener('click', () => setParams(params.hidden));
+  $('#params-close').addEventListener('click', () => { setParams(false); (wideMQ.matches ? pt : $('#screens-btn')).focus(); });
+  $('#params-from-menu').addEventListener('click', () => { scrD.close(); setParams(true); });
+  addEventListener('keydown', e => { if (e.key === 'Escape' && !params.hidden) setParams(false); });
+
+  fit();
+  route();
+  if (wideMQ.matches) settle();
+})();
+</script>
+</body>
+</html>

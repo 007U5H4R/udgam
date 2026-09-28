@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kodagu Arabica, verified at origin — Udgam</title>
+<meta name="description" content="Batch KDG-2026-0142: 612 kg of Arabica cherry from 3 farms in Kodagu, Karnataka. Every harvest record is checked in your browser against the sealed ledger.">
+<!-- Link preview (documents OG intent only). og:image / twitter:image are PLACEHOLDER URLs — no image exists yet. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Udgam">
+<meta property="og:title" content="Kodagu Arabica, verified at origin — Udgam">
+<meta property="og:description" content="612 kg Arabica cherry from 3 farms in Kodagu, harvested 2–27 September 2026. Check every harvest record yourself.">
+<meta property="og:url" content="https://udgamtrace.in/v/KDG-2026-0142">
+<meta property="og:image" content="https://udgamtrace.in/og/verify.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Map of three farm plots in Kodagu with the words: Verified at origin">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Kodagu Arabica, verified at origin — Udgam">
+<meta name="twitter:description" content="612 kg Arabica cherry from 3 farms in Kodagu, harvested 2–27 September 2026. Check every harvest record yourself.">
+<meta name="twitter:image" content="https://udgamtrace.in/og/verify.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anek+Latin:wdth,wght@75..125,400..700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:        oklch(0.975 0.006 150);
+  --surface:   oklch(0.995 0.003 150);
+  --ink:       oklch(0.30 0.060 155);
+  --ink-2:     oklch(0.42 0.035 155);
+  --line:      oklch(0.89 0.012 150);
+  --line-strong:oklch(0.78 0.020 150);
+  --fence:     oklch(0.56 0.130 45);
+  --fence-ink: oklch(0.48 0.120 45);
+  --you:       oklch(0.55 0.160 250);
+  --you-ink:   oklch(0.45 0.150 250);
+  --action:    oklch(0.50 0.120 150);
+  --on-action: oklch(0.99 0.004 150);
+  --ok:        oklch(0.50 0.120 150);
+  --ok-ink:    oklch(0.43 0.110 150);
+  --ok-tint:   oklch(0.945 0.035 150);
+  --check:     oklch(0.78 0.150 75);
+  --check-ink: oklch(0.47 0.100 65);
+  --bad:       oklch(0.52 0.180 27);
+  --bad-ink:   oklch(0.48 0.170 27);
+  --bad-tint:  oklch(0.955 0.025 27);
+  --neutral-tint: oklch(0.945 0.008 150);
+  --map-bg:    oklch(0.955 0.013 140);
+  --plot-fill: oklch(0.925 0.035 145);
+  --leaf-tint: oklch(0.86 0.060 145);
+  --contour:   oklch(0.30 0.060 155);
+  --focus:     oklch(0.55 0.160 250);
+  --fs-body: clamp(17px, 16.4px + 0.2vw, 18px);
+  --banner-h: 32px;
+}
+@media (max-width: 599.98px){ :root{ --banner-h: 44px; } }
+@media (max-width: 359.98px){ .proto-banner{font-size:11px} }
+/* Mismatch: no green anywhere */
+body[data-state="mismatch"]{ --ok: var(--ink-2); --ok-ink: var(--ink-2); --ok-tint: var(--neutral-tint); --leaf-tint: oklch(0.88 0.01 150); --plot-fill: oklch(0.93 0.008 150); --map-bg: oklch(0.955 0.004 150); }
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-padding-top:calc(var(--banner-h) + 16px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Anek Latin",system-ui,sans-serif;font-size:var(--fs-body);line-height:1.5;padding:var(--banner-h) 0 84px;-webkit-font-smoothing:antialiased}
+h1,h2,h3,p,ol,ul,figure,dl,dd{margin:0}
+ol,ul{padding:0;list-style:none}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:var(--you-ink);text-underline-offset:3px}
+:focus-visible{outline:3px solid var(--focus);outline-offset:3px;border-radius:6px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.ic{width:24px;height:24px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.assume{display:inline-block;font-size:14px;line-height:1.35;font-weight:500;color:var(--ink-2);border:1px dashed var(--line-strong);border-radius:6px;padding:1px 6px}
+.muted{color:var(--ink-2)}
+[hidden]{display:none !important}
+
+/* Prototype chrome */
+.proto-banner{position:fixed;inset:0 0 auto 0;height:var(--banner-h);z-index:50;background:var(--ink);color:var(--bg);display:flex;align-items:center;padding:0 16px;font-size:12.5px;font-weight:500;letter-spacing:.03em;line-height:1.25}
+.proto-banner b{font-weight:700}
+.tools{position:fixed;inset:auto 0 0 0;height:68px;z-index:40;display:flex;align-items:center;gap:8px;padding:0 16px;background:var(--bg);border-top:1px solid var(--line)}
+.tool-btn{min-height:48px;padding:0 16px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface);color:var(--ink-2);font-size:15px;font-weight:600}
+.pop{position:fixed;left:16px;bottom:72px;z-index:60;width:min(460px,calc(100vw - 32px));max-height:calc(100dvh - var(--banner-h) - 96px);overflow:auto;background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;padding:16px}
+.pop h2{font-size:17px;margin-bottom:8px}
+.pop pre{margin:0;font:14px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap}
+.pop .state-links{display:grid;gap:4px}
+.pop .state-links a{display:flex;align-items:center;min-height:48px;padding:0 12px;border-radius:10px;font-weight:600;text-decoration:none;color:var(--ink)}
+.pop .state-links a[aria-current="true"]{background:var(--neutral-tint)}
+.pop .close{margin-top:12px}
+
+/* Layout */
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+.site{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:60px}
+.wordmark{font-weight:700;font-size:23px;letter-spacing:.01em}
+.site .kind{color:var(--ink-2);font-weight:600;font-size:17px}
+.intro{padding:6px 0 18px}
+.eyebrow{font-weight:650;color:var(--ink-2);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+h1{font-size:clamp(28px,22px + 1.6vw,44px);line-height:1.1;font-weight:700;letter-spacing:-.01em;margin:4px 0 8px;max-width:28ch}
+.meta{color:var(--ink);max-width:48ch}
+h2{font-size:clamp(21px,19px + .5vw,25px);line-height:1.2;font-weight:700}
+section.block{padding:36px 0 0}
+.block > h2{margin-bottom:14px}
+
+/* Proof band (first, above the map — EVAL-087) */
+.proof{padding:20px 0 22px;border-block:1px solid var(--line)}
+body[data-state="verified"] .proof{background:var(--ok-tint);border-color:oklch(0.86 0.05 150)}
+body[data-state="mismatch"] .proof{background:var(--bad-tint);border-color:oklch(0.86 0.06 27)}
+body[data-state="loading"] .proof{background:var(--neutral-tint)}
+.proof-row{display:flex;gap:14px;align-items:flex-start}
+.proof-row .mark{width:44px;height:44px;flex:none;margin-top:2px}
+.proof-title{font-size:clamp(22px,20px + .6vw,28px);line-height:1.2;font-weight:700}
+body[data-state="verified"] .proof-title{color:var(--ok-ink)}
+body[data-state="mismatch"] .proof-title{color:var(--bad-ink)}
+.proof-line{margin-top:4px;font-size:clamp(18px,17px + .3vw,20px)}
+.proof-line b{font-variant-numeric:tabular-nums}
+.proof-more{margin-top:14px;display:grid;gap:10px;max-width:68ch}
+.proof-more dt{font-weight:700}
+.proof-more dd{margin:0 0 6px}
+details.how{margin-top:12px;max-width:68ch}
+details summary{display:inline-flex;align-items:center;gap:8px;min-height:48px;cursor:pointer;font-weight:650;color:var(--ink);text-decoration:underline;text-underline-offset:3px;list-style:none}
+details summary::-webkit-details-marker{display:none}
+details summary::before{content:"";width:9px;height:9px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);transition:transform 160ms}
+details[open] summary::before{transform:rotate(45deg)}
+details .how-body{padding:4px 0 6px;display:grid;gap:10px}
+.proof-links{display:flex;flex-wrap:wrap;gap:4px 20px;align-items:center}
+.proof-links a{display:inline-flex;align-items:center;min-height:48px;font-weight:600}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:56px;padding:0 22px;border-radius:14px;border:2px solid transparent;font-size:18px;font-weight:650;text-decoration:none}
+.btn-primary{background:var(--action);color:var(--on-action)}
+.btn-dark{background:var(--ink);color:var(--bg)}
+.btn-secondary{background:transparent;border-color:var(--line-strong);color:var(--ink)}
+.counting{font-variant-numeric:tabular-nums}
+.meter{display:flex;gap:4px;margin-top:12px;max-width:420px}
+.meter span{flex:1;height:8px;border-radius:2px;background:var(--line)}
+.meter span.on{background:var(--ink-2)}
+.unconfirmed{margin-top:18px;padding:12px 14px;border-left:4px solid var(--bad);background:var(--surface)}
+
+/* Map */
+.map{position:relative;border-radius:16px;overflow:hidden;background:var(--map-bg);border:1px solid var(--line)}
+.map svg{display:block;width:100%;height:auto}
+.m-bg{fill:var(--map-bg)}
+.m-contour-out path{fill:none;stroke:var(--contour);stroke-opacity:.09;stroke-width:1.3}
+.m-plot{fill:var(--plot-fill)}
+.m-contour-in path{fill:none;stroke:var(--contour);stroke-opacity:.2;stroke-width:1.4}
+.m-trees circle{fill:var(--leaf-tint);fill-opacity:.6;stroke:var(--contour);stroke-opacity:.22;stroke-width:1.2}
+.m-fence{fill:none;stroke:var(--fence);stroke-width:4;stroke-linejoin:round}
+body:not([data-state="verified"]) .m-fence{stroke-dasharray:10 8}
+.m-label{font:700 22px/1 "Anek Latin",sans-serif;fill:var(--ink);paint-order:stroke;stroke:var(--plot-fill);stroke-width:6px;stroke-linejoin:round}
+.m-sub{font:500 18px/1 "Anek Latin",sans-serif;fill:var(--ink-2);paint-order:stroke;stroke:var(--plot-fill);stroke-width:6px;stroke-linejoin:round}
+.m-place{font:600 17px/1 "Anek Latin",sans-serif;fill:var(--ink-2);letter-spacing:.06em}
+.m-stream{fill:none;stroke:oklch(0.75 0.06 235);stroke-width:3;stroke-linecap:round}
+.forest{display:flex;gap:12px;align-items:flex-start;margin-top:14px;line-height:1.4}
+.forest .ic{color:var(--ok-ink);margin-top:1px}
+.farms{margin-top:12px;border-top:1px solid var(--line)}
+.farms li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+.farms .id{font-weight:650}
+
+/* Timeline */
+.timeline{position:relative;display:grid;gap:0}
+.timeline li{position:relative;display:grid;grid-template-columns:28px 1fr;gap:14px;padding-bottom:22px}
+.timeline li:last-child{padding-bottom:0}
+.timeline li::before{content:"";position:absolute;left:13px;top:26px;bottom:-2px;width:2px;background:var(--line-strong)}
+.timeline li:last-child::before{display:none}
+.t-dot{width:28px;height:28px;border-radius:50%;background:var(--surface);border:2px solid var(--ink);display:grid;place-items:center;margin-top:1px}
+.t-dot .ic{width:16px;height:16px;stroke-width:2.6;color:var(--ink)}
+.t-step{font-weight:700;font-size:19px;line-height:1.3}
+.t-when{font-variant-numeric:tabular-nums}
+.t-where{color:var(--ink-2)}
+
+/* Tables */
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{font-weight:600;color:var(--ink-2);text-align:left;font-size:16px}
+th,td{padding:12px 12px 12px 0;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{border-bottom:2px solid var(--ink)}
+.num{text-align:right;padding-right:0}
+.vmark{display:inline-flex;align-items:center;gap:8px;font-weight:600;white-space:nowrap}
+.vmark svg{width:22px;height:22px;flex:none}
+.vmark.ok{color:var(--ok-ink)} .vmark.bad{color:var(--bad-ink)} .vmark.plain{color:var(--ink-2);font-weight:500}
+tr.flag td{background:var(--bad-tint)}
+tfoot td{font-weight:700;border-bottom:0}
+.entries .num{padding-right:28px}
+.entries td.v,.entries thead th:last-child{padding-left:0}
+
+.organic{display:flex;gap:12px;align-items:flex-start;line-height:1.45}
+.downloads{display:flex;flex-wrap:wrap;gap:12px}
+.limits p{max-width:68ch}
+.site-foot{margin-top:48px;padding:20px 0;border-top:1px solid var(--line);color:var(--ink-2);font-size:17px}
+
+/* Mobile: compact lists */
+@media (max-width: 699.98px){
+  .origin-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .origin-table tr{display:block;border-top:1px solid var(--line)}
+  .origin-table td{display:flex;justify-content:space-between;gap:16px;padding:10px 0;text-align:right}
+  .origin-table td::before{content:attr(data-label);color:var(--ink-2);font-weight:600;text-align:left}
+  .entries thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .entries tbody tr{display:grid;grid-template-columns:1fr auto;column-gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .entries tbody td{border:0;padding:0}
+  .entries td.n{display:none}
+  .entries td.date{grid-column:1;font-weight:650}
+  .entries td.farm{grid-column:1;color:var(--ink-2)}
+  .entries td.kg{grid-column:2;grid-row:1;text-align:right;font-weight:650}
+  .entries td.v{grid-column:2;grid-row:2;text-align:right}
+  .entries tr.flag{background:var(--bad-tint);padding-inline:8px;margin-inline:-8px}
+  .entries tr.flag td{background:none}
+  .entries tfoot tr{display:flex;justify-content:space-between;padding-top:12px}
+  .entries tfoot td{padding:0}
+  .entries tfoot td.n,.entries tfoot td.v,.entries tfoot td.farm{display:none}
+  .downloads .btn{width:100%}
+}
+/* Desktop: map beside timeline */
+@media (min-width: 900px){
+  .where{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:48px;align-items:start}
+  .where > section.block{padding-top:40px}
+  .proof{padding:26px 0 28px}
+}
+
+/* Print: the certificate, without prototype chrome or controls */
+@media print{
+  :root{--banner-h:0px}
+  body{padding:0;background:#fff;font-size:12pt}
+  .proto-banner,.tools,.pop,.downloads,.proof-links,.proof .btn,details summary{display:none !important}
+  details .how-body{display:grid !important}
+  .proof,tr.flag td{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  section.block{break-inside:avoid}
+  .entries{break-inside:auto}
+  a{color:inherit;text-decoration:none}
+  .site-foot{margin-top:24px}
+}
+@media (prefers-reduced-motion: reduce){ details summary::before{transition:none} }
+</style>
+</head>
+<body data-state="verified">
+
+<div class="proto-banner" role="note"><p><b>DESIGN PROTOTYPE — NOT PRODUCTION</b> · Option B · Your Plot, Proven</p></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 10.5l5 5 5-5"/><path d="M4.5 19.5h15"/></symbol>
+    <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V4h10v5"/><rect x="3.5" y="9" width="17" height="7.5" rx="1.5"/><path d="M7 14h10v6H7z"/></symbol>
+    <symbol id="i-tree" viewBox="0 0 24 24"><path d="M12 21v-6"/><path d="M12 3.5a5 5 0 0 1 4.9 4 4.2 4.2 0 0 1-1.4 8H8.5a4.2 4.2 0 0 1-1.4-8 5 5 0 0 1 4.9-4z"/><path d="M12 15l-2.5-2.5M12 13l2-2"/></symbol>
+    <symbol id="i-seal" viewBox="0 0 24 24"><path d="M12 3.5l7 2.8v5.2c0 4.4-3 7.8-7 9-4-1.2-7-4.6-7-9V6.3z"/><path d="M9 12l2.2 2.2L15.3 10"/></symbol>
+    <symbol id="i-retry" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4.2h-4.2"/></symbol>
+    <symbol id="i-location" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></symbol>
+    <symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 4v16M7 20h10"/><path d="M5 8h14"/><path d="M5 8l-2.5 6a2.5 2.5 0 0 0 5 0zM19 8l-2.5 6a2.5 2.5 0 0 0 5 0z"/></symbol>
+    <symbol id="i-hand" viewBox="0 0 24 24"><path d="M4 14h4l3 2h4.5a1.5 1.5 0 0 1 0 3H10"/><path d="M8 18.5l2.5 1.5H17l4-4a1.4 1.4 0 0 0-2-2l-3 2.5"/><path d="M4 12.5v8"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M3.5 7.5L12 3.5l8.5 4v9L12 20.5l-8.5-4z"/><path d="M3.5 7.5L12 11.5l8.5-4M12 11.5v9"/></symbol>
+    <symbol id="mk-ok" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" style="fill:var(--ok)"/><path d="M11.5 20.5l6 6L29 14.5" style="fill:none;stroke:var(--on-action);stroke-width:3.6;stroke-linecap:round;stroke-linejoin:round"/></symbol>
+    <symbol id="mk-bad" viewBox="0 0 40 40"><rect x="2" y="2" width="36" height="36" rx="7" style="fill:var(--bad)"/><path d="M13.5 13.5l13 13M26.5 13.5l-13 13" style="stroke:#fff;stroke-width:3.6;stroke-linecap:round"/></symbol>
+    <symbol id="mk-wait" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17.5" style="fill:var(--surface);stroke:var(--ink-2);stroke-width:2.5;stroke-dasharray:4.5 3.5"/><path d="M20 11.5V20l6 3.5" style="fill:none;stroke:var(--ink);stroke-width:3;stroke-linecap:round;stroke-linejoin:round"/></symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <header class="site">
+    <span class="wordmark">Udgam</span>
+    <span class="kind">Public certificate</span>
+  </header>
+</div>
+
+<main>
+  <div class="wrap">
+    <section class="intro" aria-labelledby="h1">
+      <p class="eyebrow">Batch KDG-2026-0142</p>
+      <h1 id="h1">612 kg Arabica cherry from 3 farms</h1>
+      <p class="meta">Kodagu, Karnataka, India · harvested 2–27 September 2026</p>
+    </section>
+  </div>
+
+  <!-- 1 · PROOF RESULT FIRST (EVAL-087: above the map on mobile) -->
+  <section class="proof" aria-labelledby="proof-h">
+    <div class="wrap">
+      <div aria-live="polite">
+        <!-- Verified -->
+        <div class="proof-row" data-for="verified">
+          <svg class="mark" aria-hidden="true"><use href="#mk-ok"/></svg>
+          <div>
+            <h2 class="proof-title" id="proof-h">Verified on this device just now</h2>
+            <p class="proof-line"><b>14 records</b> checked, all match the sealed ledger.</p>
+          </div>
+        </div>
+        <!-- Loading -->
+        <div class="proof-row" data-for="loading">
+          <svg class="mark" aria-hidden="true"><use href="#mk-wait"/></svg>
+          <div style="flex:1;min-width:0">
+            <p class="proof-title">Checking 14 records…</p>
+            <p class="proof-line counting" id="count-line">Record 1 of 14 checked</p>
+            <div class="meter" id="meter" aria-hidden="true"></div>
+            <p class="muted" style="margin-top:10px">Your browser is checking each record itself. This takes a few seconds.</p>
+          </div>
+        </div>
+        <!-- Mismatch -->
+        <div class="proof-row" data-for="mismatch">
+          <svg class="mark" aria-hidden="true"><use href="#mk-bad"/></svg>
+          <div>
+            <p class="proof-title">Does not match</p>
+            <p class="proof-line"><b>Record 9 of 14</b> does not match the sealed ledger.</p>
+            <dl class="proof-more">
+              <div><dt>What it means</dt><dd>This record was changed after the batch was sealed, or the link is damaged. Don't rely on this page as it is.</dd></div>
+              <div><dt>What to do</dt><dd>Ask the seller for a new link.</dd></div>
+            </dl>
+            <p style="margin-top:12px"><button class="btn btn-dark" type="button" id="check-again"><svg class="ic" aria-hidden="true"><use href="#i-retry"/></svg>Check again</button></p>
+          </div>
+        </div>
+      </div>
+
+      <details class="how" data-for="verified mismatch">
+        <summary>How this was checked</summary>
+        <div class="how-body">
+          <p>This page did not ask Udgam whether it is genuine. Your browser downloaded the 14 harvest records and the batch seal, worked out each record's fingerprint again, and compared it with the fingerprint written into the seal when the batch was closed on 28 September 2026.</p>
+          <p>It then checked the seal's signature with Udgam's public key. If even one number in one record had changed, its fingerprint would not match.</p>
+          <p class="proof-links"><a href="#public-key">Udgam public key</a> <span class="assume">ASSUMPTION: key URL and fingerprint format not yet fixed</span></p>
+        </div>
+      </details>
+      <p class="proof-links" data-for="verified"><a href="#limits">What this can't prove</a></p>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <p class="unconfirmed" data-for="mismatch"><b>The details below are what the seller published.</b> Until the check passes, they are not confirmed.</p>
+
+    <div class="where">
+      <!-- 2 · ORIGIN MAP -->
+      <section class="block" aria-labelledby="map-h">
+        <h2 id="map-h">Where it was grown</h2>
+        <div class="map" id="origin-map"></div>
+        <p class="forest"><svg class="ic" aria-hidden="true"><use href="#i-tree"/></svg><span>No tree cover lost inside these plots since 31 Dec 2020 (Global Forest Watch)</span></p>
+        <ul class="farms" aria-label="Farms in this batch">
+          <li><span><span class="id">Farm F-0231</span> · 1.8 ha</span><span>5 pickings · 224 kg</span></li>
+          <li><span><span class="id">Farm F-0417</span> · 2.4 ha</span><span>5 pickings · 195.5 kg</span></li>
+          <li><span><span class="id">Farm F-0588</span> · 1.2 ha</span><span>4 pickings · 192.5 kg</span></li>
+        </ul>
+      </section>
+
+      <!-- 3 · TIMELINE -->
+      <section class="block" aria-labelledby="tl-h">
+        <h2 id="tl-h">How it got here</h2>
+        <ol class="timeline">
+          <li><span class="t-dot"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span><div><p class="t-step">Harvested</p><p class="t-when">2–27 Sep 2026</p><p class="t-where">3 farms in Kodagu</p></div></li>
+          <li><span class="t-dot"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span><div><p class="t-step">Checked</p><p class="t-when">14 pickings, all verified</p><p class="t-where">Each at its plot, on the day it was picked</p></div></li>
+          <li><span class="t-dot"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span><div><p class="t-step">Batched</p><p class="t-when">28 Sep 2026</p><p class="t-where">Hosahalli FPO</p></div></li>
+          <li><span class="t-dot"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span><div><p class="t-step">Handed to buyer</p><p class="t-when">29 Sep 2026</p><p class="t-where">Exporter “Buyer B-07”</p></div></li>
+        </ol>
+      </section>
+    </div>
+
+    <!-- 4 · ORIGIN TABLE -->
+    <section class="block" aria-labelledby="origin-h">
+      <h2 id="origin-h">Origin</h2>
+      <table class="origin-table">
+        <thead><tr><th scope="col">Region</th><th scope="col">Variety</th><th scope="col">Farms</th><th scope="col">Harvest window</th><th scope="col" class="num">Quantity</th></tr></thead>
+        <tbody><tr>
+          <td data-label="Region">Kodagu, Karnataka, India</td>
+          <td data-label="Variety">Arabica</td>
+          <td data-label="Farms">3</td>
+          <td data-label="Harvest window">2–27 Sep 2026</td>
+          <td data-label="Quantity" class="num">612 kg cherry</td>
+        </tr></tbody>
+      </table>
+    </section>
+
+    <!-- 5 · HARVEST ENTRIES -->
+    <section class="block" aria-labelledby="entries-h">
+      <h2 id="entries-h">Harvest entries <span class="muted" style="font-weight:500">(14)</span></h2>
+      <table class="entries">
+        <thead><tr><th scope="col" class="n">#</th><th scope="col">Date</th><th scope="col">Farm</th><th scope="col" class="num">Cherry</th><th scope="col">Check</th></tr></thead>
+        <tbody id="entries-body"></tbody>
+        <tfoot><tr><td class="n"></td><td>Total</td><td class="farm"></td><td class="num">612 kg</td><td class="v"></td></tr></tfoot>
+      </table>
+    </section>
+
+    <!-- 6 · ORGANIC -->
+    <section class="block" aria-labelledby="org-h">
+      <h2 id="org-h">Organic</h2>
+      <p class="organic"><span>Organic: certified by [issuer] — certificate on record (not checked by satellite) <span class="assume">ASSUMPTION: issuer name</span></span></p>
+    </section>
+
+    <!-- 7 · DOWNLOADS -->
+    <section class="block" aria-labelledby="dl-h">
+      <h2 id="dl-h">Downloads</h2>
+      <div class="downloads">
+        <a class="btn btn-secondary" id="geojson" href="#" download="KDG-2026-0142-plots.geojson"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>Download EUDR map file (GeoJSON)</a>
+        <button class="btn btn-secondary" type="button" id="print"><svg class="ic" aria-hidden="true"><use href="#i-print"/></svg>Print certificate</button>
+      </div>
+    </section>
+
+    <!-- 8 · HONEST LIMITS -->
+    <section class="block limits" id="limits" aria-labelledby="limits-h">
+      <h2 id="limits-h">What this can't prove</h2>
+      <p>This page proves that these 14 records have not changed since the batch was sealed, and that each picking was recorded inside its farm's mapped plot. It cannot prove what happened to the cherries after they left the collection point, how the coffee was grown between pickings, or anything that was only declared — the plot boundaries drawn at enrolment and the organic certificate are shown as declared, not tested.</p>
+    </section>
+
+    <footer class="site-foot">Udgam · public certificate for batch KDG-2026-0142 · no farmer names or phone numbers are published.</footer>
+  </div>
+</main>
+
+<div class="tools">
+  <button class="tool-btn" type="button" id="states-toggle" aria-expanded="false" aria-controls="states-pop">States</button>
+  <button class="tool-btn" type="button" id="params-toggle" aria-expanded="false" aria-controls="params">Parameters</button>
+</div>
+<aside class="pop" id="states-pop" hidden aria-labelledby="states-h">
+  <h2 id="states-h">Proof states</h2>
+  <nav class="state-links" aria-label="Proof states">
+    <a href="#verified" data-s="verified">Verified (default)</a>
+    <a href="#loading" data-s="loading">Checking</a>
+    <a href="#mismatch" data-s="mismatch">Does not match</a>
+    <a href="index.html">Capture app (index.html)</a>
+  </nav>
+</aside>
+<aside class="pop" id="params" hidden aria-labelledby="params-h">
+  <h2 id="params-h">Direction parameters</h2>
+<pre>visual_direction: "Your Plot, Proven — the batch's plots drawn as one illustrated map; flat mist page around one contained object"
+narrative: "These are the plots → every picking was inside them → your own browser just re-checked every record"
+hero: "Proof result band first (above the map on mobile, EVAL-087), then the origin map of all 3 plots"
+navigation: "One long page; 'What this can't prove' link from the result; States switcher for review only"
+layout: "Mobile: proof → map → timeline → tables; desktop ≥ 900 px: map beside the custody timeline"
+mobile_scroll: native
+motion: "None on this page; the fence line is solid only when the check passes (dashed while checking or failed)"
+surface: "Map panel 16 px radius; proof as a flat full-width tinted band; everything else flat"
+typography: "Anek Latin; body 17–18 px; tabular numbers in tables"
+conversion: n/a</pre>
+  <button class="btn btn-secondary close" type="button" data-close-pop>Close</button>
+</aside>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+  /* ── Data (pseudonymous farm IDs only — EV16) ─────────── */
+  const ENTRIES = [
+    ['2 Sep','F-0417',38.0],['4 Sep','F-0231',44.5],['6 Sep','F-0588',52.0],['8 Sep','F-0417',41.5],
+    ['10 Sep','F-0231',48.5],['12 Sep','F-0588',36.5],['14 Sep','F-0417',49.0],['16 Sep','F-0231',51.0],
+    ['18 Sep','F-0588',58.5],['20 Sep','F-0417',33.0],['22 Sep','F-0231',38.0],['24 Sep','F-0588',45.5],
+    ['26 Sep','F-0417',34.0],['27 Sep','F-0231',42.0]];
+  const BAD = 9; // record that fails in the mismatch state
+  function renderEntries(state) {
+    $('#entries-body').innerHTML = ENTRIES.map(([d, f, kg], i) => {
+      const n = i + 1, flag = state === 'mismatch' && n === BAD;
+      const v = flag ? `<span class="vmark bad"><svg aria-hidden="true"><use href="#mk-bad"/></svg>Does not match</span>`
+              : state === 'verified' ? `<span class="vmark ok"><svg aria-hidden="true"><use href="#mk-ok"/></svg>Verified</span>`
+              : `<span class="vmark plain">${state === 'loading' ? 'Checking…' : 'Not confirmed'}</span>`;
+      return `<tr${flag ? ' class="flag"' : ''}><td class="n">${n}</td><td class="date">${d} 2026</td><td class="farm">Farm ${f}</td><td class="kg num">${kg.toFixed(1)} kg</td><td class="v">${v}</td></tr>`;
+    }).join('');
+  }
+
+  /* ── Origin map: 3 plots, illustrated ─────────────────── */
+  const PLOTS = [
+    { id: 'F-0231', ha: '1.8 ha', d: 'M70 150 L140 118 L210 130 L262 122 L290 172 L272 228 L218 258 L146 248 L86 262 L48 210 Z', lx: 170, ly: 190 },
+    { id: 'F-0417', ha: '2.4 ha', d: 'M330 56 L420 40 L500 66 L546 124 L506 170 L432 162 L362 150 L322 106 Z', lx: 434, ly: 104 },
+    { id: 'F-0588', ha: '1.2 ha', d: 'M366 228 L432 204 L490 220 L504 280 L454 318 L386 312 L350 276 Z', lx: 428, ly: 262 },
+  ];
+  const TREES = [[96,170,9],[120,222,8],[150,150,10],[236,160,8],[250,214,9],[196,230,7],[360,96,9],[396,132,8],[470,92,10],[508,134,7],[440,146,6],[392,256,8],[470,250,9],[420,296,7],[210,156,6],[380,70,7]];
+  const C = (() => { let s = ''; for (let i = 0; i < 17; i++) { const y = -10 + i*25, a = 10 + (i % 4)*4; s += `<path d="M-20 ${y+8} C 90 ${y-a}, 200 ${y+a+14}, 320 ${y+4} S 520 ${y-a-6}, 640 ${y+12}"/>`; } return s; })();
+  const trees = TREES.map(([x,y,r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('');
+  $('#origin-map').innerHTML = `<svg viewBox="0 0 600 380" role="img" aria-label="Illustrated map of the 3 farm plots in this batch, near Hosahalli, Kodagu: Farm F-0231 (1.8 ha) on the left, Farm F-0417 (2.4 ha) at top right and Farm F-0588 (1.2 ha) at bottom right. Each plot is outlined by its fence line.">
+    <defs>${PLOTS.map((p, i) => `<clipPath id="oc${i}"><path d="${p.d}"/></clipPath>`).join('')}</defs>
+    <rect class="m-bg" width="600" height="380"/>
+    <g class="m-contour-out">${C}</g>
+    <path class="m-stream" d="M300 -10 C 312 60, 290 120, 318 190 S 330 300, 300 390"/>
+    <text class="m-place" x="20" y="44">HOSAHALLI · KODAGU</text>
+    ${PLOTS.map((p, i) => `<path class="m-plot" d="${p.d}"/><g clip-path="url(#oc${i})"><g class="m-contour-in">${C}</g><g class="m-trees">${trees}</g></g><path class="m-fence" d="${p.d}"/>`).join('')}
+    ${PLOTS.map(p => `<text class="m-label" x="${p.lx}" y="${p.ly}" text-anchor="middle">Farm ${p.id}</text><text class="m-sub" x="${p.lx}" y="${p.ly + 24}" text-anchor="middle">${p.ha}</text>`).join('')}
+  </svg>`;
+
+  /* ── GeoJSON (placeholder geometry, generated locally — no network) ── */
+  $('#geojson').addEventListener('click', e => {
+    const toLL = d => { const pts = d.match(/\d+ \d+/g).map(s => s.split(' ').map(Number)); const ring = pts.map(([x, y]) => [+(75.72 + x * 0.00002).toFixed(6), +(12.45 - y * 0.00002).toFixed(6)]); ring.push(ring[0]); return [ring]; };
+    const fc = { type: 'FeatureCollection', name: 'KDG-2026-0142', features: PLOTS.map(p => ({ type: 'Feature', properties: { farm_id: p.id, area: p.ha, placeholder_geometry: true }, geometry: { type: 'Polygon', coordinates: toLL(p.d) } })) };
+    e.currentTarget.href = URL.createObjectURL(new Blob([JSON.stringify(fc, null, 2)], { type: 'application/geo+json' }));
+  });
+  $('#print').addEventListener('click', () => window.print());
+  addEventListener('beforeprint', () => $$('details').forEach(d => d.open = true));
+
+  /* ── States ──────────────────────────────────────────── */
+  let timers = [];
+  function setState(s) {
+    document.body.dataset.state = s;
+    $$('[data-for]').forEach(el => { el.hidden = !el.dataset.for.split(' ').includes(s); });
+    renderEntries(s);
+    $$('.state-links [data-s]').forEach(a => a.setAttribute('aria-current', String(a.dataset.s === s)));
+  }
+  function runCheck(result) {
+    timers.forEach(clearTimeout); timers = [];
+    setState('loading');
+    const meter = $('#meter'), line = $('#count-line');
+    meter.innerHTML = '<span></span>'.repeat(14);
+    const stopAt = result === 'mismatch' ? BAD : 14;
+    for (let n = 1; n <= stopAt; n++) timers.push(setTimeout(() => {
+      line.textContent = `Record ${n} of 14 checked`;
+      $$('span', meter).forEach((el, i) => el.classList.toggle('on', i < n));
+      if (n === stopAt) timers.push(setTimeout(() => {
+        if (location.hash === '#loading') history.replaceState(null, '', result === 'mismatch' ? '#mismatch' : location.pathname);
+        setState(result);
+      }, 700));
+    }, 650 * n));
+  }
+  function route() {
+    const h = location.hash.slice(1);
+    if (!['', 'verified', 'loading', 'mismatch'].includes(h)) return; // in-page anchors keep the current state
+    if (h === 'loading') runCheck('verified');
+    else { timers.forEach(clearTimeout); timers = []; setState(h === 'mismatch' ? 'mismatch' : 'verified'); }
+  }
+  addEventListener('hashchange', route);
+  $('#check-again').addEventListener('click', () => runCheck('mismatch'));
+
+  /* ── Reviewer tools ──────────────────────────────────── */
+  const pops = { 'states-toggle': $('#states-pop'), 'params-toggle': $('#params') };
+  Object.entries(pops).forEach(([btnId, pop]) => $('#' + btnId).addEventListener('click', e => {
+    const open = pop.hidden;
+    Object.entries(pops).forEach(([b, p]) => { p.hidden = true; $('#' + b).setAttribute('aria-expanded', 'false'); });
+    pop.hidden = !open; e.currentTarget.setAttribute('aria-expanded', String(open));
+  }));
+  $$('[data-close-pop]').forEach(b => b.addEventListener('click', () => { $('#params').hidden = true; $('#params-toggle').setAttribute('aria-expanded', 'false'); $('#params-toggle').focus(); }));
+  $$('.state-links a').forEach(a => a.addEventListener('click', () => { $('#states-pop').hidden = true; $('#states-toggle').setAttribute('aria-expanded', 'false'); }));
+  addEventListener('keydown', e => { if (e.key === 'Escape') Object.entries(pops).forEach(([b, p]) => { p.hidden = true; $('#' + b).setAttribute('aria-expanded', 'false'); }); });
+
+  route();
+})();
+</script>
+</body>
+</html>

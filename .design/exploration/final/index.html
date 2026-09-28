@@ -1,0 +1,934 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Udgam capture · Final · Opal-inspired glow</title>
+<meta name="description" content="Design prototype, final direction (Opal-inspired): a dark, glowing capture app where a farmer records a coffee picking from inside their plot and sees the result.">
+<meta name="theme-color" content="#0A0E0C">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Noto+Sans+Kannada:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── Tokens · Direction D (Opal-inspired) ─────────────────── */
+:root{
+  --bg:#0A0E0C;
+  --glow:radial-gradient(120% 60% at 50% -10%, rgba(64,150,110,.55), rgba(20,60,45,.25) 45%, transparent 70%);
+  --surface:rgba(255,255,255,.06);
+  --surface-2:rgba(255,255,255,.10);
+  --surface-solid:#191D1B;           /* fallback when backdrop-filter is unsupported */
+  --surface-2-solid:#222724;
+  --hairline:rgba(255,255,255,.12);
+  --ink:#F3F6F4;
+  --ink-2:rgba(243,246,244,.74);
+  --ink-3:rgba(243,246,244,.58);     /* only ≥ 15 px */
+  --grad-text:linear-gradient(90deg,#B9F5D2 0%,#7FE3C1 45%,#D8F58C 100%);
+  --ok:#7FE3A6; --ok-ink:#9CF0BF; --ok-tint:rgba(127,227,166,.14);
+  --check:#F2B84B; --check-ink:#FFCB6B; --check-tint:rgba(242,184,75,.15);
+  --bad:#EF6A5B; --bad-ink:#FF8C7E; --bad-tint:rgba(239,106,91,.15);
+  --cherry:#C8322B;
+  --pill-bg:rgba(255,255,255,.08);
+  --pill-line:rgba(255,255,255,.14);
+  --pill-glow:radial-gradient(70% 120% at 50% 130%, rgba(127,227,166,.65), rgba(170,150,255,.35) 45%, transparent 72%);
+  --pill-glow-amber:radial-gradient(70% 120% at 50% 130%, rgba(242,184,75,.62), rgba(239,106,91,.30) 45%, transparent 72%);
+  --focus:#D8F58C;
+  --r-card:28px; --r-row:22px;
+  --banner-h:52px;
+  --fs-body:clamp(17px, 16.4px + .2vw, 18px);
+  --fs-h1:clamp(28px, 6.4vw + 8px, 34px);
+  --fs-small:15px;
+  --pad:20px;
+  --font:"Figtree","Noto Sans Kannada",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (max-width:360px){ :root{ --pad:16px; } }
+@media (max-width:420px){ :root{ --banner-h:60px; } }
+
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-padding-top:calc(var(--banner-h) + 16px);background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:var(--fs-body);line-height:1.5;padding-top:var(--banner-h);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+h1,h2,h3,p,ul,ol,figure{margin:0}
+ul,ol{padding:0;list-style:none}
+button{font:inherit;color:inherit}
+a{color:#B9F5D2;text-underline-offset:3px}
+[lang="kn"]{font-family:"Noto Sans Kannada",var(--font)}
+.ic{width:24px;height:24px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+[hidden]{display:none!important}
+.vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.lit{background:var(--grad-text);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+@supports not ((background-clip:text) or (-webkit-background-clip:text)){ .lit{background:none;color:#B9F5D2} }
+.assume{display:inline-block;font-size:13px;line-height:1.35;font-weight:600;color:var(--check-ink);border:1px dashed rgba(242,184,75,.6);border-radius:8px;padding:2px 8px;letter-spacing:.01em;vertical-align:middle}
+:focus-visible{outline:3px solid var(--focus);outline-offset:3px;box-shadow:0 0 0 7px rgba(216,245,140,.22)}
+
+/* ── Glass surfaces ───────────────────────────────────── */
+.glass{background:var(--surface);-webkit-backdrop-filter:blur(20px) saturate(1.2);backdrop-filter:blur(20px) saturate(1.2);border:1px solid var(--hairline)}
+.card{border-radius:var(--r-card)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .glass{background:var(--surface-solid)}
+  .tabbar,.sheet-panel,.dlg-panel{background:#1B201D!important}
+}
+
+/* ── Prototype banner ─────────────────────────────────── */
+.proto-banner{position:fixed;inset:0 0 auto 0;height:var(--banner-h);z-index:50;display:flex;align-items:center;gap:8px;padding:0 6px 0 16px;background:#050706;border-bottom:1px solid rgba(255,255,255,.14);font-size:13px;line-height:1.3;letter-spacing:.02em;color:var(--ink)}
+.proto-banner p{flex:1;min-width:0}
+.proto-banner b{font-weight:700;color:var(--check-ink)}
+.bn-screens{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:0 14px;border:1px solid var(--hairline);border-radius:999px;background:rgba(255,255,255,.06);font-size:15px;font-weight:600;cursor:pointer}
+.bn-screens .ic{width:20px;height:20px}
+
+/* ── Buttons ──────────────────────────────────────────── */
+.pill{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:60px;padding:0 24px;border-radius:999px;border:1px solid var(--pill-line);background:var(--pill-glow),var(--pill-bg);color:#fff;font-size:18px;font-weight:600;line-height:1.2;text-align:center;text-decoration:none;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.10);transition:transform .12s ease, background-color .2s ease}
+.pill:hover{background:var(--pill-glow),rgba(255,255,255,.11)}
+.pill:active{transform:scale(.985)}
+.pill:disabled{cursor:not-allowed;background:var(--pill-bg);color:var(--ink-2)}
+.pill.amber{background:var(--pill-glow-amber),var(--pill-bg)}
+.pill.ghost{background:rgba(255,255,255,.05);min-height:56px;box-shadow:none}
+.pill.ghost:hover{background:rgba(255,255,255,.09)}
+.textbtn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 16px;border:0;background:none;color:var(--ink);font-size:18px;font-weight:600;cursor:pointer;border-radius:999px}
+.textbtn:hover{background:rgba(255,255,255,.06)}
+.chip{display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:0 16px 0 12px;border-radius:999px;border:1px solid var(--hairline);background:rgba(255,255,255,.06);font-size:17px;font-weight:600;cursor:pointer;-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+.chip:hover{background:rgba(255,255,255,.1)}
+.chip [lang="kn"]{font-size:17px;line-height:1}
+
+/* ── Verdict chips + marks (word + mark + colour) ─────── */
+.mk{width:22px;height:22px;flex:none}
+.vchip{display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:4px 12px 4px 7px;border-radius:999px;font-size:15px;font-weight:700;line-height:1.2;white-space:nowrap}
+.vchip.ok{background:var(--ok-tint);color:var(--ok-ink)}
+.vchip.check{background:var(--check-tint);color:var(--check-ink)}
+.vchip.bad{background:var(--bad-tint);color:var(--bad-ink)}
+
+/* ── Screen skeleton ──────────────────────────────────── */
+.screen{position:relative;display:flex;flex-direction:column;isolation:isolate;padding:0 var(--pad)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:72px;padding:8px 0}
+.wordmark{display:inline-flex;align-items:center;gap:6px;font-size:26px;font-weight:800;letter-spacing:-.03em}
+.wordmark img{width:40px;height:40px;margin:-6px -2px -6px -8px}
+.back{display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:0 16px 0 10px;border-radius:999px;border:1px solid var(--hairline);background:rgba(255,255,255,.06);font-size:17px;font-weight:600;cursor:pointer}
+.back:hover{background:rgba(255,255,255,.1)}
+.eyebrow{font-size:var(--fs-small);font-weight:600;color:var(--ink-2);letter-spacing:.01em}
+.h1{font-size:var(--fs-h1);line-height:1.15;font-weight:700;letter-spacing:-.02em}
+.lede{color:var(--ink);margin-top:8px}
+.center{text-align:center}
+.actions{position:sticky;bottom:0;z-index:5;display:grid;gap:10px;margin-top:auto;padding:20px 0 calc(20px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 72%,rgba(10,14,12,0))}
+.actions .note{text-align:center;font-size:var(--fs-small);color:var(--ink-2)}
+
+/* The floating cherry (brand object) */
+.cherry{position:relative;display:grid;place-items:center;margin:0 auto;width:var(--cz,120px);height:var(--cz,120px)}
+.cherry img{position:relative;width:100%;height:100%;z-index:1}
+.cherry::before{content:"";position:absolute;inset:-35%;border-radius:50%;background:radial-gradient(closest-side,rgba(95,214,162,.30),rgba(58,156,116,.12) 55%,transparent);z-index:0}
+.cherry .badge{position:absolute;right:6%;bottom:14%;z-index:2;width:34%;height:34%;filter:drop-shadow(0 4px 10px rgba(0,0,0,.5))}
+.cherry.slow::before{animation:breathe 3.2s ease-in-out infinite}
+.cherry.amber img{filter:drop-shadow(0 0 2px rgba(242,184,75,.9)) drop-shadow(0 0 18px rgba(242,184,75,.45))}
+.cherry.amber::before{background:radial-gradient(closest-side,rgba(242,184,75,.30),rgba(242,160,60,.10) 55%,transparent)}
+.cherry.green img{filter:drop-shadow(0 0 2px rgba(127,227,166,.85)) drop-shadow(0 0 20px rgba(127,227,166,.45))}
+.cherry.green::before{background:radial-gradient(closest-side,rgba(127,227,166,.42),rgba(127,227,166,.14) 55%,transparent)}
+.cherry.rise img{animation:rise .4s ease-out both}
+.cherry.rise::before{animation:bloom .4s ease-out both}
+@keyframes breathe{0%,100%{opacity:.55;transform:scale(.94)}50%{opacity:1;transform:scale(1.06)}}
+@keyframes rise{from{transform:translateY(12px)}to{transform:translateY(0)}}
+@keyframes bloom{from{opacity:.25;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+
+/* ── s1 Home ──────────────────────────────────────────── */
+.greet{font-size:var(--fs-small);color:var(--ink-2);font-weight:500;margin:0 0 12px}
+.plot-card{padding:18px 18px 20px;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.plot-card .where{display:flex;align-items:center;gap:6px;font-size:var(--fs-small);font-weight:600;color:var(--ink-2)}
+.plot-card .where .ic{width:20px;height:20px;color:#B9F5D2}
+.plot-map{margin:8px -6px 4px}
+.plot-map svg{display:block;width:100%;height:auto;overflow:visible}
+.m-contour{fill:none;stroke:rgba(185,245,210,.10);stroke-width:1.2}
+.m-contour-in{fill:none;stroke:rgba(185,245,210,.20);stroke-width:1.2}
+.m-fill{fill:url(#plotFill)}
+.m-glow{fill:none;stroke:#7FE3C1;stroke-width:9;stroke-linejoin:round;opacity:.55;filter:url(#softGlow)}
+.m-line{fill:none;stroke:#B9F5D2;stroke-width:2.6;stroke-linejoin:round}
+.m-you-dot{fill:#fff;stroke:#7FE3C1;stroke-width:4}
+.m-you-ring{fill:rgba(127,227,193,.18);stroke:rgba(185,245,210,.7);stroke-width:1.5;transform-box:fill-box;transform-origin:center;animation:pulse 2.4s ease-out infinite}
+.pm-inner{position:relative;width:100%;margin:0 auto}
+.you-tag{position:absolute;left:calc(51.7% + 12px);top:calc(51.4% - 30px);font-size:15px;font-weight:700;line-height:1;padding:3px 7px;border-radius:999px;background:rgba(5,7,6,.55);color:var(--ink)}
+@keyframes pulse{0%{transform:scale(.5);opacity:.95}100%{transform:scale(1.35);opacity:0}}
+.plot-h{margin-top:4px}
+.facts{margin-top:6px;color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+.record{margin:18px 0 28px}
+.sec-h{font-size:19px;font-weight:700;margin:0 0 12px;letter-spacing:-.01em}
+.rows{display:grid;gap:10px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:72px;padding:12px 14px 12px 18px;border-radius:var(--r-row)}
+.row .r-date{display:block;font-size:var(--fs-small);color:var(--ink-2);font-weight:500}
+.row .r-kg{display:block;font-size:21px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+
+/* Floating glass tab bar */
+.tabbar{position:sticky;bottom:calc(14px + env(safe-area-inset-bottom));z-index:6;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:min(100%,344px);margin:28px auto 14px;padding:6px;border-radius:999px;background:rgba(28,34,31,.62);-webkit-backdrop-filter:blur(24px) saturate(1.3);backdrop-filter:blur(24px) saturate(1.3);border:1px solid rgba(255,255,255,.14);box-shadow:0 18px 48px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.08)}
+.tabbar .tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:60px;border:0;border-radius:999px;background:none;color:var(--ink-2);font-size:14px;font-weight:600;cursor:pointer}
+.tabbar .tab[aria-current="page"]{background:rgba(255,255,255,.13);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.10)}
+.tabbar .tab:hover{color:#fff}
+.has-tabs{padding-bottom:0}
+
+/* ── s2 Photos ────────────────────────────────────────── */
+.float-top{--cz:104px;margin:0 auto 10px}
+.counter{display:flex;align-items:baseline;justify-content:space-between;margin:22px 0 10px;font-size:var(--fs-small);color:var(--ink-2);font-weight:600}
+.counter b{color:var(--ink);font-size:17px;font-variant-numeric:tabular-nums}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.slot{display:flex;flex-direction:column;gap:8px;padding:8px 8px 12px;border-radius:var(--r-row)}
+.slot .thumb{position:relative;aspect-ratio:1;border-radius:16px;overflow:hidden;background:rgba(0,0,0,.28);display:grid;place-items:center}
+.slot .thumb svg{width:100%;height:100%;display:block}
+.slot[data-state="next"]{border:1.5px dashed rgba(185,245,210,.55)}
+.slot[data-state="filled"] .thumb{box-shadow:0 0 0 2px var(--ok)}
+.slot .s-name{font-size:var(--fs-small);font-weight:600;line-height:1.3;padding:0 4px}
+.slot .s-state{display:flex;align-items:center;gap:4px;font-size:14px;font-weight:600;color:var(--ink-2);padding:0 4px;line-height:1.25}
+.slot .s-state .ic{width:18px;height:18px}
+.slot[data-state="filled"] .s-state{color:var(--ok-ink)}
+.slot[data-state="next"] .s-state{color:#B9F5D2}
+.tag{position:absolute;left:6px;bottom:6px;font-size:13px;font-weight:600;line-height:1.2;padding:2px 7px;border-radius:999px;background:rgba(5,7,6,.78);color:var(--ink)}
+.ex-line{fill:none;stroke:#B9F5D2;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ex-soft{fill:none;stroke:rgba(185,245,210,.45);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.ex-berry{fill:#D8453A}
+.ex-berry-2{fill:#9E2027}
+.ex-shine{fill:#fff;fill-opacity:.55}
+
+/* ── s3 Review ────────────────────────────────────────── */
+.photo-big{position:relative;border-radius:var(--r-card);overflow:hidden;aspect-ratio:16/11;border:1px solid var(--hairline);box-shadow:0 20px 50px rgba(0,0,0,.45)}
+.photo-big svg{display:block;width:100%;height:100%}
+.photo-big .tag{left:12px;bottom:12px;font-size:13px;padding:4px 10px}
+.checklist{display:grid;gap:8px;margin-top:12px}
+.checklist li{display:flex;align-items:center;gap:12px;min-height:52px;padding:8px 16px;border-radius:var(--r-row)}
+.checklist .dot{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:rgba(185,245,210,.12);color:#B9F5D2;flex:none}
+.checklist .dot .ic{width:20px;height:20px}
+.check-label{margin-top:18px;font-weight:700}
+
+/* ── s3-kg Weight ─────────────────────────────────────── */
+.kg-screen{min-height:inherit}
+.kg-read{display:flex;align-items:baseline;justify-content:center;gap:10px;margin:clamp(8px,3vh,28px) 0 4px}
+.kg-num{font-size:clamp(72px,22vw,100px);line-height:1;font-weight:800;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.kg-num.empty{background:none;color:var(--ink-3)}
+.kg-unit{font-size:30px;font-weight:700;color:var(--ink-2)}
+.kg-hint{text-align:center;color:var(--ink-2);font-size:17px;margin-bottom:clamp(12px,3vh,24px)}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:auto}
+.key{display:flex;align-items:center;justify-content:center;gap:6px;height:clamp(52px,7.2vh,64px);border-radius:var(--r-row);border:1px solid var(--hairline);background:rgba(255,255,255,.06);font-size:28px;font-weight:600;font-variant-numeric:tabular-nums;cursor:pointer;-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+.key:hover{background:rgba(255,255,255,.10)}
+.key:active{background:rgba(255,255,255,.16)}
+.key.del{font-size:15px;font-weight:600;flex-direction:column;gap:0;line-height:1.1}
+.key.del .ic{width:26px;height:26px}
+.kg-actions{padding:14px 0 calc(18px + env(safe-area-inset-bottom))}
+
+/* ── s4 Checking ──────────────────────────────────────── */
+.chk-top{--cz:clamp(88px,15vh,120px);margin:0 auto 8px}
+.meter{margin:18px 0 6px}
+.bar{height:8px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden}
+.bar i{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,#B9F5D2,#7FE3C1 50%,#7FD8F0);box-shadow:0 0 12px rgba(127,227,193,.7);transition:width .45s ease}
+.meter-txt{display:flex;justify-content:space-between;margin-top:8px;font-size:var(--fs-small);color:var(--ink-2);font-weight:600;font-variant-numeric:tabular-nums}
+.checks{display:grid;gap:8px;margin-top:10px}
+.checks li{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:54px;padding:8px 12px 8px 18px;border-radius:var(--r-row);transition:background-color .3s ease}
+.checks .c-name{font-weight:600}
+.checks .c-state{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-small);font-weight:700;white-space:nowrap}
+.checks .c-state .ic{width:20px;height:20px}
+.checks li.done .c-state{color:var(--ok-ink)}
+.checks li.now{border-color:rgba(185,245,210,.35);background:rgba(127,227,193,.08)}
+.checks li.now .c-state{color:#B9F5D2}
+.checks li.now .c-state .ic{animation:spin 1.4s linear infinite}
+.checks li.wait .c-name{color:var(--ink-2)}
+.checks li.wait .c-state{color:var(--ink-2)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.caption{margin-top:14px;font-size:var(--fs-small);color:var(--ink-2);text-align:center}
+
+/* ── Verdicts ─────────────────────────────────────────── */
+.spacer{height:clamp(8px,3vh,28px)}
+.verdict-top{--cz:clamp(128px,21vh,176px);margin:0 auto 6px}
+.v-word{font-size:clamp(44px,12vw,54px);line-height:1.05;font-weight:800;letter-spacing:-.03em}
+.v-sub{font-size:19px;line-height:1.45;margin-top:10px;text-align:center}
+.evidence{margin-top:22px;padding:6px 18px}
+.ev{display:flex;align-items:center;gap:14px;padding:14px 0}
+.ev + .ev{border-top:1px solid var(--hairline)}
+.ev .bub{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;flex:none;background:rgba(127,227,166,.14);color:var(--ok-ink)}
+.ev .bub.amber{background:var(--check-tint);color:var(--check-ink)}
+.ev .bub.plain{background:rgba(255,255,255,.08);color:var(--ink)}
+.ev .ev-t{line-height:1.4}
+.ev .ev-t small{display:block;font-size:var(--fs-small);color:var(--ink-2);margin-top:2px}
+.status-row{display:flex;justify-content:center;margin:4px 0 12px}
+
+/* ── s7 Couldn't send · amber sheet over dimmed weight ── */
+.s7{overflow:hidden}
+.under{position:absolute;inset:0;padding:0 var(--pad);display:flex;flex-direction:column;opacity:.5;filter:saturate(.7);pointer-events:none}
+.scrim{position:absolute;inset:0;background:rgba(3,5,4,.55);z-index:3}
+.sheet-panel{position:absolute;left:8px;right:8px;bottom:8px;z-index:4;padding:12px 22px calc(22px + env(safe-area-inset-bottom));border-radius:34px;text-align:center;background:linear-gradient(180deg,rgba(242,184,75,.30),rgba(242,184,75,.10) 42%,rgba(242,184,75,.04)),rgba(24,22,18,.88);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border:1px solid rgba(255,214,150,.20);box-shadow:0 -10px 60px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,230,180,.14)}
+.grabber{width:40px;height:5px;border-radius:999px;background:rgba(255,255,255,.28);margin:0 auto 18px}
+.sheet-ic{display:grid;place-items:center;width:72px;height:72px;margin:0 auto 14px;border-radius:50%;border:1.5px solid rgba(255,203,107,.55);background:rgba(242,184,75,.12);color:var(--check-ink);box-shadow:0 0 30px rgba(242,184,75,.25)}
+.sheet-ic .ic{width:32px;height:32px}
+.sheet-panel .h1{font-size:clamp(26px,7vw,30px)}
+.sheet-panel p{margin-top:8px}
+.sheet-panel .pill{margin-top:22px}
+.sheet-panel .textbtn{margin-top:6px;width:100%}
+
+/* ── s8 Pickings list ─────────────────────────────────── */
+.month{display:flex;align-items:baseline;justify-content:space-between;margin:10px 0 12px}
+.month h2{font-size:21px;font-weight:700}
+.month span{font-size:var(--fs-small);color:var(--ink-2);font-weight:600}
+.row.tall{flex-wrap:wrap;align-items:center}
+.row .r-why{flex-basis:100%;margin-top:-2px;padding-top:10px;border-top:1px solid var(--hairline);color:var(--ink)}
+.row .r-why details{margin-top:4px}
+.row .r-why summary{display:inline-flex;align-items:center;min-height:48px;color:#B9F5D2;font-weight:700;text-decoration:underline;text-underline-offset:4px;cursor:pointer;list-style:none;border-radius:8px}
+.row .r-why summary::-webkit-details-marker{display:none}
+.row .r-why details p{padding-bottom:4px}
+
+/* ── Dialogs (sheets) ─────────────────────────────────── */
+dialog{padding:0;border:0;background:none;color:var(--ink);max-width:100vw;max-height:100dvh}
+dialog::backdrop{background:rgba(2,3,3,.66);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+dialog.sheet{margin:auto auto 0;width:min(100vw,520px)}
+dialog.dlg-top{margin:calc(var(--banner-h) + 8px) auto auto;width:min(calc(100vw - 16px),520px)}
+.dlg-panel{margin:8px;padding:14px 20px calc(20px + env(safe-area-inset-bottom));border-radius:34px;background:rgba(24,30,27,.86);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border:1px solid var(--hairline);box-shadow:0 -10px 60px rgba(0,0,0,.6);display:grid;gap:12px;max-height:calc(100dvh - var(--banner-h) - 24px);overflow:auto}
+dialog.dlg-top .dlg-panel{margin:0}
+.dlg-panel h2{font-size:22px;font-weight:700;text-align:center}
+.lang-big{min-height:68px;font-size:21px}
+.lang-big[aria-pressed="true"]{border-color:rgba(185,245,210,.5)}
+.menu-list{display:grid;gap:6px}
+.menu-list button,.menu-list a{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 18px;border-radius:18px;border:1px solid var(--hairline);background:rgba(255,255,255,.05);color:var(--ink);font-size:17px;font-weight:600;text-align:left;text-decoration:none;cursor:pointer}
+.menu-list button:hover,.menu-list a:hover{background:rgba(255,255,255,.1)}
+.menu-list [aria-current="true"]{border-color:rgba(185,245,210,.55);background:rgba(127,227,193,.1)}
+.menu-list .n{min-width:22px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.params pre{margin:0;font:14px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;color:var(--ink);background:rgba(0,0,0,.3);border:1px solid var(--hairline);border-radius:16px;padding:14px}
+.help-row{display:flex;gap:12px;align-items:flex-start;padding:4px 2px}
+.help-row .ic{margin-top:2px;color:#B9F5D2}
+
+/* ── Storyboard header (wide only) ────────────────────── */
+.sb-head{display:none}
+
+/* ── Narrow (< 1000 px): one screen at a time ─────────── */
+@media (max-width:999.98px){
+  body{background:var(--glow) no-repeat 50% 0/100% 100svh,var(--bg)}
+  .frame{display:none}
+  .frame.active{display:block}
+  .frame-cap{display:none}
+  .screen{min-height:calc(100vh - var(--banner-h));min-height:calc(100svh - var(--banner-h));max-width:520px;margin:0 auto}
+  .s7{min-height:calc(100svh - var(--banner-h))}
+}
+@media (max-width:999.98px) and (max-height:700px){
+  .top{min-height:60px}
+  .float-top{--cz:76px}
+  .chk-top{--cz:88px}
+  .verdict-top{--cz:128px}
+  .kg-num{font-size:clamp(60px,18vw,76px)}
+  .kg-read{margin-top:4px}
+  .kg-hint{margin-bottom:10px;font-size:16px}
+  .key{height:50px}
+  .keypad{gap:8px}
+  .kg-screen .h1{font-size:26px}
+  .kg-actions{padding-top:10px}
+  .plot-map{margin:2px -6px 0}
+  .pm-inner{width:150px}
+  .plot-card{padding:14px 16px 16px}
+  .greet{margin-bottom:8px}
+  .record{margin:14px 0 24px}
+  .plot-card .h1,.kg-screen .h1{font-size:26px}
+  .float-top{display:none}
+  .lede .more{display:none}
+  .counter{margin:14px 0 8px}
+  .actions{padding:12px 0 calc(12px + env(safe-area-inset-bottom));gap:8px}
+  .photo-big{aspect-ratio:5/2}
+  #s3 .h1{margin-top:14px!important}
+  .check-label{margin-top:8px}
+  .checklist{gap:0;margin-top:6px;padding:4px 0;border-radius:var(--r-row);background:var(--surface);border:1px solid var(--hairline)}
+  .checklist li{min-height:36px;padding:3px 14px;background:none!important;border:0!important;-webkit-backdrop-filter:none;backdrop-filter:none}
+  .checklist .dot{width:26px;height:26px}
+  .verdict-top{--cz:96px}
+  .v-word{font-size:40px}
+  .v-sub{font-size:18px;margin-top:6px}
+  .evidence{margin-top:14px;padding:2px 16px}
+  .ev{padding:10px 0;gap:12px}
+  .ev .bub{width:36px;height:36px}
+}
+
+/* ── Wide (≥ 1000 px): storyboard of phone frames ─────── */
+@media (min-width:1000px){
+  body{background:radial-gradient(80% 50% at 50% -10%,rgba(64,150,110,.30),transparent 70%) no-repeat,var(--bg)}
+  .sb-head{display:block;max-width:1240px;margin:0 auto;padding:40px 32px 8px}
+  .sb-kicker{font-size:15px;font-weight:600;color:var(--ink-2);letter-spacing:.02em}
+  .sb-title{font-size:40px;font-weight:800;letter-spacing:-.03em;margin-top:6px;line-height:1.1}
+  .sb-hyp{max-width:820px;margin-top:12px;color:var(--ink)}
+  .sb-links{margin-top:12px;display:flex;gap:20px;flex-wrap:wrap}
+  .sb-links a{font-weight:700}
+  .board{display:grid;grid-template-columns:repeat(auto-fill,390px);justify-content:center;gap:48px 32px;padding:32px 32px 80px;max-width:1400px;margin:0 auto}
+  .frame{scroll-margin-top:calc(var(--banner-h) + 16px)}
+  .frame-cap{display:block;font-size:17px;font-weight:700;margin:0 0 12px 6px}
+  .frame-cap span{font-weight:500;color:var(--ink-2)}
+  .frame-body{position:relative;width:390px;height:844px;border-radius:48px;overflow:hidden;background:var(--bg);border:1px solid rgba(255,255,255,.16);box-shadow:0 40px 90px rgba(0,0,0,.55),0 0 0 8px #050706,0 0 0 9px rgba(255,255,255,.08)}
+  .screen{height:100%;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;padding-top:14px}
+  .screen::-webkit-scrollbar{display:none}
+  .screen::before{content:"";position:absolute;inset:0 0 auto 0;height:844px;background:var(--glow);z-index:-1;pointer-events:none}
+  .s7{overflow:hidden}
+  .under{padding-top:14px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+  .m-you-ring{transform:scale(1);opacity:.6}
+}
+@media (forced-colors:active){ .lit{color:CanvasText;background:none} }
+</style>
+</head>
+<body>
+
+<div class="proto-banner" role="note">
+  <p><b>DESIGN PROTOTYPE — NOT PRODUCTION</b> · Final · Opal-inspired</p>
+  <button class="bn-screens" type="button" id="screens-btn" aria-haspopup="dialog"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg>Screens</button>
+</div>
+
+<!-- One line icon set (24 grid, 1.8 stroke) + verdict marks + drawings -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8.5h3l1.6-2.5h6.8L17 8.5h3a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.3" r="3.4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7.5 18.5h9.6a4 4 0 0 0 .5-7.96A5.5 5.5 0 0 0 7 9.7a4.4 4.4 0 0 0 .5 8.8z"/></symbol>
+    <symbol id="i-location" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></symbol>
+    <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M8.6 16.1a5 5 0 0 1 6-.5"/><path d="M5.3 12.7a9.6 9.6 0 0 1 4.2-2.2"/><path d="M14 10.5a9.6 9.6 0 0 1 4.8 2.3"/><path d="M2 9.3a14.4 14.4 0 0 1 3.3-2.2"/><path d="M9.7 5.2A14.4 14.4 0 0 1 22 9.3"/><path d="M12 19.6h.01"/></symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.4 2.6 3.5 5.5 3.5 8.5s-1.1 5.9-3.5 8.5c-2.4-2.6-3.5-5.5-3.5-8.5s1.1-5.9 3.5-8.5z"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><path d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" stroke-width="2.8"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.6a2.5 2.5 0 0 1 4.9.7c0 1.7-2.5 2.1-2.5 3.8"/><path d="M12 17.2h.01" stroke-width="2.6"/></symbol>
+    <symbol id="i-tree" viewBox="0 0 24 24"><path d="M12 21v-6"/><path d="M12 3.5a5 5 0 0 1 4.9 4 4.2 4.2 0 0 1-1.4 8H8.5a4.2 4.2 0 0 1-1.4-8 5 5 0 0 1 4.9-4z"/><path d="M12 15l-2.5-2.5M12 13l2-2"/></symbol>
+    <symbol id="i-seal" viewBox="0 0 24 24"><path d="M12 3.5l7 2.8v5.2c0 4.4-3 7.8-7 9-4-1.2-7-4.6-7-9V6.3z"/><path d="M9 12l2.2 2.2L15.3 10"/></symbol>
+    <symbol id="i-delete" viewBox="0 0 24 24"><path d="M9 5.5h10.5a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H9L3.5 12z"/><path d="M11.5 9.5l5 5M16.5 9.5l-5 5"/></symbol>
+    <symbol id="i-retry" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4.2h-4.2"/></symbol>
+    <symbol id="i-ring" viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 1 1-8.5 8.5"/></symbol>
+
+    <!-- verdict marks: circle / diamond / square, glyph inside, word always beside -->
+    <symbol id="mk-ok" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#7FE3A6"/><path d="M7 12.4l3.3 3.3L17 9" fill="none" stroke="#0A0E0C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="mk-check" viewBox="0 0 24 24"><path d="M12 1.2 22.8 12 12 22.8 1.2 12z" fill="#F2B84B" stroke="#F2B84B" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 7v6" stroke="#0A0E0C" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="16.6" r="1.4" fill="#0A0E0C"/></symbol>
+    <symbol id="mk-bad" viewBox="0 0 24 24"><rect x="1.5" y="1.5" width="21" height="21" rx="5" fill="#EF6A5B"/><path d="M8 8l8 8M16 8l-8 8" stroke="#0A0E0C" stroke-width="2.4" stroke-linecap="round"/></symbol>
+
+    <!-- example drawings for the three slots (line style, like the icon set) -->
+    <symbol id="ex-branch" viewBox="0 0 96 96">
+      <path class="ex-line" d="M6 74C28 64 54 50 90 22"/>
+      <path class="ex-soft" d="M30 63c-6-10-4-20 4-26 4 9 3 18-4 26zM30 63c10-4 20-2 25 6-10 3-18 1-25-6zM58 45c-3-11 1-20 10-24 2 10-1 18-10 24zM58 45c10 0 18 5 20 14-10 0-17-4-20-14z"/>
+      <g><circle class="ex-berry" cx="22" cy="72" r="5"/><circle class="ex-berry-2" cx="29" cy="75" r="4.6"/><circle class="ex-berry" cx="25" cy="80" r="4.4"/>
+      <circle class="ex-berry" cx="46" cy="58" r="5"/><circle class="ex-berry-2" cx="53" cy="60" r="4.6"/><circle class="ex-berry" cx="49" cy="66" r="4.4"/>
+      <circle class="ex-berry" cx="72" cy="37" r="4.6"/><circle class="ex-berry-2" cx="78" cy="40" r="4.2"/>
+      <circle class="ex-shine" cx="20.5" cy="70.5" r="1.4"/><circle class="ex-shine" cx="44.5" cy="56.5" r="1.4"/><circle class="ex-shine" cx="70.6" cy="35.6" r="1.3"/></g>
+    </symbol>
+    <symbol id="ex-basket" viewBox="0 0 96 96">
+      <path class="ex-line" d="M18 72h60M24 72v10a3 3 0 0 0 3 3h42a3 3 0 0 0 3-3V72"/>
+      <rect x="38" y="76" width="20" height="6" rx="1.5" fill="rgba(185,245,210,.35)"/>
+      <path class="ex-line" d="M22 38h52l-7 32H29z"/>
+      <path class="ex-soft" d="M24.5 49h47M27 60h42"/>
+      <g><circle class="ex-berry" cx="30" cy="35" r="4.6"/><circle class="ex-berry-2" cx="39" cy="33" r="4.8"/><circle class="ex-berry" cx="48" cy="34" r="4.8"/><circle class="ex-berry-2" cx="57" cy="33" r="4.6"/><circle class="ex-berry" cx="66" cy="35" r="4.4"/><circle class="ex-berry" cx="44" cy="27" r="4.2"/><circle class="ex-berry-2" cx="53" cy="27" r="4.2"/>
+      <circle class="ex-shine" cx="38" cy="31.5" r="1.3"/><circle class="ex-shine" cx="47" cy="32.5" r="1.3"/><circle class="ex-shine" cx="43" cy="25.6" r="1.2"/></g>
+    </symbol>
+    <symbol id="ex-pile" viewBox="0 0 96 96">
+      <path class="ex-line" d="M6 82h84"/>
+      <path class="ex-soft" d="M12 86h72"/>
+      <g id="ex-pile-berries"></g>
+    </symbol>
+
+    <!-- the "captured photo" placeholder: an illustrated branch, not a real photo -->
+    <radialGradient id="phSun" cx="78%" cy="18%" r="70%"><stop offset="0" stop-color="#6FAF7C" stop-opacity=".75"/><stop offset=".5" stop-color="#2C5F41" stop-opacity=".35"/><stop offset="1" stop-color="#0E2418" stop-opacity="0"/></radialGradient>
+    <linearGradient id="phBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#16392A"/><stop offset="1" stop-color="#0B1F16"/></linearGradient>
+    <radialGradient id="berryRed" cx="35%" cy="32%" r="70%"><stop offset="0" stop-color="#FF8A70"/><stop offset=".35" stop-color="#D2362C"/><stop offset="1" stop-color="#5E0B12"/></radialGradient>
+    <radialGradient id="berryRipe" cx="35%" cy="32%" r="70%"><stop offset="0" stop-color="#FF9F7A"/><stop offset=".4" stop-color="#E0552F"/><stop offset="1" stop-color="#7A1C12"/></radialGradient>
+    <radialGradient id="berryGreen" cx="35%" cy="32%" r="70%"><stop offset="0" stop-color="#E4F09A"/><stop offset=".45" stop-color="#9FB63E"/><stop offset="1" stop-color="#3F5317"/></radialGradient>
+    <linearGradient id="leafG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2E8A5E"/><stop offset="1" stop-color="#0F4430"/></linearGradient>
+    <filter id="phBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>
+    <symbol id="ph-photo" viewBox="0 0 320 240" preserveAspectRatio="xMidYMid slice">
+      <rect width="320" height="240" fill="url(#phBg)"/>
+      <g filter="url(#phBlur)" opacity=".85">
+        <ellipse cx="40" cy="40" rx="70" ry="34" fill="#1F5A3E"/><ellipse cx="280" cy="210" rx="80" ry="40" fill="#123526"/><ellipse cx="250" cy="60" rx="60" ry="26" fill="#2A6B49"/><ellipse cx="70" cy="200" rx="60" ry="30" fill="#0E2C1F"/>
+      </g>
+      <rect width="320" height="240" fill="url(#phSun)"/>
+      <path d="M-6 190C70 164 150 132 330 58" fill="none" stroke="#4A3620" stroke-width="9" stroke-linecap="round"/>
+      <path d="M-6 190C70 164 150 132 330 58" fill="none" stroke="#8C6A42" stroke-opacity=".5" stroke-width="2.5" stroke-linecap="round" transform="translate(0 -3)"/>
+      <g id="ph-leaves"></g>
+      <g id="ph-berries"></g>
+    </symbol>
+
+    <!-- plot card defs -->
+    <radialGradient id="plotFill" cx="55%" cy="50%" r="60%"><stop offset="0" stop-color="#7FE3C1" stop-opacity=".16"/><stop offset="1" stop-color="#7FE3C1" stop-opacity=".04"/></radialGradient>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5"/></filter>
+  </defs>
+</svg>
+
+<main id="app">
+  <header class="sb-head">
+    <p class="sb-kicker">Udgam · Stage 4 design exploration · Final direction</p>
+    <p class="sb-title">Opal-inspired glow</p>
+    <p class="sb-hyp">A near-black ground with one soft green glow, frosted cards and one lit word per screen. The farmer's own plot, glowing, is the hero; a rendered coffee cherry is the brand object and changes its rim light with the result. Built for a farmer's reading level and a thumb.</p>
+    <p class="sb-links"><a href="verify.html">Open the public certificate (verify.html)</a><a href="cherry.svg">Brand object (cherry.svg)</a></p>
+  </header>
+
+  <div class="board">
+
+  <!-- 1 HOME -->
+  <figure class="frame" data-for="s1">
+    <figcaption class="frame-cap">1 Home <span>· plot card hero</span></figcaption>
+    <div class="frame-body">
+    <section class="screen has-tabs" id="s1" aria-labelledby="s1-h">
+      <header class="top">
+        <span class="wordmark"><img src="cherry.svg" alt="" width="40" height="40">Udgam</span>
+        <button class="chip lang-btn" type="button" aria-haspopup="dialog"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg><span lang="kn">ಕನ್ನಡ</span></button>
+      </header>
+      <p class="greet">Good morning · <time datetime="2026-09-28">Monday, 28 September</time></p>
+      <article class="glass card plot-card">
+        <p class="where"><svg class="ic" aria-hidden="true"><use href="#i-location"/></svg>Hosahalli, Kodagu</p>
+        <div class="plot-map" data-plot="home"></div>
+        <h1 class="h1 plot-h" id="s1-h" tabindex="-1">You're inside <span class="lit">Plot 2</span></h1>
+        <p class="facts">1.8 ha · Arabica · last picked 27 Sep</p>
+      </article>
+      <button class="pill record" type="button" data-act="record"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg>Record today's picking</button>
+      <h2 class="sec-h">Your last pickings</h2>
+      <ul class="rows">
+        <li class="glass row"><span><span class="r-date">Sat 27 Sep</span><span class="r-kg">44.0 kg</span></span><span class="vchip ok"><svg class="mk" aria-hidden="true"><use href="#mk-ok"/></svg>Verified</span></li>
+        <li class="glass row"><span><span class="r-date">Wed 24 Sep</span><span class="r-kg">38.5 kg</span></span><span class="vchip check"><svg class="mk" aria-hidden="true"><use href="#mk-check"/></svg>Needs a check</span></li>
+        <li class="glass row"><span><span class="r-date">Sun 21 Sep</span><span class="r-kg">51.0 kg</span></span><span class="vchip ok"><svg class="mk" aria-hidden="true"><use href="#mk-ok"/></svg>Verified</span></li>
+      </ul>
+      <nav class="tabbar" aria-label="Main">
+        <button class="tab" type="button" data-go="s1" aria-current="page"><svg class="ic" aria-hidden="true"><use href="#i-home"/></svg>Home</button>
+        <button class="tab" type="button" data-go="s8"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg>Pickings</button>
+        <button class="tab help-btn" type="button" aria-haspopup="dialog"><svg class="ic" aria-hidden="true"><use href="#i-help"/></svg>Help</button>
+      </nav>
+    </section>
+    </div>
+  </figure>
+
+  <!-- 2 PHOTOS -->
+  <figure class="frame" data-for="s2">
+    <figcaption class="frame-cap">2 Photos <span>· after photo 1</span></figcaption>
+    <div class="frame-body">
+    <section class="screen" id="s2" aria-labelledby="s2-h">
+      <header class="top">
+        <button class="back" type="button" data-go="s1"><svg class="ic" aria-hidden="true"><use href="#i-arrow-left"/></svg>Back</button>
+        <span class="eyebrow">Plot 2 · today</span>
+      </header>
+      <div class="cherry float-top"><img src="cherry.svg" alt="" width="104" height="104"></div>
+      <h1 class="h1" id="s2-h" tabindex="-1">Take up to <span class="lit">3 photos</span></h1>
+      <p class="lede">One photo is enough.<span class="more"> More photos help the office if they ever need to check.</span></p>
+      <p class="counter"><span>Your photos</span><b id="counter">1 of 3</b></p>
+      <ol class="slots" id="slots" aria-label="Photo slots"></ol>
+      <div class="actions">
+        <button class="pill" type="button" id="cam-btn"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg>Open camera</button>
+        <button class="pill ghost" type="button" id="to-weight" data-go="s3-kg">Continue with 1 photo</button>
+        <p class="note" id="need-one" hidden>At least 1 photo is needed.</p>
+      </div>
+    </section>
+    </div>
+  </figure>
+
+  <!-- 3 REVIEW -->
+  <figure class="frame" data-for="s3">
+    <figcaption class="frame-cap">3 Review photo <span>· after the phone's camera</span></figcaption>
+    <div class="frame-body">
+    <section class="screen" id="s3" aria-labelledby="s3-h">
+      <header class="top">
+        <button class="back" type="button" data-go="s2"><svg class="ic" aria-hidden="true"><use href="#i-arrow-left"/></svg>Back</button>
+        <span class="eyebrow" id="review-eyebrow">Photo 1 of 3 · The branch</span>
+      </header>
+      <div class="photo-big"><svg role="img" aria-label="Your photo: a coffee branch with red and yellow cherries (drawing stands in for the real photo)"><use href="#ph-photo"/></svg><span class="tag">Photo placeholder</span></div>
+      <h1 class="h1" id="s3-h" tabindex="-1" style="margin-top:22px">Is the photo <span class="lit">clear</span>?</h1>
+      <p class="check-label">Check:</p>
+      <ul class="checklist">
+        <li class="glass"><span class="dot"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>It is in focus</li>
+        <li class="glass"><span class="dot"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>The cherries can be seen</li>
+        <li class="glass"><span class="dot"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>It is not too dark</li>
+      </ul>
+      <div class="actions">
+        <button class="pill" type="button" data-act="use-photo"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Use this photo</button>
+        <button class="pill ghost" type="button" data-go="s3"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg>Take again</button>
+      </div>
+    </section>
+    </div>
+  </figure>
+
+  <!-- 3-kg WEIGHT -->
+  <figure class="frame" data-for="s3-kg">
+    <figcaption class="frame-cap">4 Weight <span>· own keypad, value in the button</span></figcaption>
+    <div class="frame-body">
+    <section class="screen kg-screen" id="s3-kg" aria-labelledby="kg-h">
+      <header class="top">
+        <button class="back" type="button" data-go="s2"><svg class="ic" aria-hidden="true"><use href="#i-arrow-left"/></svg>Back</button>
+        <span class="eyebrow" id="kg-eyebrow">Plot 2 · 3 photos</span>
+      </header>
+      <h1 class="h1" id="kg-h" tabindex="-1">How many kilos?</h1>
+      <p class="kg-read"><output class="kg-num lit" id="kg" for="keypad" aria-live="polite">42.5</output><span class="kg-unit">kg</span></p>
+      <p class="kg-hint">Your last pickings: 38–51 kg</p>
+      <div class="keypad" id="keypad" role="group" aria-label="Number keys"></div>
+      <div class="kg-actions">
+        <button class="pill" type="button" id="send-btn"><svg class="ic" aria-hidden="true"><use href="#i-arrow-right"/></svg><span id="send-label">Send 42.5 kg</span></button>
+      </div>
+    </section>
+    </div>
+  </figure>
+
+  <!-- 4 CHECKING -->
+  <figure class="frame" data-for="s4">
+    <figcaption class="frame-cap">5 Checking <span>· six real checks</span></figcaption>
+    <div class="frame-body">
+    <section class="screen" id="s4" aria-labelledby="s4-h">
+      <div class="spacer" aria-hidden="true"></div>
+      <div class="cherry chk-top slow"><img src="cherry.svg" alt="" width="120" height="120"></div>
+      <h1 class="h1" id="s4-h" tabindex="-1">Checking your picking</h1>
+      <p class="lede" id="chk-sub">42.5 kg · Plot 2 · 3 photos</p>
+      <div class="meter">
+        <div class="bar" role="progressbar" aria-label="Checks finished" aria-valuemin="0" aria-valuemax="6" aria-valuenow="3" id="bar"><i id="bar-fill"></i></div>
+        <p class="meter-txt"><span id="bar-txt">3 of 6 checks done</span></p>
+      </div>
+      <ul class="checks" id="checks"></ul>
+      <p class="caption">This usually takes under 30 seconds.</p>
+      <p class="vh" aria-live="polite" id="checks-live"></p>
+      <div class="actions" id="see-wrap" hidden>
+        <button class="pill" type="button" id="see-result" data-go="s5"><svg class="ic" aria-hidden="true"><use href="#i-arrow-right"/></svg>See result</button>
+      </div>
+    </section>
+    </div>
+  </figure>
+
+  <!-- 5 VERIFIED -->
+  <figure class="frame" data-for="s5">
+    <figcaption class="frame-cap">6 Verified <span>· the one moment: cherry rises, rim blooms</span></figcaption>
+    <div class="frame-body">
+    <section class="screen" id="s5" aria-labelledby="s5-h">
+      <div class="spacer" aria-hidden="true"></div>
+      <div class="cherry verdict-top green" id="v-cherry"><img src="cherry.svg" alt="" width="176" height="176"><svg class="badge" aria-hidden="true"><use href="#mk-ok"/></svg></div>
+      <h1 class="v-word center" id="s5-h" tabindex="-1"><span class="lit">Verified</span></h1>
+      <p class="v-sub">Your <b id="v-kg">42.5 kg</b> from Plot 2 is recorded.</p>
+      <ul class="glass card evidence" aria-label="What was checked">
+        <li class="ev"><span class="bub"><svg class="ic" aria-hidden="true"><use href="#i-location"/></svg></span><span class="ev-t">You were 14 m inside Plot 2</span></li>
+        <li class="ev"><span class="bub"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg></span><span class="ev-t" id="v-photos">3 new photos, taken today</span></li>
+        <li class="ev"><span class="bub"><svg class="ic" aria-hidden="true"><use href="#i-tree"/></svg></span><span class="ev-t">Forest map: no trees cleared since 2020</span></li>
+      </ul>
+      <div class="actions">
+        <button class="pill" type="button" data-go="s1"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Done</button>
+      </div>
+    </section>
+    </div>
+  </figure>
+
+  <!-- 6 NEEDS A CHECK -->
+  <figure class="frame" data-for="s6">
+    <figcaption class="frame-cap">7 Needs a check <span>· cloud over the satellite</span></figcaption>
+    <div class="frame-body">
+    <section class="screen" id="s6" aria-labelledby="s6-h">
+      <div class="spacer" aria-hidden="true"></div>
+      <div class="cherry verdict-top amber"><img src="cherry.svg" alt="" width="176" height="176"><svg class="badge" aria-hidden="true"><use href="#mk-check"/></svg></div>
+      <p class="status-row"><span class="vchip check"><svg class="mk" aria-hidden="true"><use href="#mk-check"/></svg>Needs a check</span></p>
+      <h1 class="h1 center" id="s6-h" tabindex="-1">The office will check this one</h1>
+      <ul class="glass card evidence" aria-label="Why, and what happens next">
+        <li class="ev"><span class="bub amber"><svg class="ic" aria-hidden="true"><use href="#i-cloud"/></svg></span><span class="ev-t">The satellite picture for this month was cloudy.</span></li>
+        <li class="ev"><span class="bub plain"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg></span><span class="ev-t">Usually within 1 working day <span class="assume">ASSUMPTION: office response time</span></span></li>
+        <li class="ev"><span class="bub plain"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span><span class="ev-t">You don't need to do anything.<small>Your <span class="kg-dyn">42.5 kg</span> and photos are saved.</small></span></li>
+      </ul>
+      <div class="actions">
+        <button class="pill" type="button" data-go="s1"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Done</button>
+      </div>
+    </section>
+    </div>
+  </figure>
+
+  <!-- 7 COULDN'T SEND -->
+  <figure class="frame" data-for="s7">
+    <figcaption class="frame-cap">8 Couldn't send <span>· amber sheet, saved on the phone</span></figcaption>
+    <div class="frame-body">
+    <section class="screen s7" id="s7" aria-labelledby="s7-h">
+      <div class="under" id="s7-under" aria-hidden="true" inert></div>
+      <div class="scrim" aria-hidden="true"></div>
+      <div class="sheet-panel" role="group" aria-labelledby="s7-h">
+        <div class="grabber" aria-hidden="true"></div>
+        <div class="sheet-ic" aria-hidden="true"><svg class="ic"><use href="#i-wifi-off"/></svg></div>
+        <h1 class="h1" id="s7-h" tabindex="-1">No network here</h1>
+        <p>Nothing is lost: <b id="s7-photos">3 photos</b> and <b class="kg-dyn">42.5 kg</b> are saved on this phone.</p>
+        <button class="pill amber" type="button" data-go="s4"><svg class="ic" aria-hidden="true"><use href="#i-retry"/></svg>Try again</button>
+        <button class="textbtn" type="button" data-go="s1"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg>Try later</button>
+      </div>
+    </section>
+    </div>
+  </figure>
+
+  <!-- 8 PICKINGS LIST -->
+  <figure class="frame" data-for="s8">
+    <figcaption class="frame-cap">9 Pickings <span>· tab: every verdict, with reasons</span></figcaption>
+    <div class="frame-body">
+    <section class="screen has-tabs" id="s8" aria-labelledby="s8-h">
+      <header class="top">
+        <h1 class="h1" id="s8-h" tabindex="-1">Your pickings</h1>
+        <button class="chip lang-btn" type="button" aria-haspopup="dialog"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg><span lang="kn">ಕನ್ನಡ</span></button>
+      </header>
+      <div class="month"><h2>September 2026</h2><span>7 pickings · Plot 2</span></div>
+      <ul class="rows">
+        <li class="glass row"><span><span class="r-date">Sat 27 Sep</span><span class="r-kg">44.0 kg</span></span><span class="vchip ok"><svg class="mk" aria-hidden="true"><use href="#mk-ok"/></svg>Verified</span></li>
+        <li class="glass row tall"><span><span class="r-date">Wed 24 Sep</span><span class="r-kg">38.5 kg</span></span><span class="vchip check"><svg class="mk" aria-hidden="true"><use href="#mk-check"/></svg>Needs a check</span>
+          <p class="r-why">The satellite picture was cloudy. The office is checking it.</p></li>
+        <li class="glass row"><span><span class="r-date">Sun 21 Sep</span><span class="r-kg">51.0 kg</span></span><span class="vchip ok"><svg class="mk" aria-hidden="true"><use href="#mk-ok"/></svg>Verified</span></li>
+        <li class="glass row tall"><span><span class="r-date">Thu 18 Sep</span><span class="r-kg">29.0 kg</span></span><span class="vchip bad"><svg class="mk" aria-hidden="true"><use href="#mk-bad"/></svg>Not accepted</span>
+          <div class="r-why"><p>Photo was taken outside Plot 2.</p>
+            <details><summary>What can I do?</summary><p>Stand inside Plot 2 and record the picking again. If you were inside the plot, tell the office. They can look at it again.</p></details></div></li>
+        <li class="glass row"><span><span class="r-date">Mon 15 Sep</span><span class="r-kg">46.5 kg</span></span><span class="vchip ok"><svg class="mk" aria-hidden="true"><use href="#mk-ok"/></svg>Verified</span></li>
+        <li class="glass row"><span><span class="r-date">Thu 11 Sep</span><span class="r-kg">40.0 kg</span></span><span class="vchip ok"><svg class="mk" aria-hidden="true"><use href="#mk-ok"/></svg>Verified</span></li>
+        <li class="glass row"><span><span class="r-date">Sun 7 Sep</span><span class="r-kg">47.5 kg</span></span><span class="vchip ok"><svg class="mk" aria-hidden="true"><use href="#mk-ok"/></svg>Verified</span></li>
+      </ul>
+      <nav class="tabbar" aria-label="Main">
+        <button class="tab" type="button" data-go="s1"><svg class="ic" aria-hidden="true"><use href="#i-home"/></svg>Home</button>
+        <button class="tab" type="button" data-go="s8" aria-current="page"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg>Pickings</button>
+        <button class="tab help-btn" type="button" aria-haspopup="dialog"><svg class="ic" aria-hidden="true"><use href="#i-help"/></svg>Help</button>
+      </nav>
+    </section>
+    </div>
+  </figure>
+
+  </div>
+</main>
+
+<!-- Language sheet -->
+<dialog class="sheet" id="lang-dialog" aria-labelledby="lang-h">
+  <div class="dlg-panel">
+    <div class="grabber" aria-hidden="true" style="margin-bottom:4px"></div>
+    <h2 id="lang-h"><span lang="kn">ಭಾಷೆ</span> · Language</h2>
+    <button class="pill lang-big" type="button" data-close aria-pressed="false"><span><span lang="kn">ಕನ್ನಡ</span> / Kannada</span></button>
+    <button class="pill ghost lang-big" type="button" data-close aria-pressed="true"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>English</button>
+    <p class="center" style="font-size:15px;color:var(--ink-2)">The same two buttons appear the first time the app opens. <span class="assume">ASSUMPTION: Kannada pending native review</span></p>
+    <button class="textbtn" type="button" data-close>Close</button>
+  </div>
+</dialog>
+
+<!-- Help sheet -->
+<dialog class="sheet" id="help-dialog" aria-labelledby="help-h">
+  <div class="dlg-panel">
+    <div class="grabber" aria-hidden="true" style="margin-bottom:4px"></div>
+    <h2 id="help-h">Help</h2>
+    <p class="help-row"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg><span>Stand inside your plot, then tap <b>Record today's picking</b>. One photo is enough.</span></p>
+    <p class="help-row"><svg class="ic" aria-hidden="true"><use href="#i-help"/></svg><span>Questions about a picking? Call the Hosahalli FPO office. <span class="assume">ASSUMPTION: office phone number and hours</span></span></p>
+    <button class="pill ghost" type="button" data-close>Close</button>
+  </div>
+</dialog>
+
+<!-- Reviewer: screen switcher (opened from the banner) -->
+<dialog class="dlg-top" id="screens-dialog" aria-labelledby="screens-h">
+  <div class="dlg-panel">
+    <h2 id="screens-h">Prototype screens</h2>
+    <nav class="menu-list" aria-label="Jump to screen">
+      <button type="button" data-jump="s1"><span class="n">1</span>Home</button>
+      <button type="button" data-jump="s2"><span class="n">2</span>Photos</button>
+      <button type="button" data-jump="s3"><span class="n">3</span>Review photo</button>
+      <button type="button" data-jump="s3-kg"><span class="n">4</span>Weight</button>
+      <button type="button" data-jump="s4"><span class="n">5</span>Checking</button>
+      <button type="button" data-jump="s5"><span class="n">6</span>Verified</button>
+      <button type="button" data-jump="s6"><span class="n">7</span>Needs a check</button>
+      <button type="button" data-jump="s7"><span class="n">8</span>Couldn't send</button>
+      <button type="button" data-jump="s8"><span class="n">9</span>Pickings list</button>
+      <a href="verify.html"><svg class="ic" aria-hidden="true"><use href="#i-seal"/></svg>Public certificate (verify.html)</a>
+      <button type="button" id="params-open"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg>Parameters</button>
+    </nav>
+    <button class="textbtn" type="button" data-close>Close</button>
+  </div>
+</dialog>
+
+<!-- Reviewer: direction parameters (hidden by default) -->
+<dialog class="dlg-top params" id="params-dialog" aria-labelledby="params-h">
+  <div class="dlg-panel">
+    <h2 id="params-h">Direction parameters</h2>
+<pre>visual_direction: "Opal-inspired glow: near-black ground, one soft green glow from the top, frosted dark cards with hairline borders, one gradient-lit word per screen"
+narrative: "Your plot, glowing → you are inside it → your picking is checked → the cherry lights up"
+hero: "plot card — the plot outline as a glowing mint line on a frosted card, contour lines, the You dot with a pulse ring"
+navigation: "floating glass tab bar: Home · Pickings · Help (icon + word); hidden during the record flow"
+layout: "single column; moment screens centred, working screens left-aligned; primary pill in the thumb zone"
+mobile_scroll: native
+motion: "one moment — on Verified the cherry rises 12 px and its rim glow blooms (400 ms, ease-out); progress bar fills as real checks finish; reduced motion = static"
+surface: "frosted dark + hairline (rgba white .06 + blur 20 px, 1 px rgba white .12); cards 28 px, rows 22 px, pills 999 px"
+typography: "Figtree (Latin) + Noto Sans Kannada; headlines 28–34 px bold, body 17–18 px, tabular numbers"
+conversion: n/a</pre>
+    <button class="pill ghost" type="button" data-close>Close</button>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  const wideMQ = matchMedia('(min-width: 1000px)');
+  const rmMQ = matchMedia('(prefers-reduced-motion: reduce)');
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const IDS = ['s1','s2','s3','s3-kg','s4','s5','s6','s7','s8'];
+
+  /* ── Drawings ─────────────────────────────────────────── */
+  let pile = '';
+  [[20,74,6],[30,74,6],[40,74,6],[50,74,6],[60,74,6],[70,74,6],[76,74,5],[26,65,5],[36,64,5],[46,63,5],[56,64,5],[66,65,5],[34,55,4],[44,53,4],[54,54,4],[62,57,4],[42,46,3],[50,46,3]]
+    .forEach(([x,y,c],i) => pile += `<circle class="${i % 3 ? 'ex-berry' : 'ex-berry-2'}" cx="${x}" cy="${y}" r="${i < 7 ? 5 : i < 12 ? 4.8 : 4.5}"/>`);
+  $('#ex-pile-berries').innerHTML = pile + '<circle class="ex-shine" cx="28.5" cy="72.5" r="1.3"/><circle class="ex-shine" cx="44.5" cy="61.5" r="1.3"/><circle class="ex-shine" cx="48.6" cy="44.6" r="1.1"/>';
+
+  const leaf = (x, y, rot, s) => `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})"><path d="M0 0C14-15 44-16 62 0 44 16 14 15 0 0z" fill="url(#leafG)"/><path d="M2 0H58" stroke="#8FD9B0" stroke-opacity=".45" stroke-width="1.4"/></g>`;
+  $('#ph-leaves').innerHTML = [[40,172,-140,1.1],[40,172,-40,1.2],[112,146,-150,1.25],[112,146,-50,1.15],[190,114,-130,1.2],[190,114,-30,1.3],[262,86,-150,1],[262,86,-40,1.1]].map(a => leaf(...a)).join('');
+  const berry = (x, y, r, g) => `<circle cx="${x}" cy="${y}" r="${r}" fill="url(#${g})"/><circle cx="${x - r*.35}" cy="${y - r*.38}" r="${r*.22}" fill="#fff" fill-opacity=".6"/>`;
+  const G = ['berryRed','berryRed','berryRipe','berryRed','berryGreen','berryRed','berryRipe'];
+  let bs = '', n = 0;
+  [[70,170],[146,140],[222,108],[290,80]].forEach(([cx, cy], k) => {
+    [[-12,-2],[0,-4],[12,-1],[-6,8],[7,8],[-16,10],[18,9],[0,17]].slice(0, k === 3 ? 5 : 8).forEach(([dx, dy]) => { bs += berry(cx + dx, cy + dy, 9.5, G[n++ % G.length]); });
+  });
+  $('#ph-berries').innerHTML = bs;
+
+  /* ── Plot card map ────────────────────────────────────── */
+  const PLOT = 'M62 62 L150 32 L238 48 L316 36 L352 100 L328 170 L262 206 L172 194 L98 214 L50 150 Z';
+  const C = (() => { let s = ''; for (let i = 0; i < 12; i++) { const y = -4 + i * 22, a = 9 + (i % 4) * 3; s += `<path d="M-30 ${y+8} C 60 ${y-a}, 140 ${y+a+12}, 220 ${y+4} S 350 ${y-a-4}, 440 ${y+10}"/>`; } return s; })();
+  $$('[data-plot]').forEach(el => {
+    el.innerHTML = `<div class="pm-inner"><svg viewBox="20 10 360 222" role="img" aria-label="Map of Plot 2. The white dot that shows where you are is inside the glowing plot line.">
+      <defs><clipPath id="plotClip"><path d="${PLOT}"/></clipPath></defs>
+      <g class="m-contour">${C}</g>
+      <path class="m-fill" d="${PLOT}"/>
+      <g clip-path="url(#plotClip)"><g class="m-contour-in">${C}</g></g>
+      <path class="m-glow" d="${PLOT}"/>
+      <path class="m-line" d="${PLOT}"/>
+      <g transform="translate(206 124)"><circle class="m-you-ring" r="26"/><circle class="m-you-dot" r="8"/></g>
+    </svg><span class="you-tag" aria-hidden="true">You</span></div>`;
+  });
+
+  /* ── Photos (s2) ──────────────────────────────────────── */
+  const SLOTS = [['The branch','ex-branch'],['Basket on the scale','ex-basket'],["The day's pile",'ex-pile']];
+  let photos = 1, flowUsed = false;
+  function renderSlots() {
+    $('#slots').innerHTML = SLOTS.map(([name, ex], i) => {
+      const st = i < photos ? 'filled' : i === photos ? 'next' : 'todo';
+      const art = st === 'filled'
+        ? `<svg viewBox="0 0 320 240" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><use href="#ph-photo"/></svg><span class="tag">Photo</span>`
+        : `<svg viewBox="0 0 96 96" aria-hidden="true" style="width:86%;height:86%"><use href="#${ex}"/></svg>`;
+      const state = st === 'filled' ? '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Added'
+                  : st === 'next' ? '<svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg>Next'
+                  : 'Example';
+      return `<li class="glass slot" data-state="${st}"><div class="thumb">${art}</div><span class="s-name">${name}</span><span class="s-state">${state}</span></li>`;
+    }).join('');
+    $('#counter').textContent = `${photos} of 3`;
+    const cam = $('#cam-btn'), tw = $('#to-weight');
+    cam.hidden = photos >= 3;
+    tw.hidden = photos < 1;
+    $('#need-one').hidden = photos >= 1;
+    tw.textContent = `Continue with ${photos} photo${photos === 1 ? '' : 's'}`;
+    tw.className = 'pill' + (photos >= 3 ? '' : ' ghost');
+    const idx = flowUsed ? Math.min(photos, 2) : 0;
+    $('#review-eyebrow').textContent = `Photo ${idx + 1} of 3 · ${SLOTS[idx][0]}`;
+  }
+  renderSlots();
+  const photoWord = () => { const c = flowUsed ? Math.max(photos, 1) : 3; return `${c} photo${c === 1 ? '' : 's'}`; };
+
+  /* ── Weight keypad (s3-kg + the dimmed copy under s7) ──── */
+  const KEYS = ['1','2','3','4','5','6','7','8','9','.','0','del'];
+  const keyHTML = KEYS.map(k => k === 'del'
+    ? `<button class="key del" type="button" data-k="del"><svg class="ic" aria-hidden="true"><use href="#i-delete"/></svg>Delete</button>`
+    : `<button class="key" type="button" data-k="${k}"${k === '.' ? ' aria-label="Decimal point"' : ''}>${k === '.' ? '·' : k}</button>`).join('');
+  $('#keypad').innerHTML = keyHTML;
+  let kg = '42.5';
+  function renderKg() {
+    const out = $('#kg'), v = parseFloat(kg);
+    out.textContent = kg || '0';
+    out.classList.toggle('empty', !kg);
+    const send = $('#send-btn');
+    send.disabled = !(v > 0);
+    $('#send-label').textContent = v > 0 ? `Send ${v} kg` : 'Type the weight';
+  }
+  $('#keypad').addEventListener('click', e => {
+    const key = e.target.closest('[data-k]'); if (!key) return;
+    const k = key.dataset.k;
+    if (k === 'del') kg = kg.slice(0, -1);
+    else if (k === '.') { if (!kg.includes('.')) kg = (kg || '0') + '.'; }
+    else if (kg.includes('.')) { if (kg.split('.')[1].length < 1) kg += k; }
+    else if (kg.length < 3) kg = kg === '0' ? k : kg + k;
+    renderKg();
+  });
+  renderKg();
+  // static, inert copy of the weight screen under the s7 sheet
+  $('#s7-under').innerHTML = `<header class="top"><span class="back"><svg class="ic"><use href="#i-arrow-left"/></svg>Back</span><span class="eyebrow">Plot 2 · 3 photos</span></header>
+    <p class="h1">How many kilos?</p><p class="kg-read"><span class="kg-num lit">42.5</span><span class="kg-unit">kg</span></p><p class="kg-hint">Your last pickings: 38–51 kg</p>
+    <div class="keypad">${keyHTML.replace(/<button/g, '<span').replace(/<\/button>/g, '</span>')}</div>`;
+
+  /* ── Checking (s4) ────────────────────────────────────── */
+  const CHECKS = ["Your phone's seal", 'Inside Plot 2', 'Photos are new', 'Forest map for Plot 2', 'Satellite view this month', 'Harvest size for this plot'];
+  function renderChecks(done) {
+    $('#checks').innerHTML = CHECKS.map((name, i) => {
+      const st = i < done ? 'done' : i === done ? 'now' : 'wait';
+      const s = st === 'done' ? ['i-check', 'Done'] : st === 'now' ? ['i-ring', 'Checking'] : ['i-clock', 'Waiting'];
+      return `<li class="glass ${st}"><span class="c-name">${name}</span><span class="c-state"><svg class="ic" aria-hidden="true"><use href="#${s[0]}"/></svg>${s[1]}</span></li>`;
+    }).join('');
+    $('#bar-fill').style.width = (done / CHECKS.length * 100) + '%';
+    $('#bar').setAttribute('aria-valuenow', done);
+    $('#bar').setAttribute('aria-valuetext', `${done} of 6 checks done`);
+    $('#bar-txt').textContent = `${done} of 6 checks done`;
+  }
+  renderChecks(3); // storyboard + first-load still: halfway through
+  let timers = [];
+  const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
+  function runChecks(from = 0, delay = 0) {
+    clearTimers();
+    $('#see-wrap').hidden = true; renderChecks(from); $('#checks-live').textContent = '';
+    CHECKS.forEach((name, i) => { if (i < from) return; timers.push(setTimeout(() => {
+      renderChecks(i + 1);
+      $('#checks-live').textContent = `${name}: done.`;
+      if (i === CHECKS.length - 1) {
+        $('#checks-live').textContent = 'All 6 checks done. Your result is ready.';
+        $('#see-wrap').hidden = false;
+        if (!rmMQ.matches) timers.push(setTimeout(() => { if (current === 's4') go('s5'); }, 600));
+      }
+    }, delay + 420 * (i + 1 - from))); });
+  }
+
+  function bloom() {
+    const c = $('#v-cherry');
+    c.classList.remove('rise');
+    if (rmMQ.matches) return;
+    void c.offsetWidth; c.classList.add('rise');
+  }
+
+  /* ── Routing ──────────────────────────────────────────── */
+  let current = null, firstLoad = true;
+  const parse = () => { const h = decodeURIComponent(location.hash.slice(1)); return IDS.includes(h) ? h : 's1'; };
+  function syncCounts() {
+    const pw = photoWord();
+    $('#kg-eyebrow').textContent = `Plot 2 · ${pw}`;
+    $('#chk-sub').textContent = `${kg || '0'} kg · Plot 2 · ${pw}`;
+    $('#v-kg').textContent = `${kg || '0'} kg`;
+    $('#v-photos').textContent = `${pw.replace('photo', 'new photo')}, taken today`;
+    $('#s7-photos').textContent = pw;
+    $$('.kg-dyn').forEach(el => el.textContent = `${kg || '0'} kg`);
+  }
+  function route() {
+    const id = parse();
+    if (wideMQ.matches) {
+      $$('.frame').forEach(f => f.classList.remove('active'));
+      if (location.hash && !firstLoad) $(`.frame[data-for="${id}"]`).scrollIntoView({ block: 'start', behavior: rmMQ.matches ? 'auto' : 'smooth' });
+      else if (location.hash) $(`.frame[data-for="${id}"]`).scrollIntoView({ block: 'start' });
+      firstLoad = false;
+      return;
+    }
+    const prev = current; current = id;
+    $$('.frame').forEach(f => f.classList.toggle('active', f.dataset.for === id));
+    syncCounts();
+    if (id === 's4' && prev !== 's4') firstLoad ? runChecks(3, 4000) : runChecks();
+    if (id !== 's4') clearTimers();
+    if (id === 's5') bloom();
+    if (id === 's2') renderSlots();
+    window.scrollTo(0, 0);
+    if (!firstLoad) { const h = $(`#${CSS.escape(id)} h1`); if (h) h.focus({ preventScroll: true }); }
+    firstLoad = false;
+  }
+  function go(target) {
+    if (wideMQ.matches) { $(`.frame[data-for="${target}"]`).scrollIntoView({ behavior: rmMQ.matches ? 'auto' : 'smooth', block: 'start' }); history.replaceState(null, '', '#' + target); return; }
+    if (location.hash.slice(1) === target) route(); else location.hash = target;
+  }
+  addEventListener('hashchange', route);
+
+  document.addEventListener('click', e => {
+    const g = e.target.closest('[data-go]');
+    if (g && !g.closest('dialog')) { go(g.dataset.go); return; }
+    const a = e.target.closest('[data-act]');
+    if (!a) return;
+    if (a.dataset.act === 'record') { flowUsed = true; photos = 0; renderSlots(); go('s2'); }
+    if (a.dataset.act === 'use-photo') { flowUsed = true; photos = Math.min(3, photos + 1); renderSlots(); go(photos < 3 ? 's2' : 's3-kg'); }
+  });
+  $('#cam-btn').addEventListener('click', () => go('s3'));
+  $('#send-btn').addEventListener('click', () => go('s4'));
+  wideMQ.addEventListener('change', () => { current = null; route(); });
+
+  /* ── Dialogs ──────────────────────────────────────────── */
+  const open = d => { if (!d.open) d.showModal(); };
+  $$('.lang-btn').forEach(b => b.addEventListener('click', () => open($('#lang-dialog'))));
+  $$('.help-btn').forEach(b => b.addEventListener('click', () => open($('#help-dialog'))));
+  $('#screens-btn').addEventListener('click', () => {
+    const cur = parse();
+    $$('[data-jump]').forEach(b => b.setAttribute('aria-current', String(!wideMQ.matches && b.dataset.jump === cur)));
+    open($('#screens-dialog'));
+  });
+  $$('[data-jump]').forEach(b => b.addEventListener('click', () => { $('#screens-dialog').close(); go(b.dataset.jump); }));
+  $('#params-open').addEventListener('click', () => { $('#screens-dialog').close(); open($('#params-dialog')); });
+  $$('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d || e.target.closest('[data-close]')) d.close(); }));
+
+  route();
+})();
+</script>
+</body>
+</html>

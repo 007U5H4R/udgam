@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Udgam · Option A · Estate Record Book (prototype)</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Noto+Sans+Kannada:wght@400;600&family=Noto+Serif:wght@400;600;700&family=Noto+Serif+Kannada:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* ------------------------------------------------------------------
+   Option A · Estate Record Book — tokens (from plans.md, OKLCH)
+   Contrast pairs (computed, WCAG 2.x):
+     --ink on --bg          15.3 : 1   body text
+     --ink-2 on --bg         7.6 : 1   secondary text
+     --ink on --paper-2     14.0 : 1
+     white on --action       6.6 : 1   primary button label
+     --bg on --ok            6.3 : 1   check mark on leaf disc
+     --ok on --bg            6.3 : 1   "Verified" word
+     --ink on --check        8.7 : 1   "?" on turmeric (dark text on it)
+     --check-ink on --bg     5.7 : 1   turmeric ring/label on paper
+     --bad on --bg           6.9 : 1
+------------------------------------------------------------------- */
+:root{
+  --bg:      oklch(0.975 0.010 85);   /* paper */
+  --paper-2: oklch(0.945 0.014 85);   /* derived: slightly deeper paper */
+  --ink:     oklch(0.24 0.035 262);   /* blue-black ink */
+  --ink-2:   oklch(0.43 0.030 262);   /* derived: secondary ink */
+  --rule:    oklch(0.86 0.018 85);    /* hairlines */
+  --action:  oklch(0.50 0.170 27);    /* cherry — primary action */
+  --action-press: oklch(0.44 0.160 27);
+  --on-action: #fff;
+  --ok:      oklch(0.46 0.110 150);   /* leaf — verified */
+  --on-ok:   var(--bg);
+  --check:   oklch(0.80 0.140 82);    /* turmeric — needs a check (dark text on it) */
+  --check-ink: oklch(0.50 0.100 75);  /* derived: turmeric line/text on paper */
+  --bad:     oklch(0.47 0.160 25);
+  --focus:   oklch(0.24 0.035 262);
+
+  --serif: "Noto Serif", "Noto Serif Kannada", Georgia, serif;
+  --sans: "Noto Sans", "Noto Sans Kannada", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --banner: 44px;
+  --gutter: clamp(16px, 5vw, 24px);
+  --z: 1;
+}
+@media (min-width: 700px){ :root{ --banner: 34px; } }
+
+
+*,*::before,*::after{ box-sizing: border-box; }
+[hidden]{ display: none !important; }
+html{ -webkit-text-size-adjust: 100%; }
+body{
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--sans); font-size: clamp(17px, 16.5px + 0.15vw, 18px); line-height: 1.55;
+  padding-top: var(--banner);
+}
+:lang(kn){ line-height: 1.6; }
+h1,h2,h3,p,ol,ul,figure{ margin: 0; }
+ol,ul{ padding: 0; list-style: none; }
+button{ font: inherit; color: inherit; }
+svg{ flex: none; }
+:focus-visible{ outline: 3px solid var(--focus); outline-offset: 3px; border-radius: 6px; }
+.btn.primary:focus-visible{ outline-color: var(--ink); }
+.sr-only{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.ico{ width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.assume{ display:inline-block; font: 600 13px/1.4 var(--sans); color: var(--ink-2); border: 1px dashed var(--ink-2); border-radius: 4px; padding: 1px 6px; margin-top: 4px; }
+
+/* ---------- prototype chrome ---------- */
+.proto-banner{
+  position: fixed; inset: 0 0 auto 0; height: var(--banner); z-index: 60;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 0 8px 0 12px; background: var(--ink); color: var(--bg);
+  font: 600 12px/1.3 var(--sans); letter-spacing: .02em;
+}
+.proto-banner .b-text span{ white-space: nowrap; }
+@media (max-width: 699px){ .proto-banner .b-text span{ display:block; } .proto-banner .b-text .sep{ display:none; } }
+.tool-btn{
+  position: relative; min-height: 32px; padding: 0 12px; border-radius: 6px;
+  border: 1px solid oklch(0.975 0.010 85 / .5); background: transparent; color: var(--bg);
+  font: 600 13px/1 var(--sans); cursor: pointer;
+}
+.tool-btn::after{ content:""; position:absolute; inset: -6px -3px; }
+.tool-btn:focus-visible{ outline-color: var(--bg); }
+.param-toggle{
+  position: fixed; left: 12px; bottom: 12px; z-index: 55; min-height: 40px;
+  background: var(--paper-2); color: var(--ink-2); border: 1px solid var(--rule);
+}
+.param-toggle:focus-visible{ outline-color: var(--ink); }
+#params{
+  position: fixed; left: 12px; bottom: 60px; z-index: 56; max-width: min(560px, calc(100vw - 24px));
+  max-height: calc(100vh - var(--banner) - 80px); overflow: auto;
+  background: var(--bg); border: 1px solid var(--ink); border-radius: 8px; padding: 14px 16px;
+}
+#params pre{ margin: 0; font: 13px/1.55 ui-monospace, "SF Mono", Menlo, monospace; white-space: pre-wrap; }
+#params h2{ font: 600 14px/1.3 var(--sans); margin-bottom: 8px; }
+#screens-menu{
+  position: fixed; top: calc(var(--banner) + 6px); right: 8px; z-index: 58; width: min(280px, calc(100vw - 16px));
+  background: var(--bg); border: 1px solid var(--ink); border-radius: 10px; padding: 6px 0;
+  max-height: calc(100dvh - var(--banner) - 20px); overflow: auto;
+}
+#screens-menu a, #screens-menu button{
+  display: flex; align-items: center; min-height: 48px; padding: 0 16px; width: 100%;
+  color: var(--ink); text-decoration: none; font-size: 16px; background: none; border: 0; text-align: left; cursor: pointer;
+}
+#screens-menu a[aria-current="true"]{ font-weight: 700; }
+#screens-menu hr{ border: 0; border-top: 1px solid var(--rule); margin: 6px 0; }
+.toast{
+  position: fixed; left: 50%; top: calc(var(--banner) + 12px); transform: translateX(-50%); z-index: 70;
+  background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 15px;
+  max-width: calc(100vw - 32px); width: max-content;
+}
+
+/* ---------- storyboard (wide) ---------- */
+.story-head{ display: none; }
+.cap{ display: none; }
+@media (min-width: 1000px){
+  :root{ --z: .55; }
+  .story-head{ display: block; max-width: 1560px; margin: 0 auto; padding: 28px 32px 8px; }
+  .story-head .t{ font: 600 30px/1.2 var(--serif); }
+  .story-head .h{ font-size: 18px; color: var(--ink-2); max-width: 70ch; margin-top: 6px; }
+  .story-head a{ color: var(--ink); display: inline-flex; align-items: center; min-height: 48px; font-weight: 600; }
+  .board{
+    display: grid; grid-template-columns: repeat(4, calc(390px * var(--z))); gap: 40px 24px;
+    justify-content: center; padding: 16px 32px 96px;
+  }
+  .screen{ scroll-margin-top: calc(var(--banner) + 16px); }
+  .screen[id="s3"]{ grid-column: span 2; display: flex; gap: 24px; }
+  .frame{ scroll-margin-top: calc(var(--banner) + 16px); }
+  .cap{ display: block; font: 600 15px/1.3 var(--sans); color: var(--ink-2); margin: 0 0 10px 4px; }
+  .phone{
+    zoom: var(--z); width: 390px; height: 844px; overflow: hidden;
+    border: 1px solid var(--rule); border-radius: 34px; box-shadow: 0 0 0 7px var(--paper-2), 0 0 0 8px var(--rule);
+  }
+  .phone .content{ overflow: auto; scrollbar-width: none; }
+  .tool-btn.screens-btn{ display: none; }
+}
+@media (min-width: 1200px){ :root{ --z: .68; } }
+@media (min-width: 1400px){ :root{ --z: .8; } }
+@media (min-width: 1600px){ :root{ --z: .9; } }
+
+/* ---------- single screen (narrow) ---------- */
+@media (max-width: 999px){
+  .screen{ display: none; }
+  .screen.active{ display: block; }
+  .screen[id="s3"] .frame{ display: none; }
+  .screen[id="s3"] .frame.active{ display: block; }
+  .phone{ min-height: calc(100vh - var(--banner)); min-height: calc(100dvh - var(--banner)); }
+  .screen, .frame{ scroll-margin-top: var(--banner); }
+  .param-toggle{ display: none; }
+}
+
+/* ---------- phone shell ---------- */
+.phone{ display: flex; flex-direction: column; background: var(--bg); position: relative; }
+.top{
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 64px; padding: 8px var(--gutter); border-bottom: 1px solid var(--rule);
+}
+.brand{ font: 700 22px/1 var(--serif); letter-spacing: .01em; }
+.top-title{ font-size: 16px; color: var(--ink-2); font-weight: 500; }
+.content{ flex: 1 1 auto; display: flex; flex-direction: column; padding: 20px var(--gutter) 24px; }
+.actions{
+  position: sticky; bottom: 0; z-index: 5; display: grid; gap: 8px;
+  padding: 12px var(--gutter) calc(12px + env(safe-area-inset-bottom));
+  background: var(--bg);
+  box-shadow: 0 -1px 0 var(--rule), 0 -10px 24px -14px oklch(0.24 0.035 262 / .22); /* the only elevation */
+}
+
+/* buttons */
+.btn{
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%;
+  min-height: 52px; padding: 0 20px; border-radius: 12px; border: 0; cursor: pointer;
+  font: 600 18px/1.2 var(--sans); text-align: center;
+}
+.btn.primary{ min-height: 60px; background: var(--action); color: var(--on-action); font-size: 19px; }
+.btn.primary.big{ min-height: 64px; }
+.btn.primary:active{ background: var(--action-press); }
+.btn.primary:disabled{ background: var(--rule); color: var(--ink-2); cursor: not-allowed; }
+.btn.secondary{ background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+.btn.secondary:disabled{ color: var(--ink-2); box-shadow: inset 0 0 0 1.5px var(--rule); cursor: not-allowed; }
+.back{
+  display: inline-flex; align-items: center; gap: 6px; min-height: 48px; padding: 0 12px 0 4px; margin-left: -4px;
+  background: none; border: 0; cursor: pointer; font-weight: 600; font-size: 17px;
+}
+.lang-btn{
+  display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 14px;
+  background: none; border: 1px solid var(--rule); border-radius: 999px; cursor: pointer; font-size: 17px; font-weight: 600;
+}
+.linkish{
+  display: inline-flex; align-items: center; min-height: 48px; padding: 0 2px; background: none; border: 0; cursor: pointer;
+  color: var(--ink); font-size: 16px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--ink-2);
+}
+
+/* record-book pieces */
+.eyebrow{ font: 600 14px/1.3 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.date{ font: 600 clamp(30px, 26px + 1vw, 36px)/1.15 var(--serif); letter-spacing: -.01em; margin-top: 6px; }
+.date .dow{ display: block; font-weight: 400; font-size: .72em; color: var(--ink-2); }
+.plot{ display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; margin-top: 10px; font-size: 18px; }
+.plot strong{ font-weight: 600; }
+.plot .ico{ color: var(--ink-2); }
+.book-h{
+  display: flex; align-items: baseline; gap: 12px; margin-top: 36px;
+  font: 600 20px/1.3 var(--serif);
+}
+.book-h::after{ content: ""; flex: 1; border-top: 1px solid var(--ink); transform: translateY(-5px); }
+.book{ margin-top: 4px; }
+.book li{
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
+  min-height: 60px; padding: 8px 0; border-bottom: 1px solid var(--rule);
+}
+.book .d{ font: 400 18px/1.2 var(--serif); min-width: 3.6em; }
+.book .kg{ font: 600 26px/1 var(--serif); font-variant-numeric: tabular-nums; }
+.book .kg small{ font: 500 16px var(--sans); color: var(--ink-2); margin-left: 3px; }
+.verdict-tag{ display: inline-flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; text-align: right; }
+.verdict-tag.ok{ color: var(--ok); }
+.verdict-tag.check{ color: var(--ink); }
+.verdict-tag.wait{ color: var(--ink-2); }
+.mark{ width: 28px; height: 28px; }
+.sync{ display: flex; align-items: center; gap: 8px; margin-top: 16px; color: var(--ink-2); font-size: 16px; }
+
+/* photos */
+.h-row{ display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.h1{ font: 600 clamp(26px, 23px + 1vw, 30px)/1.2 var(--serif); }
+.counter{ font: 600 22px/1 var(--serif); white-space: nowrap; }
+.counter span{ font-size: 26px; }
+.lede{ margin-top: 6px; color: var(--ink-2); }
+.slots{ margin-top: 16px; border-top: 1px solid var(--ink); }
+.slot{ display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--rule); }
+.thumb{ position: relative; width: 96px; height: 96px; border-radius: 8px; overflow: hidden; border: 1px solid var(--rule); background: var(--paper-2); }
+.thumb svg{ width: 100%; height: 100%; display: block; }
+.tag{
+  position: absolute; left: 4px; bottom: 4px; right: 4px; width: max-content; max-width: calc(100% - 8px);
+  font: 600 13px/1.15 var(--sans); background: oklch(0.975 0.010 85 / .92); color: var(--ink); padding: 2px 5px; border-radius: 4px;
+}
+.slot-name{ font-weight: 600; font-size: 18px; line-height: 1.3; }
+.slot-hint{ font-size: 16px; color: var(--ink-2); line-height: 1.4; }
+.slot-state{ display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 15px; font-weight: 600; }
+.slot .is-photo, .slot.filled .is-example{ display: none; }
+.slot.filled .is-photo{ display: block; }
+.slot .st-done{ display: none; color: var(--ok); }
+.slot.filled .st-done{ display: inline-flex; }
+.slot.filled .st-todo{ display: none; }
+.slot .st-todo{ color: var(--ink-2); }
+.hint-proto{ font-size: 15px; color: var(--ink-2); text-align: center; }
+
+/* placeholder art: photo vs. example (same shapes, different paint) */
+.art-photo{
+  --a-bg: oklch(0.84 0.05 135); --a-bg2: oklch(0.76 0.06 138); --a-leaf: oklch(0.48 0.09 150); --a-rib: oklch(0.64 0.08 145);
+  --a-wood: oklch(0.45 0.05 60); --a-red: oklch(0.50 0.17 27); --a-dark: oklch(0.40 0.13 20); --a-orange: oklch(0.64 0.15 45);
+  --a-green: oklch(0.70 0.12 125); --a-hl: oklch(1 0 0 / .55); --a-line: none;
+  --a-floor: oklch(0.88 0.025 80); --a-wall: oklch(0.93 0.015 85); --a-basket: oklch(0.68 0.08 70); --a-weave: oklch(0.55 0.07 65);
+  --a-metal: oklch(0.55 0.02 250); --a-metal2: oklch(0.42 0.02 250); --a-lcd: oklch(0.30 0.03 250); --a-digit: oklch(0.86 0.12 140);
+  --a-tarp: oklch(0.60 0.08 245); --a-tarp2: oklch(0.67 0.07 245); --a-mound: oklch(0.42 0.13 22);
+}
+.art-example{
+  --a-bg: var(--paper-2); --a-bg2: none; --a-leaf: none; --a-rib: var(--ink-2); --a-wood: var(--ink-2);
+  --a-red: none; --a-dark: none; --a-orange: none; --a-green: none; --a-hl: none; --a-line: var(--ink-2);
+  --a-floor: var(--paper-2); --a-wall: var(--paper-2); --a-basket: none; --a-weave: var(--ink-2);
+  --a-metal: none; --a-metal2: none; --a-lcd: none; --a-digit: var(--ink-2);
+  --a-tarp: var(--paper-2); --a-tarp2: var(--ink-2); --a-mound: none;
+}
+.a-bg{ fill: var(--a-bg); } .a-blob{ fill: var(--a-bg2); }
+.a-leaf{ fill: var(--a-leaf); stroke: var(--a-line); stroke-width: 1.4; }
+.a-rib{ stroke: var(--a-rib); stroke-width: .9; fill: none; }
+.a-wood{ stroke: var(--a-wood); fill: none; stroke-linecap: round; }
+.a-c{ stroke: var(--a-line); stroke-width: 1.2; }
+.a-hl{ fill: var(--a-hl); }
+.a-floor{ fill: var(--a-floor); } .a-wall{ fill: var(--a-wall); }
+.a-basket{ fill: var(--a-basket); stroke: var(--a-line); stroke-width: 1.4; }
+.a-weave{ stroke: var(--a-weave); stroke-width: 1.3; fill: none; }
+.a-metal{ fill: var(--a-metal); stroke: var(--a-line); stroke-width: 1.4; }
+.a-metal2{ fill: var(--a-metal2); stroke: var(--a-line); stroke-width: 1.4; }
+.a-lcd{ fill: var(--a-lcd); stroke: var(--a-line); stroke-width: 1.2; }
+.a-digit{ fill: var(--a-digit); }
+.a-tarp{ fill: var(--a-tarp); } .a-tarp2{ stroke: var(--a-tarp2); stroke-width: 1.2; fill: none; }
+.a-mound{ fill: var(--a-mound); stroke: var(--a-line); stroke-width: 1.4; }
+
+/* review */
+.photo-lg{ position: relative; margin-top: 16px; border-radius: 10px; overflow: hidden; border: 1px solid var(--rule); aspect-ratio: 4 / 3; }
+.photo-lg svg{ width: 100%; height: 100%; display: block; }
+.photo-lg .tag{ left: 8px; bottom: 8px; font-size: 14px; padding: 3px 8px; }
+.photo-lg + figcaption, .fig-cap{ margin-top: 8px; font-size: 16px; color: var(--ink-2); }
+.check-h{ margin-top: 18px; font-weight: 700; }
+.checklist li{ display: flex; align-items: center; gap: 12px; min-height: 40px; border-bottom: 1px solid var(--rule); }
+.checklist li::before{ content: ""; width: 14px; height: 14px; border: 2px solid var(--ink); border-radius: 50%; flex: none; }
+.review-art{ display: none; }
+.frame[data-slot="0"] .review-art[data-art="0"],
+.frame[data-slot="1"] .review-art[data-art="1"],
+.frame[data-slot="2"] .review-art[data-art="2"]{ display: block; }
+
+/* weight */
+.q{ font: 600 clamp(22px, 20px + 1vw, 26px)/1.25 var(--serif); text-align: center; }
+.readout{ display: flex; align-items: baseline; justify-content: center; gap: 10px; margin-top: 18px; }
+.readout .num{ font: 600 clamp(64px, 50px + 5vw, 88px)/1 var(--serif); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.readout .num.empty{ color: var(--rule); }
+.readout .unit{ font: 500 28px/1 var(--serif); color: var(--ink-2); }
+.readout-rule{ width: min(260px, 80%); margin: 10px auto 0; border-top: 1px solid var(--ink); }
+.hint{ display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; color: var(--ink-2); font-size: 16px; }
+.keypad{ margin-top: auto; padding-top: 16px; display: grid; grid-template-columns: repeat(3, 1fr); }
+.key{
+  min-height: 60px; background: none; border: 0; border-top: 1px solid var(--rule); cursor: pointer;
+  font: 500 28px/1 var(--serif); font-variant-numeric: tabular-nums; display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.key:nth-child(3n+2){ border-left: 1px solid var(--rule); border-right: 1px solid var(--rule); }
+.key:active{ background: var(--paper-2); }
+.key.del{ font: 600 15px/1 var(--sans); }
+
+/* checking */
+.entry-line{
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 10px; padding: 12px 0; margin-top: 14px;
+  border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); font: 400 18px/1.35 var(--serif); text-align: center;
+}
+.entry-line b{ font-weight: 600; }
+.checks{ margin-top: 12px; }
+.checks li{
+  display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 12px;
+  min-height: 56px; padding: 6px 0; border-bottom: 1px solid var(--rule);
+}
+.checks .c-name{ font-size: 17px; line-height: 1.35; }
+.checks .c-state{ font-size: 15px; font-weight: 600; color: var(--ink-2); }
+.checks li[data-state="done"] .c-state{ color: var(--ok); }
+.checks li[data-state="now"] .c-state{ color: var(--ink); }
+.checks li[data-state="now"] .c-name{ font-weight: 600; }
+.checks li[data-state="wait"] .c-name{ color: var(--ink-2); }
+.checks li .mark{ display: none; }
+.checks li[data-state="done"] .mk-done, .checks li[data-state="now"] .mk-now, .checks li[data-state="wait"] .mk-wait{ display: block; }
+.caption{ display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 16px; color: var(--ink-2); }
+
+/* verdicts — the one bold moment */
+.verdict-body{ text-align: center; align-items: stretch; }
+.seal-wrap{ display: flex; justify-content: center; padding-top: 6px; }
+.seal{ width: clamp(150px, 50vw, 208px); height: auto; transform: rotate(-6deg); }
+.seal text{ font: 700 15.5px var(--sans); letter-spacing: .1em; }
+.seal-hero{ animation: press 180ms cubic-bezier(.2,.8,.2,1) both; }
+@keyframes press{ from{ transform: rotate(-6deg) scale(1.08); opacity: .35; } to{ transform: rotate(-6deg) scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce){ .seal-hero{ animation: none; } }
+.verdict{ font: 700 clamp(38px, 32px + 2vw, 46px)/1.1 var(--serif); margin-top: 18px; letter-spacing: -.01em; }
+.verdict.ok{ color: var(--ok); }
+.verdict-sub{ margin-top: 6px; font-size: 18px; color: var(--ink-2); }
+.evidence{ margin-top: 18px; text-align: left; border-top: 1px solid var(--ink); }
+.evidence li{ display: grid; grid-template-columns: 24px 1fr; gap: 14px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--rule); line-height: 1.45; }
+.evidence .ico{ margin-top: 1px; }
+.empty-seal{ width: 132px; height: 132px; margin: 8px auto 0; border-radius: 50%; border: 2px dashed var(--ink-2); display: grid; place-items: center; color: var(--ink-2); }
+.empty-seal .ico{ width: 48px; height: 48px; stroke-width: 1.6; }
+.lead{ margin-top: 8px; font-size: 20px; font-weight: 600; }
+.body-p{ margin-top: 10px; }
+
+/* short narrow screens: keep the keypad and the send button on screen */
+@media (max-width: 999px) and (max-height: 640px){
+  .top{ min-height: 56px; }
+  .content{ padding-top: 14px; padding-bottom: 16px; }
+  .q{ font-size: 21px; }
+  .readout{ margin-top: 8px; }
+  .readout .num{ font-size: 58px; }
+  .hint{ margin-top: 6px; }
+  .keypad{ padding-top: 10px; }
+  .key{ min-height: 48px; }
+  .btn.primary.big{ min-height: 58px; }
+  .seal{ width: 140px; }
+  .verdict{ margin-top: 10px; }
+}
+
+dialog{ border: 1px solid var(--ink); border-radius: 14px; padding: 24px var(--gutter); width: min(420px, calc(100vw - 24px)); background: var(--bg); color: var(--ink); }
+dialog::backdrop{ background: oklch(0.24 0.035 262 / .45); }
+dialog h2{ font: 600 24px/1.25 var(--serif); }
+dialog .btn{ margin-top: 12px; min-height: 64px; font-size: 20px; }
+dialog .note{ margin-top: 14px; font-size: 15px; color: var(--ink-2); }
+@media (max-width: 359px){ .proto-banner{ font-size: 10.5px; letter-spacing: 0; padding-left: 10px; } .proto-banner .tool-btn{ padding: 0 9px; } }
+</style>
+</head>
+<body>
+
+<div class="proto-banner" role="note">
+  <p class="b-text"><span>DESIGN PROTOTYPE — NOT PRODUCTION</span><span class="sep"> · </span><span>Option A · Estate Record Book</span></p>
+  <button class="tool-btn screens-btn" type="button" aria-expanded="false" aria-controls="screens-menu">Screens</button>
+</div>
+
+<!-- Icon set (one line style, 24px, drawn for this prototype) + verdict marks + placeholder art -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l1.6-2.4h6.8L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7.4 9.7 4.4 4.4 0 0 0 7 18.5z"/></symbol>
+  <symbol id="i-location" viewBox="0 0 24 24"><path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></symbol>
+  <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M3.5 3.5l17 17"/><path d="M8.8 15.6a4.8 4.8 0 0 1 5.6-.7"/><path d="M5.4 12.2a9.4 9.4 0 0 1 3.9-2.2"/><path d="M13.9 9.6a9.4 9.4 0 0 1 4.7 2.6"/><path d="M2.2 8.8a14.4 14.4 0 0 1 3.9-2.4"/><path d="M10.3 5.2A14.4 14.4 0 0 1 21.8 8.8"/><path d="M12 19.2h.01" stroke-width="2.6"/></symbol>
+  <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M20 12H5"/><path d="M11 5.5L4.5 12 11 18.5"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.3 2.4 3.5 5.2 3.5 8.5s-1.2 6.1-3.5 8.5c-2.3-2.4-3.5-5.2-3.5-8.5S9.7 5.9 12 3.5z"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 10.5l5 5 5-5"/><path d="M4.5 19.5h15"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V4h10v5"/><rect x="3.5" y="9" width="17" height="7.5" rx="1"/><path d="M7 14h10v6H7z"/></symbol>
+  <symbol id="i-tree" viewBox="0 0 24 24"><path d="M12 21v-5"/><path d="M12 3l-5.5 8h3L6 16h12l-3.5-5h3z"/></symbol>
+  <symbol id="i-delete" viewBox="0 0 24 24"><path d="M9 5h11a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9l-6-7z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></symbol>
+
+  <!-- verdict marks: shape + colour; always shown with a word -->
+  <symbol id="m-ok" viewBox="0 0 28 28"><circle cx="14" cy="14" r="12.75" style="fill:none;stroke:var(--ok);stroke-width:1.5"/><circle cx="14" cy="14" r="9.5" style="fill:var(--ok)"/><path d="M9.6 14.3l3.1 3.1 5.9-6.3" style="fill:none;stroke:var(--on-ok);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round"/></symbol>
+  <symbol id="m-check" viewBox="0 0 28 28"><circle cx="14" cy="14" r="12.75" style="fill:none;stroke:var(--check-ink);stroke-width:1.5"/><circle cx="14" cy="14" r="9.5" style="fill:var(--check)"/><path d="M11.4 11.5a2.7 2.7 0 1 1 3.8 2.4c-.8.4-1.2.9-1.2 1.9" style="fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round"/><circle cx="14" cy="19.2" r="1.25" style="fill:var(--ink)"/></symbol>
+  <symbol id="m-wait" viewBox="0 0 28 28"><circle cx="14" cy="14" r="11.5" style="fill:none;stroke:var(--ink-2);stroke-width:1.6;stroke-dasharray:3 3"/><path d="M14 9v5.2l3.2 2" style="fill:none;stroke:var(--ink-2);stroke-width:1.8;stroke-linecap:round"/></symbol>
+  <symbol id="m-now" viewBox="0 0 28 28"><circle cx="14" cy="14" r="11.5" style="fill:none;stroke:var(--rule);stroke-width:2.5"/><path d="M14 2.5a11.5 11.5 0 0 1 11.5 11.5" style="fill:none;stroke:var(--ink);stroke-width:2.5;stroke-linecap:round"/><circle cx="14" cy="14" r="3" style="fill:var(--ink)"/></symbol>
+
+  <!-- placeholder art (paint comes from .art-photo / .art-example) -->
+  <symbol id="art-branch" viewBox="0 0 160 120">
+    <rect class="a-bg" width="160" height="120"/>
+    <ellipse class="a-blob" cx="28" cy="22" rx="40" ry="15" transform="rotate(-18 28 22)"/>
+    <ellipse class="a-blob" cx="138" cy="102" rx="42" ry="14" transform="rotate(14 138 102)"/>
+    <ellipse class="a-blob" cx="140" cy="14" rx="30" ry="10"/>
+    <path class="a-wood" d="M-6 94 C 40 82, 92 62, 166 36" stroke-width="5"/>
+    <ellipse class="a-leaf" cx="28" cy="64" rx="22" ry="8" transform="rotate(-35 28 64)"/><line class="a-rib" x1="6" y1="64" x2="50" y2="64" transform="rotate(-35 28 64)"/>
+    <ellipse class="a-leaf" cx="44" cy="103" rx="22" ry="8" transform="rotate(18 44 103)"/><line class="a-rib" x1="22" y1="103" x2="66" y2="103" transform="rotate(18 44 103)"/>
+    <ellipse class="a-leaf" cx="94" cy="34" rx="24" ry="8.5" transform="rotate(-50 94 34)"/><line class="a-rib" x1="70" y1="34" x2="118" y2="34" transform="rotate(-50 94 34)"/>
+    <ellipse class="a-leaf" cx="112" cy="80" rx="24" ry="8.5" transform="rotate(26 112 80)"/><line class="a-rib" x1="88" y1="80" x2="136" y2="80" transform="rotate(26 112 80)"/>
+    <ellipse class="a-leaf" cx="150" cy="22" rx="16" ry="6" transform="rotate(-30 150 22)"/>
+    <g>
+      <circle class="a-c" cx="48" cy="79" r="6" style="fill:var(--a-red)"/><circle class="a-c" cx="56" cy="74" r="6.5" style="fill:var(--a-red)"/>
+      <circle class="a-c" cx="67" cy="71" r="6.5" style="fill:var(--a-dark)"/><circle class="a-c" cx="61" cy="63" r="6" style="fill:var(--a-orange)"/>
+      <circle class="a-c" cx="70" cy="81" r="6" style="fill:var(--a-red)"/><circle class="a-c" cx="58" cy="84" r="5.5" style="fill:var(--a-green)"/>
+      <circle class="a-hl" cx="54" cy="71.5" r="1.6"/><circle class="a-hl" cx="65" cy="68.5" r="1.6"/><circle class="a-hl" cx="68" cy="78.5" r="1.4"/>
+    </g>
+    <g>
+      <circle class="a-c" cx="116" cy="54" r="6.5" style="fill:var(--a-red)"/><circle class="a-c" cx="127" cy="50" r="6.5" style="fill:var(--a-red)"/>
+      <circle class="a-c" cx="121" cy="43" r="6" style="fill:var(--a-dark)"/><circle class="a-c" cx="130" cy="59" r="6" style="fill:var(--a-orange)"/>
+      <circle class="a-c" cx="118" cy="64" r="5.5" style="fill:var(--a-green)"/>
+      <circle class="a-hl" cx="114" cy="51.5" r="1.6"/><circle class="a-hl" cx="125" cy="47.5" r="1.6"/>
+    </g>
+  </symbol>
+  <symbol id="art-basket" viewBox="0 0 160 120">
+    <rect class="a-floor" width="160" height="120"/><rect class="a-wall" width="160" height="44"/>
+    <rect class="a-metal" x="28" y="92" width="104" height="9" rx="2"/>
+    <rect class="a-metal2" x="38" y="101" width="84" height="13" rx="2"/>
+    <rect class="a-lcd" x="64" y="103.5" width="32" height="8" rx="1.5"/>
+    <text class="a-digit" x="80" y="110" text-anchor="middle" font-size="6.5" font-family="monospace">42.5</text>
+    <g>
+      <circle class="a-c" cx="46" cy="46" r="5.5" style="fill:var(--a-red)"/><circle class="a-c" cx="55" cy="45" r="5.5" style="fill:var(--a-dark)"/><circle class="a-c" cx="64" cy="46" r="5.5" style="fill:var(--a-red)"/><circle class="a-c" cx="73" cy="45" r="5.5" style="fill:var(--a-orange)"/><circle class="a-c" cx="82" cy="46" r="5.5" style="fill:var(--a-red)"/><circle class="a-c" cx="91" cy="45" r="5.5" style="fill:var(--a-dark)"/><circle class="a-c" cx="100" cy="46" r="5.5" style="fill:var(--a-red)"/><circle class="a-c" cx="109" cy="45" r="5.5" style="fill:var(--a-red)"/><circle class="a-c" cx="116" cy="47" r="5" style="fill:var(--a-green)"/>
+      <circle class="a-c" cx="56" cy="38" r="5.5" style="fill:var(--a-red)"/><circle class="a-c" cx="65" cy="37" r="5.5" style="fill:var(--a-red)"/><circle class="a-c" cx="74" cy="37" r="5.5" style="fill:var(--a-dark)"/><circle class="a-c" cx="83" cy="36" r="5.5" style="fill:var(--a-red)"/><circle class="a-c" cx="92" cy="37" r="5.5" style="fill:var(--a-orange)"/><circle class="a-c" cx="101" cy="38" r="5.5" style="fill:var(--a-red)"/>
+      <circle class="a-c" cx="70" cy="30" r="5.5" style="fill:var(--a-red)"/><circle class="a-c" cx="79" cy="29" r="5.5" style="fill:var(--a-dark)"/><circle class="a-c" cx="88" cy="30" r="5.5" style="fill:var(--a-red)"/>
+      <circle class="a-hl" cx="62" cy="43.5" r="1.5"/><circle class="a-hl" cx="81" cy="33.5" r="1.5"/><circle class="a-hl" cx="98" cy="43.5" r="1.5"/>
+    </g>
+    <rect class="a-basket" x="34" y="49" width="92" height="7" rx="3.5"/>
+    <path class="a-basket" d="M38 56 L122 56 L113 92 L47 92 Z"/>
+    <path class="a-weave" d="M40 65h80M42 74h76M44 83h72M56 56l-2 36M70 56l-1 36M84 56v36M98 56l1 36M112 56l-3 36"/>
+  </symbol>
+  <symbol id="art-pile" viewBox="0 0 160 120">
+    <rect class="a-tarp" width="160" height="120"/>
+    <path class="a-tarp2" d="M0 20 L160 30 M0 112 L160 104 M52 0 L44 120"/>
+    <ellipse class="a-mound" cx="80" cy="84" rx="64" ry="26"/>
+    <circle class="a-c" cx="26" cy="98" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="35" cy="98" r="5.2" style="fill:var(--a-orange)"/><circle class="a-c" cx="44" cy="98" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="53" cy="98" r="5.2" style="fill:var(--a-dark)"/><circle class="a-c" cx="62" cy="98" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="71" cy="98" r="5.2" style="fill:var(--a-green)"/><circle class="a-c" cx="80" cy="98" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="89" cy="98" r="5.2" style="fill:var(--a-dark)"/><circle class="a-c" cx="98" cy="98" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="107" cy="98" r="5.2" style="fill:var(--a-orange)"/><circle class="a-c" cx="116" cy="98" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="125" cy="98" r="5.2" style="fill:var(--a-dark)"/><circle class="a-c" cx="134" cy="98" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="26" cy="90" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="35" cy="90" r="5.2" style="fill:var(--a-orange)"/><circle class="a-c" cx="44" cy="90" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="53" cy="90" r="5.2" style="fill:var(--a-dark)"/><circle class="a-c" cx="62" cy="90" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="71" cy="90" r="5.2" style="fill:var(--a-green)"/><circle class="a-c" cx="80" cy="90" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="89" cy="90" r="5.2" style="fill:var(--a-dark)"/><circle class="a-c" cx="98" cy="90" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="107" cy="90" r="5.2" style="fill:var(--a-orange)"/><circle class="a-c" cx="116" cy="90" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="125" cy="90" r="5.2" style="fill:var(--a-dark)"/><circle class="a-c" cx="134" cy="90" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="28" cy="82" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="37" cy="82" r="5.2" style="fill:var(--a-dark)"/><circle class="a-c" cx="46" cy="82" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="55" cy="82" r="5.2" style="fill:var(--a-green)"/><circle class="a-c" cx="64" cy="82" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="73" cy="82" r="5.2" style="fill:var(--a-dark)"/><circle class="a-c" cx="82" cy="82" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="91" cy="82" r="5.2" style="fill:var(--a-orange)"/><circle class="a-c" cx="100" cy="82" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="109" cy="82" r="5.2" style="fill:var(--a-dark)"/><circle class="a-c" cx="118" cy="82" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="127" cy="82" r="5.2" style="fill:var(--a-green)"/><circle class="a-c" cx="40" cy="74" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="49" cy="74" r="5.2" style="fill:var(--a-dark)"/><circle class="a-c" cx="58" cy="74" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="67" cy="74" r="5.2" style="fill:var(--a-orange)"/><circle class="a-c" cx="76" cy="74" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="85" cy="74" r="5.2" style="fill:var(--a-dark)"/><circle class="a-c" cx="94" cy="74" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="103" cy="74" r="5.2" style="fill:var(--a-green)"/><circle class="a-c" cx="112" cy="74" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="121" cy="74" r="5.2" style="fill:var(--a-dark)"/><circle class="a-c" cx="48" cy="66" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="57" cy="66" r="5.2" style="fill:var(--a-dark)"/><circle class="a-c" cx="66" cy="66" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="75" cy="66" r="5.2" style="fill:var(--a-orange)"/><circle class="a-c" cx="84" cy="66" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="93" cy="66" r="5.2" style="fill:var(--a-dark)"/><circle class="a-c" cx="102" cy="66" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="111" cy="66" r="5.2" style="fill:var(--a-green)"/><circle class="a-c" cx="64" cy="58" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="73" cy="58" r="5.2" style="fill:var(--a-dark)"/><circle class="a-c" cx="82" cy="58" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="91" cy="58" r="5.2" style="fill:var(--a-orange)"/><circle class="a-c" cx="100" cy="58" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="72" cy="51" r="5.2" style="fill:var(--a-dark)"/><circle class="a-c" cx="81" cy="51" r="5.2" style="fill:var(--a-red)"/><circle class="a-c" cx="90" cy="51" r="5.2" style="fill:var(--a-green)"/>
+  </symbol>
+</svg>
+
+<header class="story-head">
+  <p class="t">Option A · Estate Record Book</p>
+  <p class="h">Hypothesis: farmers already keep paper picking books, so an app that feels like a dated record book they own — where each verdict is a seal pressed on the entry — feels familiar and earns pride instead of feeling like policing.</p>
+  <a href="verify.html">Open the public certificate (verify.html)</a>
+</header>
+
+<main class="board" id="app">
+
+<!-- ============ 1 HOME ============ -->
+<section class="screen" id="s1" aria-labelledby="s1-h">
+ <div class="frame">
+  <p class="cap">1 Home</p>
+  <div class="phone">
+    <header class="top">
+      <span class="brand">Udgam</span>
+      <button class="lang-btn" type="button" data-open-lang aria-haspopup="dialog"><svg class="ico" aria-hidden="true"><use href="#i-globe"/></svg><span lang="kn">ಕನ್ನಡ</span><span class="sr-only"> — change language</span></button>
+    </header>
+    <div class="content">
+      <h1 class="date" id="s1-h" tabindex="-1"><span class="dow">Today · Monday</span> 28 September</h1>
+      <p class="plot"><svg class="ico" aria-hidden="true"><use href="#i-location"/></svg><strong>Plot 2 · Hosahalli</strong><button class="linkish" type="button" data-toast="In the real app this lists your plots.">Change plot</button></p>
+
+      <h2 class="book-h">Your book</h2>
+      <ol class="book" id="book">
+        <li><span class="d">27 Sep</span><span class="kg">42<small>kg</small></span><span class="verdict-tag ok"><svg class="mark" aria-hidden="true"><use href="#m-ok"/></svg>Verified</span></li>
+        <li><span class="d">25 Sep</span><span class="kg">38<small>kg</small></span><span class="verdict-tag ok"><svg class="mark" aria-hidden="true"><use href="#m-ok"/></svg>Verified</span></li>
+        <li><span class="d">22 Sep</span><span class="kg">51<small>kg</small></span><span class="verdict-tag check"><svg class="mark" aria-hidden="true"><use href="#m-check"/></svg>Needs a check</span></li>
+      </ol>
+      <p class="sync" id="sync"><svg class="ico" aria-hidden="true"><use href="#i-cloud"/></svg><span>All entries sent</span></p>
+      <p><button class="linkish" type="button" data-toast="In the real app this opens every entry of the season.">See your whole book</button></p>
+    </div>
+    <footer class="actions">
+      <button class="btn primary big" type="button" data-act="new"><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg>Record today's picking</button>
+    </footer>
+  </div>
+ </div>
+</section>
+
+<!-- ============ 2 PHOTOS ============ -->
+<section class="screen" id="s2" aria-labelledby="s2-h">
+ <div class="frame">
+  <p class="cap">2 Photos</p>
+  <div class="phone">
+    <header class="top">
+      <button class="back" type="button" data-go="s1"><svg class="ico" aria-hidden="true"><use href="#i-arrow-left"/></svg>Back</button>
+      <span class="top-title">Today's entry · Plot 2</span>
+    </header>
+    <div class="content">
+      <div class="h-row">
+        <h1 class="h1" id="s2-h" tabindex="-1">Take photos</h1>
+        <p class="counter" aria-live="polite"><span data-count>1</span> of 3</p>
+      </div>
+      <p class="lede">One photo is enough. Three is best.</p>
+      <ol class="slots">
+        <li class="slot filled" data-slot="0">
+          <div class="thumb">
+            <svg class="is-photo art-photo" viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Photo placeholder: coffee branch with cherries"><use href="#art-branch"/></svg>
+            <svg class="is-example art-example" viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><use href="#art-branch"/></svg>
+            <span class="tag is-photo">Photo placeholder</span><span class="tag is-example">Example</span>
+          </div>
+          <div>
+            <p class="slot-name">1 · The branch</p>
+            <p class="slot-hint">Close up, cherries in the middle</p>
+            <p class="slot-state"><span class="st-done"><svg class="ico" aria-hidden="true" style="width:20px;height:20px"><use href="#i-check"/></svg>Taken</span><span class="st-todo">Not taken yet</span></p>
+          </div>
+        </li>
+        <li class="slot" data-slot="1">
+          <div class="thumb">
+            <svg class="is-photo art-photo" viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Photo placeholder: basket of cherries on the scale"><use href="#art-basket"/></svg>
+            <svg class="is-example art-example" viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><use href="#art-basket"/></svg>
+            <span class="tag is-photo">Photo placeholder</span><span class="tag is-example">Example</span>
+          </div>
+          <div>
+            <p class="slot-name">2 · Basket on the scale</p>
+            <p class="slot-hint">Show the number on the scale</p>
+            <p class="slot-state"><span class="st-done"><svg class="ico" aria-hidden="true" style="width:20px;height:20px"><use href="#i-check"/></svg>Taken</span><span class="st-todo">Not taken yet</span></p>
+          </div>
+        </li>
+        <li class="slot" data-slot="2">
+          <div class="thumb">
+            <svg class="is-photo art-photo" viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Photo placeholder: the day's pile of cherries"><use href="#art-pile"/></svg>
+            <svg class="is-example art-example" viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><use href="#art-pile"/></svg>
+            <span class="tag is-photo">Photo placeholder</span><span class="tag is-example">Example</span>
+          </div>
+          <div>
+            <p class="slot-name">3 · The day's pile</p>
+            <p class="slot-hint">All of today's cherries together</p>
+            <p class="slot-state"><span class="st-done"><svg class="ico" aria-hidden="true" style="width:20px;height:20px"><use href="#i-check"/></svg>Taken</span><span class="st-todo">Not taken yet</span></p>
+          </div>
+        </li>
+      </ol>
+    </div>
+    <footer class="actions">
+      <button class="btn primary big" type="button" data-act="camera"><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg><span data-camera-label>Open camera</span></button>
+      <button class="btn secondary" type="button" data-act="toweight" data-next-weight>Next: enter the weight</button>
+    </footer>
+  </div>
+ </div>
+</section>
+
+<!-- ============ 3 REVIEW + WEIGHT ============ -->
+<section class="screen" id="s3" aria-label="Review photo and weight">
+ <div class="frame" id="s3-review" data-sub="review" data-slot="0">
+  <p class="cap">3a Review photo</p>
+  <div class="phone">
+    <header class="top">
+      <button class="back" type="button" data-go="s2"><svg class="ico" aria-hidden="true"><use href="#i-arrow-left"/></svg>Back</button>
+      <span class="top-title">Photo <span data-review-n>1</span> of 3</span>
+    </header>
+    <div class="content">
+      <h1 class="h1" id="s3r-h" tabindex="-1">Is this photo clear?</h1>
+      <figure>
+        <div class="photo-lg">
+          <svg class="review-art art-photo" data-art="0" viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Photo placeholder: coffee branch with cherries"><use href="#art-branch"/></svg>
+          <svg class="review-art art-photo" data-art="1" viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Photo placeholder: basket on the scale"><use href="#art-basket"/></svg>
+          <svg class="review-art art-photo" data-art="2" viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Photo placeholder: the day's pile"><use href="#art-pile"/></svg>
+          <span class="tag">Photo placeholder</span>
+        </div>
+        <figcaption class="fig-cap" data-review-name>1 · The branch</figcaption>
+      </figure>
+      <p class="check-h">Check:</p>
+      <ul class="checklist">
+        <li>In focus, not blurry</li>
+        <li>Cherries can be seen</li>
+        <li>Not too dark</li>
+      </ul>
+    </div>
+    <footer class="actions">
+      <button class="btn primary big" type="button" data-act="use"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Use this photo</button>
+      <button class="btn secondary" type="button" data-act="retake"><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg>Take again</button>
+    </footer>
+  </div>
+ </div>
+
+ <div class="frame" id="s3-weight" data-sub="weight">
+  <p class="cap">3b Weight</p>
+  <div class="phone">
+    <header class="top">
+      <button class="back" type="button" data-go="s2"><svg class="ico" aria-hidden="true"><use href="#i-arrow-left"/></svg>Back</button>
+      <span class="top-title"><span data-photos>1 photo</span> · Plot 2</span>
+    </header>
+    <div class="content">
+      <h1 class="q" id="s3w-h" tabindex="-1">How many kg of cherries?</h1>
+      <p class="readout" aria-live="polite"><span class="num" data-weight-num>42.5</span><span class="unit">kg</span></p>
+      <div class="readout-rule"></div>
+      <p class="hint"><svg class="ico" aria-hidden="true" style="width:20px;height:20px"><use href="#i-clock"/></svg>Your last pickings: 38–51 kg</p>
+      <div class="keypad" role="group" aria-label="Number keys">
+        <button class="key" type="button" data-key="1">1</button><button class="key" type="button" data-key="2">2</button><button class="key" type="button" data-key="3">3</button>
+        <button class="key" type="button" data-key="4">4</button><button class="key" type="button" data-key="5">5</button><button class="key" type="button" data-key="6">6</button>
+        <button class="key" type="button" data-key="7">7</button><button class="key" type="button" data-key="8">8</button><button class="key" type="button" data-key="9">9</button>
+        <button class="key" type="button" data-key="." aria-label="Decimal point">.</button><button class="key" type="button" data-key="0">0</button>
+        <button class="key del" type="button" data-key="del"><svg class="ico" aria-hidden="true"><use href="#i-delete"/></svg>Delete</button>
+      </div>
+    </div>
+    <footer class="actions">
+      <button class="btn primary big" type="button" data-act="send" data-send>Send 42.5 kg</button>
+    </footer>
+  </div>
+ </div>
+</section>
+
+<!-- ============ 4 CHECKING ============ -->
+<section class="screen" id="s4" aria-labelledby="s4-h">
+ <div class="frame">
+  <p class="cap">4 Checking</p>
+  <div class="phone">
+    <header class="top"><span class="brand">Udgam</span><span class="top-title">Sending</span></header>
+    <div class="content">
+      <h1 class="h1" id="s4-h" tabindex="-1">Checking your entry</h1>
+      <p class="entry-line"><span>28 Sep</span><b data-kg-text>42.5 kg</b><span data-photos>3 photos</span><span>Plot 2</span></p>
+      <ol class="checks" id="checks">
+        <li data-state="done"><svg class="mark mk-done" aria-hidden="true"><use href="#m-ok"/></svg><svg class="mark mk-now" aria-hidden="true"><use href="#m-now"/></svg><svg class="mark mk-wait" aria-hidden="true"><use href="#m-wait"/></svg><span class="c-name">Your phone's seal</span><span class="c-state">Done</span></li>
+        <li data-state="done"><svg class="mark mk-done" aria-hidden="true"><use href="#m-ok"/></svg><svg class="mark mk-now" aria-hidden="true"><use href="#m-now"/></svg><svg class="mark mk-wait" aria-hidden="true"><use href="#m-wait"/></svg><span class="c-name">Inside Plot 2</span><span class="c-state">Done</span></li>
+        <li data-state="done"><svg class="mark mk-done" aria-hidden="true"><use href="#m-ok"/></svg><svg class="mark mk-now" aria-hidden="true"><use href="#m-now"/></svg><svg class="mark mk-wait" aria-hidden="true"><use href="#m-wait"/></svg><span class="c-name">Photos are new</span><span class="c-state">Done</span></li>
+        <li data-state="now"><svg class="mark mk-done" aria-hidden="true"><use href="#m-ok"/></svg><svg class="mark mk-now" aria-hidden="true"><use href="#m-now"/></svg><svg class="mark mk-wait" aria-hidden="true"><use href="#m-wait"/></svg><span class="c-name">Forest map for Plot 2</span><span class="c-state">Checking…</span></li>
+        <li data-state="wait"><svg class="mark mk-done" aria-hidden="true"><use href="#m-ok"/></svg><svg class="mark mk-now" aria-hidden="true"><use href="#m-now"/></svg><svg class="mark mk-wait" aria-hidden="true"><use href="#m-wait"/></svg><span class="c-name">Satellite view this month</span><span class="c-state">Waiting</span></li>
+        <li data-state="wait"><svg class="mark mk-done" aria-hidden="true"><use href="#m-ok"/></svg><svg class="mark mk-now" aria-hidden="true"><use href="#m-now"/></svg><svg class="mark mk-wait" aria-hidden="true"><use href="#m-wait"/></svg><span class="c-name">Harvest size for this plot</span><span class="c-state">Waiting</span></li>
+      </ol>
+      <p class="caption"><svg class="ico" aria-hidden="true" style="width:20px;height:20px"><use href="#i-clock"/></svg>This usually takes under 30 seconds.</p>
+      <p class="sr-only" aria-live="polite" id="check-live"></p>
+    </div>
+    <footer class="actions" id="see-result" hidden>
+      <button class="btn primary big" type="button" data-go="s5">See result</button>
+    </footer>
+  </div>
+ </div>
+</section>
+
+<!-- ============ 5 VERIFIED ============ -->
+<section class="screen" id="s5" aria-labelledby="s5-h">
+ <div class="frame">
+  <p class="cap">5 Verdict · Verified</p>
+  <div class="phone">
+    <header class="top"><span class="brand">Udgam</span><span class="top-title">Plot 2 · Hosahalli</span></header>
+    <div class="content verdict-body">
+      <div class="seal-wrap">
+        <svg class="seal seal-hero" viewBox="0 0 200 200" aria-hidden="true" style="color:var(--ok)">
+          <defs><path id="ring-ok" d="M100,100 m-75.5,0 a75.5,75.5 0 1,1 151,0 a75.5,75.5 0 1,1 -151,0"/></defs>
+          <circle cx="100" cy="100" r="94" fill="none" stroke="currentColor" stroke-width="3"/>
+          <circle cx="100" cy="100" r="70" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text fill="currentColor"><textPath href="#ring-ok" textLength="468" lengthAdjust="spacing">SEALED · PLOT 2 · HOSAHALLI · 28 SEP 2026 ·</textPath></text>
+          <circle cx="100" cy="100" r="60" fill="currentColor"/>
+          <path d="M74 101l17 17 36-38" fill="none" stroke="var(--on-ok)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h1 class="verdict ok" id="s5-h" tabindex="-1">Verified</h1>
+      <p class="verdict-sub">Sealed into your book.</p>
+      <p class="entry-line"><span>Mon 28 Sep</span><b data-kg-text>42.5 kg</b><span>Plot 2</span></p>
+      <ul class="evidence">
+        <li><svg class="ico" aria-hidden="true"><use href="#i-location"/></svg><span>You were 14 m inside Plot 2</span></li>
+        <li><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg><span><span data-photos-new>3 new photos</span>, taken today</span></li>
+        <li><svg class="ico" aria-hidden="true"><use href="#i-tree"/></svg><span>Forest map: no trees cleared since 2020</span></li>
+      </ul>
+    </div>
+    <footer class="actions">
+      <button class="btn primary big" type="button" data-act="done-ok">Done</button>
+    </footer>
+  </div>
+ </div>
+</section>
+
+<!-- ============ 6 NEEDS A CHECK ============ -->
+<section class="screen" id="s6" aria-labelledby="s6-h">
+ <div class="frame">
+  <p class="cap">6 Verdict · Needs a check</p>
+  <div class="phone">
+    <header class="top"><span class="brand">Udgam</span><span class="top-title">Plot 2 · Hosahalli</span></header>
+    <div class="content verdict-body">
+      <div class="seal-wrap">
+        <svg class="seal seal-hero" viewBox="0 0 200 200" aria-hidden="true" style="color:var(--check-ink)">
+          <defs><path id="ring-check" d="M100,100 m-75.5,0 a75.5,75.5 0 1,1 151,0 a75.5,75.5 0 1,1 -151,0"/></defs>
+          <circle cx="100" cy="100" r="94" fill="none" stroke="currentColor" stroke-width="3"/>
+          <circle cx="100" cy="100" r="70" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="5 4"/>
+          <text fill="currentColor"><textPath href="#ring-check" textLength="468" lengthAdjust="spacing">NEEDS A CHECK · PLOT 2 · 28 SEP 2026 ·</textPath></text>
+          <circle cx="100" cy="100" r="60" fill="var(--check)"/>
+          <path d="M84 84a16 16 0 1 1 22.5 14.6c-4.2 2-6.5 4.6-6.5 9.4" fill="none" stroke="var(--ink)" stroke-width="10" stroke-linecap="round"/>
+          <circle cx="100" cy="127" r="6.5" fill="var(--ink)"/>
+        </svg>
+      </div>
+      <h1 class="verdict" id="s6-h" tabindex="-1">Needs a check</h1>
+      <p class="verdict-sub">Your entry is saved in your book.</p>
+      <ul class="evidence">
+        <li><svg class="ico" aria-hidden="true"><use href="#i-cloud"/></svg><span>The satellite picture for this month was cloudy, so the office will look at it.</span></li>
+        <li><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg><span>The office usually checks within 1 working day.<br><span class="assume">ASSUMPTION: 1 working day not yet agreed with the FPO</span></span></li>
+        <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span><strong>You don't need to do anything.</strong></span></li>
+      </ul>
+    </div>
+    <footer class="actions">
+      <button class="btn primary big" type="button" data-act="done-check">Done</button>
+    </footer>
+  </div>
+ </div>
+</section>
+
+<!-- ============ 7 COULDN'T SEND ============ -->
+<section class="screen" id="s7" aria-labelledby="s7-h">
+ <div class="frame">
+  <p class="cap">7 Couldn't send</p>
+  <div class="phone">
+    <header class="top"><span class="brand">Udgam</span><span class="top-title">Plot 2 · Hosahalli</span></header>
+    <div class="content verdict-body">
+      <div class="empty-seal"><svg class="ico" aria-hidden="true"><use href="#i-wifi-off"/></svg></div>
+      <h1 class="verdict" id="s7-h" tabindex="-1">Couldn't send</h1>
+      <p class="lead">No network here.</p>
+      <p class="body-p">Nothing is lost: <span data-photos>3 photos</span> and <span data-kg-text>42.5 kg</span> are saved on this phone.</p>
+      <p class="entry-line"><span>28 Sep</span><b data-kg-text>42.5 kg</b><span class="verdict-tag wait"><svg class="mark" aria-hidden="true"><use href="#m-wait"/></svg>Saved on phone</span></p>
+      <p class="body-p" style="color:var(--ink-2);font-size:16px">It gets its seal once it is sent. Try again when you have signal.</p>
+    </div>
+    <footer class="actions">
+      <button class="btn primary big" type="button" data-act="retry">Try again</button>
+      <button class="btn secondary" type="button" data-act="later">Try later</button>
+    </footer>
+  </div>
+ </div>
+</section>
+
+</main>
+
+<nav id="screens-menu" aria-label="Prototype screens" hidden>
+  <a href="#s1">1 Home</a>
+  <a href="#s2">2 Photos</a>
+  <a href="#s3-review">3a Review photo</a>
+  <a href="#s3">3b Weight</a>
+  <a href="#s4">4 Checking</a>
+  <a href="#s5">5 Verified</a>
+  <a href="#s6">6 Needs a check</a>
+  <a href="#s7">7 Couldn't send</a>
+  <hr>
+  <a href="verify.html">Public certificate</a>
+  <button type="button" data-toggle-params aria-controls="params">Parameters</button>
+</nav>
+
+<button class="tool-btn param-toggle" type="button" data-toggle-params aria-expanded="false" aria-controls="params">Parameters</button>
+<section id="params" hidden aria-label="Design parameters">
+  <h2>Parameters · Option A</h2>
+<pre>visual_direction: estate-record-book
+narrative: "Today → write the entry → it is sealed into your book"
+hero: "circular seal pressed on the verdict and on each book entry"
+navigation: "task-first single flow; Back on each step; no tab bar"
+layout: "one column of ruled lines; primary action in a bottom bar"
+mobile_scroll: native
+motion: "one moment — seal press, scale 1.08 → 1 in 180 ms; static with reduced motion"
+surface: "flat paper, hairline rules; elevation only on the bottom action bar"
+typography: "Noto Serif (dates, kg, headings) + Noto Sans (body, labels); Noto Serif/Sans Kannada"
+conversion: n/a</pre>
+</section>
+
+<dialog id="lang-dlg" aria-labelledby="lang-h">
+  <h2 id="lang-h">Choose your language</h2>
+  <p class="note" style="margin-top:6px">Shown the first time the app opens. You can change it any time.</p>
+  <button class="btn secondary" type="button" value="kn" lang="kn">ಕನ್ನಡ / Kannada</button>
+  <button class="btn secondary" type="button" value="en">English</button>
+  <p class="note">Prototype: the words stay in English here.</p>
+</dialog>
+
+<script>
+(function(){
+  var narrowMQ = matchMedia('(max-width: 999px)');
+  var reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
+  var SLOT_NAMES = ['1 · The branch', '2 · Basket on the scale', "3 · The day's pile"];
+  var state = { photos: 1, reviewing: 0, weight: '42.5', added: false };
+  var timers = [];
+  var first = true;
+  var $ = function(s, r){ return (r || document).querySelector(s); };
+  var $$ = function(s, r){ return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+  function photosText(n){ return n + (n === 1 ? ' photo' : ' photos'); }
+  function cleanW(){ var w = state.weight.replace(/\.$/, ''); return w; }
+
+  function renderSlots(){
+    $$('.slot').forEach(function(li, i){ li.classList.toggle('filled', i < state.photos); });
+    $$('[data-count]').forEach(function(e){ e.textContent = state.photos; });
+    var full = state.photos >= 3;
+    $$('[data-camera-label]').forEach(function(e){ e.textContent = full ? 'Next: enter the weight' : 'Open camera'; });
+    $$('[data-next-weight]').forEach(function(b){ b.hidden = full; b.disabled = state.photos === 0; b.textContent = state.photos === 0 ? 'Take at least 1 photo to go on' : 'Next: enter the weight'; });
+  }
+  function renderCounts(){
+    $$('[data-photos]').forEach(function(e){ e.textContent = photosText(state.photos); });
+    $$('[data-photos-new]').forEach(function(e){ e.textContent = state.photos + (state.photos === 1 ? ' new photo' : ' new photos'); });
+  }
+  function renderReview(){
+    var f = $('#s3-review'); f.setAttribute('data-slot', state.reviewing);
+    $$('[data-review-n]').forEach(function(e){ e.textContent = state.reviewing + 1; });
+    $$('[data-review-name]').forEach(function(e){ e.textContent = SLOT_NAMES[state.reviewing]; });
+  }
+  function renderWeight(){
+    var w = state.weight, num = $('[data-weight-num]'), btn = $('[data-send]');
+    num.textContent = w || '0'; num.classList.toggle('empty', !w);
+    var ok = w && parseFloat(w) > 0;
+    btn.disabled = !ok; btn.textContent = ok ? 'Send ' + cleanW() + ' kg' : 'Type the weight';
+    $$('[data-kg-text]').forEach(function(e){ e.textContent = (ok ? cleanW() : '42.5') + ' kg'; });
+  }
+
+  function parse(h){
+    h = (h || '').replace('#', '');
+    if (h === 's3-review') return { screen: 's3', sub: 'review', id: h };
+    if (h === 's3' || h === 's3-weight') return { screen: 's3', sub: 'weight', id: h };
+    if (/^s[1-7]$/.test(h)) return { screen: h, sub: null, id: h };
+    return { screen: 's1', sub: null, id: '' };
+  }
+  function clearTimers(){ timers.forEach(clearTimeout); timers = []; }
+
+  function show(hash){
+    var t = parse(hash);
+    clearTimers();
+    $$('#screens-menu a').forEach(function(a){ a.setAttribute('aria-current', a.getAttribute('href') === '#' + (t.id || 's1') ? 'true' : 'false'); });
+    if (narrowMQ.matches){
+      $$('.screen').forEach(function(s){ s.classList.toggle('active', s.id === t.screen); });
+      if (t.screen === 's3'){ $$('#s3 .frame').forEach(function(f){ f.classList.toggle('active', f.getAttribute('data-sub') === t.sub); }); }
+      window.scrollTo(0, 0);
+      if (t.screen === 's4' && !first) runChecks();
+      if ((t.screen === 's5' || t.screen === 's6') && !first){
+        var seal = $('#' + t.screen + ' .seal-hero'); seal.style.animation = 'none'; void seal.getBoundingClientRect(); seal.style.animation = '';
+      }
+      if (!first){
+        var h1 = $('#' + t.screen + (t.sub ? ' .frame.active' : '') + ' h1, #' + t.screen + (t.sub ? ' .frame.active' : '') + ' .q');
+        if (h1) h1.focus({ preventScroll: true });
+      }
+    } else if (t.id){
+      var el = document.getElementById(t.id);
+      if (el) el.scrollIntoView({ block: 'start', behavior: first || reduceMQ.matches ? 'auto' : 'smooth' });
+    }
+    first = false;
+  }
+  function go(id){
+    if (location.hash === '#' + id) show(id); else location.hash = id;
+  }
+
+  function setCheck(li, st){
+    li.setAttribute('data-state', st);
+    $('.c-state', li).textContent = st === 'done' ? 'Done' : st === 'now' ? 'Checking…' : 'Waiting';
+  }
+  function runChecks(){
+    var items = $$('#checks li'), live = $('#check-live'), bar = $('#see-result');
+    bar.hidden = true;
+    items.forEach(function(li){ setCheck(li, 'wait'); });
+    setCheck(items[0], 'now');
+    items.forEach(function(li, i){
+      timers.push(setTimeout(function(){
+        setCheck(li, 'done');
+        live.textContent = $('.c-name', li).textContent + ': done.';
+        if (items[i + 1]) setCheck(items[i + 1], 'now');
+        if (i === items.length - 1){
+          live.textContent = 'All checks done.';
+          if (reduceMQ.matches){ bar.hidden = false; }
+          else timers.push(setTimeout(function(){ go('s5'); }, 400));
+        }
+      }, 480 * (i + 1)));
+    });
+  }
+
+  function addEntry(kind){
+    if (state.added) return; state.added = true;
+    var map = { ok: ['ok', 'm-ok', 'Verified'], check: ['check', 'm-check', 'Needs a check'], wait: ['wait', 'm-wait', 'Saved on phone'] }[kind];
+    var li = document.createElement('li');
+    li.innerHTML = '<span class="d">28 Sep</span><span class="kg">' + cleanW() + '<small>kg</small></span><span class="verdict-tag ' + map[0] + '"><svg class="mark" aria-hidden="true"><use href="#' + map[1] + '"/></svg>' + map[2] + '</span>';
+    var book = $('#book'); book.insertBefore(li, book.firstChild);
+    while (book.children.length > 3) book.removeChild(book.lastElementChild);
+    if (kind === 'wait') $('#sync span').textContent = '1 entry waiting to send';
+    else $('#sync span').textContent = 'All entries sent';
+  }
+
+  var toastEl;
+  function toast(msg){
+    if (!toastEl){ toastEl = document.createElement('div'); toastEl.className = 'toast'; toastEl.setAttribute('role', 'status'); document.body.appendChild(toastEl); }
+    toastEl.textContent = msg; toastEl.hidden = false;
+    clearTimeout(toastEl._t); toastEl._t = setTimeout(function(){ toastEl.hidden = true; }, 2600);
+  }
+
+  document.addEventListener('click', function(e){
+    var el = e.target.closest('[data-go],[data-act],[data-key],[data-toast],[data-open-lang],[data-toggle-params],.screens-btn,#screens-menu a');
+    if (!el) return;
+    if (el.matches('#screens-menu a')){ closeMenu(); return; }
+    if (el.matches('.screens-btn')){ var m = $('#screens-menu'); m.hidden = !m.hidden; el.setAttribute('aria-expanded', String(!m.hidden)); return; }
+    if (el.hasAttribute('data-toggle-params')){
+      var p = $('#params'); p.hidden = !p.hidden;
+      $$('[data-toggle-params]').forEach(function(b){ b.setAttribute('aria-expanded', String(!p.hidden)); });
+      closeMenu(); return;
+    }
+    if (el.hasAttribute('data-toast')){ toast(el.getAttribute('data-toast')); return; }
+    if (el.hasAttribute('data-open-lang')){ $('#lang-dlg').showModal(); return; }
+    if (el.hasAttribute('data-key')){
+      var k = el.getAttribute('data-key'), w = state.weight;
+      if (k === 'del') w = w.slice(0, -1);
+      else if (k === '.'){ if (w.indexOf('.') < 0) w = (w || '0') + '.'; }
+      else {
+        var parts = w.split('.');
+        if (parts.length === 2){ if (parts[1].length < 1) w += k; }
+        else if (w === '0') w = k;
+        else if (parts[0].length < 3) w += k;
+      }
+      state.weight = w; renderWeight(); return;
+    }
+    if (el.hasAttribute('data-go')){ go(el.getAttribute('data-go')); return; }
+    var a = el.getAttribute('data-act');
+    if (a === 'new'){ state.photos = 0; state.added = false; renderSlots(); go('s2'); }
+    else if (a === 'camera'){
+      if (state.photos >= 3){ state.weight = ''; renderWeight(); renderCounts(); go('s3'); }
+      else { state.reviewing = state.photos; renderReview(); toast("Prototype: the phone's own camera opens here."); go('s3-review'); }
+    }
+    else if (a === 'use'){ state.photos = Math.max(state.photos, state.reviewing + 1); renderSlots(); go('s2'); }
+    else if (a === 'retake'){ toast("Prototype: the phone's camera opens again."); }
+    else if (a === 'toweight'){ if (state.photos > 0){ state.weight = ''; renderWeight(); renderCounts(); go('s3'); } }
+    else if (a === 'send'){ renderCounts(); renderWeight(); go('s4'); }
+    else if (a === 'done-ok'){ addEntry('ok'); go('s1'); }
+    else if (a === 'done-check'){ addEntry('check'); go('s1'); }
+    else if (a === 'retry'){ go('s4'); }
+    else if (a === 'later'){ addEntry('wait'); go('s1'); }
+  });
+  function closeMenu(){ var m = $('#screens-menu'); m.hidden = true; $('.screens-btn').setAttribute('aria-expanded', 'false'); }
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape'){ closeMenu(); $('#params').hidden = true; }
+  });
+  $$('#lang-dlg button').forEach(function(b){ b.addEventListener('click', function(){ $('#lang-dlg').close(); toast(b.value === 'kn' ? 'Kannada chosen (prototype keeps English text).' : 'English chosen.'); }); });
+
+  window.addEventListener('hashchange', function(){ show(location.hash); });
+  narrowMQ.addEventListener('change', function(){ first = true; show(location.hash); });
+  renderSlots(); renderReview(); renderWeight();
+  show(location.hash);
+  if (narrowMQ.matches) window.addEventListener('load', function(){ requestAnimationFrame(function(){ window.scrollTo(0, 0); }); });
+  if (!narrowMQ.matches && location.hash && document.fonts){ document.fonts.ready.then(function(){ var el = document.getElementById(parse(location.hash).id); if (el) el.scrollIntoView({ block: 'start' }); }); }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Udgam link preview · verify.png</title>
+<meta name="description" content="Design prototype: the 1200×630 Open Graph image for the public certificate page, with a thumbnail legibility test.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0E0C;
+  --ink:#F3F6F4;
+  --ink-2:rgba(243,246,244,.78);
+  --grad-text:linear-gradient(90deg,#B9F5D2 0%,#7FE3C1 45%,#D8F58C 100%);
+  --font:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;background:#050706;color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased}
+.note{max-width:1200px;height:60px;margin:0 auto;padding:20px 0 0;font-size:14px;line-height:1.4;color:var(--ink)}
+.note b{color:#FFCB6B}
+.page{padding:0 24px 48px}
+
+/* ── The 1200×630 canvas (rendered to verify.png) ───────────── */
+.og{position:relative;width:1200px;height:630px;margin:0 auto;overflow:hidden;isolation:isolate;
+  background:
+    radial-gradient(38% 58% at 27% 58%, rgba(95,214,162,.26), rgba(58,156,116,.10) 55%, transparent 80%),
+    radial-gradient(120% 60% at 50% -10%, rgba(64,150,110,.55), rgba(20,60,45,.25) 45%, transparent 70%),
+    var(--bg)}
+.og .mark{position:absolute;left:64px;top:60px;font-size:34px;line-height:1;font-weight:800;letter-spacing:-.03em;color:var(--ink)}
+.og .cherry{position:absolute;left:84px;top:108px;width:440px;height:440px}
+.og .cherry img{display:block;width:100%;height:100%;filter:drop-shadow(0 0 2px rgba(127,227,166,.8)) drop-shadow(0 0 26px rgba(127,227,166,.40))}
+.og .copy{position:absolute;left:580px;right:64px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:center;padding-top:12px}
+.og h1{margin:0;font-size:74px;line-height:1.04;font-weight:800;letter-spacing:-.035em;color:var(--ink)}
+.og h1 .line{display:block;white-space:nowrap}
+.lit{background:var(--grad-text);-webkit-background-clip:text;background-clip:text;color:transparent}
+.og .desc{margin:26px 0 0;font-size:26px;line-height:1.35;font-weight:500;color:var(--ink-2)}
+.og .desc .dl{display:block;white-space:nowrap}
+
+/* ── Thumbnail test (outside the frame) ─────────────────────── */
+.thumbs{max-width:1200px;margin:40px auto 0}
+.thumbs h2{margin:0 0 6px;font-size:20px;font-weight:800}
+.thumbs p{margin:0 0 16px;font-size:15px;color:var(--ink-2)}
+.t-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:32px}
+.t-row figure{margin:0}
+.t-row figcaption{margin-top:8px;font-size:14px;color:var(--ink-2)}
+.t{position:relative;overflow:hidden;border-radius:8px;box-shadow:0 0 0 1px rgba(255,255,255,.14)}
+.t .og{position:absolute;left:0;top:0;margin:0;transform-origin:0 0}
+.t400{width:400px;height:210px}
+.t400 .og{transform:scale(.33333)}
+.t200{width:200px;height:105px}
+.t200 .og{transform:scale(.166667)}
+</style>
+</head>
+<body>
+<div class="page">
+  <p class="note"><b>DESIGN PROTOTYPE — NOT PRODUCTION</b> · Final · Link preview image for the public certificate (<code>og/verify.png</code>, 1200×630)</p>
+
+  <div class="og" id="og" role="img" aria-label="A glowing cluster of three coffee cherries on a branch beside the words: Kodagu Arabica, verified at origin. Every picking checked at the plot, checked again in your browser.">
+    <span class="mark">Udgam</span>
+    <div class="cherry"><img src="../final/cherry.svg" alt="" width="440" height="440"></div>
+    <div class="copy">
+      <h1><span class="line">Kodagu Arabica,</span><span class="line"><span class="lit">verified</span> at origin</span></h1>
+      <p class="desc"><span class="dl">Every picking checked at the plot ·</span> <span class="dl">checked again in your browser</span></p>
+    </div>
+  </div>
+
+  <section class="thumbs" aria-labelledby="tt-h">
+    <h2 id="tt-h">Thumbnail test</h2>
+    <p>The same canvas scaled down, as a feed or chat app shows it. The cherry and the headline should still read.</p>
+    <div class="t-row">
+      <figure><div class="t t400" id="t400"></div><figcaption>400 × 210</figcaption></figure>
+      <figure><div class="t t200" id="t200"></div><figcaption>200 × 105</figcaption></figure>
+    </div>
+  </section>
+</div>
+<script>
+  for (const id of ['t400', 't200']) {
+    const c = document.getElementById('og').cloneNode(true);
+    c.removeAttribute('id'); c.setAttribute('aria-hidden', 'true'); c.removeAttribute('role');
+    document.getElementById(id).appendChild(c);
+  }
+</script>
+</body>
+</html>

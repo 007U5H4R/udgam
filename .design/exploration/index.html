@@ -1,0 +1,337 @@
+<title>Udgam Design Gallery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #f5f7f6;
+    --surface: #ffffff;
+    --ink: #17221d;
+    --muted: #55625b;
+    --rule: #d9e0dc;
+    --accent: #1d6b45;
+    --accent-ink: #ffffff;
+    --banner-bg: #17221d;
+    --banner-ink: #eef3f0;
+    --note-bg: #eef3f0;
+    --focus: #1b5fd6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #111815;
+      --surface: #18211d;
+      --ink: #e7eeea;
+      --muted: #a3b1a9;
+      --rule: #2c3833;
+      --accent: #5cc08a;
+      --accent-ink: #0d1a13;
+      --banner-bg: #e7eeea;
+      --banner-ink: #111815;
+      --note-bg: #1c2621;
+      --focus: #8db4ff;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #111815;
+    --surface: #18211d;
+    --ink: #e7eeea;
+    --muted: #a3b1a9;
+    --rule: #2c3833;
+    --accent: #5cc08a;
+    --accent-ink: #0d1a13;
+    --banner-bg: #e7eeea;
+    --banner-ink: #111815;
+    --note-bg: #1c2621;
+    --focus: #8db4ff;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 16px/1.55 "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    padding-inline: 20px;
+    padding-block: 0 64px;
+  }
+  .wrap { max-width: 1180px; margin-inline: auto; display: flex; flex-direction: column; gap: 56px; }
+  .banner {
+    background: var(--banner-bg); color: var(--banner-ink);
+    font: 500 12px/1.4 "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 10px 20px; margin-inline: -20px; text-align: center;
+  }
+  h1, h2, h3 { text-wrap: balance; margin: 0; }
+  h1 { font-size: clamp(30px, 4vw, 44px); line-height: 1.1; font-weight: 700; letter-spacing: -0.01em; }
+  h2 { font-size: clamp(24px, 3vw, 30px); line-height: 1.2; font-weight: 700; }
+  h3 { font-size: 18px; line-height: 1.3; font-weight: 600; }
+  p { margin: 0; max-width: 68ch; }
+  .muted { color: var(--muted); }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: 13px; }
+
+  header.intro { display: flex; flex-direction: column; gap: 16px; padding-top: 40px; }
+  .how { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px 32px; margin-top: 8px; }
+  .how div { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--rule); padding-top: 12px; }
+
+  section.option { display: flex; flex-direction: column; gap: 20px; border-top: 2px solid var(--ink); padding-top: 24px; }
+  .opt-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px 24px; }
+  .opt-head .letter { font: 600 14px/1 "IBM Plex Mono", ui-monospace, monospace; color: var(--muted); }
+  .opt-copy { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px 40px; }
+  .opt-copy dt { font-weight: 600; }
+  .opt-copy dd { margin: 2px 0 0; color: var(--muted); }
+  .opt-copy dl { margin: 0; display: flex; flex-direction: column; gap: 12px; }
+  .links { display: flex; flex-wrap: wrap; gap: 10px; }
+  .links a {
+    display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px;
+    border: 1px solid var(--rule); border-radius: 8px; background: var(--surface);
+    color: var(--ink); text-decoration: none; font-weight: 500;
+  }
+  .links a.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .links a:hover { border-color: var(--ink); }
+  .links a.primary:hover { filter: brightness(1.08); }
+  a:focus-visible, button:focus-visible, .table-scroll:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+  .strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 16px; }
+  .strip figure { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+  .strip a { display: block; border-radius: 10px; overflow: hidden; border: 1px solid var(--rule); background: var(--surface); }
+  .strip img { display: block; width: 100%; max-width: 100%; height: auto; aspect-ratio: 375 / 812; object-fit: cover; object-position: top; }
+  .strip figcaption { font-size: 13px; color: var(--muted); line-height: 1.35; }
+  .strip figcaption b { color: var(--ink); font-weight: 600; display: block; }
+
+  .evidence { background: var(--note-bg); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+  .evidence ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+
+  .table-scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 12px 14px; border-bottom: 1px solid var(--rule); }
+  thead th { font-weight: 600; background: var(--note-bg); }
+  tbody th { font-weight: 600; width: 22%; }
+  tr:last-child th, tr:last-child td { border-bottom: 0; }
+
+  .rec dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 10px 20px; }
+  .rec dt { font-weight: 600; }
+  .rec dd { margin: 0; color: var(--muted); max-width: 70ch; }
+  @media (max-width: 560px) { .rec dl { grid-template-columns: 1fr; gap: 2px 0; } .rec dd { margin-bottom: 10px; } }
+
+  ol.asks { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 10px; max-width: 72ch; }
+  footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--rule); padding-top: 16px; }
+</style>
+
+<div class="banner">Design prototype — not production · Udgam Stage 4 gallery</div>
+
+<main class="wrap">
+  <header class="intro">
+    <p class="mono muted">Stage 4 · UI/UX design · 28 September 2026</p>
+    <h1>Udgam capture app and certificate: final design for approval</h1>
+    <p>Each direction is a working phone prototype of the same seven screens, plus the public certificate a buyer reaches from the QR code. They share the same copy, data and rules. They differ in how they make a farmer feel sure the record is theirs and is right.</p>
+    <div class="how">
+      <div><h3>On a phone</h3><p class="muted">Open an app and tap through: record, photo, weight, checking, result. The Screens button jumps to any screen.</p></div>
+      <div><h3>On a laptop</h3><p class="muted">Each app opens as a storyboard of all seven screens side by side. Narrow the window below 1000 px to use it as a phone.</p></div>
+      <div><h3>What to decide</h3><p class="muted">Pick a direction, or mix parts, such as B's map with C's Kannada labels. The recommendation is at the end.</p></div>
+    </div>
+  </header>
+
+  <section class="option" id="final" aria-labelledby="final-title">
+    <div class="opt-head">
+      <h2 id="final-title">Final · Opal-inspired</h2>
+      <span class="letter">Your choice, for approval</span>
+    </div>
+    <div class="opt-copy">
+      <dl>
+        <div><dt>Idea</dt><dd>The look of the Opal app, made Udgam's own: a near-black ground with a coffee-leaf green glow, frosted cards, one gradient-lit word per screen, and a glowing coffee cherry as the brand object.</dd></div>
+        <div><dt>Where it is bold</dt><dd>The cherry, which rises and glows green on Verified and amber on Needs a check. The home plot card shows your fence glowing with you inside it.</dd></div>
+      </dl>
+      <dl>
+        <div><dt>Same as before</dt><dd>Every screen, check, verdict and rule from the earlier work. Only the look changed.</dd></div>
+        <div><dt>Known risk</dt><dd>Dark screens are harder in direct sun. Body text is measured at 13.9 to 15.9:1 on the cards; field-test at midday.</dd></div>
+      </dl>
+    </div>
+    <div class="links">
+      <a class="primary" href="final/index.html">Open the app</a>
+      <a href="final/verify.html">Open the certificate</a>
+      <a href="final/verify.html#mismatch">Certificate: failed check</a>
+      <a href="final/admin.html">Open the admin review</a>
+      <a href="og/index.html">Open the link preview</a>
+    </div>
+    <div class="strip">
+      <figure><a href="final/index.html#s1"><img src="shots/final-mobile-s1.png" alt="Final home: glowing plot card with You're inside Plot 2 and a record button" loading="lazy"></a><figcaption><b>1 Home</b>Your plot, glowing</figcaption></figure>
+      <figure><a href="final/index.html#s2"><img src="shots/final-mobile-s2.png" alt="Final photo slots screen with the cherry over the glow" loading="lazy"></a><figcaption><b>2 Photos</b>Three slots</figcaption></figure>
+      <figure><a href="final/index.html#s3-kg"><img src="shots/final-mobile-s3-kg.png" alt="Final weight screen: 42.5 kg in gradient digits over a keypad" loading="lazy"></a><figcaption><b>3 Weight</b>The number, lit</figcaption></figure>
+      <figure><a href="final/index.html#s4"><img src="shots/final-mobile-s4.png" alt="Final checking screen with real check names and a progress bar" loading="lazy"></a><figcaption><b>4 Checking</b>Real checks, ticking</figcaption></figure>
+      <figure><a href="final/index.html#s5"><img src="shots/final-mobile-s5.png" alt="Final verified screen: glowing cherry with a check, Verified in gradient" loading="lazy"></a><figcaption><b>5 Verified</b>The cherry moment</figcaption></figure>
+      <figure><a href="final/index.html#s6"><img src="shots/final-mobile-s6.png" alt="Final needs a check screen with an amber-glowing cherry" loading="lazy"></a><figcaption><b>6 Needs a check</b>Amber glow</figcaption></figure>
+      <figure><a href="final/index.html#s7"><img src="shots/final-mobile-s7.png" alt="Final couldn't send: amber sheet saying nothing is lost" loading="lazy"></a><figcaption><b>7 Couldn't send</b>Saved on this phone</figcaption></figure>
+      <figure><a href="final/index.html#s8"><img src="shots/final-mobile-s8.png" alt="Final pickings list with verified, needs a check and not accepted rows" loading="lazy"></a><figcaption><b>8 Pickings</b>All your entries</figcaption></figure>
+      <figure><a href="final/verify.html"><img src="shots/final-verify-mobile.png" alt="Final certificate: Verified on this device just now at the top" loading="lazy"></a><figcaption><b>Certificate</b>Proof first</figcaption></figure>
+      <figure><a href="final/verify.html#mismatch"><img src="shots/final-verify-mismatch.png" alt="Final certificate showing a failed proof with no green" loading="lazy"></a><figcaption><b>Certificate</b>Failed check</figcaption></figure>
+    </div>
+    <figure style="margin:0;display:flex;flex-direction:column;gap:8px">
+      <a href="final/admin.html" style="display:block;border:1px solid var(--rule);border-radius:10px;overflow:hidden"><img src="shots/final-admin-desktop.png" alt="Admin review queue on a laptop: four pickings to check, plot evidence, score 64 of 100 and accept or reject actions" style="display:block;width:100%;height:auto" loading="lazy"></a>
+      <figcaption class="muted" style="font-size:13px"><b style="color:var(--ink)">Admin review</b> The FPO office checks the four pickings that need a person; hard-failed ones can't be overridden.</figcaption>
+    </figure>
+    <figure style="margin:0;display:flex;flex-direction:column;gap:8px;max-width:600px">
+      <a href="og/index.html" style="display:block;border:1px solid var(--rule);border-radius:10px;overflow:hidden"><img src="og/verify.png" alt="Link preview image: glowing coffee cherry and the headline Kodagu Arabica, verified at origin" style="display:block;width:100%;height:auto" loading="lazy"></a>
+      <figcaption class="muted" style="font-size:13px"><b style="color:var(--ink)">Link preview</b> 1200 × 630, 327 KB, shown when the certificate link is shared.</figcaption>
+    </figure>
+    <div class="evidence">
+      <h3>Checked on the rendered pages</h3>
+      <ul>
+        <li>App and certificate measured across 48 page states at 320, 375, 768 and 1440 px: no sideways scroll, no tap target under 24 px, no text under 13 px, no script errors.</li>
+        <li>Admin measured at 1440, 768 and 375 px in every state: no sideways scroll; all text at least 4.75:1, body at least 7:1.</li>
+        <li>Certificate printout fixed: warnings now print dark on white, lowest text 7.4:1, buttons hidden.</li>
+        <li>Design detector: glows and glass are flagged, and are kept on purpose because they are Opal's language, confined to their roles.</li>
+      </ul>
+    </div>
+  </section>
+
+  <p class="mono muted">Earlier directions below were not chosen. Kept for the record.</p>
+
+  <section class="option" id="option-a" aria-labelledby="a-title">
+    <div class="opt-head">
+      <h2 id="a-title">Estate Record Book</h2>
+      <span class="letter">Option A</span>
+    </div>
+    <div class="opt-copy">
+      <dl>
+        <div><dt>Idea</dt><dd>The app feels like the picking book farmers and FPO staff already keep. Every verified picking is pressed with a seal, as if sealed into your own book.</dd></div>
+        <div><dt>Where it is bold</dt><dd>The circular seal on the verdict screen and on each entry.</dd></div>
+      </dl>
+      <dl>
+        <div><dt>Look</dt><dd>Paper-toned page, blue-black ink, hairline rules instead of boxes, Noto Serif for dates and kilos, cherry red for the one action.</dd></div>
+        <div><dt>Feels like</dt><dd>Pride and permanence. Quiet and literate.</dd></div>
+      </dl>
+    </div>
+    <div class="links">
+      <a class="primary" href="option-a/index.html">Open the app</a>
+      <a href="option-a/verify.html">Open the certificate</a>
+      <a href="option-a/verify.html#mismatch">Certificate: failed check</a>
+    </div>
+    <div class="strip">
+      <figure><a href="option-a/index.html#s1"><img src="shots/a-mobile-s1.png" alt="Option A home: date, Plot 2, the record book list and a red Record today's picking button" loading="lazy"></a><figcaption><b>1 Home</b>One action, your book below</figcaption></figure>
+      <figure><a href="option-a/index.html#s2"><img src="shots/a-mobile-s2.png" alt="Option A photo slots screen" loading="lazy"></a><figcaption><b>2 Photos</b>Three labelled slots</figcaption></figure>
+      <figure><a href="option-a/index.html#s5"><img src="shots/a-mobile-s5.png" alt="Option A verified screen with a green seal and three evidence lines" loading="lazy"></a><figcaption><b>5 Verified</b>The seal moment</figcaption></figure>
+      <figure><a href="option-a/index.html#s6"><img src="shots/a-mobile-s6.png" alt="Option A needs a check screen" loading="lazy"></a><figcaption><b>6 Needs a check</b>Cloudy satellite</figcaption></figure>
+      <figure><a href="option-a/index.html#s7"><img src="shots/a-mobile-s7.png" alt="Option A couldn't send screen" loading="lazy"></a><figcaption><b>7 Couldn't send</b>Saved on this phone</figcaption></figure>
+      <figure><a href="option-a/verify.html"><img src="shots/a-verify-mobile.png" alt="Option A certificate on a phone with the in-browser proof result at the top" loading="lazy"></a><figcaption><b>Certificate</b>Record-book extract</figcaption></figure>
+      <figure><a href="option-a/verify.html#mismatch"><img src="shots/a-verify-mismatch.png" alt="Option A certificate showing a failed proof" loading="lazy"></a><figcaption><b>Certificate</b>Failed check</figcaption></figure>
+    </div>
+    <div class="evidence" id="evidence-a">
+      <h3>Checked on the rendered pages</h3>
+      <ul>
+        <li>Measured at 320, 375, 768 and 1440 px across 40 page states: no sideways scroll, no tap target under 24 px, no script errors. Its builder also exercised the whole flow and the failure state.</li>
+        <li>Design detector: the paper background reads as the reflex cream look. It also found a small uppercase label above the certificate heading and wide letter-spacing on some text. All fixable in the final.</li>
+        <li>Seen by eye: the seal's circular text runs upside-down along the bottom edge.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="option" id="option-b" aria-labelledby="b-title">
+    <div class="opt-head">
+      <h2 id="b-title">Your Plot, Proven</h2>
+      <span class="letter">Option B</span>
+    </div>
+    <div class="opt-copy">
+      <dl>
+        <div><dt>Idea</dt><dd>The farmer's own plot outline, with their location dot inside it, is on every screen. The main fraud check, "were you really in your plot?", becomes something they can see.</dd></div>
+        <div><dt>Where it is bold</dt><dd>The illustrated plot map: laterite-red fence line, contour lines, shade trees.</dd></div>
+      </dl>
+      <dl>
+        <div><dt>Look</dt><dd>Mist-green page, deep canopy-green text, Anek (one family for English and Kannada), leaf green for the action.</dd></div>
+        <div><dt>Feels like</dt><dd>Recognition: "that is my land." Calm and precise.</dd></div>
+      </dl>
+    </div>
+    <div class="links">
+      <a class="primary" href="option-b/index.html">Open the app</a>
+      <a href="option-b/verify.html">Open the certificate</a>
+      <a href="option-b/verify.html#mismatch">Certificate: failed check</a>
+    </div>
+    <div class="strip">
+      <figure><a href="option-b/index.html#s1"><img src="shots/b-mobile-s1.png" alt="Option B home: plot map with You are inside Plot 2, recent pickings and a green Record a picking button" loading="lazy"></a><figcaption><b>1 Home</b>Your plot, you inside it</figcaption></figure>
+      <figure><a href="option-b/index.html#s2"><img src="shots/b-mobile-s2.png" alt="Option B photo slots screen with plot strip" loading="lazy"></a><figcaption><b>2 Photos</b>Ready: inside Plot 2</figcaption></figure>
+      <figure><a href="option-b/index.html#s5"><img src="shots/b-mobile-s5.png" alt="Option B verified screen: solid fence line, dot inside, Verified and evidence lines" loading="lazy"></a><figcaption><b>5 Verified</b>The fence turns solid</figcaption></figure>
+      <figure><a href="option-b/index.html#s6"><img src="shots/b-mobile-s6.png" alt="Option B needs a check screen" loading="lazy"></a><figcaption><b>6 Needs a check</b>Cloudy satellite</figcaption></figure>
+      <figure><a href="option-b/index.html#s7"><img src="shots/b-mobile-s7.png" alt="Option B couldn't send screen" loading="lazy"></a><figcaption><b>7 Couldn't send</b>Saved on this phone</figcaption></figure>
+      <figure><a href="option-b/verify.html"><img src="shots/b-verify-mobile.png" alt="Option B certificate: proof result first, then the map of three farms" loading="lazy"></a><figcaption><b>Certificate</b>Proof, then the map</figcaption></figure>
+      <figure><a href="option-b/verify.html#mismatch"><img src="shots/b-verify-mismatch.png" alt="Option B certificate showing Record 9 of 14 does not match" loading="lazy"></a><figcaption><b>Certificate</b>Failed check</figcaption></figure>
+    </div>
+    <div class="evidence" id="evidence-b">
+      <h3>Checked on the rendered pages</h3>
+      <ul>
+        <li>Measured at 320, 375, 768 and 1440 px across 40 page states: no sideways scroll, no tap target under 24 px, no script errors. The only small text is the "Photo placeholder" and "Example" captions on the drawn photos. Its builder also confirmed the proof sits above the map on phones and all text passes contrast.</li>
+        <li>Design detector: a thick coloured side-stripe on one certificate panel, a known machine-made tell, and tight line spacing in two places. Fixable in the final.</li>
+        <li>Seen by eye: clean. The map carries real evidence rather than decoration.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="option" id="option-c" aria-labelledby="c-title">
+    <div class="opt-head">
+      <h2 id="c-title">One Thing at a Time</h2>
+      <span class="letter">Option C</span>
+    </div>
+    <div class="opt-copy">
+      <dl>
+        <div><dt>Idea</dt><dd>A short conversation, one question per screen, the way the FPO field officer would ask. Kannada on top, English beneath, and a Hear this button on every question.</dd></div>
+        <div><dt>Where it is bold</dt><dd>Full-screen colour for the result: green, turmeric or clay, with one symbol and one sentence.</dd></div>
+      </dl>
+      <dl>
+        <div><dt>Look</dt><dd>Warm white page, near-black text, Baloo Tamma 2 (made for Kannada and English together), cherry red for the action.</dd></div>
+        <div><dt>Feels like</dt><dd>Being guided by someone patient. The least reading of the three.</dd></div>
+      </dl>
+    </div>
+    <div class="links">
+      <a class="primary" href="option-c/index.html">Open the app</a>
+      <a href="option-c/verify.html">Open the certificate</a>
+      <a href="option-c/verify.html#mismatch">Certificate: failed check</a>
+    </div>
+    <div class="strip">
+      <figure><a href="option-c/index.html#s1"><img src="shots/c-mobile-s1.png" alt="Option C home: Which plot? in Kannada and English with a red bilingual record button" loading="lazy"></a><figcaption><b>1 Which plot?</b>Kannada first</figcaption></figure>
+      <figure><a href="option-c/index.html#s2"><img src="shots/c-mobile-s2.png" alt="Option C take a photo screen" loading="lazy"></a><figcaption><b>2 Photo</b>One question</figcaption></figure>
+      <figure><a href="option-c/index.html#s5"><img src="shots/c-mobile-s5.png" alt="Option C verified: full green screen, large check symbol and Verified. Your picking is recorded." loading="lazy"></a><figcaption><b>5 Verified</b>Full-screen green</figcaption></figure>
+      <figure><a href="option-c/index.html#s6"><img src="shots/c-mobile-s6.png" alt="Option C needs a check: full turmeric screen" loading="lazy"></a><figcaption><b>6 Needs a check</b>Full-screen turmeric</figcaption></figure>
+      <figure><a href="option-c/index.html#s7"><img src="shots/c-mobile-s7.png" alt="Option C couldn't send screen" loading="lazy"></a><figcaption><b>7 Couldn't send</b>Saved on this phone</figcaption></figure>
+      <figure><a href="option-c/verify.html"><img src="shots/c-verify-mobile.png" alt="Option C certificate: proof result first, then This coffee came from 3 farms in Kodagu" loading="lazy"></a><figcaption><b>Certificate</b>Plain-language story</figcaption></figure>
+      <figure><a href="option-c/verify.html#mismatch"><img src="shots/c-verify-mismatch.png" alt="Option C certificate showing a failed proof" loading="lazy"></a><figcaption><b>Certificate</b>Failed check</figcaption></figure>
+    </div>
+    <div class="evidence" id="evidence-c">
+      <h3>Checked on the rendered pages</h3>
+      <ul>
+        <li>Measured at 320, 375, 768 and 1440 px across 40 page states: no sideways scroll, no tap target under 24 px, no script errors.</li>
+        <li>Design detector: the warm off-white background reads as the reflex cream look, and the certificate headline is far too large on a laptop and skips a heading level. Fixable in the final.</li>
+        <li>Seen by eye: an empty gap on the home screen, and one wrong line on the certificate. The checks run on the server, not on the farmer's phone.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="option" aria-labelledby="compare-title">
+    <h2 id="compare-title">How they compare</h2>
+    <div class="table-scroll" role="region" aria-labelledby="compare-title" tabindex="0">
+      <table>
+        <thead><tr><th scope="col">Question</th><th scope="col">A · Record Book</th><th scope="col">B · Plot, Proven</th><th scope="col">C · One Thing at a Time</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Can a farmer do it unaided?</th><td>Yes. Familiar book idea, one action.</td><td>Yes. One action, and the map answers "am I in the right place?" before they start.</td><td>Most likely. One question per screen, Kannada first, spoken prompt.</td></tr>
+          <tr><th scope="row">Does it show the trust check?</th><td>In words: "14 m inside Plot 2".</td><td>Visibly: the dot inside the fence, before and after capture.</td><td>In words.</td></tr>
+          <tr><th scope="row">Could it belong to any other app?</th><td>Rarely. The seal and book are specific.</td><td>No. It is built on this farmer's plot.</td><td>Sometimes. Guided flows are common.</td></tr>
+          <tr><th scope="row">Simple but not ordinary</th><td>Elegant and restrained. The seal is memorable.</td><td>The most distinctive. The map is beautiful and useful.</td><td>Bold and very clear, but the plainest to look at.</td></tr>
+          <tr><th scope="row">Kannada and low literacy</th><td>Language switch, English layout.</td><td>Language switch. One font family covers both scripts.</td><td>Bilingual on every question and button.</td></tr>
+          <tr><th scope="row">Small phones (320 px)</th><td>Fits.</td><td>Fits. The map must shrink to a strip on the photo and weight screens.</td><td>Fits. The recent list drops below the fold.</td></tr>
+          <tr><th scope="row">Build effort</th><td>Low.</td><td>Medium: each plot is drawn from its saved boundary.</td><td>Low to medium: spoken prompts depend on the phone's text-to-speech.</td></tr>
+          <tr><th scope="row">Buyer certificate</th><td>A formal record-book extract.</td><td>Proof first, then a map of all farms. Strongest for an EU importer.</td><td>A plain-language story. Warm, less formal.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="option" aria-labelledby="ask-title">
+    <h2 id="ask-title">What I need from you</h2>
+    <ol class="asks">
+      <li><b>Do you approve this UI/UX direction?</b> The final app, certificate, admin review and link preview above. Approval freezes the look, the screens and the flow; later stages may fix technical and accessibility details but not redesign it.</li>
+      <li><b>The cherry.</b> At large sizes it can read as a plum or an apple. Real coffee cherries are small, oval and grow in clusters. I recommend a cluster of three oval cherries on a short branch. Keep it, or change it?</li>
+      <li><b>Who holds the phone?</b> The plan has the field agent log in, with the farmer as a record. Should farmers log in themselves? It changes enrolment and the home screen, not the look.</li>
+    </ol>
+  </section>
+
+  <footer>
+    <p>Prototypes use drawn placeholders instead of real farm photos, invented but realistic plot and batch data, and Kannada that still needs review by a native speaker. None of it is production code.</p>
+  </footer>
+</main>

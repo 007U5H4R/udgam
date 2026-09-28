@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kodagu Arabica, verified at origin — Udgam</title>
+<meta name="description" content="Batch KDG-2026-0142: 612 kg of Arabica cherry from 3 farms in Kodagu, Karnataka. 14 harvest records, each checked at the plot and sealed. Check it yourself in your browser.">
+<meta name="robots" content="noindex">
+<!-- Link-preview intent only (design prototype). All URLs below are PLACEHOLDERS: udgamtrace.in and /og/verify.png do not exist yet. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Udgam">
+<meta property="og:title" content="Kodagu Arabica, verified at origin — Udgam">
+<meta property="og:description" content="612 kg Arabica cherry · 3 farms · Kodagu, Karnataka, India · harvested 2–27 September 2026. 14 harvest records, checked and sealed.">
+<meta property="og:url" content="https://udgamtrace.in/verify/KDG-2026-0142">
+<meta property="og:image" content="https://udgamtrace.in/og/verify.png"><!-- PLACEHOLDER image URL: purpose-built 1200×630 card still to be made -->
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Udgam certificate seal for batch KDG-2026-0142, Kodagu Arabica">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Kodagu Arabica, verified at origin — Udgam">
+<meta name="twitter:description" content="612 kg Arabica cherry from 3 farms in Kodagu. 14 harvest records, checked and sealed.">
+<meta name="twitter:image" content="https://udgamtrace.in/og/verify.png"><!-- PLACEHOLDER -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Noto+Serif:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* Option A · Estate Record Book — certificate as an extract from the record book.
+   Contrast (WCAG 2.x): ink/bg 15.3:1 · ink-2/bg 7.6:1 · ok/bg 6.3:1 · bad/bg 6.9:1 · bg/ok 6.3:1 · white/action 6.6:1 */
+:root{
+  --bg: oklch(0.975 0.010 85);
+  --paper-2: oklch(0.945 0.014 85);
+  --ink: oklch(0.24 0.035 262);
+  --ink-2: oklch(0.43 0.030 262);
+  --rule: oklch(0.86 0.018 85);
+  --action: oklch(0.50 0.170 27);
+  --ok: oklch(0.46 0.110 150);
+  --on-ok: var(--bg);
+  --check: oklch(0.80 0.140 82);
+  --check-ink: oklch(0.50 0.100 75);
+  --bad: oklch(0.47 0.160 25);
+  --state: var(--ok);               /* colour of the proof result; never green unless fully verified */
+  --serif: "Noto Serif", Georgia, serif;
+  --sans: "Noto Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --banner: 44px;
+  --gutter: clamp(16px, 5vw, 40px);
+}
+@media (min-width: 700px){ :root{ --banner: 34px; } }
+
+/* no green anywhere unless every record matched */
+body[data-state="loading"]{ --ok: var(--ink-2); --state: var(--ink); }
+body[data-state="mismatch"]{ --ok: var(--ink-2); --state: var(--bad); }
+
+*,*::before,*::after{ box-sizing: border-box; }
+[hidden]{ display: none !important; }
+html{ -webkit-text-size-adjust: 100%; }
+body{ margin: 0; padding-top: var(--banner); background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: clamp(17px, 16.5px + 0.15vw, 18px); line-height: 1.55; }
+h1,h2,h3,p,ol,ul,figure,dl,dd{ margin: 0; }
+ol,ul{ padding: 0; list-style: none; }
+button{ font: inherit; color: inherit; }
+a{ color: var(--ink); text-underline-offset: 3px; }
+:focus-visible{ outline: 3px solid var(--ink); outline-offset: 3px; border-radius: 6px; }
+.sr-only{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.ico{ width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.mark{ width: 26px; height: 26px; flex: none; }
+.assume{ display:inline-block; font: 600 13px/1.4 var(--sans); color: var(--ink-2); border: 1px dashed var(--ink-2); border-radius: 4px; padding: 1px 6px; }
+
+/* prototype chrome */
+.proto-banner{ position: fixed; inset: 0 0 auto 0; height: var(--banner); z-index: 60; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 8px 0 12px; background: var(--ink); color: var(--bg); font: 600 12px/1.3 var(--sans); letter-spacing: .02em; }
+.proto-banner p span{ white-space: nowrap; }
+@media (max-width: 699px){ .proto-banner p span{ display: block; } .proto-banner .sep{ display: none; } }
+.tool-btn{ position: relative; min-height: 32px; padding: 0 12px; border-radius: 6px; border: 1px solid oklch(0.975 0.010 85 / .5); background: transparent; color: var(--bg); font: 600 13px/1 var(--sans); cursor: pointer; }
+.tool-btn::after{ content:""; position:absolute; inset: -6px -3px; }
+.tool-btn:focus-visible{ outline-color: var(--bg); }
+.param-toggle{ position: fixed; left: 12px; bottom: 12px; z-index: 55; min-height: 40px; background: var(--paper-2); color: var(--ink-2); border: 1px solid var(--rule); }
+.param-toggle:focus-visible{ outline-color: var(--ink); }
+@media (max-width: 999px){ .param-toggle{ display: none; } }
+#params{ position: fixed; left: 12px; bottom: 60px; z-index: 56; max-width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - var(--banner) - 80px); overflow: auto; background: var(--bg); border: 1px solid var(--ink); border-radius: 8px; padding: 14px 16px; }
+#params pre{ margin: 0; font: 13px/1.55 ui-monospace, "SF Mono", Menlo, monospace; white-space: pre-wrap; }
+#params h2{ font: 600 14px/1.3 var(--sans); margin-bottom: 8px; }
+#state-menu{ position: fixed; top: calc(var(--banner) + 6px); right: 8px; z-index: 58; width: min(280px, calc(100vw - 16px)); background: var(--bg); border: 1px solid var(--ink); border-radius: 10px; padding: 6px 0; }
+#state-menu a, #state-menu button{ display: flex; align-items: center; min-height: 48px; padding: 0 16px; width: 100%; color: var(--ink); text-decoration: none; font-size: 16px; background: none; border: 0; text-align: left; cursor: pointer; }
+#state-menu hr{ border: 0; border-top: 1px solid var(--rule); margin: 6px 0; }
+
+/* page */
+.wrap{ max-width: 1120px; margin: 0 auto; padding: 0 var(--gutter); }
+.site{ display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; border-bottom: 1px solid var(--rule); }
+.brand{ font: 700 22px/1 var(--serif); }
+.kind{ font-size: 15px; color: var(--ink-2); font-weight: 500; }
+.eyebrow{ font: 600 14px/1.4 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+h1{ font: 600 clamp(30px, 24px + 2.2vw, 48px)/1.12 var(--serif); letter-spacing: -.015em; margin-top: 8px; }
+.batch{ margin-top: 10px; font-size: 18px; color: var(--ink-2); max-width: 46ch; }
+.batch b{ color: var(--ink); font-weight: 600; }
+h2{ font: 600 clamp(21px, 19px + .6vw, 25px)/1.25 var(--serif); display: flex; align-items: baseline; gap: 12px; }
+h2::after{ content: ""; flex: 1; border-top: 1px solid var(--ink); transform: translateY(-6px); }
+section{ padding-top: 36px; }
+.intro{ padding-top: 24px; }
+
+/* 1 · proof */
+.proof{ margin-top: 20px; padding: 18px 0 20px; border-top: 2px solid var(--state); border-bottom: 1px solid var(--rule); }
+.proof-grid{ display: grid; grid-template-columns: auto 1fr; gap: 16px 18px; align-items: center; }
+.seal{ width: clamp(96px, 26vw, 140px); height: auto; transform: rotate(-6deg); color: var(--state); }
+.seal text{ font: 700 15px var(--sans); letter-spacing: .08em; }
+.result{ font-size: 18px; line-height: 1.45; }
+.result strong{ display: block; font: 700 clamp(22px, 20px + .8vw, 27px)/1.2 var(--serif); color: var(--state); margin-bottom: 2px; }
+.pv{ display: none; }
+body[data-state="verified"] .pv-verified, body[data-state="loading"] .pv-loading, body[data-state="mismatch"] .pv-mismatch{ display: contents; }
+.tally{ display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+.tally i{ width: 12px; height: 18px; border: 1.5px solid var(--ink-2); border-radius: 2px; }
+.tally i.on{ background: var(--ink); border-color: var(--ink); }
+.proof-more{ display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; margin-top: 12px; }
+details{ width: 100%; }
+summary{ display: inline-flex; align-items: center; gap: 8px; min-height: 48px; cursor: pointer; font-weight: 600; list-style: none; }
+summary::-webkit-details-marker{ display: none; }
+summary::before{ content: ""; width: 8px; height: 8px; border-right: 2px solid var(--ink); border-bottom: 2px solid var(--ink); transform: rotate(-45deg); transition: transform .15s; }
+details[open] summary::before{ transform: rotate(45deg); }
+@media (prefers-reduced-motion: reduce){ summary::before{ transition: none; } }
+.how{ padding: 4px 0 8px 18px; border-left: 1px solid var(--rule); max-width: 62ch; }
+.how p + p{ margin-top: 8px; }
+.linkbtn{ display: inline-flex; align-items: center; min-height: 48px; background: none; border: 0; padding: 0; cursor: pointer; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--ink-2); }
+.what{ margin-top: 12px; display: grid; gap: 8px; max-width: 62ch; }
+.what b{ font-weight: 700; }
+
+/* 2 · timeline */
+.timeline{ margin-top: 16px; }
+.timeline li{ position: relative; display: grid; grid-template-columns: 26px 1fr; gap: 14px; padding-bottom: 20px; }
+.timeline li::before{ content: ""; position: absolute; left: 12.25px; top: 28px; bottom: 0; border-left: 1.5px solid var(--ink); }
+.timeline li:last-child::before{ display: none; }
+.dot{ width: 26px; height: 26px; display: grid; place-items: center; }
+.dot::after{ content: ""; width: 14px; height: 14px; border-radius: 50%; background: var(--ink); }
+.dot.markdot::after{ display: none; }
+.t-name{ font-weight: 700; font-size: 18px; line-height: 1.35; }
+.t-meta{ font-size: 16px; color: var(--ink-2); }
+.t-meta b{ color: var(--ink); font-weight: 600; }
+
+/* 3 · origin */
+.map{ margin-top: 16px; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper-2); }
+.map svg{ display: block; width: 100%; height: auto; }
+.map-cap{ margin-top: 8px; font-size: 15px; color: var(--ink-2); }
+.origin{ width: 100%; border-collapse: collapse; margin-top: 16px; }
+.origin th, .origin td{ text-align: left; vertical-align: top; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.origin th{ width: 38%; font-weight: 500; color: var(--ink-2); padding-right: 12px; font-size: 16px; }
+.origin td{ font-weight: 600; }
+.forest{ display: flex; gap: 12px; align-items: flex-start; margin-top: 14px; padding: 12px 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); }
+
+/* 4 · entries */
+.entries{ width: 100%; border-collapse: collapse; margin-top: 12px; font-variant-numeric: tabular-nums; }
+.entries th{ text-align: left; font: 500 15px/1.3 var(--sans); color: var(--ink-2); padding: 10px 12px 8px 0; border-bottom: 1px solid var(--ink); }
+.entries td{ padding: 10px 12px 10px 0; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+.entries .n{ color: var(--ink-2); font: 400 16px var(--serif); width: 3em; }
+.entries .dt{ font: 400 18px var(--serif); }
+.entries .kg{ font: 600 20px var(--serif); text-align: right; }
+.entries th.kg-h{ text-align: right; }
+.res{ display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 16px; color: var(--ok); }
+.res.wait{ color: var(--ink-2); }
+.res.bad{ color: var(--bad); }
+tr.failed td{ background: oklch(0.47 0.16 25 / .07); }
+.entries tfoot td{ font-weight: 700; border-bottom: 0; border-top: 1px solid var(--ink); }
+@media (max-width: 699px){
+  .entries thead{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+  .entries, .entries tbody, .entries tfoot{ display: block; }
+  .entries tr{ display: grid; grid-template-columns: 2.2em 1fr auto; grid-template-areas: "n dt kg" "n farm res"; column-gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+  .entries td{ padding: 0; border: 0; }
+  .entries .n{ grid-area: n; padding-top: 2px; }
+  .entries .dt{ grid-area: dt; }
+  .entries .farm{ grid-area: farm; font-size: 16px; color: var(--ink-2); }
+  .entries .kg{ grid-area: kg; }
+  .entries .rc{ grid-area: res; text-align: right; }
+  .entries tfoot tr{ grid-template-areas: "n dt kg"; border-top: 1px solid var(--ink); border-bottom: 0; }
+  .entries tfoot td{ border: 0; }
+  tr.failed{ background: oklch(0.47 0.16 25 / .07); }
+  tr.failed td{ background: none; }
+}
+
+/* 5–7 */
+.claim{ margin-top: 14px; }
+.btns{ display: grid; gap: 10px; margin-top: 16px; max-width: 420px; }
+.btn{ display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 56px; padding: 0 20px; border-radius: 12px; font: 600 17px/1.2 var(--sans); cursor: pointer; background: transparent; color: var(--ink); border: 0; box-shadow: inset 0 0 0 1.5px var(--ink); text-align: center; }
+.btn.small{ min-height: 48px; font-size: 16px; }
+.limits p{ margin-top: 14px; max-width: 64ch; }
+.foot{ margin-top: 48px; padding: 20px 0 88px; border-top: 1px solid var(--rule); font-size: 15px; color: var(--ink-2); }
+
+/* desktop: certificate spread */
+@media (min-width: 900px){
+  .intro{ display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: end; padding-top: 36px; }
+  .proof{ margin-top: 0; }
+  .pair{ display: grid; grid-template-columns: 1fr 1.25fr; gap: 48px; }
+  .trio{ display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 40px; }
+}
+
+@media print{
+  .proto-banner, .param-toggle, #params, #state-menu, .btns, #downloads, .proof-more .linkbtn, summary{ display: none !important; }
+  body{ padding-top: 0; background: #fff; font-size: 11pt; }
+  .how{ border-left: 0; padding-left: 0; }
+  section{ break-inside: avoid; padding-top: 18px; }
+  .entries tr{ break-inside: avoid; }
+  a{ text-decoration: none; }
+  @page{ margin: 14mm; }
+}
+@media (max-width: 359px){ .proto-banner{ font-size: 10.5px; letter-spacing: 0; padding-left: 10px; } .proto-banner .tool-btn{ padding: 0 9px; } }
+</style>
+</head>
+<body data-state="verified">
+
+<div class="proto-banner" role="note">
+  <p><span>DESIGN PROTOTYPE — NOT PRODUCTION</span><span class="sep"> · </span><span>Option A · Estate Record Book</span></p>
+  <button class="tool-btn states-btn" type="button" aria-expanded="false" aria-controls="state-menu">States</button>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-tree" viewBox="0 0 24 24"><path d="M12 21v-5"/><path d="M12 3l-5.5 8h3L6 16h12l-3.5-5h3z"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 10.5l5 5 5-5"/><path d="M4.5 19.5h15"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V4h10v5"/><rect x="3.5" y="9" width="17" height="7.5" rx="1"/><path d="M7 14h10v6H7z"/></symbol>
+  <symbol id="i-location" viewBox="0 0 24 24"><path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></symbol>
+  <symbol id="m-ok" viewBox="0 0 28 28"><circle cx="14" cy="14" r="12.75" style="fill:none;stroke:var(--ok);stroke-width:1.5"/><circle cx="14" cy="14" r="9.5" style="fill:var(--ok)"/><path d="M9.6 14.3l3.1 3.1 5.9-6.3" style="fill:none;stroke:var(--on-ok);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round"/></symbol>
+  <symbol id="m-wait" viewBox="0 0 28 28"><circle cx="14" cy="14" r="11.5" style="fill:none;stroke:var(--ink-2);stroke-width:1.6;stroke-dasharray:3 3"/><path d="M14 9v5.2l3.2 2" style="fill:none;stroke:var(--ink-2);stroke-width:1.8;stroke-linecap:round"/></symbol>
+  <symbol id="m-now" viewBox="0 0 28 28"><circle cx="14" cy="14" r="11.5" style="fill:none;stroke:var(--rule);stroke-width:2.5"/><path d="M14 2.5a11.5 11.5 0 0 1 11.5 11.5" style="fill:none;stroke:var(--ink);stroke-width:2.5;stroke-linecap:round"/><circle cx="14" cy="14" r="3" style="fill:var(--ink)"/></symbol>
+  <symbol id="m-bad" viewBox="0 0 28 28"><circle cx="14" cy="14" r="12.75" style="fill:none;stroke:var(--bad);stroke-width:1.5"/><rect x="5" y="5" width="18" height="18" rx="2" style="fill:var(--bad)" transform="rotate(45 14 14)"/><path d="M10.8 10.8l6.4 6.4M17.2 10.8l-6.4 6.4" style="fill:none;stroke:var(--bg);stroke-width:2.4;stroke-linecap:round"/></symbol>
+</svg>
+
+<div class="wrap">
+  <header class="site"><span class="brand">Udgam</span><span class="kind">Certificate of origin</span></header>
+
+  <main>
+    <div class="intro">
+      <div>
+        <p class="eyebrow">Extract from the record book</p>
+        <h1 id="title">Kodagu Arabica, verified at origin</h1>
+        <p class="batch"><b>Batch KDG-2026-0142</b> · 612 kg Arabica cherry · 3 farms · Kodagu, Karnataka, India · harvested 2–27 September 2026</p>
+      </div>
+
+      <!-- 1 · PROOF RESULT FIRST (EVAL-087: above any map) -->
+      <section class="proof" id="proof" aria-labelledby="proof-h" style="padding-top:18px">
+        <h2 class="sr-only" id="proof-h">Proof result</h2>
+        <div class="proof-grid" aria-live="polite">
+          <div class="pv pv-verified">
+            <svg class="seal" viewBox="0 0 200 200" aria-hidden="true">
+              <defs><path id="ring-v" d="M100,100 m-75.5,0 a75.5,75.5 0 1,1 151,0 a75.5,75.5 0 1,1 -151,0"/></defs>
+              <circle cx="100" cy="100" r="94" fill="none" stroke="currentColor" stroke-width="3"/>
+              <circle cx="100" cy="100" r="70" fill="none" stroke="currentColor" stroke-width="1.5"/>
+              <text fill="currentColor"><textPath href="#ring-v" textLength="468" lengthAdjust="spacing">CHECKED IN YOUR BROWSER · 14 RECORDS ·</textPath></text>
+              <circle cx="100" cy="100" r="60" fill="currentColor"/>
+              <path d="M74 101l17 17 36-38" fill="none" stroke="var(--on-ok)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <p class="result"><strong>Verified on this device just now</strong><span class="sr-only"> — </span>14 records checked, all match the sealed ledger.</p>
+          </div>
+          <div class="pv pv-loading">
+            <svg class="seal" viewBox="0 0 200 200" aria-hidden="true" style="color:var(--ink-2)">
+              <circle cx="100" cy="100" r="94" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="6 7"/>
+              <text x="100" y="104" text-anchor="middle" style="font:700 44px var(--serif);fill:var(--ink)" data-count-big>0</text>
+              <text x="100" y="134" text-anchor="middle" style="font:600 17px var(--sans);fill:var(--ink-2)">of 14</text>
+            </svg>
+            <div class="result">
+              <strong>Checking 14 records…</strong>
+              <span data-count-text>0 of 14 checked so far.</span> Nothing is marked verified until all 14 match.
+              <div class="tally" aria-hidden="true" data-tally></div>
+            </div>
+          </div>
+          <div class="pv pv-mismatch">
+            <svg class="seal" viewBox="0 0 200 200" aria-hidden="true">
+              <defs><path id="ring-x" d="M100,100 m-75.5,0 a75.5,75.5 0 1,1 151,0 a75.5,75.5 0 1,1 -151,0"/></defs>
+              <circle cx="100" cy="100" r="94" fill="none" stroke="currentColor" stroke-width="3"/>
+              <circle cx="100" cy="100" r="70" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 5"/>
+              <text fill="currentColor"><textPath href="#ring-x" textLength="468" lengthAdjust="spacing">DOES NOT MATCH · DO NOT RELY ON THIS ·</textPath></text>
+              <rect x="57" y="57" width="86" height="86" rx="8" fill="currentColor" transform="rotate(45 100 100)"/>
+              <path d="M82 82l36 36M118 82l-36 36" fill="none" stroke="var(--bg)" stroke-width="11" stroke-linecap="round"/>
+            </svg>
+            <p class="result"><strong>Not verified</strong>Record 9 of 14 does not match the sealed ledger.</p>
+          </div>
+        </div>
+
+        <div class="pv pv-mismatch">
+          <div class="what">
+            <p><b>What this means:</b> record 9 (17 Sep · Farm F-0588 · 24.5 kg) is different from the copy that was sealed when it was sent — it was changed later, or this link is damaged. Do not rely on this certificate.</p>
+            <p><b>What to do:</b> Ask the seller for a new link. If a new link shows the same problem, report it to Udgam. <span class="assume">ASSUMPTION: report channel not decided</span></p>
+          </div>
+        </div>
+
+        <div class="proof-more">
+          <details>
+            <summary>How this was checked</summary>
+            <div class="how">
+              <p>Your browser downloaded the 14 harvest records and the seal. For each record it worked out the fingerprint again from the record itself, then checked that the seal's signature matches Udgam's public key. Nothing was taken on trust from this page.</p>
+              <p>Each record was also checked when the farmer sent it: the phone's seal, the location inside the plot, that the photos were new, the forest map and the satellite view.</p>
+              <p><a href="#public-key" data-toast>Udgam public key</a> <span class="assume">ASSUMPTION: public key URL not yet published</span></p>
+            </div>
+          </details>
+          <button class="linkbtn" type="button" data-recheck>Check again</button>
+          <a class="linkbtn" href="#limits">What this can't prove</a>
+        </div>
+      </section>
+    </div>
+
+    <div class="pair">
+      <!-- 2 · TIMELINE -->
+      <section id="journey" aria-labelledby="journey-h">
+        <h2 id="journey-h">Journey of this batch</h2>
+        <ol class="timeline">
+          <li><span class="dot" aria-hidden="true"></span><div><p class="t-name">Harvested</p><p class="t-meta"><b>2–27 Sep 2026</b> · 3 farms in Kodagu</p></div></li>
+          <li><span class="dot markdot" aria-hidden="true"><svg class="mark" data-check-mark><use href="#m-ok"/></svg></span><div><p class="t-name">Checked</p><p class="t-meta" data-check-text><b>14 pickings</b> · all verified</p></div></li>
+          <li><span class="dot" aria-hidden="true"></span><div><p class="t-name">Batched</p><p class="t-meta"><b>28 Sep 2026</b> · Hosahalli FPO</p></div></li>
+          <li><span class="dot" aria-hidden="true"></span><div><p class="t-name">Handed to buyer</p><p class="t-meta"><b>29 Sep 2026</b> · exporter “Buyer B-07”</p></div></li>
+        </ol>
+      </section>
+
+      <!-- 3 · ORIGIN -->
+      <section id="origin" aria-labelledby="origin-h">
+        <h2 id="origin-h">Where it was grown</h2>
+        <figure>
+          <div class="map">
+            <svg viewBox="0 0 480 300" role="img" aria-label="Outlines of the three plots: Farm F-0231, Farm F-0417 and Farm F-0588">
+              <g stroke="var(--rule)" stroke-width="1">
+                <path d="M0 75H480M0 150H480M0 225H480M120 0V300M240 0V300M360 0V300"/>
+              </g>
+              <g fill="var(--bg)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round">
+                <polygon points="52,78 158,52 196,118 150,176 66,158"/>
+                <polygon points="236,40 334,58 356,138 268,152 222,102"/>
+                <polygon points="252,190 362,176 414,232 332,272 242,254"/>
+              </g>
+              <g font-family="Noto Sans, sans-serif" font-size="16" font-weight="700" fill="var(--ink)" text-anchor="middle">
+                <text x="124" y="118">F-0231</text>
+                <text x="288" y="104">F-0417</text>
+                <text x="330" y="230">F-0588</text>
+              </g>
+              <g fill="var(--ink-2)" font-family="Noto Sans, sans-serif" font-size="14" text-anchor="middle">
+                <text x="124" y="137">1.2 ha</text><text x="288" y="123">0.9 ha</text><text x="330" y="249">1.4 ha</text>
+              </g>
+              <g stroke="var(--ink)" stroke-width="1.8" fill="none" stroke-linecap="round"><path d="M446 58V26M438 36l8-10 8 10"/></g>
+              <text x="446" y="76" text-anchor="middle" font-family="Noto Sans, sans-serif" font-size="14" font-weight="700" fill="var(--ink)">N</text>
+              <text x="14" y="288" font-family="Noto Sans, sans-serif" font-size="13" fill="var(--ink-2)">Not to scale · placeholder outlines</text>
+            </svg>
+          </div>
+          <figcaption class="map-cap">Plot outlines as recorded when each farm joined. <span class="assume">ASSUMPTION: shapes and areas are placeholders</span></figcaption>
+        </figure>
+        <table class="origin">
+          <caption class="sr-only">Origin details</caption>
+          <tr><th scope="row">Region</th><td>Kodagu, Karnataka, India</td></tr>
+          <tr><th scope="row">Variety</th><td>Arabica</td></tr>
+          <tr><th scope="row">Farms</th><td>3 · F-0231, F-0417, F-0588</td></tr>
+          <tr><th scope="row">Harvest window</th><td>2–27 September 2026</td></tr>
+          <tr><th scope="row">Quantity</th><td>612 kg cherry</td></tr>
+        </table>
+        <p class="forest"><svg class="ico" aria-hidden="true"><use href="#i-tree"/></svg><span>No tree cover lost inside these plots since 31 Dec 2020 (Global Forest Watch)</span></p>
+      </section>
+    </div>
+
+    <!-- 4 · ENTRIES -->
+    <section id="entries" aria-labelledby="entries-h">
+      <h2 id="entries-h">Harvest entries</h2>
+      <table class="entries" role="table">
+        <caption class="sr-only">14 harvest entries in this batch</caption>
+        <thead role="rowgroup"><tr role="row"><th role="columnheader" scope="col">No.</th><th role="columnheader" scope="col">Date</th><th role="columnheader" scope="col">Farm</th><th role="columnheader" scope="col" class="kg-h">Weight</th><th role="columnheader" scope="col">Result on this device</th></tr></thead>
+        <tbody role="rowgroup" id="rows"></tbody>
+        <tfoot role="rowgroup"><tr role="row"><td role="cell" class="n"></td><td role="cell" class="dt">Total</td><td role="cell" class="farm"></td><td role="cell" class="kg">612.0 kg</td><td role="cell" class="rc"></td></tr></tfoot>
+      </table>
+    </section>
+
+    <div class="trio">
+      <!-- 5 · ORGANIC -->
+      <section id="claims" aria-labelledby="claims-h">
+        <h2 id="claims-h">Declared by the seller</h2>
+        <p class="claim">Organic: certified by [issuer] — certificate on record (not checked by satellite)</p>
+        <p style="margin-top:6px"><span class="assume">ASSUMPTION: issuer name</span></p>
+      </section>
+
+      <!-- 6 · DOWNLOADS -->
+      <section id="downloads" aria-labelledby="downloads-h">
+        <h2 id="downloads-h">Downloads</h2>
+        <div class="btns">
+          <button class="btn" type="button" data-geojson><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg>Download EUDR map file (GeoJSON)</button>
+          <button class="btn" type="button" data-print><svg class="ico" aria-hidden="true"><use href="#i-print"/></svg>Print certificate</button>
+        </div>
+      </section>
+
+      <!-- 7 · LIMITS -->
+      <section id="limits" class="limits" aria-labelledby="limits-h">
+        <h2 id="limits-h">What this can't prove</h2>
+        <p>This page shows that these 14 records have not changed since they were sealed, and that each one passed its checks when it was sent. It can't prove that every cherry in the bag came from these plots, that the scale was right, or that nothing was mixed in after the batch left the FPO. Things the seller declared — like the organic certificate — are shown as declared, not checked.</p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="foot">Udgam · harvest records from Kodagu. Farm IDs are pseudonymous: no names or phone numbers are shown.</footer>
+</div>
+
+<nav id="state-menu" aria-label="Prototype states" hidden>
+  <a href="#verified">Verified (default)</a>
+  <a href="#loading">Checking</a>
+  <a href="#mismatch">Does not match</a>
+  <hr>
+  <a href="index.html">Capture app</a>
+  <button type="button" data-toggle-params aria-controls="params">Parameters</button>
+</nav>
+<button class="tool-btn param-toggle" type="button" data-toggle-params aria-expanded="false" aria-controls="params">Parameters</button>
+<section id="params" hidden aria-label="Design parameters" style="padding-top:14px">
+  <h2>Parameters · Option A</h2>
+<pre>visual_direction: estate-record-book
+narrative: "Today → write the entry → it is sealed into your book"
+hero: "circular seal — here the 'checked in your browser' seal on the proof result"
+navigation: "single long page; proof result first; anchor to limits"
+layout: "record-book extract: ruled tables, dot timeline, hairline rules"
+mobile_scroll: native
+motion: "none on this page besides counting text while checking"
+surface: "flat paper, hairline rules, no cards"
+typography: "Noto Serif (title, dates, kg) + Noto Sans (body, labels)"
+conversion: n/a</pre>
+</section>
+
+<script>
+(function(){
+  var ROWS = [
+    ['2 Sep','F-0231','38.0'],['4 Sep','F-0417','45.5'],['6 Sep','F-0588','38.5'],['8 Sep','F-0231','51.0'],
+    ['10 Sep','F-0417','62.5'],['11 Sep','F-0588','33.5'],['13 Sep','F-0231','47.0'],['15 Sep','F-0417','55.0'],
+    ['17 Sep','F-0588','24.5'],['19 Sep','F-0231','42.0'],['21 Sep','F-0417','58.5'],['23 Sep','F-0588','36.0'],
+    ['25 Sep','F-0231','38.0'],['27 Sep','F-0231','42.0']
+  ];
+  var FAIL = 9, timer = null;
+  var $ = function(s){ return document.querySelector(s); };
+  var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
+
+  function cell(kind){
+    if (kind === 'ok')   return '<span class="res"><svg class="mark" aria-hidden="true"><use href="#m-ok"/></svg>Verified</span>';
+    if (kind === 'match')return '<span class="res"><svg class="mark" aria-hidden="true"><use href="#m-ok"/></svg>Matches</span>';
+    if (kind === 'bad')  return '<span class="res bad"><svg class="mark" aria-hidden="true"><use href="#m-bad"/></svg>Does not match</span>';
+    if (kind === 'now')  return '<span class="res wait"><svg class="mark" aria-hidden="true"><use href="#m-now"/></svg>Checking…</span>';
+    return '<span class="res wait"><svg class="mark" aria-hidden="true"><use href="#m-wait"/></svg>Waiting</span>';
+  }
+  function renderRows(state, done){
+    $('#rows').innerHTML = ROWS.map(function(r, i){
+      var n = i + 1, k;
+      if (state === 'verified') k = 'ok';
+      else if (state === 'mismatch') k = n === FAIL ? 'bad' : 'match';
+      else k = n <= done ? 'match' : (n === done + 1 ? 'now' : 'wait');
+      return '<tr role="row"' + (state === 'mismatch' && n === FAIL ? ' class="failed"' : '') + '><td role="cell" class="n">' + n + '</td><td role="cell" class="dt">' + r[0] + '</td><td role="cell" class="farm">Farm ' + r[1] + '</td><td role="cell" class="kg">' + r[2] + ' kg</td><td role="cell" class="rc">' + cell(k) + '</td></tr>';
+    }).join('');
+  }
+  function setCount(n){
+    $('[data-count-big]').textContent = n;
+    $('[data-count-text]').textContent = n + ' of 14 checked so far.';
+    $('[data-tally]').innerHTML = ROWS.map(function(_, i){ return '<i' + (i < n ? ' class="on"' : '') + '></i>'; }).join('');
+    renderRows('loading', n);
+  }
+  function setState(state){
+    clearInterval(timer);
+    document.body.setAttribute('data-state', state);
+    var mk = $('[data-check-mark] use'), txt = $('[data-check-text]');
+    if (state === 'verified'){ $('#title').textContent = 'Kodagu Arabica, verified at origin'; mk.setAttribute('href', '#m-ok'); txt.innerHTML = '<b>14 pickings</b> · all verified'; renderRows('verified'); }
+    if (state === 'mismatch'){ $('#title').textContent = 'Kodagu Arabica — could not be verified'; mk.setAttribute('href', '#m-bad'); txt.innerHTML = '<b>13 of 14 pickings match</b> · record 9 does not'; renderRows('mismatch'); }
+    if (state === 'loading'){ $('#title').textContent = 'Kodagu Arabica, checking…'; mk.setAttribute('href', '#m-now'); txt.innerHTML = '<b>14 pickings</b> · being checked now'; setCount(0); }
+  }
+  // run a check: count records one by one; end in `end` state (or hold at `holdAt` for the #loading preview)
+  function run(end, holdAt){
+    setState('loading');
+    var n = 0, stop = end === 'mismatch' ? FAIL - 1 : 14;
+    timer = setInterval(function(){
+      n++; setCount(n);
+      if (holdAt && n >= holdAt){ clearInterval(timer); return; }
+      if (n >= stop){ clearInterval(timer); setTimeout(function(){ setState(end); }, 350); }
+    }, 260);
+  }
+  function fromHash(){
+    var h = location.hash.replace('#', '');
+    if (h === 'loading') run('verified', 9);
+    else if (h === 'mismatch') setState('mismatch');
+    else if (h === 'verified' || h === '') setState('verified');
+    else if (!document.body.getAttribute('data-state')) setState('verified');
+  }
+
+  document.addEventListener('click', function(e){
+    var el = e.target.closest('[data-recheck],[data-geojson],[data-print],[data-toggle-params],.states-btn,#state-menu a,[data-toast]');
+    if (!el) return;
+    if (el.matches('#state-menu a')){ closeMenu(); return; }
+    if (el.matches('.states-btn')){ var m = $('#state-menu'); m.hidden = !m.hidden; el.setAttribute('aria-expanded', String(!m.hidden)); return; }
+    if (el.hasAttribute('data-toggle-params')){ var p = $('#params'); p.hidden = !p.hidden; $$('[data-toggle-params]').forEach(function(b){ b.setAttribute('aria-expanded', String(!p.hidden)); }); closeMenu(); return; }
+    if (el.hasAttribute('data-toast')){ e.preventDefault(); alert('Prototype: the public key link is a placeholder.'); return; }
+    if (el.hasAttribute('data-recheck')){ run(document.body.getAttribute('data-state') === 'mismatch' ? 'mismatch' : 'verified'); return; }
+    if (el.hasAttribute('data-print')){ window.print(); return; }
+    if (el.hasAttribute('data-geojson')){
+      // PLACEHOLDER coordinates near Kodagu — real file is built from enrolment plot polygons.
+      function poly(x, y){ return [[[x, y], [x + 0.004, y + 0.001], [x + 0.005, y - 0.003], [x + 0.001, y - 0.004], [x, y]]]; }
+      var gj = { type: 'FeatureCollection', name: 'KDG-2026-0142', features: [
+        ['F-0231', 75.8021, 12.3375], ['F-0417', 75.8093, 12.3402], ['F-0588', 75.8110, 12.3321]
+      ].map(function(f){ return { type: 'Feature', properties: { farm_id: f[0], batch: 'KDG-2026-0142', country: 'IN', commodity: 'coffee', placeholder: true }, geometry: { type: 'Polygon', coordinates: poly(f[1], f[2]) } }; }) };
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(gj, null, 2)], { type: 'application/geo+json' }));
+      a.download = 'KDG-2026-0142-plots.geojson'; document.body.appendChild(a); a.click(); a.remove();
+    }
+  });
+  function closeMenu(){ $('#state-menu').hidden = true; $('.states-btn').setAttribute('aria-expanded', 'false'); }
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape'){ closeMenu(); $('#params').hidden = true; } });
+  window.addEventListener('beforeprint', function(){ $$('details').forEach(function(d){ d.open = true; }); });
+  window.addEventListener('hashchange', fromHash);
+  setState('verified');
+  fromHash();
+})();
+</script>
+</body>
+</html>

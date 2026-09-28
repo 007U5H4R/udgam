@@ -1,0 +1,955 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Udgam admin · Review queue</title>
+<meta name="description" content="Design prototype, final direction (Opal-inspired): the FPO admin's review queue. Pickings that need a person, with the plot, photos, all 12 checks, the score and a signed decision.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0A0E0C">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Noto+Sans+Kannada:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── Tokens · Direction D (Opal-inspired) — same as index.html / verify.html ── */
+:root{
+  --bg:#0A0E0C;
+  --glow:radial-gradient(120% 60% at 50% -10%, rgba(64,150,110,.55), rgba(20,60,45,.25) 45%, transparent 70%);
+  --surface:rgba(255,255,255,.06);
+  --surface-2:rgba(255,255,255,.10);
+  --surface-solid:#191D1B;
+  --hairline:rgba(255,255,255,.12);
+  --ink:#F3F6F4;
+  --ink-2:rgba(243,246,244,.74);
+  --ink-3:rgba(243,246,244,.58);     /* only ≥ 15 px */
+  --grad-text:linear-gradient(90deg,#B9F5D2 0%,#7FE3C1 45%,#D8F58C 100%);
+  --ok:#7FE3A6; --ok-ink:#9CF0BF; --ok-tint:rgba(127,227,166,.14);
+  --check:#F2B84B; --check-ink:#FFCB6B; --check-tint:rgba(242,184,75,.15);
+  --bad:#EF6A5B; --bad-ink:#FF8C7E; --bad-tint:rgba(239,106,91,.15);
+  --cherry:#C8322B;
+  --pill-bg:rgba(255,255,255,.08);
+  --pill-line:rgba(255,255,255,.14);
+  --pill-glow:radial-gradient(70% 120% at 50% 130%, rgba(127,227,166,.65), rgba(170,150,255,.35) 45%, transparent 72%);
+  --pill-glow-amber:radial-gradient(70% 120% at 50% 130%, rgba(242,184,75,.62), rgba(239,106,91,.30) 45%, transparent 72%);
+  --pill-glow-red:radial-gradient(70% 120% at 50% 130%, rgba(239,106,91,.65), rgba(200,50,43,.30) 45%, transparent 72%);
+  --focus:#D8F58C;
+  --r-card:28px; --r-row:22px;
+  --banner-h:52px;
+  --rail-w:104px;
+  --fs-body:17px;
+  --fs-small:15px;
+  --pad:20px;
+  --font:"Figtree","Noto Sans Kannada",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (max-width:420px){ :root{ --banner-h:60px; --pad:16px; } }
+
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%;background:var(--bg);scroll-padding-top:calc(var(--banner-h) + 16px)}
+body{margin:0;background:var(--glow) no-repeat 50% 0/100% 900px,var(--bg);color:var(--ink);font-family:var(--font);font-size:var(--fs-body);line-height:1.5;padding-top:var(--banner-h);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+h1,h2,h3,p,ul,ol,figure,dl,dd{margin:0}
+ul,ol{padding:0;list-style:none}
+button,textarea{font:inherit;color:inherit}
+a{color:#B9F5D2;text-underline-offset:3px}
+.ic{width:24px;height:24px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.lit{background:var(--grad-text);-webkit-background-clip:text;background-clip:text;color:transparent}
+@supports not ((background-clip:text) or (-webkit-background-clip:text)){ .lit{background:none;color:#B9F5D2} }
+:focus-visible{outline:3px solid var(--focus);outline-offset:3px;box-shadow:0 0 0 7px rgba(216,245,140,.22)}
+.glass{background:var(--surface);-webkit-backdrop-filter:blur(20px) saturate(1.2);backdrop-filter:blur(20px) saturate(1.2);border:1px solid var(--hairline)}
+.card{border-radius:var(--r-card)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){ .glass{background:var(--surface-solid)} .dlg-panel{background:#1B201D!important} }
+.eyebrow{font-size:var(--fs-small);font-weight:600;color:var(--ink-2);letter-spacing:.01em}
+
+/* ── Prototype banner ─────────────────────────────────── */
+.proto-banner{position:fixed;inset:0 0 auto 0;height:var(--banner-h);z-index:50;display:flex;align-items:center;gap:8px;padding:0 6px 0 16px;background:#050706;border-bottom:1px solid rgba(255,255,255,.14);font-size:13px;line-height:1.3;letter-spacing:.02em;color:var(--ink)}
+.proto-banner p{flex:1;min-width:0}
+.proto-banner b{font-weight:700;color:var(--check-ink)}
+.bn-btn{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:0 14px;border:1px solid var(--hairline);border-radius:999px;background:rgba(255,255,255,.06);font-size:15px;font-weight:600;cursor:pointer}
+.bn-btn .ic{width:20px;height:20px}
+
+/* ── Buttons (same recipe as the app) ─────────────────── */
+.pill{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;padding:0 22px;border-radius:999px;border:1px solid var(--pill-line);background:var(--pill-glow),var(--pill-bg);color:#fff;font-size:17px;font-weight:600;line-height:1.2;text-align:center;text-decoration:none;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.10);transition:transform .12s ease}
+.pill:hover{background:var(--pill-glow),rgba(255,255,255,.11)}
+.pill:active{transform:scale(.985)}
+.pill:disabled{cursor:not-allowed;background:var(--pill-bg);color:var(--ink-2);box-shadow:none}
+.pill.amber{background:var(--pill-glow-amber),var(--pill-bg)}
+.pill.red{background:var(--pill-glow-red),var(--pill-bg)}
+.pill.red:disabled{background:var(--pill-bg)}
+.pill.ghost{background:rgba(255,255,255,.05);box-shadow:none}
+.pill.ghost:hover{background:rgba(255,255,255,.09)}
+.textbtn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 16px;border:0;background:none;color:var(--ink);font-size:17px;font-weight:600;cursor:pointer;border-radius:999px}
+.textbtn:hover{background:rgba(255,255,255,.06)}
+.textbtn:disabled{cursor:progress;color:var(--ink-2)}
+.back{display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:0 16px 0 10px;border-radius:999px;border:1px solid var(--hairline);background:rgba(255,255,255,.06);font-size:17px;font-weight:600;cursor:pointer}
+.back:hover{background:rgba(255,255,255,.1)}
+
+/* ── Verdict chips + marks (word + mark + colour) ─────── */
+.mk{width:22px;height:22px;flex:none}
+.vchip{display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:4px 12px 4px 7px;border-radius:999px;font-size:15px;font-weight:700;line-height:1.2;white-space:nowrap}
+.vchip.ok{background:var(--ok-tint);color:var(--ok-ink)}
+.vchip.check{background:var(--check-tint);color:var(--check-ink)}
+.vchip.bad{background:var(--bad-tint);color:var(--bad-ink)}
+
+/* ── Shell ────────────────────────────────────────────── */
+.shell{display:grid;grid-template-columns:var(--rail-w) minmax(0,1fr);min-height:calc(100vh - var(--banner-h))}
+.rail{position:sticky;top:var(--banner-h);height:calc(100vh - var(--banner-h));display:flex;flex-direction:column;align-items:center;gap:14px;padding:16px 10px 18px;border-right:1px solid var(--hairline);background:rgba(5,7,6,.38)}
+.rail-mark{display:flex;flex-direction:column;align-items:center;gap:0;font-size:17px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
+.rail-mark img{width:52px;height:52px;margin:-6px 0 -4px}
+.rail ul{display:grid;gap:6px;width:100%}
+.rail-item{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:68px;padding:8px 4px;border-radius:20px;color:var(--ink-2);font-size:14px;font-weight:600;text-decoration:none;line-height:1.2}
+.rail-item:hover{color:#fff;background:rgba(255,255,255,.06)}
+.rail-item[aria-current="page"]{background:rgba(255,255,255,.13);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.10)}
+.ri-ic{position:relative;display:grid;place-items:center}
+.count{position:absolute;top:-8px;left:calc(100% - 6px);min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--check);color:#0A0E0C;font-size:13px;font-weight:800;line-height:22px;text-align:center;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px #0A0E0C}
+.rail-me{margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;font-size:14px;font-weight:600;line-height:1.25}
+.rail-me small{display:block;font-size:13px;font-weight:500;color:var(--ink-2)}
+.avatar{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:rgba(185,245,210,.14);border:1px solid rgba(185,245,210,.35);color:#B9F5D2;font-size:15px;font-weight:800}
+
+.main{display:grid;grid-template-columns:400px minmax(0,1fr);min-width:0}
+
+/* ── Queue column ─────────────────────────────────────── */
+.queue{min-width:0;padding:22px 18px 28px 22px;border-right:1px solid var(--hairline)}
+.q-brand{display:none}
+.q-head h1{font-size:30px;line-height:1.15;font-weight:700;letter-spacing:-.02em;margin-top:4px}
+.q-sub{margin-top:6px;color:var(--ink-2);font-size:var(--fs-small)}
+.q-list{display:grid;gap:10px;margin-top:18px}
+.q-item{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:3px 14px;align-items:start;width:100%;min-height:96px;padding:14px 16px 14px 14px;border-radius:var(--r-row);border:1px solid var(--hairline);background:var(--surface);text-align:left;cursor:pointer;-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+.q-item:hover{background:rgba(255,255,255,.09)}
+.q-item[aria-current="true"]{background:rgba(127,227,193,.10);border-color:rgba(185,245,210,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 0 24px rgba(127,227,193,.12)}
+.q-bub{grid-row:1/4;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--check-tint);color:var(--check-ink)}
+.q-bub.bad{background:var(--bad-tint);color:var(--bad-ink)}
+.q-id{font-size:17px;font-weight:700;line-height:1.3}
+.q-kg{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.3;white-space:nowrap}
+.q-when{grid-column:2/4;font-size:var(--fs-small);color:var(--ink-2);font-variant-numeric:tabular-nums}
+.q-why{grid-column:2/4;display:flex;align-items:center;gap:7px;margin-top:4px;font-size:var(--fs-small);font-weight:600;line-height:1.3;color:var(--check-ink)}
+.q-why.bad{color:var(--bad-ink)}
+.q-why .mk{width:18px;height:18px}
+.q-sec{margin-top:28px;font-size:17px;font-weight:700}
+.q-sec span{color:var(--ink-2);font-weight:500}
+.q-sec-note{margin-top:2px;font-size:var(--fs-small);color:var(--ink-2)}
+.q-sec + .q-sec-note + .q-list{margin-top:12px}
+.q-done{margin-top:18px;padding:22px 20px;text-align:center}
+.q-done p + p{margin-top:4px;color:var(--ink-2);font-size:var(--fs-small)}
+
+/* skeletons (loading) */
+.sk{display:block;border-radius:10px;background:linear-gradient(90deg,rgba(255,255,255,.06) 0%,rgba(255,255,255,.12) 50%,rgba(255,255,255,.06) 100%);background-size:200% 100%;animation:shimmer 1.4s linear infinite}
+@keyframes shimmer{from{background-position:100% 0}to{background-position:-100% 0}}
+.sk-row{display:grid;grid-template-columns:44px 1fr;gap:10px 14px;min-height:96px;padding:14px;border-radius:var(--r-row)}
+.sk-row .sk:first-child{width:44px;height:44px;border-radius:50%;grid-row:1/4}
+.sk-line{height:14px}
+.load-note{display:flex;align-items:center;gap:8px;margin-top:16px;color:var(--ink);font-weight:600}
+.load-note .ic{color:#B9F5D2;animation:spin 1.4s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* state panels (empty, error) */
+.state-card{max-width:560px;margin:28px auto 0;padding:28px 26px 26px;text-align:center}
+.state-card h2{font-size:24px;line-height:1.25;font-weight:700;letter-spacing:-.01em}
+.state-card p{margin-top:6px}
+.state-card .pill{margin:20px auto 0;max-width:320px}
+.state-card.err{background:linear-gradient(180deg,rgba(242,184,75,.22),rgba(242,184,75,.06) 55%),rgba(24,22,18,.72);border-color:rgba(255,214,150,.22)}
+.st-ic{display:grid;place-items:center;width:72px;height:72px;margin:0 auto 14px;border-radius:50%;border:1.5px solid rgba(255,203,107,.55);background:rgba(242,184,75,.12);color:var(--check-ink);box-shadow:0 0 30px rgba(242,184,75,.25)}
+.st-ic .ic{width:32px;height:32px}
+.cherry{position:relative;display:grid;place-items:center;margin:0 auto 10px;width:112px;height:112px}
+.cherry img{position:relative;width:100%;height:100%;z-index:1;filter:drop-shadow(0 0 2px rgba(127,227,166,.85)) drop-shadow(0 0 20px rgba(127,227,166,.45))}
+.cherry::before{content:"";position:absolute;inset:-35%;border-radius:50%;background:radial-gradient(closest-side,rgba(127,227,166,.34),rgba(127,227,166,.10) 55%,transparent)}
+
+/* ── Detail column ────────────────────────────────────── */
+.detail{min-width:0;display:flex;flex-direction:column;container-type:inline-size}
+.d-body{flex:1;width:100%;max-width:980px;padding:24px 32px 28px}
+.d-back{display:none;margin-bottom:12px}
+.d-title{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-top:4px}
+.d-title h2{font-size:30px;line-height:1.15;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.d-meta{margin-top:6px;color:var(--ink-2);font-size:var(--fs-small)}
+
+.score-card{margin-top:18px;padding:20px 22px 20px}
+.score-line{font-size:22px;line-height:1.3;font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.scale{position:relative;display:grid;grid-template-columns:50fr 30fr 20fr;gap:3px;height:10px;margin:16px 0 8px}
+.scale .z{border-radius:999px}
+.z-bad{background:rgba(239,106,91,.45)}
+.z-check{background:rgba(242,184,75,.55)}
+.z-ok{background:rgba(127,227,166,.5)}
+.pin{position:absolute;top:-7px;width:4px;height:24px;margin-left:-2px;border-radius:4px;background:#fff;box-shadow:0 0 0 3px #0A0E0C,0 0 14px rgba(255,255,255,.6)}
+.scale-key{display:grid;grid-template-columns:50fr 30fr 20fr;gap:3px;font-size:13px;font-weight:600;color:var(--ink-2);line-height:1.3}
+.scale-key span:last-child{text-align:right}
+.why{margin-top:16px;padding-top:14px;border-top:1px solid var(--hairline)}
+.why b{font-weight:700}
+
+.d-grid{display:grid;gap:16px;margin-top:16px;align-items:start}
+@container (min-width:720px){ .d-grid{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)} }
+.sec-h{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.plot-card{padding:16px 16px 16px}
+.plot-card .where{display:flex;align-items:center;gap:6px;font-size:var(--fs-small);font-weight:600;color:var(--ink-2)}
+.plot-card .where .ic{width:20px;height:20px;color:#B9F5D2}
+.plot-map{margin:6px 0 2px;overflow:hidden;border-radius:16px}
+.plot-map svg{display:block;width:100%;height:auto;overflow:hidden}
+@container (max-width:719.98px){ .plot-map svg{max-height:260px} }
+.m-contour{fill:none;stroke:rgba(185,245,210,.10);stroke-width:1.2}
+.m-contour-in{fill:none;stroke:rgba(185,245,210,.20);stroke-width:1.2}
+.m-fill{fill:url(#plotFill)}
+.m-band{fill:none;stroke:rgba(185,245,210,.13);stroke-linejoin:round}
+.m-glow{fill:none;stroke:#7FE3C1;stroke-width:9;stroke-linejoin:round;opacity:.55;filter:url(#softGlow)}
+.m-line{fill:none;stroke:#B9F5D2;stroke-width:2.6;stroke-linejoin:round}
+.m-dot{fill:#fff;stroke:#7FE3C1;stroke-width:4}
+.m-dot.out{stroke:#EF6A5B}
+.m-ring{fill:rgba(127,227,193,.16);stroke:rgba(185,245,210,.7);stroke-width:1.5}
+.m-ring.out{fill:rgba(239,106,91,.18);stroke:rgba(255,140,126,.85)}
+.m-gap{stroke:#FF8C7E;stroke-width:2;stroke-dasharray:4 4}
+.m-tag{fill:#F3F6F4;font:700 15px var(--font)}
+.m-tag-bg{fill:rgba(5,7,6,.72)}
+.plot-say{margin-top:4px;font-size:19px;font-weight:700;line-height:1.3;display:flex;align-items:center;gap:8px}
+.plot-say .mk{width:20px;height:20px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:8px;font-size:13px;font-weight:600;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.lg-dot{width:12px;height:12px;border-radius:50%;background:#fff;border:3px solid #7FE3C1}
+.lg-dot.out{border-color:#EF6A5B}
+.lg-line{width:18px;height:3px;border-radius:3px;background:#B9F5D2;box-shadow:0 0 6px #7FE3C1}
+.lg-band{width:18px;height:10px;border-radius:3px;background:rgba(185,245,210,.22)}
+
+.photos{padding:16px}
+.ph-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px}
+.ph{display:flex;flex-direction:column;gap:6px}
+.ph .thumb{position:relative;aspect-ratio:1;border-radius:16px;overflow:hidden;background:linear-gradient(135deg,#16392A,#0B1F16);display:grid;place-items:center;border:1px solid var(--hairline)}
+.ph .thumb svg{display:block;width:100%;height:100%}
+.ph .thumb svg.line-art{width:84%;height:84%}
+.ph.bad .thumb{box-shadow:0 0 0 2px var(--bad)}
+.tag{position:absolute;left:6px;bottom:6px;right:6px;width:max-content;max-width:calc(100% - 12px);font-size:13px;font-weight:600;line-height:1.2;padding:2px 7px;border-radius:999px;background:rgba(5,7,6,.9);color:var(--ink)}
+.ph-cap{font-size:13px;font-weight:600;line-height:1.3;color:var(--ink)}
+.ph-cap span{display:block;font-weight:500;color:var(--ink-2)}
+.ph-flag{display:flex;align-items:flex-start;gap:5px;font-size:13px;font-weight:700;line-height:1.3;color:var(--bad-ink)}
+.ph-flag .mk{width:16px;height:16px;margin-top:1px}
+
+.checks-card{margin-top:16px;padding:18px 20px 8px}
+.checks-sum{margin-top:2px;color:var(--ink-2);font-size:var(--fs-small)}
+.checks{margin-top:10px}
+.chk{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;padding:12px 0;border-top:1px solid var(--hairline)}
+.chk.bad,.chk.check,.chk.na{margin:0 -10px;padding:12px 10px;border-radius:16px;border-top-color:transparent}
+.chk.bad{background:rgba(239,106,91,.10)}
+.chk.check{background:rgba(242,184,75,.08)}
+.chk.na{background:rgba(255,255,255,.05)}
+.chk.bad + .chk,.chk.check + .chk,.chk.na + .chk{border-top-color:transparent}
+.c-top{display:flex;align-items:flex-start;justify-content:space-between;gap:4px 12px}
+.c-name{order:-1;font-weight:700;min-width:0}
+.c-name code{display:block;margin-top:1px;overflow-wrap:anywhere;font:500 13px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink-2)}
+.c-stat{display:inline-flex;align-items:center;gap:7px;font-size:var(--fs-small);font-weight:700;white-space:nowrap;line-height:1.5}
+.c-stat .mk{width:20px;height:20px}
+.c-stat.ok{color:var(--ok-ink)} .c-stat.check{color:var(--check-ink)} .c-stat.bad{color:var(--bad-ink)} .c-stat.na{color:var(--ink)}
+.c-ev{color:var(--ink);font-size:var(--fs-small);line-height:1.45}
+.c-ev .again{display:block;margin-top:4px;font-weight:700;color:var(--check-ink)}
+@container (min-width:720px){
+  .chk{grid-template-columns:152px minmax(0,220px) minmax(0,1fr);gap:4px 16px;align-items:start}
+  .c-top{display:contents}
+  .c-stat{grid-column:1;grid-row:1}
+  .c-name{grid-column:2;grid-row:1}
+  .c-ev{grid-column:3;grid-row:1;padding-top:1px}
+}
+
+/* actions */
+.d-actions{position:sticky;bottom:0;z-index:5;width:100%;max-width:980px;padding:18px 32px calc(18px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 74%,rgba(10,14,12,0))}
+.act-row{display:grid;grid-template-columns:1.3fr 1fr auto;gap:10px;align-items:center}
+.again-hint{margin-top:6px;font-size:var(--fs-small);color:var(--ink-2);text-align:right}
+.decide{display:grid;gap:10px;padding:18px 20px 20px;border-radius:var(--r-card);border:1px solid rgba(185,245,210,.30);background:linear-gradient(180deg,rgba(127,227,166,.16),rgba(127,227,166,.04) 60%),rgba(20,28,24,.9);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);box-shadow:0 -10px 50px rgba(0,0,0,.55)}
+.decide.reject{border-color:rgba(255,140,126,.38);background:linear-gradient(180deg,rgba(239,106,91,.22),rgba(239,106,91,.05) 60%),rgba(28,18,17,.92)}
+.decide h3{font-size:21px;font-weight:700;display:flex;align-items:center;gap:8px}
+.decide label{font-weight:700}
+.decide label span{font-weight:500;color:var(--ink-2)}
+.decide textarea{display:block;width:100%;min-height:92px;padding:12px 14px;border-radius:16px;border:1.5px solid rgba(255,255,255,.28);background:rgba(0,0,0,.35);color:var(--ink);font-size:17px;line-height:1.45;resize:vertical}
+.decide textarea:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.decide .cnt{font-size:var(--fs-small);color:var(--ink-2);font-variant-numeric:tabular-nums;margin-top:-4px}
+.decide .cnt.ready{color:var(--ok-ink);font-weight:600}
+.dec-note{display:flex;align-items:flex-start;gap:8px;font-size:var(--fs-small);color:var(--ink)}
+.dec-note .ic{width:20px;height:20px;color:#B9F5D2;margin-top:1px}
+.decide.reject .dec-note .ic{color:var(--ink)}
+.dec-btns{display:grid;grid-template-columns:1.4fr 1fr;gap:10px;margin-top:4px}
+.locked{display:flex;align-items:flex-start;gap:12px;padding:16px 18px;border-radius:var(--r-row);border:1px solid rgba(255,140,126,.35);background:linear-gradient(180deg,rgba(239,106,91,.18),rgba(239,106,91,.06)),rgba(26,16,15,.9);font-weight:600}
+.locked .ic{color:var(--bad-ink);margin-top:1px}
+.outcome{display:grid;gap:8px;padding:18px 20px 20px;border-radius:var(--r-card)}
+.outcome .o-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.outcome .o-meta{font-size:var(--fs-small);color:var(--ink-2)}
+.outcome blockquote{margin:0;padding-left:12px;border-left:3px solid var(--hairline)}
+.outcome .pill{margin-top:6px}
+
+/* detail skeleton */
+.d-sk{display:grid;gap:14px}
+.d-sk .sk.h{height:30px;width:55%}
+.d-sk .sk.m{height:14px;width:35%}
+.d-sk .sk.box{height:150px;border-radius:var(--r-card)}
+.d-sk .sk.box2{height:260px;border-radius:var(--r-card)}
+
+/* reviewer dialog */
+dialog{padding:0;border:0;background:none;color:var(--ink);max-width:100vw}
+dialog::backdrop{background:rgba(2,3,3,.66)}
+dialog.top{margin:calc(var(--banner-h) + 8px) auto auto;width:min(calc(100vw - 16px),520px)}
+.dlg-panel{padding:16px 20px 20px;border-radius:30px;background:rgba(24,30,27,.92);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border:1px solid var(--hairline);display:grid;gap:12px;max-height:calc(100dvh - var(--banner-h) - 24px);overflow:auto}
+.dlg-panel h2{font-size:22px;text-align:center}
+.menu-list{display:grid;gap:6px}
+.menu-list a{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 18px;border-radius:18px;border:1px solid var(--hairline);background:rgba(255,255,255,.05);color:var(--ink);font-size:17px;font-weight:600;text-decoration:none}
+.menu-list a:hover{background:rgba(255,255,255,.1)}
+.menu-list [aria-current="true"]{border-color:rgba(185,245,210,.55);background:rgba(127,227,193,.1)}
+
+/* ── States ───────────────────────────────────────────── */
+body:not([data-state="working"]) [data-show~="working"],
+body:not([data-state="loading"]) [data-show~="loading"],
+body:not([data-state="empty"]) [data-show~="empty"],
+body:not([data-state="error"]) [data-show~="error"]{display:none!important}
+body[data-state="empty"] .main,body[data-state="error"] .main{grid-template-columns:minmax(0,1fr)}
+body[data-state="empty"] .detail,body[data-state="error"] .detail{display:none}
+body[data-state="empty"] .queue,body[data-state="error"] .queue{border-right:0}
+
+/* ── Desktop ≥ 1100: rail · list · detail, columns scroll on their own ── */
+@media (min-width:1100px){
+  .shell{height:calc(100vh - var(--banner-h))}
+  .main{height:calc(100vh - var(--banner-h))}
+  .queue,.detail{height:100%;overflow-y:auto;overscroll-behavior:contain}
+  .queue{scrollbar-width:thin}
+}
+
+/* ── Tablet / narrow < 1100: list → detail (detail is a full panel with Back) ── */
+@media (max-width:1099.98px){
+  .main{display:block}
+  .queue{border-right:0;max-width:760px;margin:0 auto;padding:22px var(--pad) 32px}
+  .detail{display:none}
+  body.detail-open .queue{display:none}
+  body.detail-open .detail{display:flex}
+  .d-back{display:inline-flex}
+  .d-body{max-width:none;padding:18px var(--pad) 20px}
+  .d-actions{max-width:none;padding:16px var(--pad) calc(16px + env(safe-area-inset-bottom))}
+}
+
+/* ── Phone < 700: rail becomes a floating glass tab bar ── */
+@media (max-width:699.98px){
+  :root{--rail-w:0px}
+  .shell{display:block}
+  .rail{position:fixed;top:auto;bottom:calc(12px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:20;height:auto;width:min(calc(100% - 20px),440px);flex-direction:row;gap:0;padding:6px;border-radius:999px;background:rgba(28,34,31,.72);-webkit-backdrop-filter:blur(24px) saturate(1.3);backdrop-filter:blur(24px) saturate(1.3);border:1px solid rgba(255,255,255,.14);box-shadow:0 18px 48px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.08)}
+  .rail-mark,.rail-me{display:none}
+  .rail ul{grid-template-columns:repeat(4,1fr);gap:2px}
+  .rail-item{min-height:58px;border-radius:999px;font-size:13px;gap:2px}
+  .count{top:-6px;left:calc(100% - 8px)}
+  body.detail-open .rail{display:none}
+  .queue{padding-bottom:110px}
+  .q-brand{display:flex;align-items:center;gap:6px;font-size:22px;font-weight:800;letter-spacing:-.03em;margin:-6px 0 10px}
+  .q-brand img{width:36px;height:36px;margin:-6px -2px -6px -8px}
+  .q-head h1{font-size:28px}
+  .d-title h2{font-size:26px}
+  .score-line{font-size:20px}
+  .score-card,.plot-card,.photos{padding:16px}
+  .checks-card{padding:16px 16px 6px}
+  .scale-key{font-size:13px}
+  .d-actions{padding-top:12px}
+  .act-row{grid-template-columns:1fr 1fr;gap:8px}
+  .act-row .pill:first-child{grid-column:1/-1}
+  .act-row .pill,.act-row .textbtn{min-height:52px;font-size:16px;padding:0 12px;gap:6px;white-space:nowrap}
+  .act-row .textbtn{border:1px solid var(--hairline);background:rgba(255,255,255,.04)}
+  .again-hint{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .dec-btns{grid-template-columns:1fr}
+  .state-card{margin-top:20px;padding:24px 18px 22px}
+}
+@media (max-width:380px){
+  .scale-key{grid-template-columns:1fr 1fr 1fr}
+  .scale-key span{text-align:left!important}
+  .scale-key span:nth-child(2){text-align:center!important}
+  .scale-key span:last-child{text-align:right!important}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
+@media (forced-colors:active){ .lit{color:CanvasText;background:none} .pin{background:CanvasText} }
+</style>
+</head>
+<body data-state="working">
+
+<div class="proto-banner" role="note">
+  <p><b>DESIGN PROTOTYPE — NOT PRODUCTION</b> · Final · Admin review</p>
+  <button class="bn-btn" type="button" id="states-btn" aria-haspopup="dialog"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg>States</button>
+</div>
+
+<!-- Icon set (24 grid, 1.8 stroke) + verdict marks + photo drawings — same family as index.html -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3.5 13.5h4.6l1.5 2.5h4.8l1.5-2.5h4.6"/><path d="M6 5h12l2.5 8.5V18a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1v-4.5z"/></symbol>
+    <symbol id="i-plot" viewBox="0 0 24 24"><path d="M5 7.5 11 4l8 3-1.5 9L10 20l-5.5-4z"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4z"/><path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8.5h3l1.6-2.5h6.8L17 8.5h3a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.3" r="3.4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7.5 18.5h9.6a4 4 0 0 0 .5-7.96A5.5 5.5 0 0 0 7 9.7a4.4 4.4 0 0 0 .5 8.8z"/></symbol>
+    <symbol id="i-location" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></symbol>
+    <symbol id="i-trend" viewBox="0 0 24 24"><path d="M4 17l5-5 3.5 3.5L20 8"/><path d="M15 8h5v5"/></symbol>
+    <symbol id="i-seal" viewBox="0 0 24 24"><path d="M12 3.5l7 2.8v5.2c0 4.4-3 7.8-7 9-4-1.2-7-4.6-7-9V6.3z"/><path d="M9 12l2.2 2.2L15.3 10"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></symbol>
+    <symbol id="i-retry" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4.2h-4.2"/></symbol>
+    <symbol id="i-ring" viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 1 1-8.5 8.5"/></symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><path d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" stroke-width="2.8"/></symbol>
+    <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M8.6 16.1a5 5 0 0 1 6-.5"/><path d="M5.3 12.7a9.6 9.6 0 0 1 4.2-2.2"/><path d="M14 10.5a9.6 9.6 0 0 1 4.8 2.3"/><path d="M2 9.3a14.4 14.4 0 0 1 3.3-2.2"/><path d="M9.7 5.2A14.4 14.4 0 0 1 22 9.3"/><path d="M12 19.6h.01"/></symbol>
+
+    <!-- verdict marks: circle / diamond / square / dashed circle — the word is always beside -->
+    <symbol id="mk-ok" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#7FE3A6"/><path d="M7 12.4l3.3 3.3L17 9" fill="none" stroke="#0A0E0C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="mk-check" viewBox="0 0 24 24"><path d="M12 1.2 22.8 12 12 22.8 1.2 12z" fill="#F2B84B" stroke="#F2B84B" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 7v6" stroke="#0A0E0C" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="16.6" r="1.4" fill="#0A0E0C"/></symbol>
+    <symbol id="mk-bad" viewBox="0 0 24 24"><rect x="1.5" y="1.5" width="21" height="21" rx="5" fill="#EF6A5B"/><path d="M8 8l8 8M16 8l-8 8" stroke="#0A0E0C" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="mk-na" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="#F3F6F4" stroke-width="1.8" stroke-dasharray="3 2.6"/><path d="M8 12h8" stroke="#F3F6F4" stroke-width="2.2" stroke-linecap="round"/></symbol>
+
+    <!-- photo placeholder drawings (from index.html) -->
+    <symbol id="ex-basket" viewBox="0 0 96 96">
+      <path class="ex-line" d="M18 72h60M24 72v10a3 3 0 0 0 3 3h42a3 3 0 0 0 3-3V72"/>
+      <rect x="38" y="76" width="20" height="6" rx="1.5" fill="rgba(185,245,210,.35)"/>
+      <path class="ex-line" d="M22 38h52l-7 32H29z"/>
+      <path class="ex-soft" d="M24.5 49h47M27 60h42"/>
+      <g><circle class="ex-berry" cx="30" cy="35" r="4.6"/><circle class="ex-berry-2" cx="39" cy="33" r="4.8"/><circle class="ex-berry" cx="48" cy="34" r="4.8"/><circle class="ex-berry-2" cx="57" cy="33" r="4.6"/><circle class="ex-berry" cx="66" cy="35" r="4.4"/><circle class="ex-berry" cx="44" cy="27" r="4.2"/><circle class="ex-berry-2" cx="53" cy="27" r="4.2"/>
+      <circle class="ex-shine" cx="38" cy="31.5" r="1.3"/><circle class="ex-shine" cx="47" cy="32.5" r="1.3"/><circle class="ex-shine" cx="43" cy="25.6" r="1.2"/></g>
+    </symbol>
+    <symbol id="ex-pile" viewBox="0 0 96 96">
+      <path class="ex-line" d="M6 82h84"/>
+      <path class="ex-soft" d="M12 86h72"/>
+      <g id="ex-pile-berries"></g>
+    </symbol>
+    <radialGradient id="phSun" cx="78%" cy="18%" r="70%"><stop offset="0" stop-color="#6FAF7C" stop-opacity=".75"/><stop offset=".5" stop-color="#2C5F41" stop-opacity=".35"/><stop offset="1" stop-color="#0E2418" stop-opacity="0"/></radialGradient>
+    <linearGradient id="phBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#16392A"/><stop offset="1" stop-color="#0B1F16"/></linearGradient>
+    <radialGradient id="berryRed" cx="35%" cy="32%" r="70%"><stop offset="0" stop-color="#FF8A70"/><stop offset=".35" stop-color="#D2362C"/><stop offset="1" stop-color="#5E0B12"/></radialGradient>
+    <radialGradient id="berryRipe" cx="35%" cy="32%" r="70%"><stop offset="0" stop-color="#FF9F7A"/><stop offset=".4" stop-color="#E0552F"/><stop offset="1" stop-color="#7A1C12"/></radialGradient>
+    <radialGradient id="berryGreen" cx="35%" cy="32%" r="70%"><stop offset="0" stop-color="#E4F09A"/><stop offset=".45" stop-color="#9FB63E"/><stop offset="1" stop-color="#3F5317"/></radialGradient>
+    <linearGradient id="leafG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2E8A5E"/><stop offset="1" stop-color="#0F4430"/></linearGradient>
+    <filter id="phBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>
+    <symbol id="ph-photo" viewBox="0 0 320 240" preserveAspectRatio="xMidYMid slice">
+      <rect width="320" height="240" fill="url(#phBg)"/>
+      <g filter="url(#phBlur)" opacity=".85">
+        <ellipse cx="40" cy="40" rx="70" ry="34" fill="#1F5A3E"/><ellipse cx="280" cy="210" rx="80" ry="40" fill="#123526"/><ellipse cx="250" cy="60" rx="60" ry="26" fill="#2A6B49"/><ellipse cx="70" cy="200" rx="60" ry="30" fill="#0E2C1F"/>
+      </g>
+      <rect width="320" height="240" fill="url(#phSun)"/>
+      <path d="M-6 190C70 164 150 132 330 58" fill="none" stroke="#4A3620" stroke-width="9" stroke-linecap="round"/>
+      <path d="M-6 190C70 164 150 132 330 58" fill="none" stroke="#8C6A42" stroke-opacity=".5" stroke-width="2.5" stroke-linecap="round" transform="translate(0 -3)"/>
+      <g id="ph-leaves"></g>
+      <g id="ph-berries"></g>
+    </symbol>
+    <radialGradient id="plotFill" cx="55%" cy="50%" r="60%"><stop offset="0" stop-color="#7FE3C1" stop-opacity=".16"/><stop offset="1" stop-color="#7FE3C1" stop-opacity=".04"/></radialGradient>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5"/></filter>
+  </defs>
+</svg>
+<style>
+.ex-line{fill:none;stroke:#B9F5D2;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ex-soft{fill:none;stroke:rgba(185,245,210,.45);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.ex-berry{fill:#D8453A}.ex-berry-2{fill:#9E2027}.ex-shine{fill:#fff;fill-opacity:.55}
+</style>
+
+<div class="shell">
+  <nav class="rail" aria-label="Admin sections">
+    <span class="rail-mark"><img src="cherry.svg" alt="" width="52" height="52">Udgam</span>
+    <ul>
+      <li><a class="rail-item" href="#" aria-current="page" data-nav="Review"><span class="ri-ic"><svg class="ic" aria-hidden="true"><use href="#i-inbox"/></svg><span class="count" id="rail-count" aria-hidden="true">4</span></span>Review<span class="vh" id="rail-count-sr">, 4 waiting</span></a></li>
+      <li><a class="rail-item" href="#" data-nav="Plots"><span class="ri-ic"><svg class="ic" aria-hidden="true"><use href="#i-plot"/></svg></span>Plots</a></li>
+      <li><a class="rail-item" href="#" data-nav="Batches"><span class="ri-ic"><svg class="ic" aria-hidden="true"><use href="#i-box"/></svg></span>Batches</a></li>
+      <li><a class="rail-item" href="#" data-nav="Phones"><span class="ri-ic"><svg class="ic" aria-hidden="true"><use href="#i-phone"/></svg></span>Phones</a></li>
+    </ul>
+    <p class="rail-me"><span class="avatar" aria-hidden="true">AK</span><span>Asha K.<small>FPO admin</small></span></p>
+  </nav>
+
+  <main class="main" id="main">
+    <!-- QUEUE -->
+    <section class="queue" aria-labelledby="q-h">
+      <span class="q-brand"><img src="cherry.svg" alt="" width="36" height="36">Udgam</span>
+      <header class="q-head">
+        <p class="eyebrow">Hosahalli FPO · Review</p>
+        <h1 id="q-h" tabindex="-1"><span data-show="working"><span class="lit" id="h-count">4</span> </span>Pickings to check</h1>
+        <p class="q-sub" data-show="working" id="q-sub">Oldest first. The checks ran on their own; these need a person to look.</p>
+      </header>
+
+      <div data-show="working">
+        <ul class="q-list" id="q-list" aria-label="Waiting for a person"></ul>
+        <h2 class="q-sec" id="final-h">Not accepted by the checks <span>(1)</span></h2>
+        <p class="q-sec-note">Shown so you can answer the farmer. These can't be changed.</p>
+        <ul class="q-list" id="q-final" aria-labelledby="final-h"></ul>
+      </div>
+
+      <div data-show="loading" aria-busy="true">
+        <p class="load-note"><svg class="ic" aria-hidden="true"><use href="#i-ring"/></svg>Loading the review list…</p>
+        <ul class="q-list" aria-hidden="true">
+          <li class="glass sk-row"><span class="sk"></span><span class="sk sk-line" style="width:62%"></span><span class="sk sk-line" style="width:44%"></span><span class="sk sk-line" style="width:78%"></span></li>
+          <li class="glass sk-row"><span class="sk"></span><span class="sk sk-line" style="width:58%"></span><span class="sk sk-line" style="width:40%"></span><span class="sk sk-line" style="width:70%"></span></li>
+          <li class="glass sk-row"><span class="sk"></span><span class="sk sk-line" style="width:64%"></span><span class="sk sk-line" style="width:46%"></span><span class="sk sk-line" style="width:74%"></span></li>
+          <li class="glass sk-row"><span class="sk"></span><span class="sk sk-line" style="width:55%"></span><span class="sk sk-line" style="width:42%"></span><span class="sk sk-line" style="width:66%"></span></li>
+        </ul>
+      </div>
+
+      <div class="glass card state-card" data-show="empty">
+        <div class="cherry" aria-hidden="true"><img src="cherry.svg" alt="" width="112" height="112"></div>
+        <h2>Nothing to check.</h2>
+        <p>New items appear here when a picking needs a person to look.</p>
+      </div>
+
+      <div class="glass card state-card err" data-show="error" role="alert">
+        <div class="st-ic" aria-hidden="true"><svg class="ic"><use href="#i-wifi-off"/></svg></div>
+        <h2>Couldn't load the review list.</h2>
+        <p>Nothing was changed.</p>
+        <button class="pill amber" type="button" id="retry"><svg class="ic" aria-hidden="true"><use href="#i-retry"/></svg>Try again</button>
+      </div>
+    </section>
+
+    <!-- DETAIL -->
+    <section class="detail" id="detail" aria-labelledby="d-h">
+      <div class="d-body" data-show="loading" aria-hidden="true">
+        <div class="d-sk"><span class="sk m"></span><span class="sk h"></span><span class="sk box"></span><span class="sk box2"></span></div>
+      </div>
+      <div class="d-body" data-show="working" id="d-body">
+        <button class="back d-back" type="button" id="d-back"><svg class="ic" aria-hidden="true"><use href="#i-arrow-left"/></svg>Back to list</button>
+        <header>
+          <p class="eyebrow" id="d-eyebrow"></p>
+          <div class="d-title"><h2 id="d-h" tabindex="-1"></h2><span id="d-chip"></span></div>
+          <p class="d-meta" id="d-meta"></p>
+        </header>
+        <section class="glass card score-card" aria-label="Score">
+          <p class="score-line" id="d-score"></p>
+          <div class="scale" aria-hidden="true"><span class="z z-bad"></span><span class="z z-check"></span><span class="z z-ok"></span><i class="pin" id="d-pin"></i></div>
+          <p class="scale-key" aria-hidden="true"><span>0–49 Not accepted</span><span>50–79 Needs a check</span><span>80+ Verified</span></p>
+          <p class="why" id="d-why"></p>
+        </section>
+        <div class="d-grid">
+          <figure class="glass card plot-card" aria-labelledby="plot-say">
+            <p class="where"><svg class="ic" aria-hidden="true"><use href="#i-location"/></svg><span id="d-where"></span></p>
+            <div class="plot-map" id="d-map"></div>
+            <figcaption>
+              <p class="plot-say" id="plot-say"></p>
+              <p class="legend" aria-hidden="true"><span><i class="lg-dot" id="lg-dot"></i>Where the phone was</span><span><i class="lg-line"></i>Plot boundary</span><span><i class="lg-band"></i>25 m margin</span></p>
+            </figcaption>
+          </figure>
+          <section class="glass card photos" aria-labelledby="ph-h">
+            <h3 class="sec-h" id="ph-h">Photos</h3>
+            <ul class="ph-grid" id="d-photos"></ul>
+          </section>
+        </div>
+        <section class="glass card checks-card" aria-labelledby="chk-h">
+          <h3 class="sec-h" id="chk-h">All 12 checks</h3>
+          <p class="checks-sum" id="d-sum"></p>
+          <ol class="checks" id="d-checks"></ol>
+        </section>
+      </div>
+
+      <div class="d-actions" data-show="working" id="d-actions">
+        <div id="act-wrap">
+          <div class="act-row">
+            <button class="pill" type="button" id="btn-accept"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Accept as verified</button>
+            <button class="pill ghost" type="button" id="btn-reject"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg>Not accepted</button>
+            <button class="textbtn" type="button" id="btn-again" aria-describedby="again-hint"><svg class="ic" aria-hidden="true" id="again-ic"><use href="#i-retry"/></svg><span id="again-label">Check again</span></button>
+          </div>
+          <p class="again-hint" id="again-hint"></p>
+        </div>
+        <form class="decide" id="decide" hidden novalidate aria-labelledby="dec-h">
+          <h3 id="dec-h"></h3>
+          <label for="reason">Reason <span>(at least 10 characters)</span></label>
+          <textarea id="reason" rows="3" aria-describedby="reason-cnt dec-note" required minlength="10"></textarea>
+          <p class="cnt" id="reason-cnt">0 of at least 10 characters</p>
+          <p class="dec-note" id="dec-note"><svg class="ic" aria-hidden="true"><use href="#i-seal"/></svg><span>Your decision is signed with your account and recorded permanently.</span></p>
+          <div class="dec-btns">
+            <button class="pill" type="submit" id="dec-go" disabled></button>
+            <button class="pill ghost" type="button" id="dec-cancel">Cancel</button>
+          </div>
+        </form>
+        <p class="locked" id="locked" hidden><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg><span id="locked-txt"></span></p>
+        <div class="glass outcome" id="outcome" hidden tabindex="-1"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<p class="vh" aria-live="polite" id="live"></p>
+
+<!-- Reviewer: states -->
+<dialog class="top" id="states-dialog" aria-labelledby="states-h">
+  <div class="dlg-panel">
+    <h2 id="states-h">Prototype states</h2>
+    <nav class="menu-list" aria-label="Screen states">
+      <a href="#" data-s="working">Working (default)</a>
+      <a href="#r5" data-s="r5">Hard-failed: can't be changed</a>
+      <a href="#loading" data-s="loading">Loading</a>
+      <a href="#empty" data-s="empty">Empty</a>
+      <a href="#error" data-s="error">Error</a>
+      <a href="index.html">Capture app (index.html)</a>
+      <a href="verify.html">Public certificate (verify.html)</a>
+    </nav>
+    <button class="textbtn" type="button" data-close>Close</button>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const wideMQ = matchMedia('(min-width: 1100px)');
+  const rmMQ = matchMedia('(prefers-reduced-motion: reduce)');
+
+  /* ── Photo drawings (same as index.html) ─────────────── */
+  let pile = '';
+  [[20,74],[30,74],[40,74],[50,74],[60,74],[70,74],[76,74],[26,65],[36,64],[46,63],[56,64],[66,65],[34,55],[44,53],[54,54],[62,57],[42,46],[50,46]]
+    .forEach(([x,y],i) => pile += `<circle class="${i % 3 ? 'ex-berry' : 'ex-berry-2'}" cx="${x}" cy="${y}" r="${i < 7 ? 5 : i < 12 ? 4.8 : 4.5}"/>`);
+  $('#ex-pile-berries').innerHTML = pile;
+  const leaf = (x, y, rot, s) => `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})"><path d="M0 0C14-15 44-16 62 0 44 16 14 15 0 0z" fill="url(#leafG)"/><path d="M2 0H58" stroke="#8FD9B0" stroke-opacity=".45" stroke-width="1.4"/></g>`;
+  $('#ph-leaves').innerHTML = [[40,172,-140,1.1],[40,172,-40,1.2],[112,146,-150,1.25],[112,146,-50,1.15],[190,114,-130,1.2],[190,114,-30,1.3],[262,86,-150,1],[262,86,-40,1.1]].map(a => leaf(...a)).join('');
+  const berry = (x, y, r, g) => `<circle cx="${x}" cy="${y}" r="${r}" fill="url(#${g})"/><circle cx="${x - r*.35}" cy="${y - r*.38}" r="${r*.22}" fill="#fff" fill-opacity=".6"/>`;
+  const G = ['berryRed','berryRed','berryRipe','berryRed','berryGreen','berryRed','berryRipe'];
+  let bs = '', n = 0;
+  [[70,170],[146,140],[222,108],[290,80]].forEach(([cx, cy], k) => {
+    [[-12,-2],[0,-4],[12,-1],[-6,8],[7,8],[-16,10],[18,9],[0,17]].slice(0, k === 3 ? 5 : 8).forEach(([dx, dy]) => { bs += berry(cx + dx, cy + dy, 9.5, G[n++ % G.length]); });
+  });
+  $('#ph-berries').innerHTML = bs;
+
+  /* ── The 12 checks (Solution-PRD §4.2) ───────────────── */
+  const CHECKS = [
+    ['signature_valid', "Phone's seal"],
+    ['chain_continuity', 'Seal chain'],
+    ['photo_uniqueness', 'Photos are new'],
+    ['geofence', 'Inside the plot'],
+    ['gps_accuracy', 'Location accuracy'],
+    ['exif_gps_agreement', 'Photo location'],
+    ['exif_time_agreement', 'Photo time'],
+    ['movement_plausibility', 'Travel since last record'],
+    ['deforestation_overlap', 'Forest map'],
+    ['ndvi_cultivation', 'Coffee grown here, 12 months'],
+    ['ndvi_harvest_window', 'Satellite view this month'],
+    ['yield_plausibility', 'Harvest size'],
+  ];
+  const ST = {
+    hard: { mk: 'mk-bad', word: 'Failed · final', cls: 'bad', rank: 0 },
+    fail: { mk: 'mk-bad', word: 'Failed', cls: 'bad', rank: 1 },
+    na:   { mk: 'mk-na', word: "Couldn't run", cls: 'na', rank: 2 },
+    flag: { mk: 'mk-check', word: 'Flagged', cls: 'check', rank: 3 },
+    ok:   { mk: 'mk-ok', word: 'Passed', cls: 'ok', rank: 4 },
+  };
+  const passEv = it => ({
+    signature_valid: `Signed with phone ${it.phone}'s own key. The phone is active, not blocked.`,
+    chain_continuity: `Record ${it.seq} follows record ${it.seq - 1} from this phone, in order.`,
+    photo_uniqueness: it.photos.length === 1 ? 'The photo has not been seen before.' : `None of the ${it.photos.length} photos has been seen before.`,
+    geofence: `Taken ${it.m} m inside the ${it.plot} boundary.`,
+    gps_accuracy: `The phone's location was accurate to ±${it.acc} m. Under 30 m passes.`,
+    exif_gps_agreement: `The photo's saved location is ${it.exd} m from the phone's location.`,
+    exif_time_agreement: `Photos taken ${it.min} min before sending. The phone's clock matches.`,
+    movement_plausibility: `${it.km} km from this phone's last record, ${it.hrs} h earlier.`,
+    deforestation_overlap: `No tree cover lost inside ${it.plot} since 2021 (Global Forest Watch).`,
+    ndvi_cultivation: 'Green canopy all year, as expected for shade-grown coffee.',
+    ndvi_harvest_window: `Living canopy seen in a clear satellite picture on ${it.sat}.`,
+    yield_plausibility: `This season: ${it.kgha} kg per ha. The usual top is 920 kg per ha.`,
+  });
+
+  /* Plot outlines (map units) */
+  const PLOTS = {
+    a: 'M62 62 L150 32 L238 48 L316 36 L352 100 L328 170 L262 206 L172 194 L98 214 L50 150 Z',
+    b: 'M70 70 L160 40 L250 60 L300 50 L330 110 L300 180 L220 205 L140 190 L80 200 L52 140 Z',
+    c: 'M90 50 L190 36 L290 58 L340 120 L310 196 L210 214 L120 200 L64 132 Z',
+    d: 'M58 90 L130 40 L230 44 L300 70 L344 140 L292 204 L180 210 L96 184 Z',
+    e: 'M80 60 L200 40 L320 64 L346 150 L280 206 L150 210 L60 160 Z',
+  };
+
+  /* ── Queue data (pseudonymous IDs; waiting = Needs a check) ── */
+  const WAITING = [
+    { id: 'r1', farm: 'F-0231', plot: 'Plot 2', place: 'Hosahalli', date: 'Wed 24 Sep', kg: '38.5', time: '7:42 am', phone: 'P-17', seq: 212, waited: '4 days',
+      reason: 'Satellite picture cloudy', icon: 'i-cloud', score: 64, shape: 'a', dot: [206, 124], m: 14, acc: 48, exd: 6, min: 3, km: '2.1', hrs: '26', sat: '—', kgha: 410,
+      photos: [['The branch', 'ph', '7:39 am'], ['Basket on the scale', 'basket', '7:40 am'], ["The day's pile", 'pile', '7:41 am']],
+      over: {
+        gps_accuracy: ['flag', 'The phone’s location was accurate to ±48 m under heavy shade. Under 30 m passes.'],
+        exif_gps_agreement: ['flag', 'Photos 2 and 3 have no location saved in them, so they couldn’t be compared.'],
+        ndvi_harvest_window: ['na', 'Clouds covered Plot 2 in every satellite picture from 28 Aug to 23 Sep.'],
+      },
+      why: 'The satellite check couldn’t run because of clouds. A check that can’t run always holds a picking at Needs a check, whatever the score.',
+      againHint: 'Check again runs the satellite check again.', againNA: 'ndvi_harvest_window' },
+    { id: 'r2', farm: 'F-0417', plot: 'Plot 1', place: 'Hosahalli', date: 'Thu 25 Sep', kg: '41.0', time: '8:15 am', phone: 'P-22', seq: 96, waited: '3 days',
+      reason: 'Photo 38 m outside the fence', icon: 'i-location', score: 71, shape: 'b', outside: 38, acc: 11, exd: 9, min: 4, km: '0.8', hrs: '48', sat: '19 Sep', kgha: 520,
+      photos: [['The branch', 'ph', '8:12 am'], ['Basket on the scale', 'basket', '8:13 am']],
+      over: { geofence: ['fail', 'Taken 38 m outside the Plot 1 boundary. The allowed margin is 25 m.'] },
+      why: '“Inside the plot” failed. A failed check always holds a picking at Needs a check, whatever the score.',
+      againHint: 'Check again runs all 12 checks again.' },
+    { id: 'r3', farm: 'F-0588', plot: 'Plot 1', place: 'Hosahalli', date: 'Fri 26 Sep', kg: '58.5', time: '6:58 am', phone: 'P-09', seq: 143, waited: '2 days',
+      reason: 'Harvest 1.6× usual for this plot', icon: 'i-trend', score: 78, shape: 'c', dot: [190, 132], m: 22, acc: 9, exd: 4, min: 2, km: '1.4', hrs: '24', sat: '21 Sep', kgha: '1,480',
+      photos: [['The branch', 'ph', '6:54 am'], ['Basket on the scale', 'basket', '6:55 am'], ["The day's pile", 'pile', '6:57 am']],
+      over: { yield_plausibility: ['flag', 'This season: 1,480 kg per ha, 1.6× the usual top of 920 kg per ha for Kodagu Arabica.'] },
+      why: 'The harvest size is high for this plot. A harvest-size flag always goes to a person, whatever the score.',
+      againHint: 'Check again runs all 12 checks again.' },
+    { id: 'r4', farm: 'F-0612', plot: 'Plot 3', place: 'Kushalnagar', date: 'Sat 27 Sep', kg: '36.0', time: '4:20 pm', phone: 'P-31', seq: 209, waited: '1 day',
+      reason: 'Phone’s seal chain skipped one record', icon: 'i-seal', score: 76, shape: 'd', dot: [214, 118], m: 9, acc: 14, exd: 7, min: 5, km: '3.6', hrs: '5', sat: '22 Sep', kgha: 480,
+      photos: [['The branch', 'ph', '4:17 pm']],
+      over: { chain_continuity: ['flag', 'Expected record 208 from phone P-31 next; got record 209. Record 208 never arrived.'] },
+      why: 'No single check forces this one. The score is under 80, and Verified needs 80 or more, so a person decides.',
+      againHint: 'Check again runs all 12 checks again.' },
+  ];
+  const FINAL = [
+    { id: 'r5', farm: 'F-0503', plot: 'Plot 1', place: 'Hosahalli', date: 'Thu 25 Sep', kg: '45.0', time: '11:05 am', phone: 'P-14', seq: 58, final: true,
+      reason: 'Photo already used on 12 Sep', icon: 'i-camera', score: 58, shape: 'e', dot: [200, 130], m: 18, acc: 12, exd: 5, min: 6, km: '1.1', hrs: '30', sat: '20 Sep', kgha: 390,
+      photos: [['The branch', 'ph', '11:02 am'], ['Basket on the scale', 'basket', '12 Sep', 'Same photo as the 12 Sep picking'], ["The day's pile", 'pile', '11:04 am']],
+      over: {
+        photo_uniqueness: ['hard', 'Photo 2 is the same file as a photo in the picking of 12 Sep (Farm F-0588).'],
+        exif_time_agreement: ['fail', 'Photo 2 was taken on 12 Sep, 13 days before it was sent. More than 7 days fails.'],
+      },
+      why: '“Photos are new” failed: the same photo was already used on 12 Sep. This rule always means Not accepted and can’t be overruled.' },
+  ];
+  const ALL = [...WAITING, ...FINAL];
+  const byId = id => ALL.find(x => x.id === id);
+  const decided = {};                 // id → { kind, reason, at }
+  const againNote = {};               // id → note after "Check again"
+  const waiting = () => WAITING.filter(x => !decided[x.id]);
+  let sel = WAITING[0].id;
+
+  const mk = (id, cls = 'mk') => `<svg class="${cls}" aria-hidden="true"><use href="#${id}"/></svg>`;
+  const icon = id => `<svg class="ic" aria-hidden="true"><use href="#${id}"/></svg>`;
+
+  function checksFor(it) {
+    const ev = passEv(it);
+    return CHECKS.map(([key, name], i) => {
+      const o = it.over[key];
+      return { key, name, i, st: o ? o[0] : 'ok', ev: o ? o[1] : ev[key] };
+    }).sort((a, b) => ST[a.st].rank - ST[b.st].rank || a.i - b.i);
+  }
+
+  /* ── Queue list ──────────────────────────────────────── */
+  function itemHTML(it) {
+    const bad = !!it.final;
+    return `<li><button class="q-item" type="button" data-id="${it.id}" aria-current="${it.id === sel}">
+      <span class="q-bub${bad ? ' bad' : ''}">${icon(it.icon)}</span>
+      <span class="q-id">${it.farm} · ${it.plot}</span><span class="q-kg">${it.kg} kg</span>
+      <span class="q-when">${it.date}${it.waited ? ` · waiting ${it.waited}` : ''}</span>
+      <span class="q-why${bad ? ' bad' : ''}">${mk(bad ? 'mk-bad' : 'mk-check')}<span>${bad ? 'Not accepted · ' : ''}${it.reason}</span></span>
+    </button></li>`;
+  }
+  function renderList() {
+    const w = waiting();
+    $('#q-list').innerHTML = w.length ? w.map(itemHTML).join('')
+      : `<li class="glass card q-done"><p><b>Nothing to check.</b></p><p>New items appear here when a picking needs a person to look.</p></li>`;
+    $('#q-final').innerHTML = FINAL.map(itemHTML).join('');
+    const c = w.length;
+    $('#h-count').textContent = c;
+    $('#rail-count').textContent = c;
+    $('#rail-count').hidden = c === 0 || document.body.dataset.state !== 'working';
+    $('#rail-count-sr').textContent = document.body.dataset.state === 'working' ? `, ${c} waiting` : '';
+    $('#q-sub').textContent = c ? 'Oldest first. The checks ran on their own; these need a person to look.' : 'All done for now.';
+  }
+
+  /* ── Plot map ────────────────────────────────────────── */
+  const CONT = (() => { let s = ''; for (let i = 0; i < 12; i++) { const y = -4 + i * 22, a = 9 + (i % 4) * 3; s += `<path d="M-30 ${y+8} C 60 ${y-a}, 140 ${y+a+12}, 220 ${y+4} S 350 ${y-a-4}, 440 ${y+10}"/>`; } return s; })();
+  function mapHTML(it) {
+    const d = PLOTS[it.shape];
+    let dot, extra = '', tagX, tagY, label;
+    if (it.outside) {
+      // outward from the middle of the right-hand edge (330,110)–(300,180)
+      const [x1, y1, x2, y2] = [330, 110, 300, 180];
+      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy);
+      const nx = -dy / L, ny = dx / L;                      // outward normal (points right)
+      const s = 24;                                          // 38 m in map units (margin 25 m ≈ 16)
+      dot = [mx + nx * s, my + ny * s];
+      extra = `<path class="m-gap" d="M${mx} ${my} L${dot[0]} ${dot[1]}"/>`;
+      label = '38 m out';
+    } else { dot = it.dot; label = 'Photo'; }
+    tagX = dot[0] + 14; tagY = dot[1] - 22;
+    const tw = label.length * 8.4 + 14;
+    if (tagX + tw > 392) tagX = dot[0] - tw - 14;
+    const out = it.outside ? ' out' : '';
+    const alt = it.outside
+      ? `Map of ${it.plot}. The dot showing where the phone was sits 38 metres outside the glowing plot line, beyond the 25 metre margin.`
+      : `Map of ${it.plot}. The dot showing where the phone was is ${it.m} metres inside the glowing plot line.`;
+    return `<svg viewBox="20 10 380 222" role="img" aria-label="${alt}">
+      <defs><clipPath id="clip-${it.id}"><path d="${d}"/></clipPath>
+      <mask id="outside-${it.id}"><rect x="0" y="0" width="420" height="260" fill="#fff"/><path d="${d}" fill="#000"/></mask></defs>
+      <g class="m-contour">${CONT}</g>
+      <path class="m-band" d="${d}" stroke-width="32" mask="url(#outside-${it.id})"/>
+      <path class="m-fill" d="${d}"/>
+      <g clip-path="url(#clip-${it.id})"><g class="m-contour-in">${CONT}</g></g>
+      <path class="m-glow" d="${d}"/><path class="m-line" d="${d}"/>
+      ${extra}
+      <g transform="translate(${dot[0]} ${dot[1]})"><circle class="m-ring${out}" r="20"/><circle class="m-dot${out}" r="7"/></g>
+      <rect class="m-tag-bg" x="${tagX}" y="${tagY}" width="${tw}" height="22" rx="11"/>
+      <text class="m-tag" x="${tagX + 7}" y="${tagY + 16}">${label}</text>
+    </svg>`;
+  }
+
+  /* ── Detail ──────────────────────────────────────────── */
+  function renderDetail() {
+    const it = byId(sel); if (!it) return;
+    const dec = decided[it.id];
+    $('#d-eyebrow').textContent = `Farm ${it.farm} · ${it.plot} · ${it.place}`;
+    $('#d-h').textContent = `${it.kg} kg · ${it.date}`;
+    const chip = it.final ? ['bad', 'mk-bad', 'Not accepted'] : dec ? (dec.kind === 'accept' ? ['ok', 'mk-ok', 'Verified'] : ['bad', 'mk-bad', 'Not accepted']) : ['check', 'mk-check', 'Needs a check'];
+    $('#d-chip').innerHTML = `<span class="vchip ${chip[0]}">${mk(chip[1])}${chip[2]}</span>`;
+    $('#d-meta').textContent = `Recorded ${it.time} on phone ${it.phone}` + (it.waited ? ` · waiting ${it.waited}` : ' · decided by the checks');
+    $('#d-score').textContent = `Score ${it.score} of 100 · ${it.final ? 'Not accepted' : 'Needs a check'}`;
+    $('#d-pin').style.left = it.score + '%';
+    $('#d-why').innerHTML = `<b>${it.final ? 'Why it was not accepted:' : 'Why a person needs to look:'}</b> ${it.why}`;
+    $('#d-where').textContent = `${it.place}, Kodagu · Farm ${it.farm}`;
+    $('#d-map').innerHTML = mapHTML(it);
+    $('#lg-dot').className = 'lg-dot' + (it.outside ? ' out' : '');
+    $('#plot-say').innerHTML = it.outside
+      ? `${mk('mk-bad')}Taken 38 m outside ${it.plot}`
+      : `${mk('mk-ok')}Taken ${it.m} m inside ${it.plot}`;
+    $('#d-photos').innerHTML = it.photos.map(([name, kind, t, flag], i) => {
+      const art = kind === 'ph'
+        ? `<svg viewBox="0 0 320 240" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><use href="#ph-photo"/></svg>`
+        : `<svg class="line-art" viewBox="0 0 96 96" aria-hidden="true"><use href="#ex-${kind}"/></svg>`;
+      return `<li class="ph${flag ? ' bad' : ''}"><div class="thumb" role="img" aria-label="Photo ${i + 1}, ${name}: a drawing stands in for the real photo">${art}<span class="tag">Photo placeholder</span></div>
+        <p class="ph-cap">${i + 1} · ${name}<span>${flag ? 'taken' : ''} ${t}</span></p>
+        ${flag ? `<p class="ph-flag">${mk('mk-bad')}${flag}</p>` : ''}</li>`;
+    }).join('');
+    const cs = checksFor(it);
+    const cnt = {}; cs.forEach(c => cnt[c.st] = (cnt[c.st] || 0) + 1);
+    const failed = (cnt.fail || 0) + (cnt.hard || 0);
+    $('#d-sum').textContent = [cnt.ok && `${cnt.ok} passed`, cnt.flag && `${cnt.flag} flagged`, cnt.na && `${cnt.na} couldn’t run`,
+      failed && `${failed} failed${cnt.hard ? ` (${cnt.hard} can’t be overruled)` : ''}`].filter(Boolean).join(' · ');
+    $('#d-checks').innerHTML = cs.map(c => {
+      const s = ST[c.st];
+      const again = c.key === it.againNA && againNote[it.id] ? `<span class="again">${againNote[it.id]}</span>` : '';
+      return `<li class="chk ${s.cls === 'ok' ? '' : s.cls}"><div class="c-top"><span class="c-stat ${s.cls}">${mk(s.mk)}${s.word}</span><span class="c-name">${c.name}<code>${c.key}</code></span></div><p class="c-ev">${c.ev}${again}</p></li>`;
+    }).join('');
+    renderActions();
+  }
+
+  function renderActions() {
+    const it = byId(sel), dec = decided[it.id];
+    closeDecide(false);
+    $('#locked').hidden = !it.final;
+    $('#locked-txt').textContent = "This one can't be changed: the same photo was already used on 12 Sep.";
+    $('#act-wrap').hidden = !!(it.final || dec);
+    $('#outcome').hidden = !dec;
+    $('#again-hint').textContent = it.againHint || '';
+    if (dec) {
+      const left = waiting().length;
+      $('#outcome').innerHTML = `<p class="o-top"><span class="vchip ${dec.kind === 'accept' ? 'ok' : 'bad'}">${mk(dec.kind === 'accept' ? 'mk-ok' : 'mk-bad')}${dec.kind === 'accept' ? 'Accepted as verified' : 'Not accepted'}</span><b>Recorded</b></p>
+        <p class="o-meta">Signed by Asha K. (FPO admin) today at ${dec.at}. This decision is recorded permanently.</p>
+        <blockquote>${dec.reason.replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]))}</blockquote>
+        ${left ? `<button class="pill" type="button" id="next">${icon('i-arrow-right')}Next picking (${left} left)</button>` : `<p>That was the last one. Nothing else is waiting.</p>`}`;
+      const nx = $('#next'); if (nx) nx.addEventListener('click', () => select(waiting()[0].id, true));
+    }
+  }
+
+  /* ── Decide (inline panel with mandatory reason) ─────── */
+  let mode = null;
+  function openDecide(kind) {
+    mode = kind;
+    const f = $('#decide');
+    f.classList.toggle('reject', kind === 'reject');
+    $('#dec-h').innerHTML = kind === 'accept' ? `${mk('mk-ok')}Accept as verified` : `${mk('mk-bad')}Mark as not accepted`;
+    $('#dec-go').className = 'pill' + (kind === 'reject' ? ' red' : '');
+    $('#dec-go').innerHTML = kind === 'accept' ? `${icon('i-check')}Confirm: accept as verified` : `${icon('i-x')}Confirm: not accepted`;
+    $('#reason').value = ''; updateCount();
+    $('#act-wrap').hidden = true; f.hidden = false;
+    $('#reason').focus();
+  }
+  function closeDecide(restoreFocus = true) {
+    const was = !$('#decide').hidden;
+    $('#decide').hidden = true;
+    const it = byId(sel);
+    if (it && !it.final && !decided[it.id]) $('#act-wrap').hidden = false;
+    if (was && restoreFocus) (mode === 'reject' ? $('#btn-reject') : $('#btn-accept')).focus();
+  }
+  let wasReady = false;
+  function updateCount() {
+    const len = $('#reason').value.trim().length, ok = len >= 10;
+    $('#dec-go').disabled = !ok;
+    const c = $('#reason-cnt');
+    c.textContent = ok ? `${len} characters · ready to confirm` : `${len} of at least 10 characters`;
+    c.classList.toggle('ready', ok);
+    if (ok !== wasReady) $('#live').textContent = ok ? 'Reason is long enough. You can confirm.' : '';
+    wasReady = ok;
+  }
+  $('#btn-accept').addEventListener('click', () => openDecide('accept'));
+  $('#btn-reject').addEventListener('click', () => openDecide('reject'));
+  $('#dec-cancel').addEventListener('click', () => closeDecide());
+  $('#reason').addEventListener('input', updateCount);
+  $('#decide').addEventListener('keydown', e => { if (e.key === 'Escape') closeDecide(); });
+  $('#decide').addEventListener('submit', e => {
+    e.preventDefault();
+    const reason = $('#reason').value.trim(); if (reason.length < 10) return;
+    const at = new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+    decided[sel] = { kind: mode, reason, at };
+    const it = byId(sel);
+    renderList(); renderDetail();
+    $('#live').textContent = `Recorded. ${it.farm}, ${it.date}: ${mode === 'accept' ? 'accepted as verified' : 'not accepted'}. ${waiting().length} left to check.`;
+    $('#outcome').focus();
+  });
+
+  /* ── Check again (re-runs the unavailable check) ─────── */
+  let againTimer = null;
+  $('#btn-again').addEventListener('click', () => {
+    const it = byId(sel), b = $('#btn-again');
+    b.disabled = true;
+    $('#again-label').textContent = it.againNA ? 'Checking the satellite again…' : 'Running the checks again…';
+    $('#again-ic').innerHTML = '<use href="#i-ring"/>';
+    if (!rmMQ.matches) $('#again-ic').style.animation = 'spin 1.4s linear infinite';
+    $('#live').textContent = $('#again-label').textContent;
+    clearTimeout(againTimer);
+    againTimer = setTimeout(() => {
+      const t = new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+      againNote[it.id] = `Checked again today at ${t}: still cloudy. No clear picture of ${it.plot} yet.`;
+      b.disabled = false; $('#again-label').textContent = 'Check again';
+      $('#again-ic').innerHTML = '<use href="#i-retry"/>'; $('#again-ic').style.animation = '';
+      if (it.againNA) { renderDetail(); $('#live').textContent = againNote[it.id] + ' Score unchanged.'; }
+      else { $('#again-hint').textContent = `Ran all 12 checks again at ${t}. Same result.`; $('#live').textContent = `Ran all 12 checks again. Same result.`; }
+    }, 1600);
+  });
+
+  /* ── Selection + routing ─────────────────────────────── */
+  function select(id, push) {
+    sel = id;
+    $$('.q-item').forEach(b => b.setAttribute('aria-current', String(b.dataset.id === id)));
+    renderDetail();
+    if (push) { if (location.hash.slice(1) !== id) history.pushState(null, '', '#' + id); applyOpen(true); }
+    if (wideMQ.matches) $('#detail').scrollTop = 0;
+  }
+  function applyOpen(focus) {
+    const open = !!byId(location.hash.slice(1)) && document.body.dataset.state === 'working';
+    const wasOpen = document.body.classList.contains('detail-open');
+    document.body.classList.toggle('detail-open', open);
+    if (!wideMQ.matches) {
+      window.scrollTo(0, 0);
+      if (focus && open) $('#d-h').focus({ preventScroll: true });
+      if (focus && !open && wasOpen) { const b = $(`.q-item[data-id="${sel}"]`); if (b) b.focus({ preventScroll: true }); }
+    } else if (focus && open) { $('#d-h').focus({ preventScroll: true }); }
+  }
+  let loadTimer = null;
+  function setState(s) {
+    document.body.dataset.state = s;
+    const h = location.hash.slice(1), key = s !== 'working' ? s : (h === 'r5' ? 'r5' : 'working');
+    $$('[data-s]').forEach(a => a.setAttribute('aria-current', String(a.dataset.s === key)));
+    renderList();
+  }
+  function route() {
+    const h = decodeURIComponent(location.hash.slice(1));
+    clearTimeout(loadTimer);
+    if (h === 'loading' || h === 'empty' || h === 'error') {
+      setState(h); document.body.classList.remove('detail-open');
+      if (h === 'loading') loadTimer = setTimeout(() => { history.replaceState(null, '', location.pathname); route(); }, 4000);
+      return;
+    }
+    setState('working');
+    if (byId(h)) sel = h;
+    else if (!waiting().some(x => x.id === sel) && !decided[sel] && !byId(sel).final) sel = (waiting()[0] || FINAL[0]).id;
+    renderList(); renderDetail();
+    applyOpen(false);
+  }
+  addEventListener('hashchange', () => { route(); applyOpen(true); });
+  addEventListener('popstate', () => { route(); applyOpen(true); });
+  wideMQ.addEventListener('change', () => applyOpen(false));
+
+  document.addEventListener('click', e => {
+    const q = e.target.closest('.q-item');
+    if (q) { select(q.dataset.id, true); return; }
+    const nav = e.target.closest('[data-nav]');
+    if (nav) { e.preventDefault(); if (nav.dataset.nav !== 'Review') $('#live').textContent = `${nav.dataset.nav} is not part of this prototype.`; }
+  });
+  $('#d-back').addEventListener('click', () => { history.pushState(null, '', location.pathname); applyOpen(true); });
+  $('#retry').addEventListener('click', () => {
+    history.replaceState(null, '', location.pathname);
+    setState('loading');
+    $('#live').textContent = 'Loading the review list…';
+    loadTimer = setTimeout(() => { route(); $('#live').textContent = `Review list loaded. ${waiting().length} pickings to check.`; $('#q-h').focus(); }, 1200);
+  });
+
+  /* ── Reviewer dialog ─────────────────────────────────── */
+  const sd = $('#states-dialog');
+  $('#states-btn').addEventListener('click', () => sd.showModal());
+  $$('[data-s]').forEach(a => a.addEventListener('click', e => {
+    sd.close();
+    if (a.dataset.s === 'working') { e.preventDefault(); history.pushState(null, '', location.pathname); route(); }
+  }));
+  sd.addEventListener('click', e => { if (e.target === sd || e.target.closest('[data-close]')) sd.close(); });
+
+  route();
+})();
+</script>
+</body>
+</html>
