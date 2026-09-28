@@ -1,0 +1,263 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Udgam evaluation dataset",
+  "description": "Schema for evals/eval-dataset.json. Method and scoring rules live in evaluation-plan.md (project root). The generic eval-framework case schema is extended with verdict, check, evidence, suite and viewport fields.",
+  "type": "object",
+  "required": ["dataset_version", "plan", "fixtures", "cases"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "dataset_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semver. patch = wording/evidence-substring fix; minor = cases added; major = an expected verdict, class, or gate membership changed (needs an EV/TP decision)."
+    },
+    "status": { "type": "string" },
+    "plan": { "type": "string", "description": "Path of the authoritative evaluation plan." },
+    "conventions": { "type": "object", "description": "Human-readable conventions the scorers apply (evidence normalisation, ratio units)." },
+    "fixtures": {
+      "type": "object",
+      "required": ["yield_reference", "plots", "devices"],
+      "additionalProperties": false,
+      "properties": {
+        "yield_reference": {
+          "type": "object",
+          "required": ["unit", "note"],
+          "properties": {
+            "unit": { "const": "U" },
+            "note": { "type": "string" }
+          }
+        },
+        "plots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "role", "area_ha", "shape", "remote_sensing"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "pattern": "^(P|E|X)\\d{2}$" },
+              "role": { "enum": ["legitimate", "legitimate_edge", "adversarial"] },
+              "area_ha": { "type": "number", "exclusiveMinimum": 0 },
+              "shape": { "enum": ["convex", "irregular", "concave_L"] },
+              "remote_sensing": {
+                "type": "object",
+                "required": ["deforestation_loss_pct_inside", "ndvi_history", "ndvi_harvest_window"],
+                "additionalProperties": false,
+                "properties": {
+                  "deforestation_loss_pct_inside": { "type": "number", "minimum": 0, "maximum": 100 },
+                  "loss_adjacent_outside": { "type": "boolean" },
+                  "ndvi_history": { "enum": ["perennial_canopy", "annual_crop", "cleared_then_planted"] },
+                  "ndvi_harvest_window": { "enum": ["living_canopy", "bare", "cloud_blocked"] }
+                }
+              },
+              "notes": { "type": "string" }
+            }
+          }
+        },
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "agent", "state"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "agent": { "type": ["string", "null"] },
+              "state": { "enum": ["enrolled", "revoked", "never_enrolled"] },
+              "notes": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "checkId": {
+      "enum": [
+        "signature_valid",
+        "chain_continuity",
+        "photo_uniqueness",
+        "geofence",
+        "gps_accuracy",
+        "exif_gps_agreement",
+        "exif_time_agreement",
+        "movement_plausibility",
+        "deforestation_overlap",
+        "ndvi_cultivation",
+        "ndvi_harvest_window",
+        "yield_plausibility"
+      ]
+    },
+    "verdict": { "enum": ["Verified", "Needs Review", "Rejected"] },
+    "checkStatus": { "enum": ["ok", "flag", "fail", "unavailable"] },
+    "mutation": {
+      "type": "object",
+      "required": ["op"],
+      "properties": {
+        "op": {
+          "enum": [
+            "gps_place",
+            "gps_accuracy",
+            "exif_gps",
+            "exif_time",
+            "client_clock",
+            "prev_event",
+            "reuse_media",
+            "chain",
+            "season_cumulative",
+            "photos",
+            "provider_fault",
+            "check_throws",
+            "device",
+            "tamper_after_sign",
+            "proof_tamper"
+          ]
+        }
+      },
+      "description": "One controlled change applied to the base case or plot fixture. Op parameters are documented in evaluation-plan.md §7.3."
+    },
+    "case": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "feature",
+        "category",
+        "suite",
+        "priority",
+        "automated",
+        "milestone",
+        "status",
+        "gates",
+        "input",
+        "expected",
+        "failure_conditions"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^EVAL-\\d{3}$", "description": "Stable; never renumbered or reused." },
+        "title": { "type": "string" },
+        "feature": {
+          "enum": [
+            "verifier",
+            "ledger-proof",
+            "certificate",
+            "capture",
+            "enrolment",
+            "plot-registration",
+            "review-override",
+            "batch-custody",
+            "eudr-export",
+            "attestation",
+            "auth",
+            "upload",
+            "secrets",
+            "dependencies",
+            "demo",
+            "harness"
+          ]
+        },
+        "category": { "enum": ["functional", "product_acceptance", "performance", "reliability", "security", "design"] },
+        "suite": {
+          "enum": ["harness-verifier", "harness-proof", "integration", "e2e", "perf", "ci", "manual"],
+          "description": "harness-* run under `pnpm eval` (offline, fixture provider). integration = Vitest with a temporary libSQL file. e2e = Playwright. perf = timed runs on the reference condition. ci = automated checks run in CI outside the harness (clean-clone run, secret scan, dependency audit). manual = human-executed with recorded evidence."
+        },
+        "case_class": {
+          "enum": ["legitimate", "legitimate_edge", "attack", "known_limitation"],
+          "description": "Verifier cases only. legitimate = S2 denominator; attack (scenario 1-4, harness-verifier) = S1 denominator; known_limitation = reported, never counted in S1."
+        },
+        "scenario": { "type": ["integer", "null"], "minimum": 1, "maximum": 6 },
+        "gates": {
+          "type": "array",
+          "items": { "enum": ["S1", "S2", "S3", "S4", "S5", "S6", "S7"] },
+          "uniqueItems": true
+        },
+        "critical_conditions": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^CF-\\d{2}$" },
+          "description": "Critical failure conditions (evaluation-plan.md §5) this case can trigger."
+        },
+        "priority": { "enum": ["critical", "high", "medium", "low"] },
+        "automated": { "type": "boolean" },
+        "milestone": { "enum": ["M1", "M2", "M3"] },
+        "status": {
+          "enum": ["active", "stretch", "pending_decision", "retired"],
+          "description": "retired cases stay in the file with a reason; their IDs are never reused."
+        },
+        "depends_on": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Decision IDs (EV#) or spec gaps (GAP-#) the expected outcome depends on."
+        },
+        "input": {
+          "type": "object",
+          "properties": {
+            "plot": { "type": "string" },
+            "device": { "type": "string" },
+            "base_case": { "type": "string", "pattern": "^EVAL-\\d{3}$" },
+            "mutations": { "type": "array", "items": { "$ref": "#/$defs/mutation" } },
+            "context": { "type": "object" },
+            "description": { "type": "string" }
+          }
+        },
+        "expected": {
+          "type": "object",
+          "properties": {
+            "verdict": { "$ref": "#/$defs/verdict" },
+            "acceptable_verdicts": { "type": "array", "items": { "$ref": "#/$defs/verdict" }, "minItems": 1, "uniqueItems": true },
+            "catching_checks": { "type": "array", "items": { "$ref": "#/$defs/checkId" } },
+            "hard_fail_checks": { "type": "array", "items": { "$ref": "#/$defs/checkId" } },
+            "check_status": {
+              "type": "object",
+              "propertyNames": { "$ref": "#/$defs/checkId" },
+              "additionalProperties": { "$ref": "#/$defs/checkStatus" }
+            },
+            "evidence_substrings": {
+              "type": "object",
+              "propertyNames": { "$ref": "#/$defs/checkId" },
+              "additionalProperties": { "type": "array", "items": { "type": "string" } }
+            },
+            "http_status": { "type": "integer" },
+            "max_latency_ms": { "type": "integer" },
+            "behavior": { "type": "string" }
+          }
+        },
+        "failure_conditions": { "type": "array", "items": { "type": "string" } },
+        "viewport": { "enum": ["mobile-375", "tablet-768", "desktop-1280"] },
+        "viewports": { "type": "array", "items": { "enum": ["mobile-375", "tablet-768", "desktop-1280"] } },
+        "accessibility_requirement": { "type": "string" },
+        "pair": { "type": "string", "pattern": "^EVAL-\\d{3}$", "description": "A case with an indistinguishable signal but the opposite ground truth." },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "suite": { "const": "harness-verifier" } } },
+          "then": { "required": ["case_class", "scenario"] }
+        },
+        {
+          "if": { "properties": { "case_class": { "const": "attack" } }, "required": ["case_class"] },
+          "then": {
+            "properties": {
+              "expected": {
+                "required": ["catching_checks"],
+                "properties": {
+                  "acceptable_verdicts": { "not": { "contains": { "const": "Verified" } } },
+                  "verdict": { "not": { "const": "Verified" } }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "case_class": { "const": "legitimate" } }, "required": ["case_class"] },
+          "then": { "properties": { "expected": { "required": ["verdict"], "properties": { "verdict": { "const": "Verified" } } } } }
+        }
+      ]
+    }
+  }
+}
