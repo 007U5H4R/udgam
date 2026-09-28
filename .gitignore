@@ -1,0 +1,31 @@
+# dependencies and build output
+node_modules/
+.next/
+out/
+dist/
+coverage/
+playwright-report/
+test-results/
+
+# secrets — never commit (ledger signing key, provider keys, auth secret)
+.env
+.env.*
+!.env.example
+.secrets/
+*.pem
+*.key
+
+# local data — libSQL database files and uploaded media
+*.db
+*.db-*
+*.sqlite
+data/
+media/
+
+# foundry
+cache/
+broadcast/
+
+# os / editor
+.DS_Store
+*.log
