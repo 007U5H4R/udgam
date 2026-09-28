@@ -29,3 +29,6 @@ broadcast/
 # os / editor
 .DS_Store
 *.log
+
+# agent worktrees (local, never committed)
+.claude/worktrees/

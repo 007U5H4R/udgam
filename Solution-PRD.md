@@ -4,7 +4,7 @@
 **Status:** Approved by Tushar Pathak, 2026-09-28
 **Date:** 2026-09-24
 **Inputs:** `Discovery-PRD.md` (approved 2026-09-24), `decisions.md` DISC1–DISC16
-**Decisions appended by this stage:** `decisions.md` S1–S9
+**Decisions appended by this stage:** `decisions.md` S1–S9 (S10 added 2026-09-28 from Stage 3 EV7)
 
 ---
 
@@ -23,7 +23,7 @@ One Next.js App Router monolith on a single Oracle Always Free instance serves f
 | F3 | Admin generates a 24-hour one-time enrolment code; the agent's browser generates a non-extractable P-256 key, registers the public key, and the system anchors `device_enrolled`; admin can revoke a device |
 | F4 | Agent selects an assigned plot, takes 1–3 photos via native camera input, enters cherry kg; the browser reads GPS, hashes the exact photo bytes, builds the payload with the previous event hash, canonicalises (RFC 8785), signs, and uploads photos + payload in one multipart request (≤ 10 MB per photo) |
 | F5 | The upload handler verifies the signature at the boundary, runs the check registry (§4), persists a `verification_run`, anchors `harvest_event` and `verification_run` in the same transaction as the row writes, and returns the verdict with evidence lines |
-| F6 | Verdicts: `Verified` (score ≥ 80, no hard fail), `Needs Review` (50–79, or any check `unavailable`), `Rejected` (< 50 or any hard fail). Rejections are anchored |
+| F6 | Verdicts: `Verified` (score ≥ 80, no hard fail, no cap), `Needs Review` (50–79, or capped: any `fail`, a deforestation/yield `flag`, or any `unavailable`), `Rejected` (< 50 or any hard fail). Rejections are anchored |
 | F7 | Admin review queue lists `Needs Review` runs with evidence; admin can re-run verification (retrying unavailable providers) or override to `Verified`/`Rejected` with a mandatory reason; overrides are signed and anchored; hard-failed rejections cannot be overridden |
 | F8 | Admin attaches an organic (NPOP/APEDA) certificate to a plot as an attestation: file hash, issuer, validity; anchored. Never presented as "verified organic" |
 | F9 | Admin creates a batch from Verified events of one crop: quantity = Σ cherry kg, integrity score = min(event scores); an event belongs to at most one batch (unique constraint); anchored |
@@ -115,7 +115,7 @@ Context is assembled by the caller: plot (+ polygon, registration checks), devic
 | `yield_plausibility` | 4 | season cumulative kg/ha vs reference: > 1.5× upper → flag; > 2× → hard fail | |
 
 ### 4.3 Scoring and verdict
-score = 100 × weighted mean over checks with status ≠ unavailable. Any hardFail → `Rejected`. Else ≥ 80 `Verified`, 50–79 `Needs Review`, < 50 `Rejected`. Any unavailable → cap at `Needs Review`. Weights/thresholds in one config object, printed in every eval report. A check that throws reports `unavailable` with the error class in evidence.
+score = 100 × weighted mean over checks with status ≠ unavailable. Any hardFail → `Rejected`. Else ≥ 80 `Verified`, 50–79 `Needs Review`, < 50 `Rejected`. **Caps (EV7, S10):** any check with status `fail`, any `deforestation_overlap` or `yield_plausibility` `flag`, or any `unavailable` check caps the verdict at `Needs Review`, whatever the score. Weights/thresholds in one config object, printed in every eval report. A check that throws reports `unavailable` with the error class in evidence.
 
 ### 4.4 Overrides
 `Needs Review` → `Verified`/`Rejected` with reason; signed with the admin's server-bound key; anchored as `admin_override` referencing the run. Hard-failed `Rejected` is final.

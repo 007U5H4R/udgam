@@ -133,17 +133,17 @@
 **Decision.** An attack counts as detected only if its verdict is in `acceptable_verdicts` (never Verified) and at least one expected catching check returned flag or fail. A false positive is a `legitimate` case that is not Verified. Honest submissions whose correct result may be Needs Review form a separate `legitimate_edge` class, outside S2, where any Rejected verdict is CF-02. Changing a case's class or expected verdict is a major dataset version change and needs a decision.
 **Rejected.** Counting any non-Verified attack as detected; counting only Rejected as detected; excluding Needs Review from false positives.
 
-## EV5 · Per-scenario detection floor of 90 % alongside the pooled 95 % — proposed
+## EV5 · Per-scenario detection floor of 90 % alongside the pooled 95 % — accepted
 **Context.** S1 is a pooled rate. With about 10 cases per scenario, a strong scenario can hide a weak one.
 **Decision.** Keep S1 pooled at ≥ 95 % and add a gate that each of scenarios 1–4 reaches ≥ 90 %. This is stricter than S1, never looser.
 **Rejected.** Pooled only (hides a blind spot); ≥ 95 % per scenario (at 10 cases that means zero misses everywhere, which one ambiguous case can break).
 
-## EV6 · Known limitations are declared, reported, and excluded from S1 — proposed
+## EV6 · Known limitations are declared, reported, and excluded from S1 — accepted
 **Context.** The MVP cannot catch some attacks by design: GPS spoofed inside the plot with consistent EXIF (R7), a re-encoded replayed photo (SHA-256 uniqueness cannot see it), and retroactive re-scoring of salami yield. Leaving them in S1 guarantees failure; dropping them silently is dishonest to evaluators.
 **Decision.** A `known_limitation` case class, run and listed prominently in every report with its verdict, and never counted in S1. Reclassifying an attack as a known limitation needs its own decision.
 **Rejected.** Counting them in S1; leaving them out of the dataset.
 
-## EV7 · A `fail`, or a deforestation or yield `flag`, caps the verdict at Needs Review — proposed
+## EV7 · A `fail`, or a deforestation or yield `flag`, caps the verdict at Needs Review — accepted
 **Context.** Under S4's weighted mean with Verified at ≥ 80, a single non-hard `fail` barely moves the score (with equal weights, one fail gives 91.7 and two fails give 83.3, both Verified). About half the S1 attack cases are single-signal, so S1 would fail, or the weights would end up tuned to the eval set. Honest pruning and a small clearing produce identical satellite data (EVAL-019 / EVAL-040), so human review is the only result that is right for both.
 **Decision.** Recommend amending the S4 verdict rule: any check with status `fail`, or a `flag` on `deforestation_overlap` or `yield_plausibility`, caps the verdict at Needs Review; hard fails still force Rejected. The owner decides at the Stage 3 gate. If rejected, Stage 6 must set weights that meet S1 without tuning on the eval set (EV13).
 **Rejected.** Leaving the verdict to weights alone (overfitting risk, and no weights exist yet); turning every fail into a hard fail (honest 150 m GPS fixes under canopy would be Rejected).
@@ -153,7 +153,7 @@
 **Decision.** One `eval-dataset.json`, validated by `eval-dataset.schema.json`; each case names a suite (harness-verifier, harness-proof, integration, e2e, perf, ci, manual). An attack case is a legitimate base case plus typed mutations. Plots are described by role, area, shape, and remote-sensing profile; P01–P10 fixtures are recorded from live API responses for real polygons where accounts allow. Yield is written in multiples of U, the reference upper bound, so no Coffee Board figure is assumed (R6). Cases do not depend on execution order. Evidence sentences follow a fixed value-and-threshold format that the scorer checks.
 **Rejected.** One file per suite (splits one fact); hand-written coordinates now (no fixtures exist yet); invented yield figures.
 
-## EV9 · S3 is timed from the Submit tap to the verdict card, on a stated reference condition — proposed
+## EV9 · S3 is timed from the Submit tap to the verdict card, on a stated reference condition — accepted
 **Context.** "Capture-to-verdict, online" does not say where timing starts or what network is assumed. With original photos (S1), upload dominates: on placeholder numbers (3 × 4 MB at 5 Mbit/s up), upload alone takes about 19 s, before a GPS wait of up to 10 s and a cold provider call of up to 8 s.
 **Decision.** t0 = Submit tap; t1 = verdict card visible. Reference condition: live providers; at least 5 of 20 runs with a cold harvest-window cache; three photos at the demo phone's real size; a 10/5 Mbit/s, 80 ms RTT network profile. Photo size and network are placeholders until the owner's field calibration (HR3). Gate: every one of 20 automated runs and 5 manual runs on the demo phone ≤ 30 s. Stage 6 evaluates starting GPS when the capture screen opens and uploading photos during weight entry, rather than weakening S3.
 **Rejected.** Timing from the camera shutter (a PWA cannot observe it); timing server-side only (not what the agent experiences); p95 (S3 names no percentile, so the stricter maximum applies).
@@ -179,12 +179,17 @@
 **Decision.** CI runs `pnpm eval` on changes to verification, crypto, ledger, remote-sensing, media, EUDR export, the capture route, the dataset, or the config. A case that passed in the previous formal run and fails now is a regression; a regression on a critical case, or any CF, blocks merge. `dataset_version` is semver: patch for wording, minor for added cases, major for class, verdict, or gate changes (which need a decision). Cases are retired with a reason, never deleted, and IDs are never reused.
 **Rejected.** Running evals only at Stage 9 (regressions are found late).
 
-## EV15 · An identical signed payload is idempotent — proposed
+## EV15 · An identical signed payload is idempotent — accepted
 **Context.** Solution-PRD §6 keeps the signed payload so the agent can retry manually after a network failure. If the first upload succeeded but the response was lost, the retry would hard-fail `photo_uniqueness` and reject an honest agent.
 **Decision.** The server recognises an already-accepted payload hash and returns the original event and verdict, without creating a new event or counting kg twice (EVAL-068, CF-14). A replay with new metadata but reused photos still hard-fails.
 **Rejected.** Treating every resubmission as a replay attack (rejects honest retries); client-side dedupe only (only the server knows whether the first upload landed).
 
-## EV16 · Public certificate and GeoJSON show no farmer personal data — proposed
+## EV16 · Public certificate and GeoJSON show no farmer personal data — accepted
 **Context.** The certificate page is public and unauthenticated. The Solution-PRD lists a producer_id but does not say whether farmer names or identifiers appear.
 **Decision.** Public outputs carry only a pseudonymous producer_id, never a farmer name or `farmers.identifier` value (EVAL-084). The plot polygon stays public, per F12.
 **Rejected.** Showing farmer names publicly (needless exposure of smallholders; the importer's due-diligence need is met by the producer_id and the polygon).
+
+## S10 · Verdict caps close the single-signal gap — accepted
+**Context.** Stage 3 found that under S4's equal-weight scoring one non-hard `fail` scores about 91.7 and two about 83.3, both Verified, so single-signal attacks (e.g. capture outside the plot) pass and S1 cannot be met. Adopted from EV7 at the Stage 3 gate, 2026-09-28.
+**Decision.** Any check with status `fail`, any `deforestation_overlap` or `yield_plausibility` `flag`, or any `unavailable` check caps the verdict at Needs Review regardless of score. Amends S4; Solution-PRD §4.3 and F6 updated.
+**Rejected.** Tuning weights until the test set passes (overfits the eval set); making every `fail` a hard fail (rejects honest agents on noisy GPS).
