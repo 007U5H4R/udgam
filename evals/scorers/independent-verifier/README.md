@@ -23,5 +23,13 @@ pnpm tsx evals/scorers/independent-verifier/cli.ts <feed.json> <keys.json>
 
 It prints `{"ok":…,"verified":…,"total":…,"failure":{"step":…,"seq":…}}`, then exits 0 when the
 feed verifies and 1 when it does not (2 on a usage or read error). `keys.json` is the key document
-served at `/.well-known/udgam-ledger-key`. The eval harness runs it as a child process, so it shares
-no module state with the app's verifier.
+served at `/.well-known/udgam-ledger-key`.
+
+Two more modes serve the harness proof suite (`evals/harness/suites/proof.ts`), which runs the
+checker as a child process, so it shares no module state with the app's verifier:
+
+- `cli.ts --batch <jobs.json>`: `jobs.json` is `[{ "feed": "<path>", "keys": "<path>" }, …]`. It
+  prints the results as a JSON array in job order.
+- `cli.ts --vectors <crypto-vectors.json>`: checks the shared JCS, SHA-256, thumbprint and ES256
+  vectors with this folder's code and prints `{ ok, total, failed }` (the clean-room half of
+  EVAL-066).

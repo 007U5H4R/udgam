@@ -352,4 +352,36 @@ describe('CLI', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   }, 30_000);
+
+  it('--batch checks many feeds in one process, in order', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cleanroom-cli-'));
+    try {
+      const keysPath = join(dir, 'keys.json');
+      writeFileSync(keysPath, JSON.stringify(vectors.keys));
+      const jobs = [vectors.feed, ...vectors.tampers.map((t) => t.feed)].map((f, i) => {
+        const feedPath = join(dir, `feed-${i}.json`);
+        writeFileSync(feedPath, JSON.stringify(f));
+        return { feed: feedPath, keys: keysPath };
+      });
+      const jobsPath = join(dir, 'jobs.json');
+      writeFileSync(jobsPath, JSON.stringify(jobs));
+      const out = run(['--batch', jobsPath]);
+      expect(out.code).toBe(0);
+      const results = JSON.parse(out.out) as { ok: boolean; failure?: { step: string } }[];
+      expect(results).toHaveLength(jobs.length);
+      expect(results[0]!.ok).toBe(true);
+      expect(results.slice(1).map((r) => r.failure?.step)).toEqual(vectors.tampers.map((t) => t.expectedStep));
+      writeFileSync(jobsPath, '{"not":"a list"}');
+      expect(run(['--batch', jobsPath]).code).toBe(2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 30_000);
+
+  it('--vectors checks the shared JCS, SHA-256 and ECDSA vectors with the checker\'s own code', () => {
+    const out = run(['--vectors', resolve(process.cwd(), 'evals/fixtures/crypto-vectors.json')]);
+    expect(out.code).toBe(0);
+    expect(JSON.parse(out.out)).toMatchObject({ ok: true, failed: [] });
+    expect(JSON.parse(out.out).total).toBeGreaterThanOrEqual(37);
+  }, 30_000);
 });

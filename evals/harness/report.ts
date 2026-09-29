@@ -62,6 +62,13 @@ export function renderReportFromResults(r: ResultsFile, resultsPath: string): st
       '`not_yet_implemented` means a check or suite the case needs is not built yet; it counts as failed. ' +
       `Integrity: ${t.ok ? 'totals reconcile with the dataset' : `**failed** — ${t.problems.join('; ')}`}.`,
   );
+  if (r.scope) {
+    out.push('');
+    out.push(
+      `Milestone scope: ${code(r.scope.milestone)}. Gates and critical conditions count only cases of milestones up to ${r.scope.milestone}; ` +
+        `${r.scope.outOfScope.length} case(s) of a later milestone are counted in the totals above and listed under "Out of milestone scope".`,
+    );
+  }
 
   h('## Detection (S1), scenarios 1–4');
   const d = r.detection;
@@ -87,6 +94,13 @@ export function renderReportFromResults(r: ResultsFile, resultsPath: string): st
   out.push('');
   if (fp.fps.length === 0) out.push('No false positives.');
   else out.push(...table(['Case', 'Outcome', 'Verdict', 'Checks not ok'], fp.fps.map((x) => [x.id, x.outcome, x.verdict ?? '—', x.responsible.join(', ') || '—'])));
+
+  if (r.scope && r.scope.outOfScope.length > 0) {
+    h('## Out of milestone scope');
+    out.push(`Run with ${code(`--milestone=${r.scope.milestone}`)}. These cases ran (or were recorded) like every other case, but belong to a later milestone: they are reported here and are not pooled into any ${r.scope.milestone} gate or critical condition.`);
+    out.push('');
+    out.push(...table(['Case', 'Suite', 'Milestone', 'Outcome', 'Notes'], r.scope.outOfScope.map((c) => [c.id, c.suite, c.milestone, c.outcome, c.notes.join('; ') || '—'])));
+  }
 
   h('## Failed evaluation IDs');
   const failed = r.cases.filter((c) => c.outcome === 'failed');
@@ -159,7 +173,25 @@ export function renderReportFromResults(r: ResultsFile, resultsPath: string): st
       if (p.variants.length > 0) return p.variants.map((v) => `${v.variant}: ${v.lib.step ?? 'ACCEPTED'}`).join('; ');
       return c.assertions.map((a) => a.detail).join('; ') || '—';
     };
-    out.push(...table(['Case', 'Outcome', 'Library verifier', 'Clean-room checker'], proofCases.map((c) => [c.id, c.outcome, library(c), c.proof?.cleanRoom.status ?? '—'])));
+    const cleanRoom = (c: CaseResult): string => {
+      const p = c.proof;
+      if (!p) return '—';
+      if (p.metrics && typeof p.metrics.cleanRoomVerified === 'number') return `${p.metrics.cleanRoomVerified}/${p.metrics.closureEntries} closure entries verified (coverage ${pct(p.metrics.cleanRoomCoverage)})`;
+      if (p.variants.length > 0 && p.variants.every((v) => v.cleanRoom)) return p.variants.map((v) => `${v.variant}: ${v.cleanRoom.step ?? 'ACCEPTED'}`).join('; ');
+      return p.cleanRoom.detail ?? p.cleanRoom.status;
+    };
+    out.push(...table(['Case', 'Outcome', 'Library verifier', 'Clean-room checker'], proofCases.map((c) => [c.id, c.outcome, library(c), cleanRoom(c)])));
+    const score = proofCases.find((c) => c.proof?.score)?.proof?.score;
+    if (score) {
+      out.push('');
+      out.push(
+        `S6 score (evals/scorers/proof-verifier.ts): coverage library ${pct(score.coverage.lib)}, clean-room ${pct(score.coverage.cleanRoom)}; ` +
+          `tampers rejected library ${pct(score.tamperRejected.lib)}, clean-room ${pct(score.tamperRejected.cleanRoom)} over ${score.perVariant.length} variants; ` +
+          `CF-04 ${score.cf04.fired ? `fired (${score.cf04.variants.join(', ')})` : 'not fired'}.`,
+      );
+      out.push('');
+      out.push(...table(['Variant', 'Expected step', 'Library', 'Clean-room', 'Steps match'], score.perVariant.map((v) => [v.variant, v.expectedStep, v.lib.step ?? 'ACCEPTED', v.cleanRoom.step ?? 'ACCEPTED', v.stepMatches ? 'yes' : 'NO'])));
+    }
   }
 
   const noted = r.cases.filter((c) => c.notes.length > 0 && c.outcome !== 'not_yet_implemented');

@@ -7,7 +7,7 @@ import { REGISTRY } from '../../src/lib/verification/registry';
 import type { CaseResult } from '../scorers/case-assertions';
 import { buildCase } from './mutate';
 import { loadDataset } from './dataset';
-import { runProofSuite } from './proof-suite';
+import { runProofSuite } from './suites/proof';
 import { REPO_ROOT } from './provenance';
 import { caseLimitMs, CASE_TIMEOUT_MS, evaluate, isolateDataDir, main, parseArgs, runHarness } from './run';
 
@@ -26,6 +26,9 @@ describe('parseArgs', () => {
       name: 'baseline-v0-ledger-only',
       reportName: 'baseline-v0',
     });
+    expect(parseArgs([]).milestone).toBe('M1');
+    expect(parseArgs(['--milestone=M2']).milestone).toBe('M2');
+    expect(() => parseArgs(['--milestone=M4'])).toThrow(/--milestone/);
     expect(() => parseArgs(['--config=everything'])).toThrow(/--config/);
     expect(() => parseArgs(['--suite=harness-magic'])).toThrow(/--suite/);
     expect(() => parseArgs(['--bogus'])).toThrow(/--bogus/);
@@ -147,8 +150,8 @@ describe('per-case watchdog', () => {
   });
 });
 
-describe('harness-proof suite (TSK-15.8, S6-lib)', () => {
-  it('runs the proof suite once per run: EVAL-058 at coverage 1, EVAL-059–063 and 066 pass, the clean-room column is kept', async () => {
+describe('harness-proof suite (TSK-15.8, TSK-18.6, S6-lib)', () => {
+  it('runs the proof suite once per run: both verifiers cover EVAL-058 and reject EVAL-059–063; EVAL-103 is out of M1 scope', async () => {
     const keyFile = resolve(REPO_ROOT, 'data/keys/ledger.jwk');
     const before = existsSync(keyFile) ? statSync(keyFile).mtimeMs : null;
     let calls = 0;
@@ -165,8 +168,11 @@ describe('harness-proof suite (TSK-15.8, S6-lib)', () => {
 
     const intact = byId.get('EVAL-058')!;
     expect(intact).toMatchObject({ outcome: 'passed', error: null, result: null });
-    expect(intact.proof).toMatchObject({ metrics: { coverage: 1, checkpoints: 2 }, cleanRoom: { status: 'not_yet_implemented' } });
+    expect(intact.proof).toMatchObject({ metrics: { coverage: 1, cleanRoomCoverage: 1, checkpoints: 2 }, cleanRoom: { status: 'ran' } });
     expect(intact.proof!.metrics!.verified).toBe(intact.proof!.metrics!.closureEntries);
+    expect(intact.proof!.metrics!.cleanRoomVerified).toBe(intact.proof!.metrics!.closureEntries);
+    expect(intact.proof!.score).toMatchObject({ coverage: { lib: 1, cleanRoom: 1 }, tamperRejected: { lib: 1, cleanRoom: 1 }, cf04: { fired: false } });
+    expect(intact.proof!.score!.perVariant).toHaveLength(7);
     expect(intact.assertions.every((a) => a.pass)).toBe(true);
 
     const steps: Record<string, string[]> = {
@@ -180,20 +186,26 @@ describe('harness-proof suite (TSK-15.8, S6-lib)', () => {
       const c = byId.get(id)!;
       expect(c.outcome, id).toBe('passed');
       expect(c.proof!.variants.map((v) => v.lib.step), id).toEqual(want);
+      expect(c.proof!.variants.map((v) => v.cleanRoom.step), id).toEqual(want);
       expect(c.assertions.length, id).toBe(want.length);
       expect(c.assertions.every((a) => a.pass), id).toBe(true);
     }
     expect(byId.get('EVAL-066')).toMatchObject({ outcome: 'passed' });
     for (const id of ['EVAL-058', 'EVAL-059', 'EVAL-060', 'EVAL-061', 'EVAL-062', 'EVAL-063', 'EVAL-066']) {
-      expect(byId.get(id)!.proof!.cleanRoom, id).toEqual({ status: 'not_yet_implemented' });
-      expect(byId.get(id)!.notes.join('; '), id).toContain('clean-room checker: not_yet_implemented');
+      expect(byId.get(id)!.proof!.cleanRoom.status, id).toBe('ran');
+      expect(byId.get(id)!.notes.join('; '), id).toContain('clean-room checker: ');
+      expect(byId.get(id)!.inMilestoneScope, id).toBe(true);
     }
 
-    // EVAL-103 (EVM anchoring, M-002) is reported as not yet implemented, never dropped.
-    expect(byId.get('EVAL-103')).toMatchObject({ outcome: 'not_yet_implemented' });
+    // EVAL-103 (EVM anchoring, M-002) is reported as not yet implemented, never dropped, and sits
+    // outside the M1 scope: counted in the totals, listed separately, not pooled into S6-lib.
+    expect(byId.get('EVAL-103')).toMatchObject({ outcome: 'not_yet_implemented', milestone: 'M2', inMilestoneScope: false });
     expect(byId.get('EVAL-103')!.notes.join(' ')).toMatch(/TKT-23/);
     expect(run.totals).toMatchObject({ ok: true, active: 8, passed: 7, notYetImplemented: 1, errored: 0, skipped: 0 });
-    expect(run.gates.find((g) => g.id === 'S6-lib')).toMatchObject({ display: '87.5 % (7/8)', pass: false, detail: '1 not yet implemented' });
+    expect(run.scope).toEqual({ milestone: 'M1', outOfScope: [expect.objectContaining({ id: 'EVAL-103', milestone: 'M2', outcome: 'not_yet_implemented' })] });
+    const s6 = run.gates.find((g) => g.id === 'S6-lib')!;
+    expect(s6).toMatchObject({ display: '100.0 % (7/7)', pass: true });
+    expect(s6.detail).toBe('coverage library 100.0 %, clean-room 100.0 %; tampers rejected library 100.0 %, clean-room 100.0 % (7 variants); 0 not yet implemented');
     expect(run.criticalConditions).toEqual([]);
 
     // The suite used a temporary ledger and key: ./data was not touched.
@@ -213,6 +225,19 @@ describe('harness-proof suite (TSK-15.8, S6-lib)', () => {
     }
     expect(run.totals).toMatchObject({ active: 8, errored: 7, skipped: 0 });
     expect(run.criticalConditions.map((f) => f.id)).toContain('CF-04');
+  });
+
+  it('--milestone=M2 pools the M2 case into the gates; M1 keeps it out, never drops it', async () => {
+    const fake = async () => [];
+    const m1 = await evaluate({ seed: 23, suites: ['harness-proof'], proofSuite: fake });
+    const m2 = await evaluate({ seed: 23, suites: ['harness-proof'], proofSuite: fake, milestone: 'M2' });
+    // With no suite results every M1 case is not_yet_implemented; EVAL-103 counts in S6-lib only under M2.
+    expect(m1.gates.find((g) => g.id === 'S6-lib')!.display).toBe('0.0 % (0/7)');
+    expect(m2.gates.find((g) => g.id === 'S6-lib')!.display).toBe('0.0 % (0/8)');
+    expect(m1.scope!.outOfScope.map((c) => c.id)).toEqual(['EVAL-103']);
+    expect(m2.scope!.outOfScope).toEqual([]);
+    expect(m1.cases.map((c) => c.id)).toEqual(m2.cases.map((c) => c.id));
+    expect(m1.totals.active).toBe(8);
   });
 
   it('the CLI gives pnpm eval a throwaway DATA_DIR, database and ledger key path, never ./data', () => {

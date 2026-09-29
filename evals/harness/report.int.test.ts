@@ -93,13 +93,22 @@ describe('the report derives from the results file only (TC-016)', () => {
     expect(md).toMatch(/10\/10 .*72\.2 %/);
   });
 
-  it('shows the proof suite with a library column and the clean-room checker column (S6, TKT-15)', () => {
+  it('shows the proof suite with a library column and the clean-room checker column (S6, TKT-15, TKT-18)', () => {
     const md = renderReport(path);
     expect(md).toContain('## Proof suite (S6)');
     expect(md).toContain('| Case | Outcome | Library verifier | Clean-room checker |');
-    expect(md).toMatch(/\| EVAL-058 \| passed \| [^|]*closure entries[^|]* \| not_yet_implemented \|/);
-    expect(md).toMatch(/\| EVAL-063 \| passed \| drop_entry: closure-incomplete; swap_adjacent: merkle-path \| not_yet_implemented \|/);
+    expect(md).toMatch(/\| EVAL-058 \| passed \| [^|]*closure entries[^|]* \| \d+\/\d+ closure entries verified \(coverage 100\.0 %\) \|/);
+    expect(md).toMatch(/\| EVAL-063 \| passed \| dropped-entry: closure-incomplete; reordered-entries: merkle-path \| dropped-entry: closure-incomplete; reordered-entries: merkle-path \|/);
     expect(md).toMatch(/\| EVAL-103 \| not_yet_implemented \| — \| — \|/);
+    expect(md).toContain('S6 score (evals/scorers/proof-verifier.ts): coverage library 100.0 %, clean-room 100.0 %');
+    expect(md).toContain('CF-04 not fired.');
+  });
+
+  it('lists the cases outside the milestone scope in their own section (TKT-18 milestone scoping)', () => {
+    const md = renderReport(path);
+    expect(md).toContain('Milestone scope: `M1`.');
+    expect(md).toContain('## Out of milestone scope');
+    expect(md).toMatch(/\| EVAL-103 \| harness-proof \| M2 \| not_yet_implemented \| [^|]*TKT-23[^|]* \|/);
   });
 
   it('the CLI prints the same report', () => {
