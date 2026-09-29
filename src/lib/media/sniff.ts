@@ -1,5 +1,6 @@
 // Image type by magic bytes (technical-plan §22 TSK-08.1; review focus 8): a phone's file name and
-// declared MIME are not trusted. TKT-19 uses this at the capture boundary.
+// declared MIME are not trusted. TKT-19 uses this at the capture boundary
+// (TSK-19.1): camera captures are JPEG or HEIC/HEIF and nothing else.
 
 export type SniffedImage = 'image/jpeg' | 'image/heic';
 
@@ -8,9 +9,12 @@ const HEIC_BRANDS = new Set(['heic', 'heix', 'heif', 'mif1', 'msf1']);
 
 const ascii = (b: Uint8Array, from: number, to: number) => String.fromCharCode(...b.subarray(from, to));
 
-/** JPEG (`FF D8 FF`) or HEIC (`ftyp` at offset 4 with a HEIC brand at offset 8), else null. */
+/**
+ * JPEG (`FF D8 FF` then a marker byte) or HEIC (`ftyp` at offset 4 with a HEIC brand at offset 8), else
+ * null. A bare 3-byte JPEG start is refused: nothing that short is a photo (TSK-19.1).
+ */
 export function sniffImage(bytes: Uint8Array): SniffedImage | null {
-  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
+  if (bytes.length >= 4 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
   if (bytes.length >= 12 && ascii(bytes, 4, 8) === 'ftyp' && HEIC_BRANDS.has(ascii(bytes, 8, 12))) return 'image/heic';
   return null;
 }
