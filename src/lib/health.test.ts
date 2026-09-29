@@ -37,7 +37,7 @@ describe('health (TC-001 core)', () => {
   });
 
   it('carries no environment value in the body', async () => {
-    const canary = 'canary-env-value-9f8e7d6c';
+    const canary = 'canary-'.repeat(4); // low-entropy on purpose: not scan bait
     process.env.UDGAM_HEALTH_CANARY = canary;
     try {
       const r = await health({

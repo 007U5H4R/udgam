@@ -63,7 +63,7 @@ describe('loadEnv', () => {
   });
 
   it('never puts values in error messages', () => {
-    const secret = 'super-secret-canary-value-123';
+    const secret = 'canary-'.repeat(6); // low-entropy on purpose: not scan bait
     for (const src of [
       { REMOTE_SENSING_PROVIDER: 'live', GFW_API_KEY: secret },
       { LOG_LEVEL: secret, BETTER_AUTH_SECRET: secret },

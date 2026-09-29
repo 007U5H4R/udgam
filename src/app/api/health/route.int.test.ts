@@ -35,12 +35,15 @@ describe('GET /api/health (TC-001)', () => {
   });
 
   it('does not put env values in the body', async () => {
-    vi.stubEnv('BETTER_AUTH_SECRET', 'canary-secret-value-0123456789abcdef0123');
-    vi.stubEnv('GFW_API_KEY', 'canary-gfw-key-value');
+    // Low-entropy on purpose, so the CI secret scan never mistakes a test canary for a key.
+    const authCanary = 'canary-'.repeat(6);
+    const gfwCanary = 'gfw-canary-'.repeat(2);
+    vi.stubEnv('BETTER_AUTH_SECRET', authCanary);
+    vi.stubEnv('GFW_API_KEY', gfwCanary);
     const { GET } = await import('./route');
     const text = await (await GET()).text();
-    expect(text).not.toContain('canary-secret-value');
-    expect(text).not.toContain('canary-gfw-key-value');
+    expect(text).not.toContain(authCanary);
+    expect(text).not.toContain(gfwCanary);
     expect(text).not.toContain(t.url);
   });
 });

@@ -1,0 +1,8 @@
+# Secret scanning config (EVAL-083, TC-003). Extends gitleaks' built-in rules; nothing is disabled.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Crypto test vectors hold deliberately public, non-secret test keys"
+# The only exemption: this one fixture file (added by TKT-02), matched by path.
+paths = ['''^evals/fixtures/crypto-vectors\.json$''']
