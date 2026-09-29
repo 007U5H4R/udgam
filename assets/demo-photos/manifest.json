@@ -1,0 +1,151 @@
+{
+  "description": "AI-generated demo photos for Udgam seed data and capture fixtures (TASK-32, TP29). Not real farm photos; never evidence.",
+  "slots": {
+    "branch": "The branch",
+    "scale": "Basket on the scale",
+    "pile": "The day's pile"
+  },
+  "photos": [
+    {
+      "file": "branch-01.jpg",
+      "slot": "branch",
+      "sha256": "91a88168b0ff6517e8144190a9746422ee47326a3ff2c4319a0388d6c5b60f47",
+      "bytes": 471137,
+      "width": 880,
+      "height": 1168,
+      "generated": true,
+      "provider": "Higgsfield",
+      "model": "gpt_image_2_5 (medium, 1k)",
+      "generation_id": "dcea5e54-e426-4dea-8619-480d01d40716",
+      "generated_on": "2026-09-29",
+      "prompt": "Ordinary handheld smartphone photo, portrait orientation, of an Arabica coffee branch on a shade-grown estate in Kodagu, Karnataka, India. Dense clusters of ripe glossy red coffee cherries with a few orange and green ones along the stem, dark glossy green leaves, dappled light through tall silver oak shade trees, slightly soft background, natural colours, mild phone-camera noise and imperfect framing. No people, no hands, no text, no watermark, not a studio shot, not illustrated.",
+      "exif": "minimal (colour space, dimensions); no GPS, no DateTimeOriginal"
+    },
+    {
+      "file": "branch-02.jpg",
+      "slot": "branch",
+      "sha256": "e0dc4facbe269bcbcd32440032b1238295e447e9bec36fdad443dead4b23ec8a",
+      "bytes": 482879,
+      "width": 880,
+      "height": 1168,
+      "generated": true,
+      "provider": "Higgsfield",
+      "model": "gpt_image_2_5 (medium, 1k)",
+      "generation_id": "22203dc9-90ef-4536-8eea-21bb5fd54802",
+      "generated_on": "2026-09-29",
+      "prompt": "Ordinary handheld smartphone photo, portrait orientation, taken from slightly below: a long coffee branch heavy with ripe red Arabica cherries, some already picked leaving gaps on the stem, glossy leaves, bright midday light filtering through dense shade canopy of a Kodagu coffee estate, uneven exposure typical of a phone. No people, no hands, no text, no watermark, not illustrated.",
+      "exif": "minimal (colour space, dimensions); no GPS, no DateTimeOriginal"
+    },
+    {
+      "file": "branch-03.jpg",
+      "slot": "branch",
+      "sha256": "48b3370155394b4da52c5e5ab53cb38e10f4ef5db1544576e5a56a54cefa24c7",
+      "bytes": 388600,
+      "width": 1280,
+      "height": 720,
+      "generated": true,
+      "provider": "ElevenLabs",
+      "model": "gpt-image-2.5-flare (1K)",
+      "generation_id": "alXvGzHMg7vs4DK6dkfo",
+      "generated_on": "2026-09-29",
+      "prompt": "Ordinary handheld smartphone photo, portrait orientation 3:4, close-up of a Robusta coffee branch on a shade-grown estate in Kodagu, India: ripe red and dark crimson cherries packed in tight round clusters at each leaf node, large broad wavy green leaves, soft overcast monsoon-season light, a little moisture on the leaves, background out of focus. Natural colours, mild phone noise, slightly tilted framing. No people, no hands, no text, no watermark, not a studio shot, not illustrated.",
+      "exif": "minimal (colour space, dimensions); no GPS, no DateTimeOriginal"
+    },
+    {
+      "file": "branch-04.jpg",
+      "slot": "branch",
+      "sha256": "c989a6fb5d62344ac39dce420dc28b149c252c151f1a2c319379383e721711bd",
+      "bytes": 477632,
+      "width": 1280,
+      "height": 720,
+      "generated": true,
+      "provider": "ElevenLabs",
+      "model": "gpt-image-2.5-flare (1K)",
+      "generation_id": "73YsC8xCmk6922OUzNKF",
+      "generated_on": "2026-09-29",
+      "prompt": "Ordinary handheld smartphone photo, portrait orientation 3:4, of an Arabica coffee bush branch in Chikkamagaluru, India, early morning, low warm sunlight from the side, a branch bending under clusters of mostly ripe red cherries with some yellow and green ones, black pepper vines climbing a shade tree trunk in the background. Natural colours, phone-camera look, slight lens flare. No people, no hands, no text, no watermark, not illustrated.",
+      "exif": "minimal (colour space, dimensions); no GPS, no DateTimeOriginal"
+    },
+    {
+      "file": "scale-01.jpg",
+      "slot": "scale",
+      "sha256": "b99722b76f6a2111f3a7cd13abbc8cbb5d0bb4d6ecfa79d2cbbbc8fc33f73b93",
+      "bytes": 577365,
+      "width": 880,
+      "height": 1168,
+      "generated": true,
+      "provider": "Higgsfield",
+      "model": "gpt_image_2_5 (medium, 1k)",
+      "generation_id": "264f6c95-d65c-4aea-adbb-ef660a918ee6",
+      "generated_on": "2026-09-29",
+      "prompt": "Ordinary handheld smartphone photo, portrait orientation, at the edge of a coffee estate in Kodagu, India: a woven bamboo basket heaped with freshly picked ripe red coffee cherries sitting on a simple old mechanical platform weighing scale placed on a blue tarpaulin on the ground. The scale's dial is angled away and not readable. Shade trees and coffee bushes behind, overcast daylight, natural colours, slight phone-camera noise, casual framing. No people, no hands, no legible text or numbers, no watermark, not a studio shot, not illustrated.",
+      "exif": "minimal (colour space, dimensions); no GPS, no DateTimeOriginal"
+    },
+    {
+      "file": "scale-02.jpg",
+      "slot": "scale",
+      "sha256": "667716423e214d02b331df03456996994e428636b459edec7bb3170e84b07b01",
+      "bytes": 531581,
+      "width": 880,
+      "height": 1168,
+      "generated": true,
+      "provider": "Higgsfield",
+      "model": "gpt_image_2_5 (medium, 1k)",
+      "generation_id": "d42ccba1-a7d3-45b3-8d48-6d8b7a130903",
+      "generated_on": "2026-09-29",
+      "prompt": "Ordinary handheld smartphone photo, portrait orientation, overcast drizzle: a plastic-lined woven basket of freshly picked red coffee cherries on an old platform weighing scale placed on a blue tarpaulin beside a muddy estate path in Chikkamagaluru, India, dripping shade trees behind, dial blurred and unreadable. Muted natural colours, phone-camera noise. No people, no hands, no legible text or numbers, no watermark, not illustrated.",
+      "exif": "minimal (colour space, dimensions); no GPS, no DateTimeOriginal"
+    },
+    {
+      "file": "scale-03.jpg",
+      "slot": "scale",
+      "sha256": "510e9e52d26f7cfa49536e725b263656da7270cda95a1fbb52aebf5ded57f6de",
+      "bytes": 538342,
+      "width": 1280,
+      "height": 720,
+      "generated": true,
+      "provider": "ElevenLabs",
+      "model": "gpt-image-2.5-flare (1K)",
+      "generation_id": "LH5voMxp6WUNprSueRwb",
+      "generated_on": "2026-09-29",
+      "prompt": "Ordinary handheld smartphone photo, portrait orientation 3:4, on a coffee estate in Kodagu, India: a round woven cane basket full of freshly picked ripe red Robusta coffee cherries resting on a rusty mechanical platform weighing scale set on flattened jute sacks under shade trees, the scale's dial turned away and unreadable, morning light. Natural colours, casual framing, slight phone noise. No people, no hands, no legible text or numbers, no watermark, not illustrated.",
+      "exif": "minimal (colour space, dimensions); no GPS, no DateTimeOriginal"
+    },
+    {
+      "file": "pile-01.jpg",
+      "slot": "pile",
+      "sha256": "54c61a28497e2f34a31599991abe8429aeaa7763c73b4e0566d27cd9a43b252d",
+      "bytes": 623664,
+      "width": 880,
+      "height": 1168,
+      "generated": true,
+      "provider": "Higgsfield",
+      "model": "gpt_image_2_5 (medium, 1k)",
+      "generation_id": "fe51eafa-e936-4118-b300-19c90a0794b4",
+      "generated_on": "2026-09-29",
+      "prompt": "Ordinary handheld smartphone photo, portrait orientation, looking down at the day's harvest on a coffee estate in Kodagu, India: a large heap of freshly picked ripe red coffee cherries, with some yellow and green ones and a few leaves and twigs mixed in, piled on a worn blue tarpaulin on reddish earth, late afternoon light, coffee bushes at the edge of the frame, natural colours, slight phone-camera noise. No people, no hands, no text, no watermark, not a studio shot, not illustrated.",
+      "exif": "minimal (colour space, dimensions); no GPS, no DateTimeOriginal"
+    }
+  ],
+  "pending_prompts": {
+    "note": "Not generated on 2026-09-29: both providers hit daily limits. Generate with the same settings after the limits reset, then add to photos[].",
+    "items": [
+      {
+        "slot": "scale",
+        "prompt": "Ordinary handheld smartphone photo, portrait orientation, taken from above at an angle: a shallow bamboo basket heaped with ripe red coffee cherries and a few green ones sitting on a small grey platform weighing scale on a worn green tarpaulin, coffee bushes and red earth around, late afternoon golden light. The scale's display is hidden by the basket rim. No people, no hands, no legible text or numbers, no watermark, not illustrated."
+      },
+      {
+        "slot": "pile",
+        "prompt": "Ordinary handheld smartphone photo, portrait orientation, the day's picking on a Kodagu coffee estate: a big heap of dark red Robusta coffee cherries on spread-out jute gunny sacks on the ground, a couple of empty woven baskets at the edge of the frame, dusk light, shade trees. Natural colours, phone-camera noise. No people, no hands, no text, no watermark, not illustrated."
+      },
+      {
+        "slot": "pile",
+        "prompt": "Ordinary handheld smartphone photo, portrait orientation, looking down: a heap of freshly harvested ripe red and orange Arabica coffee cherries poured onto an orange tarpaulin next to a row of coffee bushes, some leaves and small twigs in the pile, bright overcast light, a bamboo basket lying on its side at the corner. Natural colours, phone-camera look. No people, no hands, no text, no watermark, not illustrated."
+      },
+      {
+        "slot": "pile",
+        "prompt": "Ordinary handheld smartphone photo, portrait orientation, low angle at ground level: a mound of ripe red coffee cherries on a blue tarpaulin in the shade of silver oak trees on a Chikkamagaluru coffee estate, morning mist in the background, dappled sunlight on the cherries. Natural colours, slight phone noise, casual framing. No people, no hands, no text, no watermark, not illustrated."
+      }
+    ]
+  }
+}
