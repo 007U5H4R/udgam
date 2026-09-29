@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { DEMO_ACCOUNTS, DEMO_ORGS, seedAccounts } from '../../../scripts/seed-accounts';
 import { addOrg, addUser } from '../../../tests/helpers/auth';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 import { generateKeyPair, jwkThumbprint, publicMembers } from '../crypto';
@@ -182,6 +183,27 @@ describe('enrolDevice', () => {
       ok: false,
       reason: 'rate_limited',
     });
+  });
+
+  it('TC-022 (EXE13, EV16) the anchored device_enrolled payload of a seeded agent carries only IDs and a hash: no email, name or org', async () => {
+    await seedAccounts(t.db, PW, T0);
+    const agent = DEMO_ACCOUNTS.agentA;
+    const org = DEMO_ORGS.fpoA;
+    const issued = await issueCode(t.db, { agentId: agent.id, adminId: DEMO_ACCOUNTS.adminA.id, orgId: org.id }, T0);
+    const r = await enrolDevice(t.db, { code: issued.code, publicJwk: await publicJwk(), ip: IP, sessionAgentId: agent.id }, T0);
+    expect(r.ok).toBe(true);
+    const entries = await enrolledEntries();
+    expect(entries).toHaveLength(1);
+    const payload = JSON.parse(String(entries[0]!.payload)) as Record<string, unknown>;
+    expect(Object.keys(payload).sort()).toEqual(['agentId', 'deviceId', 'thumbprint']);
+    const agentId = String(payload.agentId);
+    expect(agentId).toBe(agent.id);
+    expect(agentId).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(agentId).not.toContain('@');
+    expect([agent.email, agent.name, agent.orgId]).not.toContain(agentId);
+    expect(agentId.toUpperCase()).not.toContain(org.name.split(' ')[0]!.toUpperCase()); // "HOSAHALLI"
+    expect(agentId.toUpperCase()).not.toContain(org.name.toUpperCase());
+    expect(JSON.stringify(payload)).not.toMatch(/hosahalli|udgam\.test|agent@|field agent/i);
   });
 });
 const CODE_CHARS = '23456789AB';

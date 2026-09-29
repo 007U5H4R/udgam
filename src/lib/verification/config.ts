@@ -14,7 +14,12 @@ export type VerifyConfig = {
   readonly geofence: { readonly maxBufferM: number };
   readonly gpsAccuracy: { readonly okBelowM: number; readonly flagBelowM: number };
   readonly exifGps: { readonly maxDistanceM: number };
-  readonly exifTime: { readonly maxExifClientMin: number; readonly maxClientServerMin: number; readonly failAfterMin: number };
+  readonly exifTime: {
+    readonly maxExifClientMin: number;
+    readonly exifFailAfterMin: number;
+    readonly maxClientServerMin: number;
+    readonly clientServerFailAfterMin: number;
+  };
   readonly movement: { readonly maxKmh: number };
   readonly deforestation: {
     readonly flagAbovePct: number;
@@ -52,7 +57,9 @@ export const CONFIG = {
   geofence: { maxBufferM: 25 },
   gpsAccuracy: { okBelowM: 30, flagBelowM: 100 },
   exifGps: { maxDistanceM: 50 },
-  exifTime: { maxExifClientMin: 10, maxClientServerMin: 1440, failAfterMin: 10080 }, // TP4
+  // TP4, amended by EXE10 (owner, before baseline-v1): the worst photo's EXIF gap fails over 24 h, so a
+  // time-zone misread (up to ~14 h) never fails; the client–server gap still fails only over 7 days.
+  exifTime: { maxExifClientMin: 10, exifFailAfterMin: 1440, maxClientServerMin: 1440, clientServerFailAfterMin: 10080 },
   movement: { maxKmh: 120 },
   deforestation: { flagAbovePct: 0, hardFailAtPct: 10, lossFromYear: 2021, canopyDensityPct: 10, gfwDatasetVersion: 'v1.13' }, // S5, TP11
   ndviCultivation: { minClearMonths: 6, canopyMin: 0.5, maxSeasonalSwing: 0.35 }, // TP11

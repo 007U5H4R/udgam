@@ -21,7 +21,7 @@ describe('scenario 2 and 4 attack sets (TSK-09.7)', () => {
   it('the new cases EVAL-114 to EVAL-121 are there, scenario 2 then scenario 4', () => {
     expect(activeS1(2)).toEqual(expect.arrayContaining(['EVAL-114', 'EVAL-115', 'EVAL-116', 'EVAL-117']));
     expect(activeS1(4)).toEqual(expect.arrayContaining(['EVAL-118', 'EVAL-119', 'EVAL-120', 'EVAL-121']));
-    expect(ds.version).toBe('0.5.0');
+    expect(ds.version.localeCompare('0.5.0', undefined, { numeric: true })).toBeGreaterThanOrEqual(0); // 0.6.0 (EXE10) adds EVAL-122–123
   });
 });
 

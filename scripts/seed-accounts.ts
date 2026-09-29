@@ -30,13 +30,17 @@ export const DEMO_ORGS = {
   buyerB: { id: 'ORG-BUYER-B', type: 'buyer', name: 'Demo Buyer B' },
 } as const satisfies Record<string, Org>;
 
+// User IDs are fixed (tests stay deterministic) but opaque, like Better Auth's generated IDs: `USR-` +
+// 8 Crockford base32 characters with no meaning (EXE13). An agent's ID is anchored in `device_enrolled`,
+// so it must never carry an organisation name, role or email (EV16). A database seeded before EXE13
+// holds the old readable IDs under the same emails; recreate it (a fresh DATA_DIR) rather than re-seed.
 export const DEMO_ACCOUNTS = {
-  agentA: { id: 'USR-HOSAHALLI-AGENT', email: 'agent@hosahalli.udgam.test', name: 'Hosahalli field agent', role: 'agent', orgId: DEMO_ORGS.fpoA.id },
-  adminA: { id: 'USR-HOSAHALLI-ADMIN', email: 'admin@hosahalli.udgam.test', name: 'Hosahalli FPO admin', role: 'admin', orgId: DEMO_ORGS.fpoA.id },
-  agentB: { id: 'USR-FPOTEST-AGENT', email: 'agent@fpo-test.udgam.test', name: 'Second FPO field agent', role: 'agent', orgId: DEMO_ORGS.fpoB.id },
-  adminB: { id: 'USR-FPOTEST-ADMIN', email: 'admin@fpo-test.udgam.test', name: 'Second FPO admin', role: 'admin', orgId: DEMO_ORGS.fpoB.id },
-  buyerA: { id: 'USR-BUYER-A', email: 'buyer@buyer-a.udgam.test', name: 'Buyer A', role: 'buyer', orgId: DEMO_ORGS.buyerA.id },
-  buyerB: { id: 'USR-BUYER-B', email: 'buyer@buyer-b.udgam.test', name: 'Buyer B', role: 'buyer', orgId: DEMO_ORGS.buyerB.id },
+  agentA: { id: 'USR-G59PFRQQ', email: 'agent@hosahalli.udgam.test', name: 'Hosahalli field agent', role: 'agent', orgId: DEMO_ORGS.fpoA.id },
+  adminA: { id: 'USR-7SJPMTPJ', email: 'admin@hosahalli.udgam.test', name: 'Hosahalli FPO admin', role: 'admin', orgId: DEMO_ORGS.fpoA.id },
+  agentB: { id: 'USR-JNZ02V4Y', email: 'agent@fpo-test.udgam.test', name: 'Second FPO field agent', role: 'agent', orgId: DEMO_ORGS.fpoB.id },
+  adminB: { id: 'USR-JG5Q7DYF', email: 'admin@fpo-test.udgam.test', name: 'Second FPO admin', role: 'admin', orgId: DEMO_ORGS.fpoB.id },
+  buyerA: { id: 'USR-8HACCFYE', email: 'buyer@buyer-a.udgam.test', name: 'Buyer A', role: 'buyer', orgId: DEMO_ORGS.buyerA.id },
+  buyerB: { id: 'USR-9XZPMPB7', email: 'buyer@buyer-b.udgam.test', name: 'Buyer B', role: 'buyer', orgId: DEMO_ORGS.buyerB.id },
 } as const satisfies Record<string, DemoAccount>;
 
 /**
