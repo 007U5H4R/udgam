@@ -6,13 +6,15 @@ import { isPlotAssigned } from '../enrolment/assign';
 import { log as defaultLog } from '../log';
 import { extractExif } from '../media/exif';
 import type { MediaStore } from '../media/store';
+import { chainContinuity } from '../verification/checks/chain_continuity';
 import { photoUniqueness } from '../verification/checks/photo-uniqueness';
+import { yieldPlausibility } from '../verification/checks/yield_plausibility';
 import { CONFIG } from '../verification/config';
 import { score } from '../verification/score';
 import { runCheck, verify } from '../verification/verify';
 import type { CapturePayloadV1, CheckId, CheckResult, CheckStatus, Submission, Verdict, VerifyContext, VerifyResult } from '../verification/types';
 import { admit, authenticate, STATUS, type BoundaryDevice, type BoundaryReason } from './boundary';
-import { buildContext, seenMediaHashes } from './context';
+import { buildContext, refreshUnderLock } from './context';
 import { findAcceptedOutcome, findRejection, winnerAfterUniqueViolation, type PriorOutcome } from './idempotency';
 import { claimedDeviceId, parseCaptureForm, type FormReason } from './parse';
 import { persistAccepted, persistRejected, type AppendFn, type StoredMedia } from './persist';
@@ -139,27 +141,38 @@ export async function runCapture(form: FormData, deps: CaptureDeps, emit: (line:
   send(terminal);
 }
 
+/** The local checks whose inputs a concurrent commit can change (refreshUnderLock re-reads them). */
+const LOCK_SENSITIVE = [chainContinuity, photoUniqueness, yieldPlausibility] as const;
+
 /**
- * photo_uniqueness under the write lock (TKT-19): the context read the seen photo hashes before media
- * storage and verification, so two captures carrying the same new photo could both pass. Re-read them
- * inside the write transaction; if a photo has been accepted since, re-run that (local, pure) check and
- * re-score. Returns the result to commit.
+ * The step-7 re-check under the write lock (TKT-19 for photos; TKT-09 fix round 1 for yield and chain):
+ * the context read the seen photos, the phone's chain head, the agent's accepted count and the plot's
+ * season kg before media storage and verification, so captures in flight at once all saw the same
+ * values — two 400 kg captures could each pass yield at 0.85x where one after the other the second flags
+ * at 1.70x. Re-read them inside the write transaction, re-run those (local, pure) checks against the fresh
+ * values and re-score if any result changed. Remote checks do not read these values and are not re-run.
+ * Returns the result to commit: its verdict, checks and evidence are what is stored and anchored.
  *
- * The `check` line already streamed for photo_uniqueness is then stale (it said `ok`; the committed
- * result says `fail`). It is left as sent on purpose: a check line is progress, streamed before COMMIT,
- * and can't be taken back, while the verdict line is sent only after COMMIT and carries every committed
- * check. Clients render the result from the verdict line's `checks` (TKT-10), never from the progress lines.
+ * The `check` lines already streamed for these checks may then be stale (e.g. yield said `ok`; the
+ * committed result says `flag`). They are left as sent on purpose: a check line is progress, streamed
+ * before COMMIT, and can't be taken back, while the verdict line is sent only after COMMIT and carries
+ * every committed check. Clients render the result from the verdict line's `checks` (TKT-10), never from
+ * the progress lines.
  */
-async function recheckPhotoUniqueness(tx: Tx, sub: Submission, ctx: VerifyContext, result: VerifyResult): Promise<VerifyResult> {
-  const i = result.checks.findIndex((c) => c.id === photoUniqueness.id);
-  if (i < 0) return result;
-  const seen = await seenMediaHashes(
-    tx,
-    sub.media.map((m) => m.sha256),
-  );
-  if ([...seen].every((h) => ctx.seenMediaHashes.has(h))) return result;
-  const check = await runCheck(photoUniqueness, sub, { ...ctx, seenMediaHashes: seen }, CONFIG);
-  const checks = result.checks.map((c, j) => (j === i ? check : c));
+async function recheckUnderLock(tx: Tx, sub: Submission, ctx: VerifyContext, agentId: string, result: VerifyResult): Promise<VerifyResult> {
+  const fresh = await refreshUnderLock(tx, ctx, { payload: sub.payload, agentId, serverReceivedAt: sub.serverReceivedAt });
+  const checks = [...result.checks];
+  let changed = false;
+  for (const c of LOCK_SENSITIVE) {
+    const i = checks.findIndex((r) => r.id === c.id);
+    if (i < 0) continue; // not enabled for this run
+    const again = await runCheck(c, sub, fresh, CONFIG);
+    if (again.status !== checks[i]!.status || again.evidence !== checks[i]!.evidence) {
+      checks[i] = again;
+      changed = true;
+    }
+  }
+  if (!changed) return result;
   const s = score(checks, CONFIG);
   return { ...result, checks, verdict: s.verdict, score: s.score, capReasons: s.capReasons };
 }
@@ -313,9 +326,10 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
 
   // 7. one transaction: an identical payload accepted meanwhile (the duplicate-resend race) → its
   // verdict, nothing written; else re-check revocation and assignment, then event, media, run and both
-  // ledger entries — or, if either changed meanwhile, the anchored refusal instead. photo_uniqueness is
-  // re-read under the lock too, so the verdict streamed after COMMIT is the one committed. A unique
-  // violation on payload_hash rolls back and answers with the winner (defence in depth).
+  // ledger entries — or, if either changed meanwhile, the anchored refusal instead. photo_uniqueness,
+  // chain_continuity and yield_plausibility are re-run under the lock too (recheckUnderLock), so the
+  // verdict streamed after COMMIT is the one committed. A unique violation on payload_hash rolls back
+  // and answers with the winner (defence in depth).
   let final = result;
   let committed:
     | { replay: Extract<PriorOutcome, { kind: 'accepted' }> }
@@ -338,7 +352,7 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
         });
         return { refused: late, anchored } as const;
       }
-      final = await recheckPhotoUniqueness(tx, sub, ctx, result);
+      final = await recheckUnderLock(tx, sub, ctx, device.agentId, result);
       return persistAccepted(
         tx,
         { payload, payloadString: form_.payloadString, payloadHash, signature: form_.signature, serverReceivedAt, device, media: stored, result: final },
