@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { area } from '@turf/turf';
 import type { Polygon, Position } from '../../src/lib/geo/types';
+import type { RsProfile } from '../../src/lib/remote-sensing/fixture';
 import { EVALS_DIR, loadDataset, type Dataset, type PlotSpec } from './dataset';
 
 // Plot and remote-sensing fixtures (technical-plan §13, §22 TSK-03.2; evaluation-plan §7.2). The
@@ -209,15 +210,10 @@ export function generatePlotFixtures(ds: Dataset): GeneratedPlot[] {
 export type NdviHistoryProfile = PlotSpec['remote_sensing']['ndvi_history'];
 export type NdviWindowProfile = PlotSpec['remote_sensing']['ndvi_harvest_window'];
 
-/** What the fixture provider answers for one plot (technical-plan §7; values agreed with TKT-07). */
-export type RsProfile = {
-  plotId: string;
-  forestLoss: { lossPct: number; lossHa: number; yearsFrom: number; dataYear: number; lossAdjacentOutside: boolean };
-  /** One entry per calendar month (1–12); July is monsoon cloud (mean null, clearFraction 0). */
-  ndviHistory: { profile: NdviHistoryProfile; byCalendarMonth: { month: number; mean: number | null; clearFraction: number }[] };
-  ndviWindow: { profile: NdviWindowProfile; mean: number | null; clearObservations: number };
-};
+export type { RsProfile };
 
+// Values follow technical-plan TSK-07.1 (perennial 0.62–0.81 over 11 clear months; cleared then
+// planted dips to 0.21; annual crop 0.28–0.74; living canopy 0.71 over 4; bare 0.22 over 3; cloud 0).
 // Monthly NDVI means by calendar month, Jan–Dec; null = no clear observation (monsoon July).
 const HISTORY: Record<NdviHistoryProfile, (number | null)[]> = {
   perennial_canopy: [0.7, 0.66, 0.62, 0.64, 0.69, 0.76, null, 0.81, 0.8, 0.78, 0.75, 0.72],
