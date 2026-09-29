@@ -3,7 +3,8 @@ import { mkdir, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 
 // Content-addressed media store (technical-plan §3.1 step 4). Files live at
-// DATA_DIR/media/<sha[0:2]>/<sha>.<ext>; the stored path is relative to DATA_DIR.
+// DATA_DIR/media/<sha[0:2]>/<sha>.<ext>; the stored path is relative to DATA_DIR. An organic certificate
+// (`application/pdf`, TKT-13) is stored at DATA_DIR/attestations/<sha>.pdf through the same holds.
 //
 // One file can belong to several requests and rows (the same photo bytes in two captures), so a
 // failed request must never simply unlink "its" file. Every `put` takes an in-process hold on the
@@ -32,6 +33,7 @@ const EXT: Record<string, string> = {
   'image/webp': 'webp',
   'image/heic': 'heic',
   'image/heif': 'heif',
+  'application/pdf': 'pdf',
 };
 
 const SHA = /^[0-9a-f]{64}$/;
@@ -68,7 +70,10 @@ export function localMediaStore(dataDir: string): MediaStore {
     if (r.startsWith('..') || isAbsolute(r)) throw new Error('media path is outside the store');
     return abs;
   };
-  const pathOf = (sha256: string, mime: string) => join('media', sha256.slice(0, 2), `${sha256}.${EXT[mime] ?? 'bin'}`);
+  const pathOf = (sha256: string, mime: string) =>
+    mime === 'application/pdf'
+      ? join('attestations', `${sha256}.pdf`)
+      : join('media', sha256.slice(0, 2), `${sha256}.${EXT[mime] ?? 'bin'}`);
   const release = (path: string) => {
     const abs = inside(path);
     const n = (holds.get(abs) ?? 0) - 1;
