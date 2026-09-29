@@ -39,6 +39,8 @@ export default defineConfig({
     env: {
       DATA_DIR: '.e2e-data',
       REMOTE_SENSING_PROVIDER: 'fixture',
+      // Enables the test-only surfaces (/__test__/*); they answer 404 without it (technical-plan §1).
+      E2E: '1',
       // The production server requires an auth secret; a throwaway value generated per run, never committed.
       BETTER_AUTH_SECRET: randomBytes(32).toString('hex'),
     },

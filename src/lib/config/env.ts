@@ -29,6 +29,9 @@ const base = z.object({
   EVM_OPERATOR_KEY_PATH: z.string().min(1).optional(),
   LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
   DEMO_MODE: z.enum(['0', '1']).default('0'),
+  // Test-only surfaces (/__test__/*) exist only when E2E=1 (technical-plan §1). Set by the Playwright
+  // webServer; never set in production, so it is not listed in .env.example.
+  E2E: z.enum(['0', '1']).default('0'),
 });
 
 const VARIABLE_NAMES = Object.keys(base.shape);
