@@ -1,5 +1,5 @@
 import { relations, sql } from 'drizzle-orm';
-import { check, index, integer, primaryKey, real, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
+import { check, index, integer, primaryKey, real, sqliteTable, text, unique, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // technical-plan §4.1, initial slice (TKT-02). Later tickets add tables and columns in new migrations.
 // Times are ISO-8601 UTC strings with milliseconds. JSON columns are text.
@@ -207,7 +207,12 @@ export const harvestEvents = sqliteTable(
     prevEventHash: text('prev_event_hash'),
     /** The exact canonical string the phone signed (never re-serialised). */
     payload: text('payload').notNull(),
-    payloadHash: text('payload_hash').notNull().unique(),
+    /**
+     * Unique among ACCEPTED events only (TKT-09, EV15/TP7 as refined in EXE): an identical signed payload
+     * is accepted at most once, while a boundary refusal never blocks a later genuine capture of the same
+     * payload. Each distinct refusal of one payload is anchored once (unique with its reason).
+     */
+    payloadHash: text('payload_hash').notNull(),
     signature: text('signature').notNull(),
     boundaryStatus: text('boundary_status', { enum: ['accepted', 'rejected'] }).notNull(),
     boundaryReason: text('boundary_reason'),
@@ -220,6 +225,8 @@ export const harvestEvents = sqliteTable(
     check('harvest_events_device_check', sql`${t.deviceId} IS NOT NULL OR ${t.boundaryStatus} = 'rejected'`),
     index('harvest_events_device_idx').on(t.deviceId),
     index('harvest_events_plot_idx').on(t.plotId),
+    uniqueIndex('harvest_events_accepted_payload_hash_unique').on(t.payloadHash).where(sql`boundary_status = 'accepted'`),
+    uniqueIndex('harvest_events_rejected_payload_reason_unique').on(t.payloadHash, t.boundaryReason).where(sql`boundary_status = 'rejected'`),
   ],
 );
 
@@ -442,5 +449,29 @@ export const remoteSensingCache = sqliteTable(
     primaryKey({ columns: [t.plotId, t.provider, t.kind, t.monthBucket, t.geometryHash] }),
     check('remote_sensing_cache_provider_check', sql`${t.provider} IN ('gfw','sentinel-hub')`),
     check('remote_sensing_cache_kind_check', sql`${t.kind} IN ('loss','ndvi_history','ndvi_window')`),
+  ],
+);
+
+/**
+ * The season yield reference (technical-plan §4.1, §6.6, TP6; TKT-09). Reference data, not provenance:
+ * no anchor; seeded idempotently by src/lib/db/seed/yield-reference.ts. `max_kg_ha` is clean coffee;
+ * `cherry_to_clean_ratio` converts fresh ripe cherry to clean coffee once, at comparison.
+ */
+export const cropYieldReference = sqliteTable(
+  'crop_yield_reference',
+  {
+    crop: text('crop', { enum: ['arabica', 'robusta'] }).notNull(),
+    variety: text('variety').notNull(),
+    minKgHa: real('min_kg_ha'),
+    maxKgHa: real('max_kg_ha').notNull(),
+    cherryToCleanRatio: real('cherry_to_clean_ratio').notNull(),
+    source: text('source').notNull(),
+    sourceUrl: text('source_url').notNull(),
+    version: text('version').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.crop, t.variety] }),
+    check('crop_yield_reference_crop_check', sql`${t.crop} IN ('arabica','robusta')`),
+    check('crop_yield_reference_values_check', sql`${t.maxKgHa} > 0 AND ${t.cherryToCleanRatio} > 0 AND ${t.cherryToCleanRatio} <= 1`),
   ],
 );
