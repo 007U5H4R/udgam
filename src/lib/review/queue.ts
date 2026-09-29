@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
-import { adminOverrides, farmers, harvestEvents, plots, verificationRuns } from '../db/schema';
+import { adminOverrides, farmers, harvestEvents, organisations, plots, user, verificationRuns } from '../db/schema';
 import { CONFIG } from '../verification/config';
 import { score } from '../verification/score';
 import type { CheckResult, Verdict } from '../verification/types';
@@ -116,4 +116,13 @@ export async function listReviewQueue(db: Db, orgId: string): Promise<ReviewQueu
 /** How many pickings wait for a person (the rail's Review count). */
 export async function countWaiting(db: Db, orgId: string): Promise<number> {
   return (await listReviewQueue(db, orgId)).waiting.length;
+}
+
+/** The names the review screens show: the organisation (eyebrow) and the signed-in admin (rail). */
+export async function reviewHeader(db: Db, orgId: string, userId: string): Promise<{ orgName: string | null; adminName: string | null }> {
+  const [[org], [me]] = await Promise.all([
+    db.select({ name: organisations.name }).from(organisations).where(eq(organisations.id, orgId)).limit(1),
+    db.select({ name: user.name }).from(user).where(and(eq(user.id, userId), eq(user.orgId, orgId))).limit(1),
+  ]);
+  return { orgName: org?.name ?? null, adminName: me?.name ?? null };
 }
