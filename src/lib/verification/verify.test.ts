@@ -27,6 +27,8 @@ describe('registry', () => {
       ['photo_uniqueness', 'local'],
       ['geofence', 'local'],
       ['gps_accuracy', 'local'],
+      ['exif_gps_agreement', 'local'],
+      ['exif_time_agreement', 'local'],
     ]);
   });
 });

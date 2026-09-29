@@ -1,3 +1,5 @@
+import { exifGpsAgreement } from './checks/exif_gps_agreement';
+import { exifTimeAgreement } from './checks/exif_time_agreement';
 import { geofence } from './checks/geofence';
 import { gpsAccuracy } from './checks/gps_accuracy';
 import { photoUniqueness } from './checks/photo-uniqueness';
@@ -24,4 +26,6 @@ export const REGISTRY: readonly Check[] = [
   photoUniqueness,
   geofence,
   gpsAccuracy,
+  exifGpsAgreement,
+  exifTimeAgreement,
 ];

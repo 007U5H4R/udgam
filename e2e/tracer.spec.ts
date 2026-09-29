@@ -10,12 +10,28 @@ import { query, seedTracer, type TracerKey } from './helpers/tracer';
 
 const FIXTURE = readFileSync('evals/fixtures/photos/p01-exif-ok.jpg');
 
+/** The fixture's EXIF DateTimeOriginal: an IST wall-clock time with no zone (TP25). */
+const FIXTURE_TIME = '2026:10:14 09:40:12';
+
+/** Now as EXIF writes it on an Indian phone: `YYYY:MM:DD HH:MM:SS` in IST, same length as FIXTURE_TIME. */
+function exifNowIst(): string {
+  const iso = new Date(Date.now() + 330 * 60_000).toISOString();
+  return `${iso.slice(0, 4)}:${iso.slice(5, 7)}:${iso.slice(8, 10)} ${iso.slice(11, 19)}`;
+}
+
 /**
- * The fixture JPEG with a random trailer after its end-of-image marker: still a valid JPEG with the
- * same EXIF, but unique bytes, so parallel projects and re-runs never trip photo_uniqueness.
+ * The fixture JPEG, its EXIF time moved to now (so exif_time_agreement sees a photo taken moments
+ * before the capture, as on a real phone), with a random trailer after its end-of-image marker: still
+ * a valid JPEG with the same EXIF GPS, but unique bytes, so parallel projects and re-runs never trip
+ * photo_uniqueness.
  */
 function uniquePhoto(): Buffer {
-  return Buffer.concat([FIXTURE, randomBytes(16)]);
+  const photo = Buffer.from(FIXTURE);
+  let at = photo.indexOf(FIXTURE_TIME, 0, 'latin1');
+  if (at < 0) throw new Error('fixture EXIF time not found');
+  const now = exifNowIst();
+  for (; at >= 0; at = photo.indexOf(FIXTURE_TIME, at + 1, 'latin1')) photo.write(now, at, 'latin1');
+  return Buffer.concat([photo, randomBytes(16)]);
 }
 
 /** Put the seeded test key (imported non-extractable) and the device state into IndexedDB. */
@@ -57,7 +73,7 @@ test('TC-013 EVAL-001 EVAL-002 a seeded phone signs a picking and sees Verified 
   await capture(page, '42.5');
   await expect(page.getByTestId('verdict')).toHaveText('Verified');
   const evidence = page.getByTestId('evidence').getByRole('listitem');
-  await expect(evidence).toHaveCount(4); // one row per registered check
+  await expect(evidence).toHaveCount(6); // one row per registered check
   await expect(evidence).toContainText([`Signed by enrolled phone ${key.deviceId}`, '1 of 1 photos are new', 'Inside the plot']);
   const signed = await page.getByTestId('signed-payload').textContent();
 
