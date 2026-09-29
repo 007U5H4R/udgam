@@ -82,9 +82,10 @@ export type VerifyContext = {
   plot: { id: string; crop: 'arabica' | 'robusta'; polygon: PlotPolygon; areaHa: number; historyEndMonth?: string };
   /** The subset of this submission's hashes already in `media` for accepted events. */
   seenMediaHashes: Set<string>;
-  /** TP6 */
+  /** TP6: this plot's accepted, non-Rejected cherry kg in the season, before this capture. */
   seasonCherryKgBefore: number;
-  yieldReference: { maxKgHa: number; cherryToCleanRatio: number; source: string };
+  /** TP6: the crop's reference row; null when none is seeded (yield_plausibility → unavailable). */
+  yieldReference: { maxKgHa: number; cherryToCleanRatio: number; source: string } | null;
   /** Cache-wrapped (§7). */
   remoteSensing: RemoteSensingProvider;
 };

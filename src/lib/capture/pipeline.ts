@@ -293,7 +293,7 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
   }
 
   // 5–6. context (reads only) and verification, streaming each finished check
-  const ctx = await buildContext(db, { payload, device, plot });
+  const ctx = await buildContext(db, { payload, device, plot, serverReceivedAt });
   const sub: Submission = {
     payload,
     payloadHash,
