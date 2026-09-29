@@ -10,8 +10,11 @@ export type CriticalConditions = { fired: FiredCondition[] };
 
 export type RunFacts = {
   integrity?: { ok: boolean; problems: string[] };
-  /** baseline-v1's frozen config hash vs this run's; `authorised` = an EV/TP decision names the new hash. */
-  configDrift?: { baselineHash: string; currentHash: string; authorised: boolean };
+  /**
+   * baseline-v1's frozen config hash vs this run's; `authorised` = an EV/TP decision names the new hash.
+   * `{ error }` = baseline-v1 exists but cannot be read, parsed or lacks its hash: CF-13 fails closed.
+   */
+  configDrift?: { baselineHash: string; currentHash: string; authorised: boolean } | { error: string };
 };
 
 const HARNESS_JUDGED = new Set(['CF-01', 'CF-02', 'CF-03', 'CF-12', 'CF-13']);
@@ -53,7 +56,9 @@ export function criticalConditions(results: CaseResult[], run: RunFacts = {}): C
 
   if (run.integrity && !run.integrity.ok) fired.push({ id: 'CF-12', caseIds: [], reason: `harness integrity failed: ${run.integrity.problems.join('; ')}` });
   const drift = run.configDrift;
-  if (drift && drift.baselineHash !== drift.currentHash && !drift.authorised) {
+  if (drift && 'error' in drift) {
+    fired.push({ id: 'CF-13', caseIds: [], reason: `baseline-v1 cannot be checked for config drift: ${drift.error}` });
+  } else if (drift && drift.baselineHash !== drift.currentHash && !drift.authorised) {
     fired.push({ id: 'CF-13', caseIds: [], reason: `config hash ${drift.currentHash} differs from baseline-v1 (${drift.baselineHash}) with no decision naming it` });
   }
 

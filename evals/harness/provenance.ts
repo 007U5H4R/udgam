@@ -86,6 +86,8 @@ export function provenance(i: ProvenanceInput): Provenance {
     harness: { name: 'udgam-eval-harness', version: HARNESS_VERSION },
     appVersion: appVersion(),
     git: gitFacts(),
+    // Read directly, not through src/lib/config/env.ts: eval tooling sits outside the app, and CI is a
+    // non-secret flag set by the CI runner (it only labels the run, it changes no behaviour).
     environment: i.environment ?? (process.env.CI ? 'ci' : 'local'),
     dataset: { path: relative(REPO_ROOT, i.dataset.path), version: i.dataset.version, sha256: i.dataset.sha256 },
     fixtures: { version: FIXTURE_SET_VERSION, sha256: fixtureSetHash(i.fixtureFiles), files: i.fixtureFiles.length },

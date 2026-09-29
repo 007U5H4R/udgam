@@ -101,5 +101,14 @@ export function assertCase(c: EvalCase, result: VerifyResult): { pass: boolean; 
     }
   }
 
+  // A case that asserts nothing must never pass silently (it would count toward S2 and Functional).
+  if (assertions.length === 0) {
+    assertions.push({
+      name: 'no expectations',
+      pass: false,
+      detail: 'the case asserts nothing: no verdict, acceptable_verdicts, check_status, hard_fail_checks or evidence_substrings',
+    });
+  }
+
   return { pass: assertions.every((a) => a.pass), assertions, ...(detected === undefined ? {} : { detected }) };
 }

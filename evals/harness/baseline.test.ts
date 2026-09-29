@@ -20,6 +20,25 @@ describe('baseline-v0 (ledger only)', () => {
     expect(r.provenance.provider).toBe('fixture');
   });
 
+  it('ran on a clean tree with a recorded seed, and its headline numbers are the ones committed', () => {
+    expect(r.provenance.git.dirty).toBe(false);
+    expect(r.provenance.seed).toBe(20260929);
+    expect(r.totals).toMatchObject({ ok: true, active: 60, passed: 3, failed: 57, notYetImplemented: 8, errored: 0, skipped: 0 });
+    const gate = (id: string) => r.gates.find((g) => g.id === id)!;
+    expect(gate('S1')).toMatchObject({ display: '0.0 % (0/26)', pass: false });
+    expect(gate('S2')).toMatchObject({ display: '0.0 % (0/14)', pass: true });
+    expect(gate('S7')).toMatchObject({ display: 'Yes', pass: true });
+    // CF-01 on exactly the 10 hard-fail attacks: ledger-only runs signature_valid alone, so none is Rejected.
+    expect(r.criticalConditions).toEqual([
+      {
+        id: 'CF-01',
+        caseIds: ['EVAL-030', 'EVAL-031', 'EVAL-032', 'EVAL-037', 'EVAL-038', 'EVAL-042', 'EVAL-045', 'EVAL-046', 'EVAL-049', 'EVAL-050'],
+        reason: 'an attack covered by a hard-fail rule was not Rejected with hardFail on that check',
+      },
+    ]);
+    expect(r.summary).toMatchObject({ overall: 'FAIL', exitCode: 1 });
+  });
+
   it('accounts for every harness case (nothing skipped)', () => {
     expect(r.totals.skipped).toBe(0);
     expect(r.totals.active).toBe(r.totals.passed + r.totals.failed + r.totals.errored);

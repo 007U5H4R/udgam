@@ -90,4 +90,11 @@ describe('assertCase', () => {
     const kl = evalCase({ id: 'EVAL-029', case_class: 'known_limitation', scenario: 1, expected: { acceptable_verdicts: ['Verified', 'Needs Review', 'Rejected'] } });
     expect(assertCase(kl, verifyResult('Verified', [])).pass).toBe(true);
   });
+
+  it('a case with no expectations fails with a "no expectations" assertion, never a silent pass', () => {
+    const empty = evalCase({ id: 'EVAL-901', expected: {} });
+    const a = assertCase(empty, verifyResult('Verified', [check('signature_valid', 'ok')]));
+    expect(a.pass).toBe(false);
+    expect(a.assertions).toEqual([{ name: 'no expectations', pass: false, detail: 'the case asserts nothing: no verdict, acceptable_verdicts, check_status, hard_fail_checks or evidence_substrings' }]);
+  });
 });

@@ -1,11 +1,11 @@
 import { booleanPointInPolygon, point } from '@turf/turf';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { jcs, verify as verifySignature } from '../../src/lib/crypto';
+import { jcs, sha256Hex, verify as verifySignature } from '../../src/lib/crypto';
 import { distanceToEdgeM, haversineM } from '../../src/lib/geo/distance';
 import { ProviderError } from '../../src/lib/remote-sensing/types';
 import { generateDeviceKeys, loadHarnessInputs, PLACEHOLDER_YIELD_REFERENCE, SERVER_RECEIVED_AT, type DeviceKeys, type HarnessInputs } from './context';
 import { loadDataset, type EvalCase, type Mutation } from './dataset';
-import { buildCase, UnknownMutationOp, type BuiltCase } from './mutate';
+import { buildCase, InvalidMutationParam, UnknownMutationOp, type BuiltCase } from './mutate';
 
 // TC-014: each evaluation-plan §7.3 op makes exactly its change to (Submission, VerifyContext);
 // an unknown op throws; buildCase is pure per case. Expected values are literals from the spec.
@@ -209,18 +209,21 @@ describe('reuse_media', () => {
 });
 
 describe('chain', () => {
-  it('seq_delta 1, prev_hash correct → the next entry after the device head (EVAL-002)', async () => {
+  it('seq_delta 1, prev_hash correct → entry 13 after the device head at 12 (EVAL-002)', async () => {
     const b = await build('EVAL-002');
-    expect(b.context.device.lastSeq).toBeGreaterThan(0);
-    expect(b.submission.payload.seq).toBe(b.context.device.lastSeq + 1);
-    expect(b.submission.payload.prevEventHash).toBe(b.context.device.lastEventHash);
-    expect(b.context.agentPriorAcceptedEvents).toBe(b.context.device.lastSeq);
+    expect(b.context.device.lastSeq).toBe(12);
+    expect(b.submission.payload.seq).toBe(13);
+    expect(b.context.device.lastEventHash).toBe(await sha256Hex('harness/D-A1/event/12'));
+    expect(b.submission.payload.prevEventHash).toBe(await sha256Hex('harness/D-A1/event/12'));
+    expect(b.context.agentPriorAcceptedEvents).toBe(12);
   });
 
-  it('seq_delta −2, prev_hash stale → an old position with an old hash (EVAL-035)', async () => {
+  it('seq_delta −2, prev_hash stale → seq 10 carrying the stale hash of entry 9 (EVAL-035)', async () => {
     const b = await build('EVAL-035');
-    expect(b.submission.payload.seq).toBe(b.context.device.lastSeq - 2);
-    expect(b.submission.payload.prevEventHash).toMatch(/^[0-9a-f]{64}$/);
+    const dev = b.submission.payload.deviceId;
+    expect(b.context.device.lastSeq).toBe(12);
+    expect(b.submission.payload.seq).toBe(10);
+    expect(b.submission.payload.prevEventHash).toBe(await sha256Hex(`harness/${dev}/event/9`));
     expect(b.submission.payload.prevEventHash).not.toBe(b.context.device.lastEventHash);
   });
 
@@ -322,6 +325,24 @@ describe('tamper_after_sign', () => {
 describe('errors and purity', () => {
   it('an unknown op throws UnknownMutationOp', async () => {
     await expect(build(synthetic([{ op: 'teleport' }]))).rejects.toBeInstanceOf(UnknownMutationOp);
+  });
+
+  it('an unknown op parameter throws InvalidMutationParam naming the op and the key', async () => {
+    const typo = build(synthetic([{ op: 'gps_place', where: 'outside_edge', distnace_m: 30 }]));
+    await expect(typo).rejects.toBeInstanceOf(InvalidMutationParam);
+    await expect(build(synthetic([{ op: 'gps_place', where: 'outside_edge', distnace_m: 30 }]))).rejects.toThrow(/gps_place.*distnace_m/);
+    await expect(build(synthetic([{ op: 'chain', seq_delta: 1, prev_hash: 'correct', prevhash: 'stale' }]))).rejects.toBeInstanceOf(InvalidMutationParam);
+  });
+
+  it('a bad enum value throws InvalidMutationParam (provider_fault cache "emtpy", exif_gps mode "offest")', async () => {
+    await expect(build(synthetic([{ op: 'provider_fault', provider: 'gfw', mode: 'http_500', cache: 'emtpy' }]))).rejects.toBeInstanceOf(InvalidMutationParam);
+    await expect(build(synthetic([{ op: 'exif_gps', mode: 'offest', distance_m: 10 }]))).rejects.toBeInstanceOf(InvalidMutationParam);
+    await expect(build(synthetic([{ op: 'prev_event', none: 'yes' }]))).rejects.toBeInstanceOf(InvalidMutationParam);
+  });
+
+  it('a free-text note is allowed on any op, and cache "empty" is accepted', async () => {
+    const b = await build(synthetic([{ op: 'provider_fault', provider: 'gfw', mode: 'http_500', cache: 'empty', note: 'why' }]));
+    expect(b.providerFaults).toEqual([{ provider: 'gfw', mode: 'http_500', cacheEmpty: true }]);
   });
 
   it('proof_tamper belongs to the harness-proof suite and is refused here', async () => {
