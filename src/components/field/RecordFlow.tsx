@@ -12,6 +12,7 @@ import { PhotosStep, SLOTS } from './PhotosStep';
 import { initialFlow, kgValue, reduce, usedPhotos, type FlowAction, type Slot } from './record-flow';
 import { ReviewStep } from './ReviewStep';
 import { useGps } from './useGps';
+import { SavedStep, VerdictStep } from './VerdictStep';
 import { WeightStep } from './WeightStep';
 
 // The record flow (technical-plan §3.2 /field/record, TSK-10.7+): photos → review → weight → checking →
@@ -202,6 +203,29 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
           kg={String(kgValue(flow.kg) ?? flow.kg)}
           photos={usedPhotos(flow).length}
           onSeeResult={() => resultId && setSeenFor(resultId)}
+        />
+      ) : null}
+      {screen === 'verdict' ? (
+        <VerdictStep
+          result={flow.result}
+          refusal={flow.error?.kind === 'rejected' ? { reason: flow.error.reason ?? 'other' } : undefined}
+          lang={lang}
+          plotName={plot.name}
+          kg={kgValue(flow.kg) ?? 0}
+          motion={!reduced}
+          onDone={() => router.push('/field')}
+        />
+      ) : null}
+      {screen === 'saved' && flow.error && flow.error.kind !== 'rejected' ? (
+        <SavedStep
+          cause={flow.error.kind}
+          reason={flow.error.reason}
+          retryAfterSec={flow.error.retryAfterSec}
+          lang={lang}
+          photos={usedPhotos(flow).length}
+          kg={kgValue(flow.kg) ?? 0}
+          onRetry={() => void send()}
+          onLater={() => router.push('/field')}
         />
       ) : null}
     </>
