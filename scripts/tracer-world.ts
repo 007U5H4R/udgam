@@ -2,6 +2,7 @@ import { jwkThumbprint, publicMembers } from '../src/lib/crypto';
 import { writeTx, type Db } from '../src/lib/db/client';
 import { devices, farmers, organisations, plots } from '../src/lib/db/schema';
 import type { Polygon } from '../src/lib/geo/types';
+import { newId } from '../src/lib/ids';
 import { append } from '../src/lib/ledger/hashchain';
 
 // The TKT-02 tracer's world: one FPO, one farmer, plot P01 and one enrolled phone. TKT-03 generates
@@ -27,12 +28,8 @@ export const P01_AREA_HA = 2.0;
 /** Near the centroid, well inside P01. */
 export const P01_INSIDE = { lat: 12.4211, lng: 75.7392 };
 
-const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 /** `prefix` + 8 random Crockford base32 characters. */
-export function randomId(prefix: string): string {
-  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(8));
-  return prefix + Array.from(bytes, (b) => CROCKFORD[b & 31]).join('');
-}
+export const randomId = (prefix: string): string => newId(prefix);
 
 export type TracerWorld = {
   orgId: string;

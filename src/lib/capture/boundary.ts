@@ -32,7 +32,7 @@ export type BoundaryResult =
       device?: BoundaryDevice;
     };
 
-const STATUS: Record<BoundaryReason, 400 | 401 | 403 | 409> = {
+export const STATUS: Record<BoundaryReason, 400 | 401 | 403 | 409> = {
   non_canonical: 400,
   bad_schema: 400,
   unknown_device: 401,
