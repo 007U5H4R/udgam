@@ -1,5 +1,8 @@
 import type { CaptureEvent } from '../lib/capture/pipeline';
 
+/** The server's verdict line as the phone keeps it (NDJSON `{t:"verdict"}` without `t`). */
+export type VerdictView = Omit<Extract<CaptureEvent, { t: 'verdict' }>, 't'>;
+
 // Sends a signed capture and reads the NDJSON progress stream line by line (technical-plan §9).
 // Every outcome ends in exactly one terminal event: verdict, rejected, or a retryable error.
 
