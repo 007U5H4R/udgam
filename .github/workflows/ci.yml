@@ -51,6 +51,8 @@ jobs:
         run: '"$RUNNER_TEMP/gitleaks" git --redact --config .gitleaks.toml --exit-code 1 .'
 
   audit:
+    # TC-075, EVAL-085 (TSK-19.7): a known high or critical advisory in a production dependency fails
+    # the build. Make this job a required status check on main (repository settings).
     name: audit (production dependencies)
     runs-on: ubuntu-latest
     steps:
@@ -61,6 +63,28 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm audit --prod --audit-level=high
+
+  bundle-secrets:
+    # TC-075, EVAL-083 (TSK-19.7): build with CI-only fake secret values, then fail if any of them is in
+    # what the browser downloads. The script names the variable, never the value.
+    name: bundle-secrets (no server secret in the client bundle)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build with the fake environment
+        shell: bash
+        run: |
+          set -a
+          . ./.env.ci.example
+          set +a
+          pnpm build
+      - run: bash scripts/ci/check-bundle-secrets.sh .env.ci.example .next
 
   dataset:
     name: dataset (eval:validate)

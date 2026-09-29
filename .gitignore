@@ -11,6 +11,8 @@ test-results/
 .env
 .env.*
 !.env.example
+# CI-only fake values for the bundle-secrets job (TKT-19); never real secrets
+!.env.ci.example
 .secrets/
 *.pem
 *.key
