@@ -85,6 +85,20 @@
       "when": 1790682951157,
       "tag": "0011_remote_sensing_cache",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1790683449858,
+      "tag": "0012_attestations",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1790683453484,
+      "tag": "0013_attestation_guards",
+      "breakpoints": true
     }
   ]
 }

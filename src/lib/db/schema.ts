@@ -175,6 +175,33 @@ export const plots = sqliteTable(
   ],
 );
 
+/**
+ * An issuer's certificate for a plot, recorded as an attestation (§4.1, TKT-13, DISC4): Udgam proves
+ * only that the file has not changed since it was recorded, never that the plot is organic. The file
+ * is stored content-addressed (`file_path` is relative to DATA_DIR) and `file_hash` is anchored.
+ * Immutable and never deleted or replaced (triggers in the attestation_guards custom migration).
+ */
+export const attestations = sqliteTable(
+  'attestations',
+  {
+    /** `AT-` + 8 Crockford base32. */
+    id: text('id').primaryKey(),
+    plotId: text('plot_id')
+      .notNull()
+      .references(() => plots.id),
+    type: text('type', { enum: ['organic'] }).notNull(),
+    /** SHA-256 (lowercase hex) of the certificate file. */
+    fileHash: text('file_hash').notNull(),
+    filePath: text('file_path').notNull(),
+    issuer: text('issuer').notNull(),
+    /** Calendar dates, `YYYY-MM-DD`. */
+    validFrom: text('valid_from').notNull(),
+    validTo: text('valid_to').notNull(),
+    anchorSeq: anchorSeq(),
+  },
+  (t) => [check('attestations_type_check', sql`${t.type} IN ('organic')`), index('attestations_plot_idx').on(t.plotId)],
+);
+
 export const devices = sqliteTable('devices', {
   /** `DV-` + 8 Crockford base32. */
   id: text('id').primaryKey(),
