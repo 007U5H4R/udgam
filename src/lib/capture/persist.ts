@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { Tx } from '../db/client';
 import { devices, harvestEvents, media, verificationRuns } from '../db/schema';
 import { newId } from '../ids';
@@ -116,11 +116,16 @@ export type RejectedCapture = {
 };
 
 /**
- * Anchor a boundary rejection as a rejected harvest_event (§3.1 step 2). A payload already on record
- * (same payload_hash) is not written twice. Returns the event id, or null when it already existed.
+ * Anchor a boundary rejection as a rejected harvest_event (§3.1 step 2). The same refusal of the same
+ * payload (payload_hash and reason) is anchored once (TP7); a different refusal of it, or its later
+ * acceptance, is a new row (TKT-09: only an accepted payload is unique). Returns the event id, or null
+ * when this refusal was already on record.
  */
 export async function persistRejected(tx: Tx, c: RejectedCapture, append: AppendFn = ledgerAppend): Promise<string | null> {
-  const [existing] = await tx.select({ id: harvestEvents.id }).from(harvestEvents).where(eq(harvestEvents.payloadHash, c.payloadHash));
+  const [existing] = await tx
+    .select({ id: harvestEvents.id })
+    .from(harvestEvents)
+    .where(and(eq(harvestEvents.payloadHash, c.payloadHash), eq(harvestEvents.boundaryStatus, 'rejected'), eq(harvestEvents.boundaryReason, c.reason)));
   if (existing) return null;
   const eventId = newId('HE-', 12);
   const p = c.payload;

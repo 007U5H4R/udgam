@@ -23,7 +23,7 @@ export const REVOKED_AT = '2026-11-20T04:30:00.000Z';
  * Placeholder yield reference row (technical-plan §22 TSK-03.4). Cases are written in multiples of U,
  * so they stay valid when TKT-09 seeds the Coffee Board row; provenance flags it `placeholder`.
  */
-export const PLACEHOLDER_YIELD_REFERENCE: VerifyContext['yieldReference'] = { maxKgHa: 1000, cherryToCleanRatio: 0.2, source: 'placeholder' };
+export const PLACEHOLDER_YIELD_REFERENCE: NonNullable<VerifyContext['yieldReference']> = { maxKgHa: 1000, cherryToCleanRatio: 0.2, source: 'placeholder' };
 
 /** Crop for every fixture plot (the dataset names none; the yield row is a placeholder either way). */
 export const FIXTURE_CROP = 'arabica' as const;

@@ -1,7 +1,7 @@
-import { desc, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { sha256Hex } from '../crypto';
 import { writeTx, type Db, type Tx } from '../db/client';
-import { devices, harvestEvents, media, plots, verificationRuns } from '../db/schema';
+import { devices, media, plots } from '../db/schema';
 import { isPlotAssigned } from '../enrolment/assign';
 import { log as defaultLog } from '../log';
 import { extractExif } from '../media/exif';
@@ -11,8 +11,9 @@ import { CONFIG } from '../verification/config';
 import { score } from '../verification/score';
 import { runCheck, verify } from '../verification/verify';
 import type { CapturePayloadV1, CheckId, CheckResult, CheckStatus, Submission, Verdict, VerifyContext, VerifyResult } from '../verification/types';
-import { authenticate, checkBoundary, STATUS, type BoundaryDevice, type BoundaryReason } from './boundary';
+import { admit, authenticate, STATUS, type BoundaryDevice, type BoundaryReason } from './boundary';
 import { buildContext, seenMediaHashes } from './context';
+import { findAcceptedOutcome, findRejection, winnerAfterUniqueViolation, type PriorOutcome } from './idempotency';
 import { claimedDeviceId, parseCaptureForm, type FormReason } from './parse';
 import { persistAccepted, persistRejected, type AppendFn, type StoredMedia } from './persist';
 import { consume, DEVICE_LIMIT, deviceKey } from './rate-limit';
@@ -39,6 +40,9 @@ export type CaptureEvent =
       field?: string;
       /** Seconds until a rate-limited phone may try again (429, TSK-19.3). */
       retryAfterSec?: number;
+      /** A replay refused for the same reason as before: the original anchored refusal (TKT-09). */
+      eventId?: string;
+      idempotent?: boolean;
     }
   | { t: 'error'; retryable: boolean };
 
@@ -77,39 +81,6 @@ function verdictLine(eventId: string, run: { verdict: Verdict; score: number; ch
     verdict: run.verdict,
     score: run.score,
     checks: run.checks.map(({ id, status, evidence }) => ({ id, status, evidence })),
-  };
-}
-
-/** Status for a recorded refusal (the boundary reasons, plot assignment §6.4 among them). */
-function statusFor(reason: string): number {
-  return Object.hasOwn(STATUS, reason) ? STATUS[reason as BoundaryReason] : 400;
-}
-
-/**
- * Idempotency (EV15, TP7): a payload already on record gets its original answer and nothing is
- * written — the verdict of an accepted one, or the refusal of one rejected at the boundary (one
- * signed payload has one row: payload_hash is unique).
- */
-async function previousAnswer(db: Db, payloadHash: string): Promise<CaptureEvent | null> {
-  const [ev] = await db
-    .select({ id: harvestEvents.id, boundaryStatus: harvestEvents.boundaryStatus, boundaryReason: harvestEvents.boundaryReason })
-    .from(harvestEvents)
-    .where(eq(harvestEvents.payloadHash, payloadHash));
-  if (!ev) return null;
-  if (ev.boundaryStatus === 'rejected') {
-    const reason = ev.boundaryReason ?? 'rejected';
-    return { t: 'rejected', reason, status: statusFor(reason) };
-  }
-  const [run] = await db
-    .select()
-    .from(verificationRuns)
-    .where(eq(verificationRuns.eventId, ev.id))
-    .orderBy(desc(verificationRuns.runNo))
-    .limit(1);
-  if (!run) return null;
-  return {
-    ...verdictLine(ev.id, { verdict: run.verdict, score: run.score, checks: JSON.parse(run.checks) as CheckResult[] }),
-    idempotent: true,
   };
 }
 
@@ -230,9 +201,33 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
     serverReceivedAt: string,
   ): Promise<CaptureEvent> => {
     const payloadHash = await sha256Hex(input.payloadString);
-    await writeTx(db, (tx) => persistRejected(tx, { ...input, payloadHash, serverReceivedAt, reason, payload, device }, deps.append));
-    log.info({ reason, status, anchored: true }, 'capture.refused');
-    return { t: 'rejected', reason, status };
+    const anchored = await writeTx(db, (tx) => anchorRejection(tx, { ...input, payloadHash, serverReceivedAt, reason, payload, device }));
+    return refusedLine(reason, status, anchored);
+  };
+  /** Anchor a refusal once: the same refusal of the same payload is answered with the original row. */
+  const anchorRejection = async (tx: Tx, c: Parameters<typeof persistRejected>[1]): Promise<{ eventId: string; replayed: boolean }> => {
+    const eventId = await persistRejected(tx, c, deps.append);
+    if (eventId !== null) return { eventId, replayed: false };
+    const original = await findRejection(tx, c.payloadHash, c.reason);
+    if (original === null) throw new Error('refusal neither anchored nor on record');
+    return { eventId: original, replayed: true };
+  };
+  const refusedLine = (reason: string, status: number, a: { eventId: string; replayed: boolean }): CaptureEvent => {
+    if (!a.replayed) {
+      log.info({ reason, status, anchored: true }, 'capture.refused');
+      return { t: 'rejected', reason, status };
+    }
+    // Owner decision (TKT-09): the same refusal again → the original one, nothing new anchored.
+    log.info({ reason, status, anchored: false, eventId: a.eventId }, 'capture.idempotent_replay');
+    return { t: 'rejected', reason, status, eventId: a.eventId, idempotent: true };
+  };
+  /**
+   * Idempotency (TP7, EV15; TKT-09): the identical signed bytes of an ACCEPTED payload get the original
+   * event and verdict back, and nothing is written. Refused payloads never short-circuit (idempotency.ts).
+   */
+  const replay = (prior: Extract<PriorOutcome, { kind: 'accepted' }>): CaptureEvent => {
+    log.info({ eventId: prior.eventId }, 'capture.idempotent_replay');
+    return { ...verdictLine(prior.eventId, prior), idempotent: true };
   };
   // Another agent's phone: an authorisation refusal, not a verdict on the payload. Not anchored, so it can
   // neither answer with the owner's recorded result nor block the owner's own upload of the same payload.
@@ -254,6 +249,8 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
       const auth = await authenticate({ payloadString, signature }, { findDevice: (id) => findDevice(db, id) });
       if (auth.ok) {
         if (auth.device.agentId !== deps.agentId) return notOwned();
+        const prior = await findAcceptedOutcome(db, auth.payloadHash);
+        if (prior) return replay(prior);
         return reject({ payloadString, signature }, parsed.reason, parsed.status, auth.device, auth.payload, serverReceivedAt);
       }
     }
@@ -261,21 +258,26 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
   }
   const form_ = parsed.form;
 
-  // 2. boundary (canonical bytes, schema, device, signature, revocation, plot assignment, media sizes and hashes)
-  const b = await checkBoundary(form_, { findDevice: (id) => findDevice(db, id), isPlotAssigned: (agentId, plotId) => isPlotAssigned(db, agentId, plotId) });
-  if (b.device && b.device.agentId !== deps.agentId) return notOwned();
-  if (!b.ok) {
-    if (b.signedByKnownDevice && b.device) return reject(form_, b.reason, b.status, b.device, form_.payload, serverReceivedAt);
+  // 2. boundary, in order: canonical bytes, schema, device, signature (authenticate) → the device is the
+  // signed-in agent's → 3. idempotent replay of an accepted payload → revocation, plot assignment, media
+  // sizes and hashes (admit). A retry of an accepted payload thus gets its original verdict even after a
+  // later revocation or un-assignment, but only with a valid signature from the owning agent's phone.
+  const auth = await authenticate(form_, { findDevice: (id) => findDevice(db, id) });
+  if (!auth.ok) {
     // A canonical, schema-valid payload whose signature no enrolled key verifies (EVAL-051, EVAL-053):
     // anchored, unattributed. Only a garbled payload (non_canonical) is merely logged.
-    if (UNVERIFIED_ANCHORED.has(b.reason)) return reject(form_, b.reason, b.status, null, form_.payload, serverReceivedAt);
-    return refuse({ reason: b.reason, status: b.status });
+    if (UNVERIFIED_ANCHORED.has(auth.reason)) return reject(form_, auth.reason, auth.status, null, form_.payload, serverReceivedAt);
+    return refuse({ reason: auth.reason, status: auth.status });
   }
-  const { payload, payloadHash, device } = b;
+  if (auth.device.agentId !== deps.agentId) return notOwned();
 
-  // 3. idempotency
-  const previous = await previousAnswer(db, payloadHash);
-  if (previous) return previous;
+  // 3. idempotency (only an accepted payload short-circuits)
+  const prior = await findAcceptedOutcome(db, auth.payloadHash);
+  if (prior) return replay(prior);
+
+  const b = await admit(auth, form_, { isPlotAssigned: (agentId, plotId) => isPlotAssigned(db, agentId, plotId) });
+  if (!b.ok) return reject(form_, b.reason, b.status, auth.device, form_.payload, serverReceivedAt);
+  const { payload, payloadHash, device } = b;
 
   // the plot exists: the boundary found a live agent_plots assignment for it (§6.4, foreign key)
   const [plot] = await db.select().from(plots).where(eq(plots.id, payload.plotId));
@@ -293,7 +295,7 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
   }
 
   // 5–6. context (reads only) and verification, streaming each finished check
-  const ctx = await buildContext(db, { payload, device, plot });
+  const ctx = await buildContext(db, { payload, device, plot, serverReceivedAt });
   const sub: Submission = {
     payload,
     payloadHash,
@@ -303,28 +305,45 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
   };
   const result = await verify(sub, ctx, { onCheck: (r) => send({ t: 'check', id: r.id, status: r.status }) });
 
-  // 7. one transaction: re-check revocation and assignment, then event, media, run and both ledger
-  // entries — or, if either changed meanwhile, the anchored refusal instead. photo_uniqueness is
-  // re-read under the lock too, so the verdict streamed after COMMIT is the one committed.
+  // 7. one transaction: an identical payload accepted meanwhile (the duplicate-resend race) → its
+  // verdict, nothing written; else re-check revocation and assignment, then event, media, run and both
+  // ledger entries — or, if either changed meanwhile, the anchored refusal instead. photo_uniqueness is
+  // re-read under the lock too, so the verdict streamed after COMMIT is the one committed. A unique
+  // violation on payload_hash rolls back and answers with the winner (defence in depth).
   let final = result;
-  const committed = await writeTx(db, async (tx) => {
-    const late = await lateRefusal(tx, device, payload.plotId);
-    if (late) {
-      await persistRejected(
+  let committed:
+    | { replay: Extract<PriorOutcome, { kind: 'accepted' }> }
+    | { refused: 'device_revoked' | 'plot_not_assigned'; anchored: { eventId: string; replayed: boolean } }
+    | { eventId: string; runId: string };
+  try {
+    committed = await writeTx(db, async (tx) => {
+      const winner = await findAcceptedOutcome(tx, payloadHash);
+      if (winner) return { replay: winner } as const;
+      const late = await lateRefusal(tx, device, payload.plotId);
+      if (late) {
+        const anchored = await anchorRejection(tx, {
+          payloadString: form_.payloadString,
+          payloadHash,
+          signature: form_.signature,
+          serverReceivedAt,
+          reason: late,
+          payload,
+          device,
+        });
+        return { refused: late, anchored } as const;
+      }
+      final = await recheckPhotoUniqueness(tx, sub, ctx, result);
+      return persistAccepted(
         tx,
-        { payloadString: form_.payloadString, payloadHash, signature: form_.signature, serverReceivedAt, reason: late, payload, device },
+        { payload, payloadString: form_.payloadString, payloadHash, signature: form_.signature, serverReceivedAt, device, media: stored, result: final },
         deps.append,
       );
-      return { refused: late } as const;
-    }
-    final = await recheckPhotoUniqueness(tx, sub, ctx, result);
-    return persistAccepted(
-      tx,
-      { payload, payloadString: form_.payloadString, payloadHash, signature: form_.signature, serverReceivedAt, device, media: stored, result: final },
-      deps.append,
-    );
-  });
-  if ('refused' in committed) return { t: 'rejected', reason: committed.refused, status: STATUS[committed.refused] };
+    });
+  } catch (err) {
+    committed = { replay: await winnerAfterUniqueViolation(db, payloadHash, err) }; // rethrows anything else
+  }
+  if ('replay' in committed) return replay(committed.replay);
+  if ('refused' in committed) return refusedLine(committed.refused, STATUS[committed.refused], committed.anchored);
 
   // 8. the verdict line; runCapture sends it only now, after COMMIT
   return verdictLine(committed.eventId, final);

@@ -1,4 +1,5 @@
 import { booleanPointInPolygon, point } from '@turf/turf';
+import { capturePayloadV1 } from '../../src/lib/capture/payload';
 import { jcs, sha256Hex, sign } from '../../src/lib/crypto';
 import { distanceToEdgeM, haversineM } from '../../src/lib/geo/distance';
 import type { LatLng } from '../../src/lib/geo/types';
@@ -86,7 +87,8 @@ type Draft = {
   exifTime: { mode: 'match' | 'absent' | 'offset'; offsetMin?: number };
   clientClockOffsetMin: number;
   prevEvent: { distanceKm: number; minutesBefore: number } | null;
-  reuse: { fromCase: string; which: 'all' | 'one'; reEncode: boolean } | null;
+  /** `which`: all of the source's photos, one, or the first k (TKT-09, EVAL-114 "2 of 3"). */
+  reuse: { fromCase: string; which: 'all' | 'one' | number; reEncode: boolean } | null;
   chain: { seqDelta: number; prevHash: 'correct' | 'stale' | 'genesis' };
   season: { after: number; before?: number } | null;
   photos: number;
@@ -95,6 +97,8 @@ type Draft = {
   deviceState?: 'enrolled' | 'revoked' | 'unknown';
   tamper: string[];
   seenFrom: string[];
+  /** Case-level crop override (`input.context.crop`, TKT-09 EVAL-121); else the fixture crop. */
+  crop?: 'arabica' | 'robusta';
 };
 
 /** Accepted events on a device whose chain is not at genesis (its head is entry PRIOR). */
@@ -169,7 +173,13 @@ function apply(d: Draft, m: Mutation): Draft {
       return { ...d, prevEvent: m.none === true ? null : { distanceKm: num(m, 'distance_km'), minutesBefore: num(m, 'minutes_before') } };
     case 'reuse_media': {
       if (typeof m.from_case !== 'string') throw new InvalidMutationParam(m.op, 'from_case', 'from_case must be a case id');
-      const which = oneOf(m, 'which', ['all', 'one'] as const);
+      const which =
+        typeof m.which === 'number'
+          ? (() => {
+              if (!Number.isInteger(m.which) || m.which < 1 || m.which > 3) throw new InvalidMutationParam(m.op, 'which', `which must be all, one or 1–3, got ${m.which}`);
+              return m.which;
+            })()
+          : oneOf(m, 'which', ['all', 'one'] as const);
       if (m.transform !== undefined) oneOf(m, 'transform', ['re-encode'] as const);
       return { ...d, reuse: { fromCase: m.from_case, which, reEncode: m.transform === 're-encode' } };
     }
@@ -227,7 +237,15 @@ function resolveDraft(c: EvalCase, byId: Map<string, EvalCase>, depth = 0): Draf
   const plot = c.input.plot ?? base?.plot;
   const device = c.input.device ?? base?.device;
   if (!plot || !device) throw new Error(`${c.id}: no plot or device (directly or through base_case)`);
-  let d: Draft = { ...(base ?? defaults()), plot, device, seenFrom: c.input.context?.seen_media_from ?? base?.seenFrom ?? [] };
+  const crop = c.input.context?.crop;
+  if (crop !== undefined && crop !== 'arabica' && crop !== 'robusta') throw new Error(`${c.id}: context.crop must be arabica or robusta, got ${JSON.stringify(crop)}`);
+  let d: Draft = {
+    ...(base ?? defaults()),
+    plot,
+    device,
+    seenFrom: c.input.context?.seen_media_from ?? base?.seenFrom ?? [],
+    ...(crop !== undefined ? { crop } : {}),
+  };
   for (const m of c.input.mutations ?? []) d = apply(d, m);
   return d;
 }
@@ -426,7 +444,8 @@ export async function buildCase(c: EvalCase, ds: HarnessInputs, keys: DeviceKeys
   const hashes = await hashesOf(c.id, d.photos);
   if (d.reuse) {
     const src = await hashesOf(d.reuse.fromCase, photosOf(d.reuse.fromCase), d.reuse.reEncode);
-    const n = d.reuse.which === 'all' ? Math.min(hashes.length, src.length) : 1;
+    const want = d.reuse.which === 'all' ? src.length : d.reuse.which === 'one' ? 1 : d.reuse.which;
+    const n = Math.min(hashes.length, src.length, want);
     for (let i = 0; i < n; i++) hashes[i] = src[i]!;
   }
   const seen = new Set<string>();
@@ -447,6 +466,12 @@ export async function buildCase(c: EvalCase, ds: HarnessInputs, keys: DeviceKeys
     if (d.season.before !== undefined) cherryKg = Math.round((d.season.after - d.season.before) * kgPerU * 2) / 2;
     seasonCherryKgBefore = d.season.after * kgPerU - cherryKg;
     if (cherryKg < 0.5 || seasonCherryKgBefore < 0) throw new Error(`${c.id}: season_cumulative ${JSON.stringify(d.season)} is not reachable on ${d.plot}`);
+  }
+  // verify() does not re-check the capture schema; say so when this picking could not pass /api/capture
+  // as one upload (e.g. EVAL-049's 0.30x U on a 2 ha plot under the synthetic U), so the result is read
+  // for what it is: the season-total rule, not a reachable single request (TKT-09).
+  if (!capturePayloadV1.shape.cherryKg.safeParse(cherryKg).success) {
+    notes.push(`cherryKg ${cherryKg} is outside the capture schema (0.5–500 kg per picking): the /api/capture boundary would refuse this single upload`);
   }
 
   const payload: CapturePayloadV1 = {
@@ -480,7 +505,7 @@ export async function buildCase(c: EvalCase, ds: HarnessInputs, keys: DeviceKeys
     device: { id: d.device, publicJwk: deviceKey.publicJwk, revokedAt: revoked ? REVOKED_AT : null, lastSeq, lastEventHash },
     agentPriorAcceptedEvents: lastSeq + (OTHER_DEVICE_EVENTS[d.device] ?? 0),
     previousEvent,
-    plot: { id: d.plot, crop: FIXTURE_CROP, polygon: structuredClone(feature.geometry), areaHa: spec.area_ha },
+    plot: { id: d.plot, crop: d.crop ?? FIXTURE_CROP, polygon: structuredClone(feature.geometry), areaHa: spec.area_ha },
     seenMediaHashes,
     seasonCherryKgBefore,
     yieldReference,

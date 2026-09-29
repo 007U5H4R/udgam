@@ -99,6 +99,20 @@
       "when": 1790683453484,
       "tag": "0013_attestation_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1790689883102,
+      "tag": "0014_crop_yield_accepted_payload",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1790689884777,
+      "tag": "0015_accepted_payload_guard",
+      "breakpoints": true
     }
   ]
 }

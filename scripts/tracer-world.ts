@@ -2,6 +2,7 @@ import { hashPassword } from 'better-auth/crypto';
 import { jwkThumbprint, publicMembers } from '../src/lib/crypto';
 import { writeTx, type Db } from '../src/lib/db/client';
 import { account, agentPlots, devices, farmers, organisations, plots, user } from '../src/lib/db/schema';
+import { seedYieldReference } from '../src/lib/db/seed/yield-reference';
 import { newId } from '../src/lib/ids';
 import { append } from '../src/lib/ledger/hashchain';
 import { P01_AREA_HA, P01_INSIDE, P01_POLYGON } from './tracer-plot';
@@ -86,5 +87,7 @@ export async function seedTracerWorld(
       anchorSeq: deviceAnchor.seq,
     });
   });
+  // The TP6 yield reference the capture's yield_plausibility reads (the server seeds it at boot, TKT-09).
+  await seedYieldReference(db);
   return world;
 }

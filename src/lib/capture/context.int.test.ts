@@ -4,7 +4,8 @@ import { P01_AREA_HA, P01_POLYGON, seedTracerWorld, type TracerWorld } from '../
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 import { makeDevice, makePayload, photoHash, type TestDevice } from '../../../tests/helpers/verify';
 import { writeTx } from '../db/client';
-import { devices, harvestEvents, media, plots } from '../db/schema';
+import { devices, harvestEvents, media, plots, verificationRuns } from '../db/schema';
+import { seedYieldReference } from '../db/seed/yield-reference';
 import { append } from '../ledger/hashchain';
 import { buildContext } from './context';
 import type { BoundaryDevice } from './boundary';
@@ -37,21 +38,26 @@ async function plotRow() {
   return p!;
 }
 
-async function insertEvent(id: string, status: 'accepted' | 'rejected', hashes: string[], over: { seq?: number; lat?: number } = {}) {
+async function insertEvent(
+  id: string,
+  status: 'accepted' | 'rejected',
+  hashes: string[],
+  over: { seq?: number; lat?: number; kg?: number; receivedAt?: string; verdict?: 'Verified' | 'Rejected'; deviceId?: string } = {},
+) {
   await writeTx(t.db, async (tx) => {
     const a = await append(tx, 'harvest_event', { eventId: id });
     await tx.insert(harvestEvents).values({
       id,
       plotId: world.plotId,
-      deviceId: world.deviceId,
+      deviceId: over.deviceId ?? world.deviceId,
       agentId: world.agentId,
       seq: over.seq ?? 1,
       clientCapturedAt: '2026-10-14T04:12:33.120Z',
-      serverReceivedAt: '2026-10-14T04:12:34.000Z',
+      serverReceivedAt: over.receivedAt ?? '2026-10-14T04:12:34.000Z',
       lat: over.lat ?? 12.4211,
       lng: 75.7392,
       accuracyM: 8,
-      cherryKg: 42.5,
+      cherryKg: over.kg ?? 42.5,
       prevEventHash: 'genesis',
       payload: `{"id":"${id}"}`,
       payloadHash: photoHash(id.length + hashes.length + (over.seq ?? 1) * 7),
@@ -61,6 +67,22 @@ async function insertEvent(id: string, status: 'accepted' | 'rejected', hashes: 
     });
     for (const [i, h] of hashes.entries()) {
       await tx.insert(media).values({ id: `${id}-m${i}`, eventId: id, path: `media/${h}.jpg`, sha256: h, size: 1, mime: 'image/jpeg' });
+    }
+    if (over.verdict) {
+      const r = await append(tx, 'verification_run', { eventId: id });
+      await tx.insert(verificationRuns).values({
+        id: `${id}-r`,
+        eventId: id,
+        runNo: 1,
+        verdict: over.verdict,
+        score: 90,
+        checks: '[]',
+        unavailableProviders: '[]',
+        configVersion: 'cfg-1',
+        configHash: 'h',
+        createdAt: over.receivedAt ?? '2026-10-14T04:12:34.000Z',
+        anchorSeq: r.seq,
+      });
     }
   });
 }
@@ -95,5 +117,38 @@ describe('buildContext', () => {
     expect([...ctx.seenMediaHashes]).toEqual([photoHash(1)]);
     expect(ctx.agentPriorAcceptedEvents).toBe(1);
     expect(ctx.previousEvent).toEqual({ lat: 12.42111, lng: 75.7392, capturedAt: '2026-10-14T04:12:33.120Z' });
+  });
+
+  it('TP6: the season total before this capture (by server receipt time in IST) and the seeded yield reference', async () => {
+    await seedYieldReference(t.db);
+    await insertEvent('HE-S1', 'accepted', [], { kg: 100, verdict: 'Verified', receivedAt: '2026-10-02T04:00:00.000Z' });
+    await insertEvent('HE-S2', 'accepted', [], { seq: 2, kg: 900, verdict: 'Rejected', receivedAt: '2026-10-03T04:00:00.000Z' });
+    await insertEvent('HE-S3', 'accepted', [], { seq: 3, kg: 55.5, verdict: 'Verified', receivedAt: '2026-09-30T18:29:59.999Z' }); // last season
+    const payload = await makePayload({ device: { ...dev, id: world.deviceId }, plotId: world.plotId });
+    const ctx = await buildContext(t.db, { payload, device: boundaryDevice, plot: await plotRow(), serverReceivedAt: '2026-10-14T04:12:34.000Z' });
+    expect(ctx.seasonCherryKgBefore).toBe(100);
+    expect(ctx.yieldReference).toEqual({ maxKgHa: 783, cherryToCleanRatio: 1 / 6, source: expect.stringContaining('Coffee Board') });
+  });
+
+  it('no seeded reference row → yieldReference null (yield_plausibility reports unavailable)', async () => {
+    await t.client.execute('DELETE FROM crop_yield_reference'); // the tracer world seeds it, as the server does at boot
+    const payload = await makePayload({ device: { ...dev, id: world.deviceId }, plotId: world.plotId });
+    const ctx = await buildContext(t.db, { payload, device: boundaryDevice, plot: await plotRow(), serverReceivedAt: '2026-10-14T04:12:34.000Z' });
+    expect(ctx.yieldReference).toBeNull();
+    expect(ctx.seasonCherryKgBefore).toBe(0);
+  });
+
+  it('TP10: agentPriorAcceptedEvents counts the agent’s accepted events on every device, never boundary refusals', async () => {
+    await writeTx(t.db, async (tx) => {
+      const a = await append(tx, 'device_enrolled', { deviceId: 'DV-OLD00000' });
+      await tx.insert(devices).values({ id: 'DV-OLD00000', agentId: world.agentId, publicKeyJwk: '{}', keyThumbprint: 'kid-old', enrolledAt: '2026-10-01T00:00:00.000Z', revokedAt: '2026-10-10T00:00:00.000Z', anchorSeq: a.seq });
+    });
+    await insertEvent('HE-O1', 'accepted', [], { seq: 1, deviceId: 'DV-OLD00000' });
+    await insertEvent('HE-O2', 'accepted', [], { seq: 2, deviceId: 'DV-OLD00000' });
+    await insertEvent('HE-O3', 'rejected', [], { seq: 3, deviceId: 'DV-OLD00000' });
+    const payload = await makePayload({ device: { ...dev, id: world.deviceId }, plotId: world.plotId });
+    const ctx = await buildContext(t.db, { payload, device: boundaryDevice, plot: await plotRow(), serverReceivedAt: '2026-10-14T04:12:34.000Z' });
+    expect(ctx.agentPriorAcceptedEvents).toBe(2);
+    expect(ctx.device.lastSeq).toBe(0); // this phone's own chain head is untouched
   });
 });

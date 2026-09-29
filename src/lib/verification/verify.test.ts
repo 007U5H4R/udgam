@@ -9,7 +9,7 @@ import {
 } from '../../../tests/helpers/verify';
 import { CONFIG, CONFIG_HASH } from './config';
 import { REGISTRY, type Check } from './registry';
-import type { CheckResult, Submission } from './types';
+import { CHECK_IDS, type CheckResult, type Submission } from './types';
 import { runCheck, verify, verifyWith } from './verify';
 
 /** The TKT-02 checks: the verify() mechanics below are tested over them, whatever else is registered. */
@@ -21,9 +21,10 @@ const withMatchingExif = (sub: Submission): Submission => ({
 });
 
 describe('registry', () => {
-  it('holds the checks built so far in §6.3 order; the rest are simply absent', () => {
+  it('holds all twelve checks in §6.3 order', () => {
     expect(REGISTRY.map((c) => [c.id, c.kind])).toEqual([
       ['signature_valid', 'local'],
+      ['chain_continuity', 'local'],
       ['photo_uniqueness', 'local'],
       ['geofence', 'local'],
       ['gps_accuracy', 'local'],
@@ -33,7 +34,9 @@ describe('registry', () => {
       ['deforestation_overlap', 'remote'],
       ['ndvi_cultivation', 'remote'],
       ['ndvi_harvest_window', 'remote'],
+      ['yield_plausibility', 'local'],
     ]);
+    expect(REGISTRY.map((c) => c.id)).toEqual([...CHECK_IDS]);
   });
 });
 

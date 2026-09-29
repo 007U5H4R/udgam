@@ -43,7 +43,7 @@ beforeEach(async () => {
       },
     });
     const logger = real.createLogger('debug', stream);
-    return { ...real, log: logger, withRequestId: () => logger };
+    return { ...real, log: logger, withRequestId: (id?: string) => logger.child({ requestId: id ?? 'generated' }) };
   });
 });
 afterEach(async () => {
@@ -94,5 +94,20 @@ describe('TC-075 / EVAL-083 capture logs carry no signature and no secret', () =
     for (const { signature } of sent) expect(out).not.toContain(signature);
     for (const [name, value] of Object.entries(SECRETS)) expect(out.includes(value), name).toBe(false);
     expect(out).not.toContain(cookie.split('=')[1]!.slice(0, 16));
+  });
+});
+
+describe('TSK-09.6 the idempotent replay is logged with the request id and event id', () => {
+  it('capture.idempotent_replay names the retry’s x-request-id and the original event', async () => {
+    const { appAuth } = await import('../app/_auth/auth');
+    const cookie = cookieHeader(await appAuth().api.signInEmail({ body: { email: world.agentEmail, password: PASSWORD }, asResponse: true }));
+    const { POST } = await import('../app/api/capture/route');
+    const c = await capture(fakeJpeg('replayed'));
+    const body = async (res: Response) => (await res.text()).trim().split('\n').map((l) => JSON.parse(l) as { t: string; eventId?: string; idempotent?: boolean });
+    const first = (await body(await POST(await multipartRequest('http://localhost/api/capture', c.fd, { cookie })))).at(-1)!;
+    const again = (await body(await POST(await multipartRequest('http://localhost/api/capture', c.fd, { cookie, 'x-request-id': 'req-retry-1' })))).at(-1)!;
+    expect(again).toMatchObject({ t: 'verdict', eventId: first.eventId, idempotent: true });
+    const replayed = lines.map((l) => JSON.parse(l) as Record<string, unknown>).filter((l) => l.msg === 'capture.idempotent_replay');
+    expect(replayed).toEqual([expect.objectContaining({ requestId: 'req-retry-1', eventId: first.eventId })]);
   });
 });

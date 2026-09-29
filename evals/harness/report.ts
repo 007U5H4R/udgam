@@ -24,6 +24,23 @@ function evidenceLines(c: CaseResult): string[] {
   return c.result.checks.map((ch) => `  - ${code(ch.id)} **${ch.status}**${ch.hardFail ? ' (hard fail)' : ''}: ${ch.evidence}`);
 }
 
+/**
+ * GAP-7 (TP6, EV6): earlier captures are not re-scored when a later one crosses a yield threshold. Shown
+ * with EVAL-049's verdict, the salami case whose earlier captures keep theirs. Draft wording for HR2.
+ */
+const GAP7 =
+  'Earlier captures in a season are not re-scored when a later one crosses a yield threshold (TP6, EV6): in the salami case the five earlier ' +
+  'captures up to 1.80x U keep their verdicts (flagged from 1.50x U) and only the capture that takes the season past 2.00x U is rejected. ' +
+  'EVAL-049 itself is an S1 case; its verdict is shown.';
+
+/** The "Known limitations" rows: every known_limitation case (EVAL-029, EVAL-036), then GAP-7 via EVAL-049. */
+export function knownLimitationRows(r: Pick<ResultsFile, 'knownLimitations' | 'cases'>): string[][] {
+  const rows = r.knownLimitations.map((k) => [k.id, String(k.scenario ?? '—'), k.verdict ?? '—', k.behavior ?? '—']);
+  const salami = r.cases.find((c) => c.id === 'EVAL-049');
+  rows.push(['GAP-7 (EVAL-049)', '4', salami?.result?.verdict ?? '—', GAP7]);
+  return rows;
+}
+
 export function renderReportFromResults(r: ResultsFile, resultsPath: string): string {
   const p = r.provenance;
   const t = r.totals;
@@ -128,7 +145,9 @@ export function renderReportFromResults(r: ResultsFile, resultsPath: string): st
   h('## Known limitations');
   out.push('Attacks the MVP cannot catch by design (EV6). Recorded with their verdicts, never counted in S1.');
   out.push('');
-  if (r.knownLimitations.length === 0) out.push('None in this run.');
+  // GAP-7 is listed from TKT-09 on; results written before it (no yield app provenance) re-render as they were.
+  if (p.yieldReference.app) out.push(...table(['Case', 'Scenario', 'Verdict', 'Why'], knownLimitationRows(r)));
+  else if (r.knownLimitations.length === 0) out.push('None in this run.');
   else out.push(...table(['Case', 'Scenario', 'Verdict', 'Why'], r.knownLimitations.map((k) => [k.id, String(k.scenario ?? '—'), k.verdict ?? '—', k.behavior ?? '—'])));
 
   h('## Paired cases (same signal, opposite ground truth)');
@@ -210,6 +229,11 @@ export function renderReportFromResults(r: ResultsFile, resultsPath: string): st
     out.push('');
     out.push(`Yield cases use the placeholder reference row (max ${p.yieldReference.row.maxKgHa} kg/ha, cherry-to-clean ${p.yieldReference.row.cherryToCleanRatio}); cases are written in multiples of U, so they stay valid when the Coffee Board row replaces it.`);
   }
+  if (p.yieldReference.app) {
+    const a = p.yieldReference.app;
+    out.push('');
+    out.push(`The app seeds ${code(a.version)}: yields ${a.yields} (arabica ${a.maxKgHa.arabica}, robusta ${a.maxKgHa.robusta} kg/ha clean), cherry-to-clean ratio ${a.cherryRatio}.`);
+  }
 
   h('## Configuration');
   out.push(`${code(p.config.version)} · hash ${code(p.config.hash)} · mode ${code(p.config.mode)} · enabled checks: ${p.config.enabledChecks.join(', ')}`);
@@ -232,7 +256,7 @@ export function renderReportFromResults(r: ResultsFile, resultsPath: string): st
         ['dataset', `${p.dataset.path} ${p.dataset.version} · sha256 ${p.dataset.sha256}`],
         ['fixtures', `${p.fixtures.version} · ${p.fixtures.files} files · sha256 ${p.fixtures.sha256}`],
         ['provider', p.provider],
-        ['yield reference', `${p.yieldReference.version} · ${p.yieldReference.source}`],
+        ['yield reference', `${p.yieldReference.version} · ${p.yieldReference.source}${p.yieldReference.app ? ` · app seed ${p.yieldReference.app.version}` : ''}`],
         ['ledger', p.ledger],
         ['node', p.node],
         ['os / arch', `${p.os.platform} / ${p.os.arch}`],

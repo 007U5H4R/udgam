@@ -124,6 +124,24 @@ describe('runCapture happy path', () => {
     expect((await t.client.execute(`SELECT final_verdict FROM harvest_events WHERE seq = 2`)).rows[0]?.final_verdict).toBe('Rejected');
   });
 
+  it('TP10: a stale entry replayed out of order is flagged by chain_continuity and never rewinds the phone’s chain head', async () => {
+    const first = await form({ photos: [photo('c1')] });
+    await run(first.fd);
+    const h1 = await sha256Hex(first.signed);
+    const second = await form({ photos: [photo('c2')], seq: 2, prevEventHash: h1 });
+    const ok = (await run(second.fd)).at(-1)!;
+    expect(ok.t === 'verdict' && ok.checks.find((c) => c.id === 'chain_continuity')).toMatchObject({ status: 'ok', evidence: 'Entry 2 follows entry 1 from this phone' });
+    const head = { last_seq: 2, last_event_hash: await sha256Hex(second.signed) };
+
+    const stale = await form({ photos: [photo('c3')], seq: 1, prevEventHash: 'genesis' });
+    const flagged = (await run(stale.fd)).at(-1)!;
+    expect(flagged.t === 'verdict' && flagged.checks.find((c) => c.id === 'chain_continuity')).toMatchObject({
+      status: 'flag',
+      evidence: `Expected entry 3 after ${head.last_event_hash.slice(0, 8)}, got entry 1`,
+    });
+    expect((await t.client.execute(`SELECT last_seq, last_event_hash FROM devices WHERE id = '${world.deviceId}'`)).rows[0]).toMatchObject(head);
+  });
+
   it('answers a retried, already-accepted payload with its original verdict and writes nothing', async () => {
     const f = await form();
     const firstEvents = await run(f.fd);
@@ -164,16 +182,21 @@ describe('boundary rejections are anchored (§3.1 step 2), except garbled payloa
     expect(await count('ledger_entries')).toBe(SEED_ENTRIES);
   });
 
-  it('uploaded bytes that differ from the signed hashes → 409, and a resend of that payload gets the same answer', async () => {
+  it('uploaded bytes that differ from the signed hashes → 409; the same bad resend gets the same answer, the signed bytes are accepted (TKT-09)', async () => {
     const f = await form({ photos: [photo('a')] });
     const good = f.fd.get('photo0') as File;
     f.fd.set('photo0', new File([photo('not-a')], 'p0.jpg', { type: 'image/jpeg' }));
     expect(await run(f.fd)).toEqual([{ t: 'rejected', reason: 'media_hash_mismatch', status: 409 }]);
     expect((await t.client.execute('SELECT device_id FROM harvest_events')).rows[0]?.device_id).toBe(world.deviceId);
-    f.fd.set('photo0', good);
-    expect(await run(f.fd)).toEqual([{ t: 'rejected', reason: 'media_hash_mismatch', status: 409 }]);
-    expect(await count('harvest_events')).toBe(1);
+    const [first] = (await t.client.execute('SELECT id FROM harvest_events')).rows;
+    expect(await run(f.fd)).toEqual([{ t: 'rejected', reason: 'media_hash_mismatch', status: 409, eventId: String(first!.id), idempotent: true }]);
+    expect(await count('harvest_events')).toBe(1); // the same refusal is anchored once
     expect(await count('media')).toBe(0);
+    // A stored refusal is not sticky: only an accepted payload short-circuits (TP7 as refined, EXE).
+    f.fd.set('photo0', good);
+    expect((await run(f.fd)).at(-1)).toMatchObject({ t: 'verdict', verdict: 'Verified' });
+    expect(await count('harvest_events')).toBe(2);
+    expect(await count('media')).toBe(1);
   });
 
   it('a signed size that differs from the uploaded byte length → 409 media_hash_mismatch, anchored, nothing stored', async () => {

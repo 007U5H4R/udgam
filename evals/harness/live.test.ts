@@ -97,7 +97,7 @@ describe('liveAgreement with recorded answers (no network)', () => {
 describe('dataset 0.4.0 (TSK-07.7)', () => {
   it('validates, and scenario 3 has 10 active S1 attack cases (EVAL-037–043, 106–108)', () => {
     const ds = loadDataset();
-    expect(ds.version).toBe('0.4.0');
+    expect(ds.version.localeCompare('0.4.0', undefined, { numeric: true })).toBeGreaterThanOrEqual(0); // 0.5.0 (TKT-09) adds scenario 2 and 4 cases
     const s3 = ds.cases.filter((c) => c.scenario === 3 && c.case_class === 'attack' && c.status === 'active' && (c.gates ?? []).includes('S1')).map((c) => c.id);
     expect(s3.sort()).toEqual(['EVAL-037', 'EVAL-038', 'EVAL-039', 'EVAL-040', 'EVAL-041', 'EVAL-042', 'EVAL-043', 'EVAL-106', 'EVAL-107', 'EVAL-108']);
     expect(ds.fixtures.plots.map((p) => p.id)).toEqual(expect.arrayContaining(['X08', 'X09', 'X10']));

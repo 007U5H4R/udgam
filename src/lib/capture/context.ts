@@ -7,22 +7,14 @@ import { parseRegistrationChecks } from '../plots/registration';
 import { appRemoteSensing } from '../remote-sensing';
 import type { RemoteSensingProvider } from '../remote-sensing/types';
 import type { CapturePayloadV1, VerifyContext } from '../verification/types';
+import { getYieldReference } from '../yield/reference';
+import { coffeeSeasonOf, seasonCherryKgBefore } from '../yield/season';
 import type { BoundaryDevice } from './boundary';
 
 // Builds the VerifyContext for a submission that passed the boundary (technical-plan §3.1 step 5).
 // Reads only: it runs before the write transaction opens.
 
 export type PlotRow = typeof plots.$inferSelect;
-
-
-/**
- * Placeholder until TKT-09 seeds `crop_yield_reference` (technical-plan §6.6: Coffee Board of India
- * July 2024 district maxima; 6:1 cherry-to-clean, unverified). No yield check runs yet.
- */
-const YIELD_PLACEHOLDER = {
-  arabica: { maxKgHa: 783, cherryToCleanRatio: 1 / 6, source: 'placeholder until TKT-09' },
-  robusta: { maxKgHa: 1494, cherryToCleanRatio: 1 / 6, source: 'placeholder until TKT-09' },
-} as const;
 
 /**
  * Which of `hashes` a committed, accepted event already carries (photo_uniqueness). Pass the write
@@ -47,10 +39,21 @@ function historyEndMonth(plot: PlotRow): { historyEndMonth?: string } {
 
 export async function buildContext(
   db: Db,
-  { payload, device, plot }: { payload: CapturePayloadV1; device: BoundaryDevice; plot: PlotRow },
+  {
+    payload,
+    device,
+    plot,
+    serverReceivedAt = new Date().toISOString(),
+  }: {
+    payload: CapturePayloadV1;
+    device: BoundaryDevice;
+    plot: PlotRow;
+    /** The server's receipt time: it picks the coffee season (TP6). Defaults to now. */
+    serverReceivedAt?: string;
+  },
   deps: { remoteSensing?: RemoteSensingProvider } = {},
 ): Promise<VerifyContext> {
-  const [seen, [prior], [previous]] = await Promise.all([
+  const [seen, [prior], [previous], seasonKg, reference] = await Promise.all([
     seenMediaHashes(
       db,
       payload.media.map((m) => m.sha256),
@@ -65,6 +68,8 @@ export async function buildContext(
       .where(and(eq(harvestEvents.deviceId, device.id), eq(harvestEvents.boundaryStatus, 'accepted')))
       .orderBy(desc(harvestEvents.seq))
       .limit(1),
+    seasonCherryKgBefore(db, plot.id, coffeeSeasonOf(serverReceivedAt)),
+    getYieldReference(db, plot.crop),
   ]);
 
   return {
@@ -76,8 +81,9 @@ export async function buildContext(
         : null,
     plot: { id: plot.id, crop: plot.crop, polygon: JSON.parse(plot.geojson) as PlotPolygon, areaHa: plot.areaHa, ...historyEndMonth(plot) },
     seenMediaHashes: seen,
-    seasonCherryKgBefore: 0, // TP6 season window arrives with TKT-09
-    yieldReference: YIELD_PLACEHOLDER[plot.crop],
+    // TP6: this plot's accepted, non-Rejected kg in the receipt season, and the crop's reference row
+    seasonCherryKgBefore: seasonKg,
+    yieldReference: reference ? { maxKgHa: reference.maxKgHa, cherryToCleanRatio: reference.cherryToCleanRatio, source: reference.source } : null,
     // The provider REMOTE_SENSING_PROVIDER names, with 8 s timeouts and the per-plot cache (§7, TKT-07).
     remoteSensing: deps.remoteSensing ?? appRemoteSensing(db, env),
   };

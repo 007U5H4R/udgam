@@ -27,7 +27,7 @@ const synthetic = (mutations: Mutation[], over: Partial<EvalCase['input']> = {})
 const inside = (b: BuiltCase) => booleanPointInPolygon(point([b.submission.payload.gps.lng, b.submission.payload.gps.lat]), b.context.plot.polygon);
 const edgeM = (b: BuiltCase) => distanceToEdgeM(b.submission.payload.gps, b.context.plot.polygon);
 const minutes = (a: string, b: string) => (Date.parse(a) - Date.parse(b)) / 60_000;
-const ratioU = (b: BuiltCase, kg: number) => (kg * b.context.yieldReference.cherryToCleanRatio) / b.context.plot.areaHa / b.context.yieldReference.maxKgHa;
+const ratioU = (b: BuiltCase, kg: number) => (kg * b.context.yieldReference!.cherryToCleanRatio) / b.context.plot.areaHa / b.context.yieldReference!.maxKgHa;
 
 beforeAll(async () => {
   inputs = loadHarnessInputs(ds);

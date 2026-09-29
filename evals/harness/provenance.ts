@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { arch, platform } from 'node:os';
 import { relative, resolve } from 'node:path';
+import { YIELD_REFERENCE_ROWS, YIELD_REFERENCE_VERSION } from '../../src/lib/yield/reference-data';
 import { CONFIG, CONFIG_HASH } from '../../src/lib/verification/config';
 import type { CheckId } from '../../src/lib/verification/types';
 import { PLACEHOLDER_YIELD_REFERENCE } from './context';
@@ -26,7 +27,14 @@ export type Provenance = {
   config: { version: string; hash: string; mode: 'full' | 'ledger-only'; enabledChecks: CheckId[]; object: typeof CONFIG };
   registry: { checks: CheckId[]; missing: CheckId[] };
   provider: 'fixture' | 'live';
-  yieldReference: { version: string; source: 'placeholder' | 'Coffee-Board-verified'; placeholder: boolean; row: { maxKgHa: number; cherryToCleanRatio: number } };
+  yieldReference: {
+    version: string;
+    source: 'placeholder' | 'Coffee-Board-verified';
+    placeholder: boolean;
+    row: { maxKgHa: number; cherryToCleanRatio: number };
+    /** What the app itself seeds (TKT-09, TC-039); the harness runs on the synthetic U above. Absent in older results. */
+    app?: { version: string; yields: 'Coffee Board'; cherryRatio: 'industry estimate, unverified'; maxKgHa: { arabica: number; robusta: number } };
+  };
   ledger: 'hashchain' | 'evm';
   node: string;
   os: { platform: string; arch: string };
@@ -99,6 +107,15 @@ export function provenance(i: ProvenanceInput): Provenance {
       source: 'placeholder',
       placeholder: true,
       row: { maxKgHa: PLACEHOLDER_YIELD_REFERENCE.maxKgHa, cherryToCleanRatio: PLACEHOLDER_YIELD_REFERENCE.cherryToCleanRatio },
+      app: {
+        version: YIELD_REFERENCE_VERSION,
+        yields: 'Coffee Board',
+        cherryRatio: 'industry estimate, unverified',
+        maxKgHa: {
+          arabica: YIELD_REFERENCE_ROWS.find((r) => r.crop === 'arabica')!.maxKgHa,
+          robusta: YIELD_REFERENCE_ROWS.find((r) => r.crop === 'robusta')!.maxKgHa,
+        },
+      },
     },
     ledger: 'hashchain',
     node: process.version,
