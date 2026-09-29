@@ -24,6 +24,11 @@ const TSX = join(ROOT, 'node_modules', '.bin', 'tsx');
 const CLEAN_ROOM_CLI = join(ROOT, 'evals', 'scorers', 'independent-verifier', 'cli.ts');
 const PROOF_CASES = ['EVAL-058', 'EVAL-059', 'EVAL-060', 'EVAL-061', 'EVAL-062', 'EVAL-063', 'EVAL-066'] as const;
 const execFileAsync = promisify(execFile);
+/**
+ * The clean-room child's time limit. The whole suite runs inside the first harness-proof case's 30 s
+ * watchdog (run.ts CASE_TIMEOUT_MS), so the child is killed before that fires and never outlives the run.
+ */
+export const CLEAN_ROOM_TIMEOUT_MS = 25_000;
 
 type DatasetCase = { id: string; title: string; suite: string; status: string; input: { mutations?: { op: string; target?: string; variants?: string[] }[] } };
 
@@ -101,15 +106,27 @@ async function libVectorsAgree(path: string): Promise<{ ok: boolean; detail: str
 type CleanRoomResult = { ok: boolean; verified: number; total: number; failure?: { step: string } };
 
 /** Run the clean-room checker in a child process (never imported: no shared module state). */
-async function cleanRoom(args: string[]): Promise<unknown> {
+export async function cleanRoom(args: string[], opts: { timeoutMs?: number; cli?: string } = {}): Promise<unknown> {
+  const run = () =>
+    execFileAsync(TSX, [opts.cli ?? CLEAN_ROOM_CLI, ...args], { cwd: ROOT, maxBuffer: 256 * 1024 * 1024, timeout: opts.timeoutMs ?? CLEAN_ROOM_TIMEOUT_MS, killSignal: 'SIGKILL' });
+  let stdout: string;
   try {
-    const { stdout } = await execFileAsync(TSX, [CLEAN_ROOM_CLI, ...args], { cwd: ROOT, maxBuffer: 256 * 1024 * 1024, timeout: 120_000 });
-    return JSON.parse(stdout) as unknown;
+    ({ stdout } = await run());
   } catch (e) {
-    // --vectors exits 1 when a vector disagrees; its stdout is still the result.
-    const out = (e as { stdout?: string }).stdout;
-    if (out) return JSON.parse(out) as unknown;
-    throw e;
+    // Only --vectors may exit 1 with a result on stdout (a vector disagrees). Anything else, or
+    // output that is not JSON, rethrows the original error (with its stderr), never a SyntaxError.
+    const out = (e as { stdout?: string; code?: unknown }).stdout;
+    if (args[0] !== '--vectors' || (e as { code?: unknown }).code !== 1 || !out) throw e;
+    try {
+      return JSON.parse(out) as unknown;
+    } catch {
+      throw e;
+    }
+  }
+  try {
+    return JSON.parse(stdout) as unknown;
+  } catch (parseError) {
+    throw new Error(`the clean-room checker printed non-JSON output: ${stdout.slice(0, 200)}`, { cause: parseError });
   }
 }
 
@@ -133,7 +150,7 @@ export async function runProofSuite(opts: ProofSuiteOptions = {}): Promise<Proof
   const proofVectors = JSON.parse(await readFile(opts.proofVectorsPath ?? join(ROOT, 'docs/proof-feed.vectors.json'), 'utf8')) as {
     keys: { keys: VerifierKey[] };
     feed: unknown;
-    tampers: { variant: string; expectedStep: string; feed: unknown }[];
+    tampers: { variant: string; expectedStep: string; keys?: { keys: VerifierKey[] }; feed: unknown }[];
   };
 
   const fx = await buildProofFixture({ events: opts.events, plots: opts.plots });
@@ -147,7 +164,7 @@ export async function runProofSuite(opts: ProofSuiteOptions = {}): Promise<Proof
       { feed: fx.feed, keys },
       ...tampered.map((t) => ({ feed: t.feed, keys: t.keys })),
       { feed: proofVectors.feed, keys: proofVectors.keys.keys },
-      ...proofVectors.tampers.map((t) => ({ feed: t.feed, keys: proofVectors.keys.keys })),
+      ...proofVectors.tampers.map((t) => ({ feed: t.feed, keys: (t.keys ?? proofVectors.keys).keys })),
     ];
     const files = await Promise.all(
       jobs.map(async (j, i) => {

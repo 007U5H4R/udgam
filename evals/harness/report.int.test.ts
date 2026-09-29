@@ -101,7 +101,7 @@ describe('the report derives from the results file only (TC-016)', () => {
     expect(md).toMatch(/\| EVAL-063 \| passed \| dropped-entry: closure-incomplete; reordered-entries: merkle-path \| dropped-entry: closure-incomplete; reordered-entries: merkle-path \|/);
     expect(md).toMatch(/\| EVAL-103 \| not_yet_implemented \| — \| — \|/);
     expect(md).toContain('S6 score (evals/scorers/proof-verifier.ts): coverage library 100.0 %, clean-room 100.0 %');
-    expect(md).toContain('CF-04 not fired.');
+    expect(md).toContain('variants accepted by either verifier: none (run-level CF-04');
   });
 
   it('lists the cases outside the milestone scope in their own section (TKT-18 milestone scoping)', () => {

@@ -194,6 +194,18 @@ the vectors file with a parser that keeps it as an ordinary member (`JSON.parse`
 Verifiers MUST ignore members they do not know, at every level. Later versions add optional fields
 without changing the format name (for example per-entry `evm` anchoring data in milestone 2).
 
+### 4.4 Shapes that step `format` decides
+
+- **An array where §4 names an object** (the feed itself, `ledgerKey`, a checkpoint, an entry, a
+  `payload`) is malformed: step `format`. Inside a payload, only the members of §9.1 are read, and
+  their own rules apply (an `events` element that is not an object fails rule 1 of §9.3).
+- **Empty arrays are well-formed.** `checkpoints: []` and `entries: []` pass step `format`. With no
+  entries there is no `batch_created`, so the feed fails at `closure-incomplete` (§8). With entries
+  but no checkpoints, the first entry fails at `merkle-path` (no checkpoint has its `checkpointId`).
+- **Integers** (`seq`, `id`, `fromSeq`, `toSeq`, `checkpointId`, `leafIndex`) MUST be safe integers,
+  at most 2^53 − 1 (9007199254740991): a JSON number above that, or with a fraction, fails step
+  `format`. Numbers inside payloads are IEEE-754 doubles and are only hashed (§3.1).
+
 ## 5. Entry hashes
 
 ```
@@ -380,17 +392,24 @@ Let `b` be the batch's `batch_created` entry. The feed is complete when:
    string equal to `h.payload.payloadHash` (the hash of the capture the batch was built from), **and**
    the feed has at least one `verification_run` entry with `payload.eventId == ev.eventId`;
 2. for **every** `harvest_event` entry in the feed: its `payload.plotId` and `payload.deviceId` are
-   strings, the feed has a `plot_registered` entry with that `payload.plotId`, and the feed has a
-   `device_enrolled` entry with that `payload.deviceId`;
-3. the `custody_transfer` entries **whose `payload.batchId == batchId`**, taken in `seq` order, all
-   have `seq > b.seq`, the first has `payload.fromOrg == b.payload.orgId`, and each later one has
-   `payload.fromOrg ==` the previous one's `payload.toOrg`. A `custody_transfer` entry for any other
-   batch id is ignored by this rule (the server never puts one in a feed, §9.1, but it is not by
-   itself a failure).
+   non-empty strings, the feed has a `plot_registered` entry with that `payload.plotId`, and the feed
+   has a `device_enrolled` entry with that `payload.deviceId`;
+3. `b.payload.orgId` is a non-empty string, and the `custody_transfer` entries **whose
+   `payload.batchId == batchId`**, taken in `seq` order, all have `seq > b.seq` and non-empty string
+   `payload.fromOrg` and `payload.toOrg`; the first has `payload.fromOrg == b.payload.orgId`, and
+   each later one has `payload.fromOrg ==` the previous one's `payload.toOrg`. A `custody_transfer`
+   entry for any other batch id is ignored by this rule (the server never puts one in a feed, §9.1,
+   but it is not by itself a failure).
 
 Details of these rules:
 
-- An element of `events` that is not an object, or whose `eventId` is not a string, fails rule 1.
+- **Every id these rules compare is a non-empty string**: `eventId` (in `events` and in the
+  `harvest_event` and `verification_run` payloads), `plotId`, `deviceId`, `orgId`, `fromOrg` and
+  `toOrg`. A missing, empty or non-string id never matches anything, not even another missing,
+  empty or equal non-string id: a custody chain cannot start "from nobody" (an `orgId` and a first
+  `fromOrg` that are both missing, both `null` or both `5` fail rule 3).
+- An element of `events` that is not an object, or whose `eventId` is not a non-empty string, fails
+  rule 1.
 - If the feed has several `harvest_event` entries with the same `payload.eventId` (Udgam never writes
   two), rule 1 uses the one with the highest `seq`.
 - The `eventId`, `plotId` and `deviceId` lookups compare strings exactly, with no normalisation.
@@ -409,7 +428,7 @@ checker show them.
 | # | Step name | Check | Fails when |
 |---|---|---|---|
 | 1 | `format` | The document is JSON with the members of §4 and their types; no object at any depth has a member `__proto__`, `constructor` or `prototype` (§3.1); `format == "udgam-proof-feed/1"`; hex members are lowercase hex of the stated length; checkpoint `signature` members are non-empty strings of base64url characters (§4.2); `shortHash` is 12 lowercase hex; entries have strictly ascending `seq`; checkpoint `id`s are unique; every checkpoint has `fromSeq ≤ toSeq`. | anything malformed, or a forbidden key |
-| 2 | `unknown-key` | For each checkpoint in feed order: a published key has `kid ==` the checkpoint's `kid`, and that key's recomputed thumbprint equals it. | no such key (report the `kid`) |
+| 2 | `unknown-key` | For each checkpoint in feed order: the **first** key in the key document with `kid ==` the checkpoint's `kid` is a P-256 public key (`kty` `"EC"`, `crv` `"P-256"`, non-empty string `x` and `y`) whose recomputed thumbprint equals that `kid` (§7.2). Later keys with the same `kid` are not tried. | no such key, the first match is not a P-256 public key, or its thumbprint differs (report the `kid`) |
 | 3 | `checkpoint-signature` | The checkpoint's signature verifies over its statement (§7.1) with that key. | the signature does not verify |
 | 4 | `payload-hash` | For each entry in `seq` order: `hex(SHA-256(JCS(payload))) == payloadHash`, over the payload as received (§3.1). | mismatch, or the payload cannot be canonicalised |
 | 5 | `entry-hash` | `entryHash` recomputes (§5). | mismatch |
@@ -465,6 +484,18 @@ What each step catches (and the vector that shows it):
 | A signed payload whose `publicJwk` has an extra member `d` (genuine ledger) | `payload-signature` (`payload_jwk_extra_member`) |
 | A signed payload whose `publicJwk` is not a point on P-256, with a matching `kid` (genuine ledger) | `payload-signature` (`payload_jwk_off_curve`) |
 | A custody transfer of the batch that does not start at the batch's organisation (genuine ledger) | `closure-incomplete` (`custody_chain`) |
+| A custody chain "from nobody": no `orgId` and no `fromOrg` (genuine ledger) | `closure-incomplete` (`custody_org_missing`) |
+| Org ids that are equal numbers, not strings (genuine ledger) | `closure-incomplete` (`custody_org_nonstring`) |
+| A member event whose `plotId` is the empty string, with an empty-id registration in the feed (genuine ledger) | `closure-incomplete` (`empty_plot_id`) |
+| Two `harvest_event` entries for one member; only the earlier carries the listed capture hash (genuine ledger) | `closure-incomplete` (`duplicate_event_highest_seq`) |
+| A key document listing an impostor with the ledger key's `kid` before the real key | `unknown-key` (`duplicate_kid_first_wins`) |
+| A key document whose ledger key is not P-256 | `unknown-key` (`published_key_not_p256`) |
+| A checkpoint signature with non-zero unused base64url bits | `checkpoint-signature` (`checkpoint_signature_trailing_bits`) |
+| A checkpoint signature of 63 bytes | `checkpoint-signature` (`checkpoint_signature_length`) |
+| Checkpoint 1's signature broken **and** checkpoint 2's `kid` unpublished (steps 2–3 run per checkpoint) | `checkpoint-signature` (`step_order_interleave`) |
+| A feed with empty `checkpoints` and `entries` | `closure-incomplete` (`empty_feed`) |
+| A `leafIndex` of 2^53 | `format` (`unsafe_integer`) |
+| A payload that is an array | `format` (`array_in_object_slot`) |
 
 ## 11. Test vectors: `docs/proof-feed.vectors.json`
 
@@ -482,8 +513,10 @@ throwaway whose private half was never saved. Members:
   `entry.leafHash` (`SHA-256(0x00 ‖ entryHash bytes)`), `treeSize`, `leafIndex`, `path`, `merkleRoot`;
   `checkpoint.statement`, `statementSha256` (what the next checkpoint's `prevCheckpointHash` would be)
   and `signature`; `key.thumbprintInput` and `kid`; `signedPayload.statement` and `signature`.
-- `tampers`: one object per forgery, `{ variant, description, expectedStep, feed }`. Verify each `feed`
-  with the same `keys`; it MUST fail at `expectedStep`. Most are one change to `feed`.
+- `tampers`: one object per forgery, `{ variant, description, expectedStep, feed }`, plus `keys` for
+  a tamper of the key document. Verify each `feed` with the tamper's own `keys` when it has one, and
+  with the top-level `keys` otherwise; it MUST fail at `expectedStep`. Most are one change to `feed`
+  (`step_order_interleave` makes two, to pin the step order).
   `payload_proto_member` contains an own `"__proto__"` member (§3.1). `batch_event_hash` is a feed
   from a second, genuine ledger sealed by the same key, whose `batch_created` lists a wrong capture
   hash for one member: every hash, path and signature in it verifies, and only step 9 catches it.
@@ -493,6 +526,11 @@ throwaway whose private half was never saved. Members:
   9) catches it. `merkle_checkpoint_id`, `merkle_leaf_index` and `merkle_path_length` are the
   sub-cases of step 6; `payload_constructor_member` and `payload_prototype_member` are the other two
   forbidden keys of §3.1; `drop_batch_created` leaves the feed with no `batch_created` for its batch.
+  `duplicate_kid_first_wins` and `published_key_not_p256` carry their own `keys` (§7.2).
+  `custody_org_missing`, `custody_org_nonstring`, `empty_plot_id` and `duplicate_event_highest_seq`
+  are genuine ledgers built entry by entry for the id rules of §9.3; in `empty_plot_id` the
+  registration with the empty `plotId` (which the server's closure would never select) is included
+  with its genuine proof, so only the non-empty-id rule catches it.
 
 A verifier is correct for these vectors when it accepts `feed` (with the `expected` entry count) and
 rejects every tamper at its `expectedStep`.

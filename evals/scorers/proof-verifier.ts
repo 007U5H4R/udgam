@@ -2,8 +2,9 @@
 // both verifiers' results — the library verifier (verifyFeed, which the certificate page runs) and
 // the clean-room checker (evals/scorers/independent-verifier). Coverage = entries verified ÷ closure
 // entries (0 for a verifier that rejects the intact feed); tamper rejection = variants rejected ÷
-// variants. Any variant accepted by either verifier fires CF-04. A rejection at a step other than the
-// documented one is not CF-04 but fails `stepMatches` (and so its case).
+// variants. `cf04` is the scorer's view: the variants accepted by either verifier. A rejection at a
+// step other than the documented one fails `stepMatches`, and so its case; at run level CF-04 also
+// fires for that failed case (critical-conditions.ts), so the run's CF list is the authority.
 
 /** One verifier's verdict on one feed. `verified` = entries it verified; `step` = its failing step. */
 export type VerifierOutcome = { ok: boolean; verified: number; step: string | null };

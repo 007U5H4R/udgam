@@ -13,9 +13,14 @@ export const GENESIS_PREV = '0'.repeat(64);
 type OnAppended = (tx: Tx, seq: number) => Promise<void>;
 let onAppended: OnAppended | undefined = maybeCheckpoint;
 
-/** Replace the hook that runs inside the append's transaction after each entry (default: checkpoints). */
-export function setOnAppended(hook: OnAppended | undefined): void {
+/**
+ * Replace the hook that runs inside the append's transaction after each entry (default: checkpoints).
+ * Returns the hook it replaced, so a temporary override can put it back.
+ */
+export function setOnAppended(hook: OnAppended | undefined): OnAppended | undefined {
+  const previous = onAppended;
   onAppended = hook;
+  return previous;
 }
 
 /** entry_hash = sha256Hex(jcs({seq, prev_hash, kind, payload_hash, ts})) */
