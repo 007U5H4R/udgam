@@ -524,3 +524,62 @@
 - There is no LICENSE, so the code is visible but all rights are reserved. Choosing an open licence is a separate owner decision.
 - Nothing about secrets changes: they come only from env or `.secrets/`; gitleaks runs in CI (TKT-01); the pre-commit habit of scanning stays.
 **Rejected.** Switching back to private (the owner chose public).
+
+## EXE10 · EXIF time gap over 24 h fails, judged by the worst photo — accepted (owner, 2026-09-29; amends TP4)
+**Context.** At the P4 gate EVAL-034 (a photo taken 3 days before submission) was a measured miss: under TP4 an EXIF gap under 7 days was only a flag, and a lone flag does not stop Verified. The check also judged by the latest photo, so one old photo among fresh ones passed.
+**Decision (owner).** Applied now, before baseline-v1:
+- EXIF-to-capture gap, per photo, judged by the worst photo (largest gap), like `exif_gps_agreement`. The rule is:
+  - up to 10 min → ok;
+  - over 10 min, up to 24 h → flag;
+  - over 24 h → fail;
+  - flag when no photo has an EXIF time.
+- Client-to-server gap unchanged: over 24 h → flag, over 7 days → fail, because an honest outbox retry can arrive days later.
+- 24 h is chosen so a time-zone misread (up to about 14 h) never fails an honest farmer.
+- cfg-1 `exifTime` splits into separate EXIF and client-server fail limits. This tightens the check before baseline-v1, so no threshold is weakened (CF-13).
+- Dataset changes:
+  - EVAL-034's expected `exif_time_agreement` status changes from flag to fail.
+  - Two boundary cases are added: EVAL-122 (23 h → flag) and EVAL-123 (25 h → fail). They are the next IDs past TKT-09's reserved block, so TKT-20's block now starts at EVAL-124.
+  - The dataset minor version is bumped.
+- EVAL-055 and EVAL-056 stay reported scenario-6 stretch misses, with no further tuning.
+- Updated to match: technical-plan §6.3 (rule table, config, evidence), TC-036, and the Solution-PRD check table.
+**Rejected.** Keeping the 7-day EXIF fail (the P4 miss stands); failing at 10 min (time-zone misreads would reject honest farmers).
+
+## EXE11 · Replayed rejected captures are re-checked, not frozen — accepted (owner, 2026-09-29; refines TP7 and TSK-09.6)
+**Decision (owner).**
+- **Accepted payload:** an identical one returns the same verdict as before (`idempotent:true`), with no new rows and no new anchor.
+- **Rejected payload:** the boundary checks run again.
+  - Same reason as the stored rejection → the original rejection is returned, with no new row and no new anchor.
+  - Different reason → a normal new rejection.
+  - Now passes (for example after re-enrolment or plot assignment) → processed as a new capture.
+- `harvest_events.payload_hash` is unique for accepted rows only (partial unique index); the concurrent-race handling stays on that index.
+**Guarantees any alternative design must keep:**
+- no double-counted kg;
+- no ledger spam from replays;
+- an honest agent is never stuck behind an old rejection.
+
+Each guarantee has a named test in TKT-09.
+**Rejected.** Returning the original rejection forever (an honest agent stays stuck after the cause is fixed).
+
+## EXE12 · Fixture satellite data cannot run in production and is labelled everywhere — accepted (owner, 2026-09-29; moved forward from TKT-27/28)
+**Decision (owner).**
+- `env.ts` refuses to start when `NODE_ENV=production` and `REMOTE_SENSING_PROVIDER=fixture`.
+- Every evidence sentence derived from fixture remote-sensing data ends with "(demo data)". So no public certificate presents fixture results as real satellite evidence (CF-11).
+- The only exception to the start refusal is `E2E=1`. Playwright runs `next build && next start` (production mode) with the fixture provider. `E2E=1` also exposes the test-only routes, so it is never set in a real deployment.
+- `DEMO_MODE=1` is not an exception.
+- Implemented in the TKT-07 fix round (TASK-8).
+**Rejected.** Waiting for TKT-27/28 (fixture evidence could reach a public certificate before then); an exception for `DEMO_MODE` (a demo deployment is still public).
+
+## EXE13 · device_enrolled keeps agentId, which is an opaque random ID — accepted (owner, 2026-09-29)
+**Decision (owner).**
+- `device_enrolled` keeps `agentId` alongside the device ID and thumbprint. In production it is Better Auth's random `user.id`.
+- The demo seed hard-coded readable IDs (for example `USR-HOSAHALLI-AGENT`), which put an organisation name and role into anchored payloads, against EV16. Seeded user IDs become fixed opaque values: `USR-` plus 8 Crockford base32 characters.
+- A test pins the payload's keys and checks that agentId carries no email, name or organisation name.
+- TC-022's wording is updated to match the code.
+**Rejected.** Dropping agentId from the payload (the owner kept it; it links an enrolment to the responsible account without personal data).
+
+## EXE14 · Caddy overwrites X-Forwarded-For and the app trusts only that value — accepted (owner, 2026-09-29; added to TKT-27)
+**Decision (owner).**
+- In production, Caddy sets `X-Forwarded-For` to the real remote address, with `trusted_proxies` unset.
+- The app trusts only that value (`src/lib/client-ip.ts`, last hop), and the app port is never published.
+- TSK-27.3 gains a test showing that client-supplied `X-Forwarded-For` or `X-Real-IP` headers cannot dodge the per-IP sign-in and capture limits.
+- Map-key restrictions, the live provider with re-recorded fixtures, and the Kannada native review stay owner items before production (docs/exec owner review file).
