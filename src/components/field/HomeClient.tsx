@@ -17,6 +17,7 @@ import { PlotMap } from '../ui/PlotSvg';
 import { Sheet } from '../ui/Sheet';
 import { TabBar } from '../ui/TabBar';
 import { VerdictChip } from '../ui/VerdictChip';
+import { HelpSheet, type HelpInfo } from './HelpSheet';
 import { Ic } from './icons';
 import { Lit } from './Lit';
 import { PendingList } from './PendingRow';
@@ -24,7 +25,8 @@ import { useGps } from './useGps';
 
 // Home (final/index.html #s1, TSK-10.5): header with the wordmark and the language chip, the greeting
 // with the IST date, the plot card (the hero: the plot outline, the live "You" dot and where you are),
-// the one primary pill, and the last three pickings. The tab bar floats at the bottom.
+// the one primary pill, and the last three pickings. The tab bar floats at the bottom; its Help tab opens
+// the Help sheet in place (TSK-11.6), which /field/help opens on arrival (`helpOpen`).
 
 export type HomePlotView = { id: string; name: string; farmerName: string; facts: string; geojson: PlotPolygon };
 export type HomeRow = { eventId: string; date: string; kg: string; verdict: Verdict | null };
@@ -37,12 +39,17 @@ export function HomeClient({
   plots,
   selectedId,
   rows,
+  help,
+  helpOpen = false,
 }: {
   lang: Lang;
   greeting: { text: string; dateIso: string; date: string };
   plots: HomePlotView[];
   selectedId: string | null;
   rows: HomeRow[];
+  help: HelpInfo;
+  /** /field/help: the Help sheet is open on arrival. */
+  helpOpen?: boolean;
 }) {
   const router = useRouter();
   const tr = (key: Parameters<typeof t>[0], vars: Record<string, string | number> = {}) => t(key, vars, lang);
@@ -50,6 +57,7 @@ export function HomeClient({
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
   const [choosing, setChoosing] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [helpShown, setHelpShown] = useState(helpOpen);
   const { state: gpsState, fix } = useGps();
 
   useEffect(() => {
@@ -73,6 +81,11 @@ export function HomeClient({
     if (locate(fix, plot.geojson).inside) return <Lit k="home.inside" vars={{ plot: plot.name }} lit="plot" lang={lang} />;
     const m = `${Math.round(distanceToEdgeM(fix, plot.geojson))} m`;
     return <Lit k="home.outside" vars={{ plot: plot.name, m }} lit="plot" lang={lang} />;
+  }
+
+  function closeHelp() {
+    setHelpShown(false);
+    if (helpOpen) router.replace('/field'); // leave the /field/help deep link
   }
 
   function chooseLang(next: Lang) {
@@ -157,7 +170,7 @@ export function HomeClient({
         </ul>
       )}
 
-      <TabBar current="home" lang={lang} />
+      <TabBar current={helpShown ? 'help' : 'home'} lang={lang} onHelp={() => setHelpShown(true)} />
 
       {plots.length > 1 ? (
         <Sheet open={choosing} onClose={() => setChoosing(false)} labelledBy="plots-h">
@@ -180,6 +193,16 @@ export function HomeClient({
           </button>
         </Sheet>
       ) : null}
+      <HelpSheet
+        open={helpShown}
+        onClose={closeHelp}
+        lang={lang}
+        info={help}
+        onLanguage={() => {
+          closeHelp();
+          setLangOpen(true);
+        }}
+      />
       <LanguageSheet open={langOpen} current={lang} onChoose={chooseLang} />
     </main>
   );

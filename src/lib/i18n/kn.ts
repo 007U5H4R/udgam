@@ -182,6 +182,20 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'dt.state.fail': 'ಸರಿಯಾಗಿಲ್ಲ', // REVIEW: native speaker
   'dt.state.unavailable': 'ನಡೆಸಲಾಗಲಿಲ್ಲ', // REVIEW: native speaker
   'dt.state.none': 'ನಡೆಸಿಲ್ಲ', // REVIEW: native speaker
+  'help.title': 'ಸಹಾಯ', // REVIEW: native speaker
+  'help.record': 'ನಿಮ್ಮ ತೋಟದ ಒಳಗೆ ನಿಂತು, {record} ಒತ್ತಿ. ಒಂದು ಫೋಟೋ ಸಾಕು.', // REVIEW: native speaker
+  'help.photos': 'ಹಗಲು ಬೆಳಕಿನಲ್ಲಿ ಫೋಟೋ ತೆಗೆಯಿರಿ, ಫೋನನ್ನು ಅಲುಗಾಡಿಸದೆ ಹಿಡಿಯಿರಿ, ಹಣ್ಣುಗಳು ಕಾಣುವಂತೆ.', // REVIEW: native speaker
+  'help.gallery': 'ಫೋಟೋಗಳು ಕ್ಯಾಮೆರಾದಿಂದಲೇ ಬರುತ್ತವೆ, ಗ್ಯಾಲರಿಯಿಂದ ಎಂದಿಗೂ ಅಲ್ಲ: ತೆಗೆದಾಗಲೇ ಈ ಫೋನ್ ಪ್ರತಿ ಫೋಟೋಗೆ ಮುದ್ರೆ ಹಾಕುತ್ತದೆ, ಅದು ಹೊಸದೆಂದು ಕಚೇರಿಗೆ ತಿಳಿಯುತ್ತದೆ.', // REVIEW: native speaker
+  'help.verified': 'ಕಚೇರಿಗೆ ಬೇಕಾದುದು ಸಿಕ್ಕಿದೆ. ಏನೂ ಮಾಡಬೇಕಿಲ್ಲ.', // REVIEW: native speaker
+  'help.check': 'ಕಚೇರಿ ಈ ಕೊಯ್ಲನ್ನು ನೋಡುತ್ತದೆ. ನೀವು ಏನೂ ಮಾಡಬೇಕಿಲ್ಲ.', // REVIEW: native speaker
+  'help.rejected': 'ಕೊಯ್ಲನ್ನು ಸ್ವೀಕರಿಸಲಾಗಲಿಲ್ಲ. ಏಕೆ ಮತ್ತು ಏನು ಮಾಡಬೇಕು ಎಂದು ಪರದೆ ಹೇಳುತ್ತದೆ.', // REVIEW: native speaker
+  'help.call': 'ಕೊಯ್ಲಿನ ಬಗ್ಗೆ ಪ್ರಶ್ನೆಗಳಿವೆಯೇ? {org} ಕಚೇರಿಗೆ ಕರೆ ಮಾಡಿ:', // REVIEW: native speaker
+  'help.callLink': '{phone}', // REVIEW: native speaker
+  'help.language': 'ಭಾಷೆ:', // REVIEW: native speaker
+  'help.thisPhone': 'ಈ ಫೋನ್:', // REVIEW: native speaker
+  'help.phoneLoading': 'ಹುಡುಕಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'help.phoneSetUp': '{id}, {date} ರಂದು ಸಿದ್ಧಪಡಿಸಲಾಗಿದೆ', // REVIEW: native speaker
+  'help.phoneId': '{id}', // REVIEW: native speaker
   'rec.noFix': 'ನಿಮ್ಮ ಸ್ಥಳ ಇನ್ನೂ ಸಿಗಲಿಲ್ಲ. ಸ್ವಲ್ಪ ಕಾಯಿರಿ, ನಂತರ ಮತ್ತೆ ಕಳುಹಿಸಿ.', // REVIEW: native speaker
   'fe.plot.default': 'ತೋಟ', // REVIEW: native speaker
   'fe.location.inside': 'ನೀವು {plot} ಒಳಗೆ {m} ಇದ್ದಿರಿ', // REVIEW: native speaker

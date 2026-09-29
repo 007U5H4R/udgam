@@ -61,5 +61,11 @@ export function istDayTime(iso: string, lang: Lang = 'en'): string {
   return `${istShortDay(iso)}, ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
 }
 
+/** A `tel:` URI for an office number: digits and a leading +, nothing else (the text shows it as entered). */
+export function telHref(phone: string): string | null {
+  const digits = phone.replace(/[^\d+]/g, '').replace(/(?!^)\+/g, '');
+  return /^\+?\d{6,15}$/.test(digits) ? `tel:${digits}` : null;
+}
+
 /** Hectares with one decimal ("1.8"). */
 export const ha1 = (ha: number): string => (Math.round(ha * 10) / 10).toFixed(1);

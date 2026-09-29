@@ -253,6 +253,21 @@ export const en = {
   'dt.state.fail': 'Did not pass',
   'dt.state.unavailable': 'Could not run',
   'dt.state.none': 'Not run',
+  // The Help sheet (TKT-11, TSK-11.6, #help-dialog)
+  'help.title': 'Help',
+  'help.record': 'Stand inside your plot, then tap {record}. One photo is enough.',
+  'help.photos': 'Take the photos in daylight and hold the phone still, so the cherries can be seen.',
+  'help.gallery': 'Photos come from the camera, never the gallery: this phone seals each photo as it is taken, so the office knows it is new.',
+  'help.verified': 'The office has what it needs. Nothing to do.',
+  'help.check': 'The office will look at this picking. You don\'t need to do anything.',
+  'help.rejected': 'The picking could not be accepted. The screen says why and what to do.',
+  'help.call': 'Questions about a picking? Call the {org} office:',
+  'help.callLink': '{phone}',
+  'help.language': 'Language:',
+  'help.thisPhone': 'This phone:',
+  'help.phoneLoading': 'Looking…',
+  'help.phoneSetUp': '{id}, set up on {date}',
+  'help.phoneId': '{id}',
   // Farmer evidence lines on the verdict screens (TKT-10, src/lib/i18n/farmer-evidence.ts). Numbers come
   // from the verifier's evidence as written ({m} = "14 m", {pct} = "18.0%", {d} = "3 h", {x} = "1.75x").
   'fe.plot.default': 'the plot',

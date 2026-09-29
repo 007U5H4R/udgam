@@ -5,11 +5,13 @@ import { PendingList } from '../../../../../components/field/PendingRow';
 import { PickingRow } from '../../../../../components/field/PickingRow';
 import { env } from '../../../../../lib/config/env';
 import { getDbReady } from '../../../../../lib/db/client';
+import { getHelpInfo, type HelpInfo } from '../../../../../lib/db/queries/field-help';
 import { listPickings, type PickingMonth } from '../../../../../lib/db/queries/pickings';
 import { isLang, LANG_COOKIE, t, type Lang } from '../../../../../lib/i18n';
 import { log } from '../../../../../lib/log';
 import { requireSession } from '../../../../_auth/require';
-import { PickingsEmpty, PickingsError, PickingsFrame, PickingsSkeleton } from '../PickingsStates';
+import { PickingsFrame } from '../PickingsFrame';
+import { PickingsEmpty, PickingsError, PickingsSkeleton } from '../PickingsStates';
 
 // /field/pickings — the Pickings tab (technical-plan §3.2, final/index.html #s8, TSK-11.4): every
 // picking this agent sent, by IST month, newest first, each with its verdict chip; Needs a check and
@@ -41,17 +43,19 @@ export default async function Pickings({ searchParams }: { searchParams: Promise
 
   if (forced === 'loading') return <PickingsSkeleton lang={lang} />;
   let months: PickingMonth[] | null = null;
+  let help: HelpInfo | null = null;
   if (forced !== 'error') {
     try {
-      months = forced === 'empty' ? [] : await listPickings(await getDbReady(), agent.userId, agent.orgId, lang);
+      const db = await getDbReady();
+      [months, help] = await Promise.all([forced === 'empty' ? [] : listPickings(db, agent.userId, agent.orgId, lang), getHelpInfo(db, agent.userId, agent.orgId)]);
     } catch (err) {
       log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'field.pickings_failed');
     }
   }
-  if (!months) return <PickingsError lang={lang} />;
+  if (!months || !help) return <PickingsError lang={lang} />;
 
   return (
-    <PickingsFrame lang={lang}>
+    <PickingsFrame lang={lang} help={help}>
       <PendingList lang={lang} />
       {months.length === 0 ? <PickingsEmpty lang={lang} /> : null}
       {months.map((m) => (
