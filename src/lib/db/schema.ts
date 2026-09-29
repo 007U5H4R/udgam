@@ -341,3 +341,27 @@ export const rateLimits = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.key, t.windowStart] })],
 );
+
+/**
+ * Remote-sensing answers (technical-plan §4.1, §7, TKT-07). Keyed per plot, provider, kind, month bucket
+ * (`static` for forest loss, `YYYY-MM` for NDVI) and geometry hash, so an edited polygon misses (EVAL-044).
+ * Only successful answers are stored; `response` is JSON (`{ source, version?, result }`). Not provenance:
+ * no anchor.
+ */
+export const remoteSensingCache = sqliteTable(
+  'remote_sensing_cache',
+  {
+    plotId: text('plot_id').notNull(),
+    provider: text('provider', { enum: ['gfw', 'sentinel-hub'] }).notNull(),
+    kind: text('kind', { enum: ['loss', 'ndvi_history', 'ndvi_window'] }).notNull(),
+    monthBucket: text('month_bucket').notNull(),
+    geometryHash: text('geometry_hash').notNull(),
+    response: text('response').notNull(),
+    fetchedAt: text('fetched_at').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.plotId, t.provider, t.kind, t.monthBucket, t.geometryHash] }),
+    check('remote_sensing_cache_provider_check', sql`${t.provider} IN ('gfw','sentinel-hub')`),
+    check('remote_sensing_cache_kind_check', sql`${t.kind} IN ('loss','ndvi_history','ndvi_window')`),
+  ],
+);

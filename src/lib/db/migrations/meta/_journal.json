@@ -43,6 +43,13 @@
       "when": 1790663916684,
       "tag": "0005_enrolment",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1790674997057,
+      "tag": "0006_remote_sensing_cache",
+      "breakpoints": true
     }
   ]
 }
