@@ -13,7 +13,7 @@ import { NotFoundError } from './errors';
 // RFC 7638 thumbprint and anchors `device_enrolled` in the same transaction. Revocation anchors
 // `device_revoked`. Ledger payloads are public-safe IDs and hashes (EV16).
 
-export type EnrolFailure = RedeemFailure | 'bad_key' | 'key_in_use';
+export type EnrolFailure = RedeemFailure | 'bad_key' | 'key_in_use' | 'key_revoked';
 export type EnrolResult = { ok: true; deviceId: string; seq: 0; lastEventHash: null } | { ok: false; reason: EnrolFailure };
 
 /** HTTP status for each refusal (POST /api/enrol). */
@@ -23,16 +23,28 @@ export const ENROL_STATUS: Record<EnrolFailure, 400 | 409 | 429> = {
   used: 400,
   bad_key: 400,
   key_in_use: 409,
+  key_revoked: 409,
   rate_limited: 429,
 };
 
-/** The P-256 public key in `jwk`, or null: a private member (`d`), another curve or an off-curve point is refused. */
+const COORD = /^[A-Za-z0-9_-]{43}$/;
+const MEMBERS = ['crv', 'kty', 'x', 'y'];
+
+/**
+ * The canonical P-256 public key for `jwk`, or null. Only exactly {kty:'EC', crv:'P-256', x, y} with
+ * 43-character unpadded base64url coordinates is accepted: no `d`, no extra members, no padding or '+/'.
+ * The key is imported (an off-curve point is refused) and re-exported, and the RE-EXPORTED x and y are
+ * what is stored and thumbprinted, so one point has one thumbprint whatever unused trailing bits the
+ * sender set (a revoked key cannot come back as a "new" key in another encoding).
+ */
 async function publicKeyOf(jwk: unknown): Promise<PublicJwk | null> {
-  if (typeof jwk !== 'object' || jwk === null || Array.isArray(jwk) || 'd' in jwk) return null;
+  if (typeof jwk !== 'object' || jwk === null || Array.isArray(jwk)) return null;
+  const j = jwk as Record<string, unknown>;
+  if (Object.keys(j).sort().join() !== MEMBERS.join()) return null;
+  if (j.kty !== 'EC' || j.crv !== 'P-256' || typeof j.x !== 'string' || typeof j.y !== 'string' || !COORD.test(j.x) || !COORD.test(j.y)) return null;
   try {
-    const pub = publicMembers(jwk as JsonWebKey);
-    await importPublicJwk(pub); // rejects a point that is not on the curve
-    return pub;
+    const key = await importPublicJwk({ kty: 'EC', crv: 'P-256', x: j.x, y: j.y });
+    return publicMembers(await globalThis.crypto.subtle.exportKey('jwk', key));
   } catch {
     return null;
   }
@@ -54,8 +66,8 @@ export async function enrolDevice(
   const thumbprint = await jwkThumbprint(pub);
 
   return writeTx(db, async (tx): Promise<EnrolResult> => {
-    const [taken] = await tx.select({ id: devices.id }).from(devices).where(eq(devices.keyThumbprint, thumbprint)).limit(1);
-    if (taken) return { ok: false, reason: 'key_in_use' };
+    const [taken] = await tx.select({ id: devices.id, revokedAt: devices.revokedAt }).from(devices).where(eq(devices.keyThumbprint, thumbprint)).limit(1);
+    if (taken) return { ok: false, reason: taken.revokedAt === null ? 'key_in_use' : 'key_revoked' };
 
     const r = await redeemCode(tx, code, now, ip, { agentId: sessionAgentId });
     if (!r.ok) return r;

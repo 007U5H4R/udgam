@@ -3,6 +3,7 @@ import { seedTracerWorld, type TracerWorld } from '../../../scripts/tracer-world
 import { addOrg, addUser } from '../../../tests/helpers/auth';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 import { makeDevice } from '../../../tests/helpers/verify';
+import { publicMembers } from '../crypto';
 import { assignPlot } from './assign';
 import { issueCode } from './codes';
 import { enrolDevice, revokeDevice } from './enrol';
@@ -22,7 +23,7 @@ beforeEach(async () => {
   await addUser(t.db, { id: 'U-OTHER-AGENT', email: 'o@x.test', password: 'other agent password', role: 'agent', orgId: 'ORG-OTHER' });
   await addUser(t.db, { id: 'U-OTHER-ADMIN', email: 'oa@x.test', password: 'other admin password', role: 'admin', orgId: 'ORG-OTHER' });
   const { code } = await issueCode(t.db, { agentId: 'U-OTHER-AGENT', adminId: 'U-OTHER-ADMIN', orgId: 'ORG-OTHER' });
-  const other = await enrolDevice(t.db, { code, publicJwk: (await makeDevice()).publicJwk, ip: 'x', sessionAgentId: 'U-OTHER-AGENT' });
+  const other = await enrolDevice(t.db, { code, publicJwk: publicMembers((await makeDevice()).publicJwk), ip: 'x', sessionAgentId: 'U-OTHER-AGENT' });
   expect(other.ok).toBe(true);
 });
 afterEach(async () => {

@@ -19,7 +19,7 @@ import s from './enrol.module.css';
 // private key; only the public JWK is posted, and the pair is stored (IndexedDB) only once the server
 // has accepted it.
 
-type ErrorKey = 'invalid' | 'expired' | 'used' | 'rate_limited' | 'network' | 'other' | 'unsupported';
+type ErrorKey = 'invalid' | 'expired' | 'used' | 'rate_limited' | 'network' | 'other' | 'unsupported' | 'saveFailed';
 const ERRORS: Record<ErrorKey, MessageKey> = {
   invalid: 'enrol.error.invalid',
   expired: 'enrol.error.expired',
@@ -28,6 +28,7 @@ const ERRORS: Record<ErrorKey, MessageKey> = {
   network: 'enrol.error.network',
   other: 'enrol.error.other',
   unsupported: 'enrol.error.unsupported',
+  saveFailed: 'enrol.error.saveFailed',
 };
 const SERVER_REASONS = new Set<string>(['invalid', 'expired', 'used', 'rate_limited']);
 const YEAR_S = 365 * 24 * 3600;
@@ -119,7 +120,16 @@ export function EnrolClient({ initialLang }: { initialLang: Lang | null }) {
       }
       const { deviceId } = (await res.json()) as { deviceId: string };
       // The server's chain head is seq 0 with no previous event: the first picking signs seq 1 on 'genesis'.
-      await saveEnrolment(pair, { deviceId, nextSeq: 1, lastEventHash: 'genesis' });
+      try {
+        await saveEnrolment(pair, { deviceId, nextSeq: 1, lastEventHash: 'genesis' });
+      } catch (err) {
+        // The server enrolled the key and spent the code, but this phone could not keep it: a new code is
+        // the only way forward. Logged without key material (the error class only).
+        console.error('enrol.save_failed', { deviceId, errClass: err instanceof Error ? err.name : typeof err });
+        setError('saveFailed');
+        setPhase('code');
+        return;
+      }
       setPhase('done');
     } catch {
       setError('other');

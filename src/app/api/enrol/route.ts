@@ -9,12 +9,15 @@ export const dynamic = 'force-dynamic';
 const HEADERS = { 'Cache-Control': 'no-store' };
 
 /**
- * The client address for the per-IP limit: the first X-Forwarded-For hop as set by the reverse proxy
- * (Caddy replaces a client-sent header, TKT-27), else X-Real-IP, else one shared bucket.
+ * The client address for the per-IP limit (10 per hour, §10): the LAST X-Forwarded-For hop, the one the
+ * reverse proxy sets or appends. Earlier hops and X-Real-IP are client-controlled and never trusted.
+ * Deployment assumption (TKT-27, documented in .env.example): the app port is never published and
+ * Caddy, with `trusted_proxies` unset, overwrites X-Forwarded-For with the connecting address. Without
+ * the header (the app reached directly) every client shares one bucket.
  */
 function clientIp(req: Request): string {
-  const first = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-  return first || req.headers.get('x-real-ip')?.trim() || 'unknown';
+  const hops = req.headers.get('x-forwarded-for')?.split(',') ?? [];
+  return hops.at(-1)?.trim() || 'unknown';
 }
 
 /**

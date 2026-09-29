@@ -8,6 +8,33 @@ import { query } from './helpers/tracer';
 // TC-025: the first-run language sheet (ಕನ್ನಡ / English) comes before the code screen, and the choice
 // sets `lang` and persists across reloads.
 
+/** axe's serious and critical violations on the page as it is now (TC-081). */
+async function seriousAxe(page: Page): Promise<string[]> {
+  return (await new AxeBuilder({ page }).analyze()).violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id);
+}
+
+/** A preference as the phone stored it in IndexedDB `udgam`/`prefs`, or null. */
+async function storedPref(page: Page, name: string): Promise<string | null> {
+  return page.evaluate(async (key) => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('udgam');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    try {
+      if (!db.objectStoreNames.contains('prefs')) return null;
+      const rec = await new Promise<{ value?: string } | undefined>((resolve, reject) => {
+        const r = db.transaction('prefs').objectStore('prefs').get(key);
+        r.onsuccess = () => resolve(r.result as { value?: string } | undefined);
+        r.onerror = () => reject(r.error);
+      });
+      return rec?.value ?? null;
+    } finally {
+      db.close();
+    }
+  }, name);
+}
+
 const languageSheet = (page: Page) => page.getByRole('dialog', { name: 'ಭಾಷೆ · Language' });
 
 /** What the phone's IndexedDB holds after enrolment, read in the page. */
@@ -58,6 +85,7 @@ test.describe('enrolment (TKT-05)', () => {
     await sheet.getByRole('button', { name: 'ಕನ್ನಡ / Kannada' }).click();
     await expect(sheet).toBeHidden();
     await expect(page.locator('html')).toHaveAttribute('lang', 'kn');
+    await expect.poll(() => storedPref(page, 'lang')).toBe('kn'); // the phone's own copy, beside the cookie
     await expect(page.getByRole('heading', { level: 1 })).toContainText('ಫೋನ್');
 
     await page.reload();
@@ -65,6 +93,7 @@ test.describe('enrolment (TKT-05)', () => {
     await expect(languageSheet(page)).toBeHidden();
     await expect(page.locator('html')).toHaveAttribute('lang', 'kn');
     expect((await page.context().cookies()).find((c) => c.name === 'lang')?.value).toBe('kn');
+    expect(await storedPref(page, 'lang')).toBe('kn');
   });
 
   test('TC-022 a code from the office enrols the phone with a non-extractable key and anchors device_enrolled', async ({ page }) => {
@@ -80,10 +109,12 @@ test.describe('enrolment (TKT-05)', () => {
     await field.fill('ZZZZZZ');
     await page.getByRole('button', { name: 'Set up this phone' }).click();
     await expect(page.locator('#enrol-error')).toContainText('ask the office for a new code');
+    expect(await seriousAxe(page)).toEqual([]); // the error state
 
     await field.fill(seed.testOnlyCode.toLowerCase());
     await page.getByRole('button', { name: 'Set up this phone' }).click();
     await expect(page.getByTestId('enrol-done')).toHaveText('This phone is ready');
+    expect(await seriousAxe(page)).toEqual([]); // the done state
 
     const k = await storedKey(page);
     expect(k).toMatchObject({ isCryptoKey: true, extractable: false, exportRejected: true });
@@ -105,6 +136,30 @@ test.describe('enrolment (TKT-05)', () => {
     await expect(page).toHaveURL(/\/field$/);
   });
 
+  test('Fix 1: a phone that cannot keep the key after the server enrolled it says so and what to do', async ({ page }) => {
+    await ownClientAddress(page);
+    const seed = seedEnrolment();
+    await signIn(page, seed.agentEmail, SEED_PASSWORD);
+    // this browser's IndexedDB refuses to open (a full or blocked store)
+    await page.addInitScript(() => {
+      IDBFactory.prototype.open = function () {
+        throw new DOMException('IndexedDB unavailable in this test', 'UnknownError');
+      };
+    });
+    const errors: string[] = [];
+    page.on('console', (m) => {
+      if (m.type() === 'error') errors.push(m.text());
+    });
+    await page.goto('/enrol');
+    await languageSheet(page).getByRole('button', { name: 'English' }).click();
+    await page.getByLabel('Enter the 6-letter code from the office').fill(seed.testOnlyCode);
+    await page.getByRole('button', { name: 'Set up this phone' }).click();
+    await expect(page.locator('#enrol-error')).toHaveText('Phone enrolled on the server but not saved here — ask the office for a new code.');
+    expect(errors.some((e) => e.includes('enrol.save_failed'))).toBe(true);
+    expect(await query('SELECT id FROM devices WHERE agent_id = ?', [seed.agentId])).toHaveLength(1);
+    expect(await seriousAxe(page)).toEqual([]);
+  });
+
   test('no horizontal scroll and no serious axe violations on /enrol, sheet open or closed (TC-080, TC-081)', async ({ page }) => {
     await ownClientAddress(page);
     const seed = seedEnrolment();
@@ -112,14 +167,12 @@ test.describe('enrolment (TKT-05)', () => {
     await page.goto('/enrol');
     // against the project's viewport: an emulated phone widens innerWidth to fit overflowing content
     const noScroll = async () => (await page.evaluate(() => document.documentElement.scrollWidth)) <= page.viewportSize()!.width;
-    const seriousAxe = async () =>
-      (await new AxeBuilder({ page }).analyze()).violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id);
     await expect(languageSheet(page)).toBeVisible();
     expect(await noScroll()).toBe(true);
-    expect(await seriousAxe()).toEqual([]);
+    expect(await seriousAxe(page)).toEqual([]);
     await languageSheet(page).getByRole('button', { name: 'English' }).click();
     await expect(languageSheet(page)).toBeHidden();
     expect(await noScroll()).toBe(true);
-    expect(await seriousAxe()).toEqual([]);
+    expect(await seriousAxe(page)).toEqual([]);
   });
 });

@@ -55,6 +55,24 @@ describe('hit()', () => {
     expect(rows.rows.map((r) => ({ ...r }))).toEqual([{ window_start: T0.getTime() / 1000 + 120, count: 1 }]);
   });
 
+  it('Fix 1: sweeps every key’s windows older than 48 h, at most once a minute, inside a normal hit', async () => {
+    const now = new Date('2026-11-01T12:00:00.000Z');
+    const s = now.getTime() / 1000;
+    const put = (key: string, ageH: number) =>
+      t.client.execute({ sql: 'INSERT INTO rate_limits (key, window_start, count) VALUES (?, ?, 1)', args: [key, s - ageH * 3600] });
+    const keys = async () => (await t.client.execute('SELECT key FROM rate_limits ORDER BY key')).rows.map((r) => String(r.key));
+    await put('enrol:code:old', 49);
+    await put('enrol:ip:old', 72);
+    await put('enrol:ip:recent', 47);
+    await hit(t.db, 'sweeper', 10, 60, now);
+    expect(await keys()).toEqual(['enrol:ip:recent', 'sweeper']);
+    await put('enrol:code:later', 49);
+    await hit(t.db, 'sweeper', 10, 60, new Date(now.getTime() + 30_000)); // within the minute: no sweep
+    expect(await keys()).toContain('enrol:code:later');
+    await hit(t.db, 'sweeper', 10, 60, new Date(now.getTime() + 61_000));
+    expect(await keys()).not.toContain('enrol:code:later');
+  });
+
   it('counts concurrent hits exactly (no lost updates)', async () => {
     const all = await Promise.all(Array.from({ length: 20 }, () => hit(t.db, 'race', 10, 60, T0)));
     expect(all.filter((r) => r.allowed)).toHaveLength(10);

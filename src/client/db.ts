@@ -16,20 +16,58 @@ function createMissing(db: IDBPDatabase): void {
   for (const s of STORES) if (!db.objectStoreNames.contains(s)) db.createObjectStore(s, { keyPath: 'id' });
 }
 
+/** Raised when another tab holds an older version open and will not let an upgrade through. */
+export class UdgamDbBlockedError extends Error {
+  constructor() {
+    super('udgam_db_blocked');
+    this.name = 'UdgamDbBlockedError';
+  }
+}
+
+/**
+ * Open at `version` (the current one when undefined). Our connection closes itself when another tab
+ * needs to upgrade (`blocking`), and an upgrade that another tab blocks rejects at once instead of
+ * leaving the promise pending for ever (the connection is closed if it opens later).
+ */
+function open(version?: number): Promise<IDBPDatabase> {
+  return new Promise((resolve, reject) => {
+    let blocked = false;
+    let db: IDBPDatabase | undefined;
+    openDB(DB_NAME, version, {
+      upgrade: createMissing,
+      blocked() {
+        blocked = true;
+        reject(new UdgamDbBlockedError());
+      },
+      blocking() {
+        db?.close();
+      },
+    }).then(
+      (opened) => {
+        db = opened;
+        if (blocked) opened.close();
+        else resolve(opened);
+      },
+      reject,
+    );
+  });
+}
+
 /**
  * Open the database with every store present. A database created earlier with fewer stores (the TKT-02
  * tracer page opens version 1 with three) is upgraded once to the next version to add the missing ones.
+ * Rejects with UdgamDbBlockedError when another open tab blocks that upgrade.
  */
 export async function openUdgam(): Promise<IDBPDatabase> {
-  const db = await openDB(DB_NAME, VERSION, { upgrade: createMissing }).catch(async (err: unknown) => {
+  const db = await open(VERSION).catch(async (err: unknown) => {
     // Already at a later version: open whatever version is there.
-    if (err instanceof DOMException && err.name === 'VersionError') return openDB(DB_NAME);
+    if (err instanceof DOMException && err.name === 'VersionError') return open();
     throw err;
   });
   if (STORES.every((s) => db.objectStoreNames.contains(s))) return db;
   const next = db.version + 1;
   db.close();
-  return openDB(DB_NAME, next, { upgrade: createMissing });
+  return open(next);
 }
 
 /** A stored preference, or null. */

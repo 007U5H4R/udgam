@@ -91,8 +91,8 @@ describe('redeemCode (TC-021, EVAL-082)', () => {
 
   it('works just before 24 h and fails at 24 h + 1 s (injected clock)', async () => {
     const a = await issue();
-    const b = await issue();
     expect(await redeem(a.code, at(24 * 3600_000 - 1000))).toEqual({ ok: true, agentId: 'U-AGENT-A' });
+    const b = await issue();
     expect(await redeem(b.code, at(24 * 3600_000 + 1000))).toEqual({ ok: false, reason: 'expired' });
   });
 
@@ -116,6 +116,35 @@ describe('redeemCode (TC-021, EVAL-082)', () => {
     expect((await t.client.execute('SELECT used_at, attempts FROM enrollment_codes')).rows[0]).toMatchObject({ used_at: null, attempts: 6 });
   });
 
+  it('Fix 1 (major 3): the attempt limit is per code for its whole life, across a UTC-midnight window boundary', async () => {
+    const issuedAt = new Date('2026-10-14T20:00:00.000Z');
+    const { code } = await issue(issuedAt);
+    for (let i = 0; i < 5; i++) {
+      expect(await redeem(code, new Date('2026-10-14T23:00:00.000Z'), `198.51.100.${i}`, { agentId: 'U-AGENT-A2' })).toEqual({ ok: false, reason: 'invalid' });
+    }
+    // next UTC day, a fresh IP and the right session: still refused, the code has had its 5 attempts
+    expect(await redeem(code, new Date('2026-10-15T01:00:00.000Z'), '192.0.2.200', { agentId: 'U-AGENT-A' })).toEqual({ ok: false, reason: 'rate_limited' });
+    expect((await t.client.execute('SELECT used_at FROM enrollment_codes')).rows[0]!.used_at).toBeNull();
+  });
+
+  it('Fix 1: issuing a new code for an agent retires their older unused codes (they read as expired)', async () => {
+    const older = await issue();
+    const newer = await issue(at(60_000));
+    expect(await redeem(older.code, at(120_000))).toEqual({ ok: false, reason: 'expired' });
+    expect(await redeem(newer.code, at(120_000))).toEqual({ ok: true, agentId: 'U-AGENT-A' });
+  });
+
+  it('Fix 1: issueCode retries a colliding code (up to 5 tries), then gives up', async () => {
+    const args = { agentId: 'U-AGENT-A', adminId: 'U-ADMIN-A', orgId: 'ORG-A' };
+    expect((await issueCode(t.db, args, T0, () => 'ABCDEF')).code).toBe('ABCDEF');
+    const seq = ['ABCDEF', 'ABCDEF', 'ABCDEG'];
+    expect((await issueCode(t.db, args, T0, () => seq.shift()!)).code).toBe('ABCDEG');
+    let calls = 0;
+    await expect(issueCode(t.db, args, T0, () => (calls++, 'ABCDEF'))).rejects.toThrow('enrolment code collision');
+    expect(calls).toBe(5);
+    expect(Number((await t.client.execute('SELECT COUNT(*) AS n FROM enrollment_codes')).rows[0]!.n)).toBe(2);
+  });
+
   it('the 6th try of one unknown code is rate_limited (per code hash, across IPs)', async () => {
     for (let i = 0; i < 5; i++) expect(await redeem('ZZZZZZ', T0, `198.51.100.${i}`)).toEqual({ ok: false, reason: 'invalid' });
     expect(await redeem('ZZZZZZ', T0, '198.51.100.99')).toEqual({ ok: false, reason: 'rate_limited' });
@@ -133,11 +162,11 @@ describe('redeemCode (TC-021, EVAL-082)', () => {
 
   it('logs each refusal with its reason and never the code or its hash', async () => {
     const { code } = await issue();
-    const expired = await issue();
     const cap = captured();
     const opts = { log: cap.log };
     await redeem(code, T0, IP, opts);
     await redeem(code, T0, IP, opts); // used
+    const expired = await issue();
     await redeem('ZZZZZZ', T0, IP, opts); // invalid
     await redeem(expired.code, at(25 * 3600_000), IP, opts); // expired
     for (let i = 0; i < 8; i++) await redeem('YYYYYY', T0, IP, opts); // invalid, then the IP limit

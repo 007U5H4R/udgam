@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { addOrg, addUser, cookieHeader } from '../../../../tests/helpers/auth';
 import { tempDb, type TempDb } from '../../../../tests/helpers/db';
-import { generateKeyPair } from '../../../lib/crypto';
+import { generateKeyPair, publicMembers } from '../../../lib/crypto';
 import { issueCode } from '../../../lib/enrolment/codes';
 
 // TSK-05.3: POST /api/enrol needs an agent session and a code issued for that agent; JSON in, 200 {deviceId}.
@@ -32,11 +32,12 @@ async function cookieFor(email: string): Promise<string> {
 
 async function jwk() {
   const pair = await generateKeyPair(false);
-  return globalThis.crypto.subtle.exportKey('jwk', pair.publicKey);
+  return publicMembers(await globalThis.crypto.subtle.exportKey('jwk', pair.publicKey)); // what the phone sends
 }
 
-function post(body: unknown, cookie: string | null, ip = '203.0.113.5') {
-  const headers: Record<string, string> = { 'content-type': 'application/json', 'x-forwarded-for': `${ip}, 10.0.0.1` };
+/** A request as the reverse proxy forwards it: whatever the client sent in X-Forwarded-For, then its address last. */
+function post(body: unknown, cookie: string | null, ip = '203.0.113.5', extra: Record<string, string> = {}) {
+  const headers: Record<string, string> = { 'content-type': 'application/json', 'x-forwarded-for': `10.9.9.9, ${ip}`, ...extra };
   if (cookie) headers.cookie = cookie;
   return new Request('http://localhost/api/enrol', { method: 'POST', headers, body: typeof body === 'string' ? body : JSON.stringify(body) });
 }
@@ -74,7 +75,12 @@ describe('POST /api/enrol', () => {
     expect(await answer(await POST(post({ code, publicJwk: await jwk() }, cookie)))).toEqual({ status: 400, body: { error: 'used' } });
     for (let i = 0; i < 8; i++) await POST(post({ code: 'ZZZZZZ', publicJwk: await jwk() }, cookie));
     expect(await answer(await POST(post({ code: 'YYYYYY', publicJwk: await jwk() }, cookie)))).toEqual({ status: 429, body: { error: 'rate_limited' } });
-    // the limit is per client address (first X-Forwarded-For hop)
+    // the limit is per client address: the LAST X-Forwarded-For hop (the one the proxy appends/sets);
+    // a forged earlier hop or X-Real-IP does not move the caller to a fresh bucket
+    expect(await answer(await POST(post({ code: 'YYYYYY', publicJwk: await jwk() }, cookie, '203.0.113.5', { 'x-real-ip': '198.51.100.77' })))).toEqual({
+      status: 429,
+      body: { error: 'rate_limited' },
+    });
     expect(await answer(await POST(post({ code: 'YYYYYY', publicJwk: await jwk() }, cookie, '198.51.100.8')))).toEqual({ status: 400, body: { error: 'invalid' } });
   });
 });

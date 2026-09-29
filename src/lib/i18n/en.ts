@@ -38,6 +38,7 @@ export const en = {
   'enrol.error.network': 'Could not reach the office. Check the signal and try again. Nothing is lost.',
   'enrol.error.other': 'This phone could not be set up. Ask the office for a new code.',
   'enrol.error.unsupported': 'This browser cannot keep a secure key. Open Udgam in Chrome or Safari.',
+  'enrol.error.saveFailed': 'Phone enrolled on the server but not saved here — ask the office for a new code.',
   'enrol.done.title': 'This phone is {word}',
   'enrol.done.titleWord': 'ready',
   'enrol.done.lede': 'Pickings you record here are signed by this phone’s own key.',

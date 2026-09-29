@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { addOrg, addUser } from '../../../tests/helpers/auth';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
-import { generateKeyPair, jwkThumbprint } from '../crypto';
+import { generateKeyPair, jwkThumbprint, publicMembers } from '../crypto';
 import { verifyChain } from '../ledger/hashchain';
 import { issueCode } from './codes';
 import { enrolDevice, revokeDevice } from './enrol';
@@ -28,7 +28,17 @@ afterEach(async () => {
 
 async function publicJwk(): Promise<JsonWebKey> {
   const pair = await generateKeyPair(false);
-  return globalThis.crypto.subtle.exportKey('jwk', pair.publicKey);
+  return publicMembers(await globalThis.crypto.subtle.exportKey('jwk', pair.publicKey)); // what the phone sends
+}
+const B64U = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+/** The same 32 bytes with a different last character: a 43-char base64url string has 2 unused low bits. */
+const flipTrailingBit = (s: string) => s.slice(0, -1) + B64U[B64U.indexOf(s.at(-1)!) ^ 1]!;
+/** A public JWK whose x and y each contain '-' or '_', so the '+/' variant really differs. */
+async function keyWithUrlSafeChars(): Promise<JsonWebKey> {
+  for (;;) {
+    const jwk = await publicJwk();
+    if (/[-_]/.test(jwk.x!) && /[-_]/.test(jwk.y!)) return jwk;
+  }
 }
 const code = async (now = T0) => (await issueCode(t.db, { agentId: 'U-AGENT-A', adminId: 'U-ADMIN-A', orgId: 'ORG-A' }, now)).code;
 const rows = async (sql: string) => (await t.client.execute(sql)).rows.map((r) => ({ ...r }));
@@ -97,6 +107,73 @@ describe('enrolDevice', () => {
     const second = await code();
     expect(await enrolDevice(t.db, { code: second, publicJwk: jwk, ip: IP, sessionAgentId: 'U-AGENT-A' }, T0)).toEqual({ ok: false, reason: 'key_in_use' });
     expect((await rows('SELECT used_at FROM enrollment_codes WHERE used_at IS NULL')).length).toBe(1);
+  });
+
+  it('Fix 1 (major 1): only the canonical {kty, crv, x, y} with 43-character base64url coordinates is accepted', async () => {
+    const good = await publicJwk();
+    const c = await code();
+    for (const bad of [
+      { kty: 'EC', crv: 'P-256', x: `${good.x}=`, y: good.y }, // padded
+      { kty: 'EC', crv: 'P-256', x: good.x, y: `${good.y}=` },
+      { kty: 'EC', crv: 'P-256', x: good.x!.replace(/-/g, '+').replace(/_/g, '/') + '+', y: good.y }, // standard alphabet
+      { kty: 'EC', crv: 'P-256', x: good.x, y: good.y, alg: 'ES256' }, // extra members
+      { kty: 'EC', crv: 'P-256', x: good.x, y: good.y, key_ops: ['verify'], ext: true },
+      { kty: 'EC', crv: 'P-256', x: good.x!.slice(1), y: good.y },
+    ]) {
+      expect(await enrolDevice(t.db, { code: c, publicJwk: bad, ip: IP, sessionAgentId: 'U-AGENT-A' }, T0), JSON.stringify(Object.keys(bad))).toEqual({
+        ok: false,
+        reason: 'bad_key',
+      });
+    }
+    expect(await deviceCount()).toBe(0);
+  });
+
+  it('Fix 1 (major 1): a revoked key re-posted in any alternate encoding is refused and never becomes a new device', async () => {
+    const jwk = await keyWithUrlSafeChars();
+    const r = await enrolDevice(t.db, { code: await code(), publicJwk: jwk, ip: IP, sessionAgentId: 'U-AGENT-A' }, T0);
+    if (!r.ok) throw new Error(r.reason);
+    await revokeDevice(t.db, { deviceId: r.deviceId, adminOrgId: 'ORG-A' });
+    const variants: Record<string, JsonWebKey> = {
+      canonical: jwk,
+      trailingBitsX: { ...jwk, x: flipTrailingBit(jwk.x!) },
+      trailingBitsY: { ...jwk, y: flipTrailingBit(jwk.y!) },
+      padded: { ...jwk, x: `${jwk.x}=` },
+      plusSlash: { ...jwk, x: jwk.x!.replace(/-/g, '+').replace(/_/g, '/'), y: jwk.y!.replace(/-/g, '+').replace(/_/g, '/') },
+      extraMembers: { ...jwk, alg: 'ES256', key_ops: ['verify'] } as JsonWebKey,
+    };
+    const got: Record<string, unknown> = {};
+    for (const [name, v] of Object.entries(variants)) {
+      const res = await enrolDevice(t.db, { code: await code(), publicJwk: v, ip: `198.51.100.${Object.keys(got).length}`, sessionAgentId: 'U-AGENT-A' }, T0);
+      got[name] = res.ok ? `ENROLLED ${res.deviceId}` : res.reason;
+    }
+    expect(got).toEqual({
+      canonical: 'key_revoked',
+      trailingBitsX: 'key_revoked', // decodes to the same point: re-exported and thumbprinted canonically
+      trailingBitsY: 'key_revoked',
+      padded: 'bad_key',
+      plusSlash: 'bad_key',
+      extraMembers: 'bad_key',
+    });
+    expect(await deviceCount()).toBe(1);
+  });
+
+  it('Fix 1 (major 1): the stored JWK and thumbprint come from the re-exported key', async () => {
+    const jwk = await publicJwk();
+    const r = await enrolDevice(t.db, { code: await code(), publicJwk: { ...jwk, x: flipTrailingBit(jwk.x!) }, ip: IP, sessionAgentId: 'U-AGENT-A' }, T0);
+    if (!r.ok) throw new Error(r.reason);
+    const [dev] = await rows('SELECT public_key_jwk, key_thumbprint FROM devices');
+    expect(JSON.parse(String(dev!.public_key_jwk))).toEqual({ kty: 'EC', crv: 'P-256', x: jwk.x, y: jwk.y });
+    expect(dev!.key_thumbprint).toBe(await jwkThumbprint(jwk));
+  });
+
+  it('two racing redemptions of one code: exactly one enrols', async () => {
+    const c = await code();
+    const [a, b] = await Promise.all([
+      enrolDevice(t.db, { code: c, publicJwk: await publicJwk(), ip: IP, sessionAgentId: 'U-AGENT-A' }, T0),
+      enrolDevice(t.db, { code: c, publicJwk: await publicJwk(), ip: IP, sessionAgentId: 'U-AGENT-A' }, T0),
+    ]);
+    expect([a.ok ? 'ok' : a.reason, b.ok ? 'ok' : b.reason].sort()).toEqual(['ok', 'used']);
+    expect(await deviceCount()).toBe(1);
   });
 
   it('rate limits stick although the enrolment is refused (the refusal commits its counts)', async () => {

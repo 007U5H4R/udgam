@@ -1,9 +1,11 @@
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { P01_INSIDE, seedTracerWorld, type TracerWorld } from '../../../scripts/tracer-world';
 import { addUser } from '../../../tests/helpers/auth';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 import { makeDevice, type TestDevice } from '../../../tests/helpers/verify';
-import { jcs, sha256Hex, sign } from '../crypto';
+import { jcs, publicMembers, sha256Hex, sign } from '../crypto';
 import { assignPlot, unassignPlot } from '../enrolment/assign';
 import { issueCode } from '../enrolment/codes';
 import { enrolDevice, revokeDevice } from '../enrolment/enrol';
@@ -32,7 +34,7 @@ beforeEach(async () => {
   await addUser(t.db, { id: ADMIN, email: 'admin@x.test', password: 'admin password!', role: 'admin', orgId: world.orgId });
   devB = await makeDevice('unused');
   const { code } = await issueCode(t.db, { agentId: AGENT_B, adminId: ADMIN, orgId: world.orgId });
-  const r = await enrolDevice(t.db, { code, publicJwk: devB.publicJwk, ip: '203.0.113.1', sessionAgentId: AGENT_B });
+  const r = await enrolDevice(t.db, { code, publicJwk: publicMembers(devB.publicJwk), ip: '203.0.113.1', sessionAgentId: AGENT_B });
   if (!r.ok) throw new Error(`enrol failed: ${r.reason}`);
   deviceB = r.deviceId;
 });
@@ -120,6 +122,55 @@ describe('TC-023 unknown and revoked keys', () => {
     expect(await runsFor(ev.id)).toEqual([]);
     expect(await rows(`SELECT id FROM harvest_events WHERE boundary_status = 'accepted'`)).toEqual([]);
     expect(await verifyChain(t.db)).toEqual({ ok: true });
+  });
+});
+
+describe('Fix 1 (major 2): revocation and un-assignment are re-checked inside the commit transaction', () => {
+  /** A media store whose put runs `after` once the photo is stored: the capture is past the boundary. */
+  function mediaThen(after: () => Promise<unknown>) {
+    const real = localMediaStore(t.dir);
+    return { ...real, put: async (...a: Parameters<typeof real.put>) => {
+      const stored = await real.put(...a);
+      await after();
+      return stored;
+    } } satisfies typeof real;
+  }
+
+  async function runWith(fd: FormData, agentId: string, media: ReturnType<typeof localMediaStore>) {
+    const events: CaptureEvent[] = [];
+    await runCapture(fd, { db: t.db, media, agentId, now: () => RECEIVED }, (e) => events.push(e));
+    return events;
+  }
+
+  it('a phone revoked after the boundary passed → 403 device_revoked, anchored rejected after the revocation, nothing accepted, photo not kept', async () => {
+    const { fd, signed } = await capture({ key: devA, deviceId: world.deviceId });
+    const events = await runWith(fd, world.agentId, mediaThen(() => revokeDevice(t.db, { deviceId: world.deviceId, adminOrgId: world.orgId })));
+    expect(events.at(-1)).toEqual({ t: 'rejected', reason: 'device_revoked', status: 403 });
+    expect(events.some((e) => e.t === 'verdict')).toBe(false);
+    const { ev, entry } = await rejectedRow(signed);
+    expect(ev).toMatchObject({ boundary_status: 'rejected', boundary_reason: 'device_revoked', device_id: world.deviceId });
+    expect(entry.payload).toMatchObject({ boundaryStatus: 'rejected', boundaryReason: 'device_revoked' });
+    const kinds = await rows(`SELECT kind, json_extract(payload, '$.boundaryStatus') AS st FROM ledger_entries WHERE kind IN ('device_revoked', 'harvest_event') ORDER BY seq`);
+    expect(kinds).toEqual([
+      { kind: 'device_revoked', st: null },
+      { kind: 'harvest_event', st: 'rejected' },
+    ]);
+    expect(await rows('SELECT id FROM verification_runs')).toEqual([]);
+    expect(await rows('SELECT id FROM media')).toEqual([]);
+    const mediaDir = join(t.dir, 'media');
+    const files = existsSync(mediaDir) ? readdirSync(mediaDir, { recursive: true, withFileTypes: true }).filter((e) => e.isFile()) : [];
+    expect(files).toEqual([]); // the stored photo was removed with the refusal
+    expect(await verifyChain(t.db)).toEqual({ ok: true });
+  });
+
+  it('a plot un-assigned after the boundary passed → 403 plot_not_assigned, anchored rejected, nothing accepted', async () => {
+    const { fd, signed } = await capture({ key: devA, deviceId: world.deviceId });
+    const events = await runWith(fd, world.agentId, mediaThen(() => unassignPlot(t.db, { agentId: world.agentId, plotId: world.plotId, orgId: world.orgId })));
+    expect(events.at(-1)).toEqual({ t: 'rejected', reason: 'plot_not_assigned', status: 403 });
+    const { ev } = await rejectedRow(signed);
+    expect(ev).toMatchObject({ boundary_status: 'rejected', boundary_reason: 'plot_not_assigned' });
+    expect(await rows(`SELECT id FROM harvest_events WHERE boundary_status = 'accepted'`)).toEqual([]);
+    expect(await rows('SELECT id FROM verification_runs')).toEqual([]);
   });
 });
 

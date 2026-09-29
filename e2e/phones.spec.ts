@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { DEMO_ACCOUNTS, SEED_PASSWORD, signIn } from './helpers/auth';
+import { SEED_PASSWORD, signIn } from './helpers/auth';
 import { seedEnrolment } from './helpers/enrolment';
 import { query } from './helpers/tracer';
 
@@ -9,7 +9,6 @@ import { query } from './helpers/tracer';
 // phone behind a confirm sheet (the revocation is anchored), assign a plot; no horizontal scroll at any
 // project viewport (320, 375, 768, 1440; TC-080) and no serious axe violations (TC-081).
 
-const agent = DEMO_ACCOUNTS.agentA;
 
 async function noHorizontalScroll(page: Page) {
   // Against the project's viewport, not innerWidth: an emulated phone widens its layout viewport to fit
@@ -25,8 +24,9 @@ async function noSeriousAxeViolations(page: Page) {
 
 test.describe('/admin/phones (TKT-05)', () => {
   test('issue a code once, revoke a phone (anchored), assign a plot', async ({ page }) => {
-    const seed = seedEnrolment({ enrol: true, plot: true });
-    await signIn(page, DEMO_ACCOUNTS.adminA.email, SEED_PASSWORD);
+    const seed = seedEnrolment({ enrol: true, plot: true }); // a fresh FPO: its admin, agent, phone and plot
+    const agent = { id: seed.agentId, name: seed.agentName };
+    await signIn(page, seed.adminEmail, SEED_PASSWORD);
     await page.goto('/admin/phones');
     await expect(page.getByRole('navigation', { name: 'Admin sections' }).getByRole('link', { name: 'Phones' })).toHaveAttribute('aria-current', 'page');
     const card = page.getByTestId(`agent-${agent.id}`);
@@ -77,7 +77,7 @@ test.describe('/admin/phones (TKT-05)', () => {
   });
 
   test('loading, empty and error states are reachable and have no horizontal scroll', async ({ page }) => {
-    await signIn(page, DEMO_ACCOUNTS.adminA.email, SEED_PASSWORD);
+    await signIn(page, seedEnrolment().adminEmail, SEED_PASSWORD);
     await page.goto('/admin/phones?state=loading');
     await expect(page.getByTestId('phones-loading')).toBeVisible();
     await noHorizontalScroll(page);
@@ -91,8 +91,7 @@ test.describe('/admin/phones (TKT-05)', () => {
   });
 
   test('an agent cannot open the Phones page (redirected to their own home)', async ({ page }) => {
-    seedEnrolment();
-    await signIn(page, agent.email, SEED_PASSWORD);
+    await signIn(page, seedEnrolment().agentEmail, SEED_PASSWORD);
     await page.goto('/admin/phones');
     await expect(page).toHaveURL(/\/field$/);
   });

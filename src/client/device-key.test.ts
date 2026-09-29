@@ -39,6 +39,35 @@ describe('the udgam IndexedDB', () => {
   });
 });
 
+describe('the udgam IndexedDB with other tabs open (Fix 1)', () => {
+  const rawOpen = (version: number, stores: string[] = []) =>
+    new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('udgam', version);
+      req.onupgradeneeded = () => {
+        for (const s of stores) if (!req.result.objectStoreNames.contains(s)) req.result.createObjectStore(s, { keyPath: 'id' });
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+      req.onblocked = () => reject(new Error('raw open blocked'));
+    });
+
+  it('rejects instead of hanging when an upgrade is blocked by another tab holding the old version open', async () => {
+    const legacy = await rawOpen(1, ['keys', 'device', 'outbox']); // e.g. the tracer page, never closing
+    await expect(openUdgam()).rejects.toThrow('udgam_db_blocked');
+    legacy.close();
+    const db = await openUdgam(); // once the other tab lets go, it works
+    expect(db.objectStoreNames.contains('prefs')).toBe(true);
+    db.close();
+  });
+
+  it('closes its own connection when another tab needs to upgrade (blocking)', async () => {
+    const mine = await openUdgam();
+    const other = await rawOpen(mine.version + 1);
+    expect(other.version).toBe(mine.version + 1);
+    other.close();
+  });
+});
+
 describe('device key', () => {
   it('creates a P-256 pair once and returns the same stored key afterwards', async () => {
     const a = await getOrCreateKeyPair();
