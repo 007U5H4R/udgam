@@ -19,7 +19,29 @@ const eslintConfig = defineConfig([
     "playwright-report/**",
     "test-results/**",
     "coverage/**",
+    ".claude/**",
   ]),
+  {
+    // technical-plan §3.3 / TC-005: src/lib is framework-free so evals, scripts and tests can import it.
+    files: ["src/lib/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: ["next", "react", "react-dom", "server-only"].map((name) => ({
+            name,
+            message: "src/lib must not import Next.js, React or server-only; put framework code in src/app or src/components.",
+          })),
+          patterns: [
+            {
+              group: ["next/*", "react/*", "react-dom/*"],
+              message: "src/lib must not import Next.js or React; put framework code in src/app or src/components.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

@@ -2,6 +2,7 @@
   "name": "udgam",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "engines": {
     "node": ">=22"
   },
@@ -13,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:int": "vitest run --project integration",
     "test:e2e": "playwright test",
     "verify": "pnpm typecheck && pnpm lint && pnpm test",
     "eval": "node -e \"console.error('pnpm eval: harness not built yet (TKT-03)');process.exit(1)\"",
