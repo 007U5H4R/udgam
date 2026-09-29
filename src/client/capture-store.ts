@@ -17,9 +17,18 @@ export type OutboxItem = {
   /** For the "saved on this phone" screens (TKT-11): what the farmer sent. */
   plotId?: string;
   cherryKg?: number;
+  /**
+   * Set when the server has answered this copy but the phone could not finish its own bookkeeping (a
+   * store error after the answer, TASK-11 fix round 1): the chain-head move still owed (a verdict), or
+   * null for a refusal. It must not be sent again; `finishAnswered` completes it at the next start.
+   */
+  answered?: { advance: Advance | null };
 };
 
-export type NewOutboxItem = Omit<OutboxItem, 'id' | 'createdAt' | 'attempts'> & { id?: string };
+/** The chain-head move a verdict owes: payload `seq` of `deviceId` is on record with this hash. */
+export type Advance = { deviceId: string; seq: number; payloadHash: string };
+
+export type NewOutboxItem = Omit<OutboxItem, 'id' | 'createdAt' | 'attempts' | 'answered'> & { id?: string };
 
 /** Store a capture; resolves its id. */
 export async function putOutbox(item: NewOutboxItem): Promise<string> {
@@ -46,6 +55,30 @@ export async function deleteOutbox(id: string): Promise<void> {
   const db = await openUdgam();
   try {
     await db.delete('outbox', id);
+  } finally {
+    db.close();
+  }
+}
+
+/** Flag a stored copy as answered by the server, with the bookkeeping still owed (see OutboxItem.answered). */
+export async function markAnswered(id: string, advance: Advance | null): Promise<void> {
+  const db = await openUdgam();
+  try {
+    const tx = db.transaction('outbox', 'readwrite');
+    const item = (await tx.store.get(id)) as OutboxItem | undefined;
+    if (item) await tx.store.put({ ...item, answered: { advance } } satisfies OutboxItem);
+    await tx.done;
+  } finally {
+    db.close();
+  }
+}
+
+/** The stored copies flagged as answered: their ids and the chain-head move each still owes. */
+export async function answeredItems(): Promise<{ id: string; advance: Advance | null }[]> {
+  const db = await openUdgam();
+  try {
+    const all = (await db.getAll('outbox')) as OutboxItem[];
+    return all.filter((i) => i.answered !== undefined).map((i) => ({ id: i.id, advance: i.answered!.advance }));
   } finally {
     db.close();
   }

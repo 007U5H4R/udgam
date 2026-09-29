@@ -124,6 +124,23 @@ describe('runCapture happy path', () => {
     expect((await t.client.execute(`SELECT final_verdict FROM harvest_events WHERE seq = 2`)).rows[0]?.final_verdict).toBe('Rejected');
   });
 
+  it('TASK-11 fix round 1: the verdict line names the hard fail per check and the score caps (additive fields), on a replay too', async () => {
+    const first = await form({ photos: [photo('h')] });
+    const accepted = (await run(first.fd)).at(-1)!;
+    expect(accepted.t === 'verdict' && accepted.checks.every((c) => c.hardFail === false)).toBe(true);
+    expect(accepted.t === 'verdict' && accepted.capReasons).toEqual([]);
+    const second = await form({ photos: [photo('h')], seq: 2, prevEventHash: await sha256Hex(first.signed) });
+    const rejected = (await run(second.fd)).at(-1)!;
+    expect(rejected).toMatchObject({ t: 'verdict', verdict: 'Rejected' });
+    expect(rejected.t === 'verdict' && rejected.checks.filter((c) => c.hardFail).map((c) => c.id)).toEqual(['photo_uniqueness']);
+    expect(rejected.t === 'verdict' && rejected.capReasons).toEqual(['anyFail']);
+    // the identical signed bytes again: the original line, with the same fields
+    const again = await form({ photos: [photo('h')], seq: 2 });
+    again.fd.set('payload', second.fd.get('payload') as string);
+    again.fd.set('signature', second.fd.get('signature') as string);
+    expect(await run(again.fd)).toEqual([{ ...rejected, idempotent: true }]);
+  });
+
   it('TP10: a stale entry replayed out of order is flagged by chain_continuity and never rewinds the phone’s chain head', async () => {
     const first = await form({ photos: [photo('c1')] });
     await run(first.fd);

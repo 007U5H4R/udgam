@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { VerdictView } from '../../client/capture-client';
-import { initialFlow, reduce, usedPhotos, type FlowAction, type FlowState } from './record-flow';
+import { MAX_PHOTO_BYTES } from '../../lib/capture/limits';
+import { initialFlow, photoProblem, reduce, usedPhotos, type FlowAction, type FlowState, type Slot } from './record-flow';
 
 // TSK-10.6: the record flow (photos → review → weight → checking → verdict | saved) as a pure reducer.
 
@@ -8,10 +9,17 @@ const file = (name = 'a.jpg') => new File([new Uint8Array([0xff, 0xd8, 0xff, 1])
 const run = (s: FlowState, ...actions: FlowAction[]) => actions.reduce(reduce, s);
 const keys = (s: FlowState, ...ks: string[]) => run(s, ...ks.map((k) => ({ type: 'key', k }) as FlowAction));
 const H = 'a'.repeat(64);
+/** Take a photo into `slot` and accept it ("Use this photo" hashed it). */
+function pick(slot: Slot, sha256 = H, f = file()): FlowAction[] {
+  return [
+    { type: 'take', slot, file: f },
+    { type: 'use', slot, file: f, sha256, size: 4, mime: 'image/jpeg' },
+  ];
+}
 
 /** A flow on the weight step with one photo used. */
 function atWeight(): FlowState {
-  return run(initialFlow('PL-1'), { type: 'take', slot: 0, file: file() }, { type: 'use', sha256: H, size: 4, mime: 'image/jpeg' }, { type: 'continue' });
+  return run(initialFlow('PL-1'), ...pick(0), { type: 'continue' });
 }
 
 const verdict: VerdictView = { eventId: 'HE-1', verdict: 'Verified', score: 95, checks: [], idempotent: false };
@@ -31,14 +39,15 @@ describe('photos and review', () => {
   });
 
   it('take → review of that slot; use → back to photos with the hash kept; the third use goes to weight', () => {
-    let s = reduce(initialFlow('PL-1'), { type: 'take', slot: 0, file: file() });
+    const f0 = file();
+    let s = reduce(initialFlow('PL-1'), { type: 'take', slot: 0, file: f0 });
     expect(s).toMatchObject({ step: 'review', reviewing: 0 });
-    s = reduce(s, { type: 'use', sha256: H, size: 4, mime: 'image/jpeg' });
+    s = reduce(s, { type: 'use', slot: 0, file: f0, sha256: H, size: 4, mime: 'image/jpeg' });
     expect(s.step).toBe('photos');
     expect(s.reviewing).toBeUndefined();
     expect(usedPhotos(s)).toEqual([expect.objectContaining({ slot: 0, sha256: H, size: 4, mime: 'image/jpeg' })]);
-    s = run(s, { type: 'take', slot: 1, file: file() }, { type: 'use', sha256: 'b'.repeat(64), size: 4, mime: 'image/jpeg' });
-    s = run(s, { type: 'take', slot: 2, file: file() }, { type: 'use', sha256: 'c'.repeat(64), size: 4, mime: 'image/jpeg' });
+    s = run(s, ...pick(1, 'b'.repeat(64)));
+    s = run(s, ...pick(2, 'c'.repeat(64)));
     expect(s.step).toBe('weight');
     expect(usedPhotos(s)).toHaveLength(3);
   });
@@ -54,6 +63,39 @@ describe('photos and review', () => {
     const s = run(initialFlow('PL-1'), { type: 'take', slot: 0, file: file() }, { type: 'back' });
     expect(s.step).toBe('photos');
     expect(s.photos[0]!.file).toBeUndefined();
+  });
+});
+
+describe('"Use this photo" is tied to the photo it hashed (TASK-11 fix round 1)', () => {
+  it('a hash for another slot, or for an earlier file of the same slot, is ignored', () => {
+    const old = file('old.jpg');
+    const fresh = file('new.jpg');
+    // hashing of `old` was still running when the farmer went back and took a new photo into slot 0
+    const s = run(initialFlow('PL-1'), { type: 'take', slot: 0, file: old }, { type: 'back' }, { type: 'take', slot: 0, file: fresh });
+    expect(run(s, { type: 'use', slot: 0, file: old, sha256: H, size: 4, mime: 'image/jpeg' })).toBe(s);
+    expect(run(s, { type: 'use', slot: 1, file: fresh, sha256: H, size: 4, mime: 'image/jpeg' })).toBe(s);
+    expect(usedPhotos(run(s, { type: 'use', slot: 0, file: fresh, sha256: H, size: 4, mime: 'image/jpeg' }))).toHaveLength(1);
+  });
+
+  it('a refused photo stays on review with the reason; Take again or Back clears it; a stale refusal is ignored', () => {
+    const f = file();
+    const s = run(initialFlow('PL-1'), { type: 'take', slot: 2, file: f }, { type: 'refuse', slot: 2, file: f, why: 'type' });
+    expect(s).toMatchObject({ step: 'review', reviewing: 2, photoError: 'type' });
+    expect(usedPhotos(s)).toHaveLength(0);
+    expect(reduce(s, { type: 'retake' }).photoError).toBeUndefined();
+    expect(reduce(s, { type: 'back' }).photoError).toBeUndefined();
+    const other = run(initialFlow('PL-1'), { type: 'take', slot: 2, file: file() });
+    expect(reduce(other, { type: 'refuse', slot: 2, file: f, why: 'size' })).toBe(other);
+  });
+
+  it('photoProblem: JPEG or HEIC (as sniffed) of at most 10 MB only', () => {
+    expect(MAX_PHOTO_BYTES).toBe(10 * 1024 * 1024);
+    expect(photoProblem({ mime: 'image/jpeg', size: 10 * 1024 * 1024 })).toBeNull();
+    expect(photoProblem({ mime: 'image/heic', size: 3_000_000 })).toBeNull();
+    expect(photoProblem({ mime: 'image/jpeg', size: 10 * 1024 * 1024 + 1 })).toBe('size');
+    expect(photoProblem({ mime: 'image/png', size: 1000 })).toBe('type');
+    expect(photoProblem({ mime: 'image/webp', size: 1000 })).toBe('type');
+    expect(photoProblem({ mime: 'application/octet-stream', size: 11 * 1024 * 1024 })).toBe('type');
   });
 });
 

@@ -4,18 +4,21 @@ import { Pill } from '../ui/Pill';
 import { Ic } from './icons';
 import { Lit } from './Lit';
 import { SLOTS } from './PhotosStep';
-import type { Slot } from './record-flow';
+import type { PhotoProblem, Slot } from './record-flow';
 
 // Review a photo (final/index.html #s3) after the phone's camera: the photo itself, "Is the photo
 // clear?" with the three things to check, then "Use this photo" (hashes it) or "Take again".
 
 const CHECKS: MessageKey[] = ['rec.review.focus', 'rec.review.seen', 'rec.review.dark'];
+/** Why this photo cannot be used, in the farmer's words (TASK-11 fix round 1). */
+const PROBLEM: Record<PhotoProblem, MessageKey> = { type: 'rec.review.type', size: 'rec.review.size', read: 'rec.review.read' };
 
 export function ReviewStep({
   slot,
   preview,
   lang,
   busy,
+  error,
   onBack,
   onUse,
   onRetake,
@@ -24,6 +27,8 @@ export function ReviewStep({
   preview?: string;
   lang: Lang;
   busy: boolean;
+  /** The photo cannot be sent: the screen says why, and only Take again is offered. */
+  error?: PhotoProblem;
   onBack: () => void;
   onUse: () => void;
   onRetake: () => void;
@@ -57,8 +62,13 @@ export function ReviewStep({
           </GlassCard>
         ))}
       </ul>
+      {error ? (
+        <p className="note" role="alert" data-testid="photo-error">
+          {tr(PROBLEM[error])}
+        </p>
+      ) : null}
       <div className="actions">
-        <Pill icon={<Ic name="check" />} onClick={onUse} disabled={busy}>
+        <Pill icon={<Ic name="check" />} onClick={onUse} disabled={busy || error !== undefined}>
           {tr('rec.review.use')}
         </Pill>
         <Pill variant="ghost" icon={<Ic name="camera" />} onClick={onRetake} disabled={busy}>

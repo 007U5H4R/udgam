@@ -102,6 +102,9 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'rec.review.dark': 'ಅದು ತುಂಬಾ ಕತ್ತಲಾಗಿಲ್ಲ', // REVIEW: native speaker
   'rec.review.use': 'ಈ ಫೋಟೋ ಬಳಸಿ', // REVIEW: native speaker
   'rec.review.again': 'ಮತ್ತೆ ತೆಗೆಯಿರಿ', // REVIEW: native speaker
+  'rec.review.type': 'ಈ ಫೋಟೋ ಕಚೇರಿ ಓದಬಹುದಾದ ಕ್ಯಾಮೆರಾ ಚಿತ್ರವಲ್ಲ. ಕ್ಯಾಮೆರಾ ತೆರೆಯಿರಿ ಬಳಸಿ ಮತ್ತೆ ತೆಗೆಯಿರಿ.', // REVIEW: native speaker
+  'rec.review.size': 'ಈ ಫೋಟೋ ಕಳುಹಿಸಲು ತುಂಬಾ ದೊಡ್ಡದಾಗಿದೆ. ಮತ್ತೆ ತೆಗೆಯಿರಿ.', // REVIEW: native speaker
+  'rec.review.read': 'ಈ ಫೋಟೋವನ್ನು ಓದಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ತೆಗೆಯಿರಿ.', // REVIEW: native speaker
   'gps.finding': 'ನಿಮ್ಮ ಸ್ಥಳ ಹುಡುಕಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
   'gps.weak': 'ಉತ್ತಮ ಸ್ಥಳಕ್ಕಾಗಿ ತೆರೆದ ಆಕಾಶದ ಕೆಳಗೆ ಬನ್ನಿ. ನೀವು ಈಗಲೂ ದಾಖಲಿಸಬಹುದು.', // REVIEW: native speaker
   'gps.denied': 'ಸ್ಥಳ ಆಫ್ ಆಗಿದೆ. ಅನುಮತಿಸಲು:', // REVIEW: native speaker
@@ -149,6 +152,10 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'rec.saved.body': 'ಏನೂ ಕಳೆದುಹೋಗಿಲ್ಲ: {photos} ಮತ್ತು {kg} ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ.', // REVIEW: native speaker
   'rec.saved.retry': 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ', // REVIEW: native speaker
   'rec.saved.later': 'ನಂತರ ಪ್ರಯತ್ನಿಸಿ', // REVIEW: native speaker
+  'rec.saved.waitSec1': '1 ಸೆಕೆಂಡಿನ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಬಹುದು.', // REVIEW: native speaker
+  'rec.saved.waitSec': '{sec} ಸೆಕೆಂಡುಗಳ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಬಹುದು.', // REVIEW: native speaker
+  'rec.saved.wait1': '1 ನಿಮಿಷದ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಬಹುದು.', // REVIEW: native speaker
+  'rec.saved.waitMin': '{min} ನಿಮಿಷಗಳ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಬಹುದು.', // REVIEW: native speaker
   'rec.photos1': '1 ಫೋಟೋ', // REVIEW: native speaker
   'rec.photosN': '{n} ಫೋಟೋಗಳು', // REVIEW: native speaker
   'rec.noDevice': 'ಈ ಫೋನ್ ಇನ್ನೂ ಕೊಯ್ಲುಗಳಿಗೆ ಸಿದ್ಧವಾಗಿಲ್ಲ.', // REVIEW: native speaker
@@ -189,6 +196,7 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'fe.yield.high': 'ಈ ಹಂಗಾಮಿನ ಒಟ್ಟು ಕೊಯ್ಲು ಈ ತೋಟದ ಸಾಮಾನ್ಯ ಇಳುವರಿಯ {x} ಆಗಿದೆ.', // REVIEW: native speaker
   'fe.yield.none': 'ಈ ಬೆಳೆಯ ಸಾಮಾನ್ಯ ಇಳುವರಿ ಇನ್ನೂ ದಾಖಲಾಗಿಲ್ಲ.', // REVIEW: native speaker
   'fe.threw': 'ಒಂದು ಪರಿಶೀಲನೆ ನಡೆಯಲಿಲ್ಲ. ಕಚೇರಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸುತ್ತದೆ.', // REVIEW: native speaker
+  'fe.demo': ' (ಡೆಮೊ ಡೇಟಾ)', // REVIEW: native speaker (EXE12 "(demo data)" label; starts with a space)
   'fe.office': 'ಕಚೇರಿ ಇದನ್ನು ನೋಡುತ್ತದೆ. ನೀವು ಏನೂ ಮಾಡಬೇಕಿಲ್ಲ.', // REVIEW: native speaker
   'fe.todo.photos': 'ಇಂದಿನ ಕೊಯ್ಲಿನ ಹೊಸ ಫೋಟೋಗಳನ್ನು ತೆಗೆದು ಮತ್ತೆ ದಾಖಲಿಸಿ.', // REVIEW: native speaker
   'fe.todo.seal': 'ಈ ಫೋನನ್ನು ಮತ್ತೆ ಸಿದ್ಧಪಡಿಸಲು ಕಚೇರಿಗೆ ಕೇಳಿ.', // REVIEW: native speaker
