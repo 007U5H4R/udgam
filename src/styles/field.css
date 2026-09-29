@@ -1002,8 +1002,9 @@ html[lang='kn'] body {
     margin-bottom: 10px;
     font-size: 16px;
   }
+  /* Keys keep the 56 px primary-target minimum here too (Design.md §17; the mockup had 50 px). */
   .key {
-    height: 50px;
+    height: 56px;
   }
   .keypad {
     gap: 8px;

@@ -15,7 +15,7 @@ export type HomePlot = {
   areaHa: number;
   crop: 'arabica' | 'robusta';
   geojson: PlotPolygon;
-  /** The latest accepted picking on the plot (client capture time), or null. */
+  /** This agent's latest accepted picking on the plot (server receipt time, not the phone's clock), or null. */
   lastPickedAt: string | null;
 };
 
@@ -44,9 +44,10 @@ export async function getFieldHome(db: Db, agentId: string, orgId: string): Prom
     plotIds.length === 0
       ? []
       : db
-          .select({ plotId: harvestEvents.plotId, lastAt: max(harvestEvents.clientCapturedAt), lastSeq: max(harvestEvents.anchorSeq) })
+          .select({ plotId: harvestEvents.plotId, lastAt: max(harvestEvents.serverReceivedAt), lastSeq: max(harvestEvents.anchorSeq) })
           .from(harvestEvents)
-          .where(and(inArray(harvestEvents.plotId, plotIds), eq(harvestEvents.boundaryStatus, 'accepted')))
+          // "the plot the agent picked most recently" (Design.md §8): this agent's own pickings only
+          .where(and(inArray(harvestEvents.plotId, plotIds), eq(harvestEvents.agentId, agentId), eq(harvestEvents.boundaryStatus, 'accepted')))
           .groupBy(harvestEvents.plotId),
     db
       .select({ eventId: harvestEvents.id, receivedAt: harvestEvents.serverReceivedAt, cherryKg: harvestEvents.cherryKg, verdict: harvestEvents.finalVerdict })
@@ -88,12 +89,22 @@ export async function getFieldHome(db: Db, agentId: string, orgId: string): Prom
   };
 }
 
-/** The min and max kg of this agent's last 10 accepted pickings on the plot, or null when there are none (D6: the farmer's own range). */
+/**
+ * The min and max kg of this agent's last 10 accepted, not Rejected pickings on the plot, or null when
+ * there are none (D6: the farmer's own usual range; a Rejected 480 kg must not widen it).
+ */
 export async function recentKgRange(db: Db, agentId: string, plotId: string): Promise<{ min: number; max: number } | null> {
   const rows = await db
     .select({ kg: harvestEvents.cherryKg })
     .from(harvestEvents)
-    .where(and(eq(harvestEvents.agentId, agentId), eq(harvestEvents.plotId, plotId), eq(harvestEvents.boundaryStatus, 'accepted')))
+    .where(
+      and(
+        eq(harvestEvents.agentId, agentId),
+        eq(harvestEvents.plotId, plotId),
+        eq(harvestEvents.boundaryStatus, 'accepted'),
+        inArray(harvestEvents.finalVerdict, ['Verified', 'Needs Review']),
+      ),
+    )
     .orderBy(desc(harvestEvents.anchorSeq))
     .limit(10);
   const kgs = rows.map((r) => r.kg).filter((k): k is number => typeof k === 'number');

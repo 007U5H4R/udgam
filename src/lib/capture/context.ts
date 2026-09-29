@@ -18,14 +18,17 @@ import type { BoundaryDevice } from './boundary';
 export type PlotRow = typeof plots.$inferSelect;
 
 /**
- * Test-only (technical-plan §1, TSK-10.10): with `E2E=1` and `E2E_FIXTURE_DELAY_MS=<ms>`, every NDVI
- * call of `provider` answers that much later, so the e2e can watch the satellite groups tick after the
- * local ones (TC-045). Without `E2E=1` the variable is ignored and the provider is returned unchanged.
+ * Test-only (technical-plan §1, TSK-10.10): with `E2E=1` and `E2E_FIXTURE_DELAY_MS=<ms>` (read through
+ * env.ts), every NDVI call of the FIXTURE provider answers that much later, so the e2e can watch the
+ * satellite groups tick after the local ones (TC-045). Without `E2E=1`, or for the live provider, the
+ * provider is returned unchanged.
  */
-export function withE2eDelay(provider: RemoteSensingProvider, vars: Record<string, string | undefined> = process.env): RemoteSensingProvider {
-  if (vars.E2E !== '1') return provider;
-  const ms = Number(vars.E2E_FIXTURE_DELAY_MS);
-  if (!Number.isFinite(ms) || ms <= 0) return provider;
+export function withE2eDelay(
+  provider: RemoteSensingProvider,
+  vars: { E2E?: string; E2E_FIXTURE_DELAY_MS?: number } = { E2E: env.E2E, E2E_FIXTURE_DELAY_MS: env.E2E_FIXTURE_DELAY_MS },
+): RemoteSensingProvider {
+  const ms = vars.E2E_FIXTURE_DELAY_MS ?? 0;
+  if (vars.E2E !== '1' || provider.name !== 'fixture' || ms <= 0) return provider;
   const later = <T>(call: () => Promise<T>) => new Promise<void>((r) => setTimeout(r, ms)).then(call);
   return {
     name: provider.name,

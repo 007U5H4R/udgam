@@ -1,6 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
 import { demoPhoto, openField, seedCaptureWorld, type SeededCapture } from './helpers/capture';
-import { query } from './helpers/tracer';
 
 // TSK-10.10 / TC-045: the checking screen shows the six farmer-facing groups ticking as the server's
 // NDJSON stream reports their checks (TP12), local groups before the satellite ones; the bar fills by
@@ -73,16 +72,8 @@ test('TC-045 the six groups tick as their checks stream, local before satellite;
   // local groups tick before the satellite groups
   expect(firstDone(rec, 'inside')).toBeLessThanOrEqual(firstDone(rec, 'forest'));
   expect(firstDone(rec, 'photos')).toBeLessThanOrEqual(firstDone(rec, 'satellite'));
-  const [run] = await query<{ checks: string }>(
-    'SELECT vr.checks FROM verification_runs vr JOIN harvest_events he ON he.id = vr.event_id WHERE he.device_id = ? ORDER BY he.seq DESC LIMIT 1',
-    [seed.deviceId],
-  );
-  if (run!.checks.includes('"ndvi_harvest_window"')) {
-    // TKT-07's remote checks are registered: the 2 s NDVI delay separates them visibly.
-    expect(firstDone(rec, 'satellite') - firstDone(rec, 'inside')).toBeGreaterThanOrEqual(1500);
-  } else {
-    test.info().annotations.push({ type: 'note', description: 'remote checks not registered at this base: forest/satellite tick with the verdict' });
-  }
+  // TKT-07's remote checks are registered: the 2 s NDVI delay separates them visibly.
+  expect(firstDone(rec, 'satellite') - firstDone(rec, 'inside')).toBeGreaterThanOrEqual(1500);
 });
 
 test('TC-045 with reduced motion: waits on "See result", the cherry does not move, the live region has 6 groups + the result', async ({ page, context }) => {
@@ -95,6 +86,8 @@ test('TC-045 with reduced motion: waits on "See result", the cherry does not mov
   expect(await page.locator('.cherry').evaluate((el) => el.getAnimations({ subtree: true }).length)).toBe(0);
   await page.waitForTimeout(1500); // longer than the 600 ms auto-advance
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Checking your picking');
+  // EVAL-070 t1 is marked when the verdict has rendered, before "See result" (no designed delay in S3)
+  expect(await page.evaluate(() => performance.getEntriesByName('udgam:t1-verdict').length)).toBe(1);
   await expect(page.locator('#bar')).toHaveAttribute('aria-valuenow', '6');
   await expect(page.locator('.meter-txt')).toHaveText('6 of 6 checks done');
   const live = page.getByTestId('checks-live').locator('p');

@@ -101,6 +101,14 @@ describe('loadEnv', () => {
     });
   });
 
+  it('E2E_FIXTURE_DELAY_MS (test-only) is an optional whole number of ms, 0 or more', () => {
+    expect(loadEnv({}).E2E_FIXTURE_DELAY_MS).toBeUndefined();
+    expect(loadEnv({ E2E_FIXTURE_DELAY_MS: '2000' }).E2E_FIXTURE_DELAY_MS).toBe(2000);
+    expect(() => loadEnv({ E2E_FIXTURE_DELAY_MS: '-1' })).toThrow(/E2E_FIXTURE_DELAY_MS/);
+    expect(() => loadEnv({ E2E_FIXTURE_DELAY_MS: 'soon' })).toThrow(/E2E_FIXTURE_DELAY_MS/);
+    expect(() => loadEnv({ E2E_FIXTURE_DELAY_MS: '1.5' })).toThrow(/E2E_FIXTURE_DELAY_MS/);
+  });
+
   it('never puts values in error messages', () => {
     const secret = 'canary-'.repeat(6); // low-entropy on purpose: not scan bait
     for (const src of [
