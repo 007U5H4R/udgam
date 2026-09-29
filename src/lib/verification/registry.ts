@@ -1,8 +1,11 @@
+import { deforestationOverlap } from './checks/deforestation_overlap';
 import { exifGpsAgreement } from './checks/exif_gps_agreement';
 import { exifTimeAgreement } from './checks/exif_time_agreement';
 import { geofence } from './checks/geofence';
 import { gpsAccuracy } from './checks/gps_accuracy';
 import { movementPlausibility } from './checks/movement_plausibility';
+import { ndviCultivation } from './checks/ndvi_cultivation';
+import { ndviHarvestWindow } from './checks/ndvi_harvest_window';
 import { photoUniqueness } from './checks/photo-uniqueness';
 import { signatureValid } from './checks/signature-valid';
 import type { VerifyConfig } from './config';
@@ -15,12 +18,14 @@ export type Check = {
   id: CheckId;
   kind: 'local' | 'remote';
   provider?: Provider;
-  run(sub: Submission, ctx: VerifyContext, config: VerifyConfig): Promise<CheckOutcome>;
+  /** `opts.signal` (remote checks) aborts at the remote-phase cap; hand it to every provider call. */
+  run(sub: Submission, ctx: VerifyContext, config: VerifyConfig, opts?: { signal?: AbortSignal }): Promise<CheckOutcome>;
 };
 
 /**
  * The check registry, in technical-plan §6.3 order. Checks not built yet are absent (the harness
- * reports their cases `not_yet_implemented`, TKT-03); TKT-07/08/09 add the other nine.
+ * reports their cases `not_yet_implemented`, TKT-03); TKT-07 added the three satellite checks
+ * (remote, each naming its provider); TKT-09 adds the rest.
  */
 export const REGISTRY: readonly Check[] = [
   signatureValid,
@@ -30,4 +35,7 @@ export const REGISTRY: readonly Check[] = [
   exifGpsAgreement,
   exifTimeAgreement,
   movementPlausibility,
+  deforestationOverlap,
+  ndviCultivation,
+  ndviHarvestWindow,
 ];

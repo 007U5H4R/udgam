@@ -1,7 +1,9 @@
 import { and, count, desc, eq, inArray } from 'drizzle-orm';
+import { env } from '../config/env';
 import type { Db } from '../db/client';
 import { harvestEvents, media, type plots } from '../db/schema';
 import type { PlotPolygon } from '../geo/types';
+import { appRemoteSensing } from '../remote-sensing';
 import type { RemoteSensingProvider } from '../remote-sensing/types';
 import type { CapturePayloadV1, VerifyContext } from '../verification/types';
 import type { BoundaryDevice } from './boundary';
@@ -11,13 +13,6 @@ import type { BoundaryDevice } from './boundary';
 
 export type PlotRow = typeof plots.$inferSelect;
 
-/** Until TKT-07 wires the cache-wrapped fixture/live providers, no remote check exists to call this. */
-export const REMOTE_SENSING_STUB: RemoteSensingProvider = {
-  name: 'fixture',
-  forestLoss: () => Promise.reject(new Error('remote sensing arrives with TKT-07')),
-  ndviHistory: () => Promise.reject(new Error('remote sensing arrives with TKT-07')),
-  ndviWindow: () => Promise.reject(new Error('remote sensing arrives with TKT-07')),
-};
 
 /**
  * Placeholder until TKT-09 seeds `crop_yield_reference` (technical-plan §6.6: Coffee Board of India
@@ -31,6 +26,7 @@ const YIELD_PLACEHOLDER = {
 export async function buildContext(
   db: Db,
   { payload, device, plot }: { payload: CapturePayloadV1; device: BoundaryDevice; plot: PlotRow },
+  deps: { remoteSensing?: RemoteSensingProvider } = {},
 ): Promise<VerifyContext> {
   const hashes = [...new Set(payload.media.map((m) => m.sha256))];
 
@@ -63,6 +59,7 @@ export async function buildContext(
     seenMediaHashes: new Set(seenRows.map((r) => r.sha256)),
     seasonCherryKgBefore: 0, // TP6 season window arrives with TKT-09
     yieldReference: YIELD_PLACEHOLDER[plot.crop],
-    remoteSensing: REMOTE_SENSING_STUB,
+    // The provider REMOTE_SENSING_PROVIDER names, with 8 s timeouts and the per-plot cache (§7, TKT-07).
+    remoteSensing: deps.remoteSensing ?? appRemoteSensing(db, env),
   };
 }
