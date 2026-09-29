@@ -16,9 +16,9 @@
 
 **Tech stack (TP1).** See §0 for pinned versions. Next.js App Router + React + TypeScript (strict) · Tailwind CSS v4 with Design.md §12 tokens as CSS variables · shadcn/ui only for Radix Dialog/Sheet behaviour · Drizzle ORM on `@libsql/client` (file) · Better Auth (email + password) · zod · canonicalize (RFC 8785) + WebCrypto only for crypto · exifr · sharp · @turf/* · Leaflet + react-leaflet + leaflet-draw (admin plot editor only) · qrcode · idb · pino · Vitest · Playwright + @axe-core/playwright · ajv · tsx · pnpm · Node 22 · GitHub Actions · (M-002) Foundry/Anvil + viem · (M-003) Docker Compose + Caddy on Oracle A1.
 
-**Spec.** `Solution-PRD.md` (F1–F20, N1–N7, §3–§9) · `evaluation-plan.md` (S1–S7, CF-01–CF-14, §7.4 evidence contract, GAP-1–GAP-9) · `evals/eval-dataset.json` · `Design.md` (FROZEN; §12 tokens, §13–§18) · `.design/exploration/final/` (**the visual truth**) · `decisions.md` (DISC1–16, S1–S11, EV1–16, D1–8, TP1–TP27).
+**Spec.** `Solution-PRD.md` (F1–F20, N1–N7, §3–§9) · `evaluation-plan.md` (S1–S7, CF-01–CF-14, §7.4 evidence contract, GAP-1–GAP-9) · `evals/eval-dataset.json` · `Design.md` (FROZEN; §12 tokens, §13–§18) · `.design/exploration/final/` (**the visual truth**) · `decisions.md` (DISC1–16, S1–S11, EV1–16, D1–8, TP1–TP29).
 
-**Status.** Approved by owner 2026-09-29 (Campfire TASK-1). TP13 (staged photo upload, proposed TKT-30) is still an open owner decision. **Tickets:** `tickets.md` (TKT-01..29 → TASK-2..30, mapping in `tickets.md`). **Tests:** `test-cases.md` (TC-001..092). **Evals:** `evals/` (dataset 0.2.0).
+**Status.** Approved by owner 2026-09-29 (Campfire TASK-1); TKT-30 added the same day (TP28). **Tickets:** `tickets.md` (TKT-01..30 → TASK-2..31, mapping in `tickets.md`). **Tests:** `test-cases.md` (TC-001..094). **Evals:** `evals/` (dataset 0.2.0).
 
 ---
 
@@ -115,6 +115,7 @@ drop IndexedDB copy only on a verdict              retryable:true} and nothing p
 | `GET /api/verify/[batchId]/geojson?h=` | route handler | none | TKT-17 | — |
 | `GET /.well-known/udgam-ledger-key` | route handler | none | TKT-15 | — |
 | `GET /api/health` | route handler | none | TKT-01 (+15, 07) | — |
+| `POST /api/capture/stage` | route handler, `runtime='nodejs'` | agent session | TKT-30 (TP28) | — |
 | `GET /api/media/[mediaId]/thumb` | route handler; own-org session (agent: own events; admin: org events) | agent/admin | TKT-10 | — |
 | `/api/auth/[...all]` | Better Auth handler | — | TKT-04 | — |
 Route groups `(agent)`, `(admin)`, `(buyer)`, `(public)` carry the layouts and the server-side guard (TP-§10); URL prefixes `/field`, `/admin`, `/buyer` keep the paths distinct.
@@ -160,6 +161,7 @@ evals/
 e2e/  Playwright specs, tagged @eval and named with EVAL-/TC- IDs          per UI ticket
 tests/ cross-cutting static tests (secret scan, wording guard, no-next-in-lib, tokens)   TKT-01, 13
 scripts/ cloud-setup.sh, seed.ts, demo.ts, deploy.sh                     TKT-01, 20, 27
+assets/demo-photos/  AI-generated slot photos + manifest.json (TP29); read-only input for seed and e2e   TASK-32
 docs/ proof-feed.md, exec/ledger.md, eudr-geojson.md                     TKT-15/18, Stage 7, TKT-17
 contracts/ (Foundry project: src/, test/, script/)                       TKT-24..26
 deploy/ docker-compose.yml, Caddyfile, Dockerfile, cron/                 TKT-27
@@ -192,6 +194,7 @@ Two implementers never own the same file in one phase (§20).
 | `ledger_checkpoints` | id int pk, from_seq, to_seq, merkle_root, prev_checkpoint_hash, ts, key_id, signature; unique(to_seq) | TKT-15 |
 | `remote_sensing_cache` | plot_id, provider, kind `loss\|ndvi_history\|ndvi_window`, month_bucket (`YYYY-MM` or `static`), geometry_hash, response json, fetched_at; pk(plot_id, provider, kind, month_bucket, geometry_hash) | TKT-07 |
 | `crop_yield_reference` | crop, variety, min_kg_ha, max_kg_ha (clean coffee), cherry_to_clean_ratio, source text, source_url, version | TKT-09 |
+| `staged_media`★ | sha256, agent_id, size, mime, path, created_at, expires_at; pk(sha256, agent_id). Not provenance: no anchor, never read by `photo_uniqueness`; swept on expiry (TP28) | TKT-30 |
 | `rate_limits`★ | key, window_start, count; pk(key, window_start) — used by enrolment and capture (no Redis, N3) | TKT-05 / TKT-19 |
 | M-002 ★ | `agreements`, `settlements`, `quality_attestations`, `processing_steps` — schema in the TKT-24..26 plans | TKT-24..26 |
 
@@ -494,7 +497,7 @@ Threats and their owners: forged/tampered captures (signature + canonical-bytes 
 **Migrations** run at boot (`drizzle-kit migrate` in the container entrypoint) — forward-only; a failed migration stops boot (visible in health). **Rollback** = redeploy the previous image tag with the pre-deploy backup; ledger files are append-only so a rollback never rewrites history.
 
 ## 18. Performance budgets
-- **S3 ≤ 30 s (EV9).** Placeholder budget: GPS 0 s (fix already held, TP13) + hash/sign < 0.5 s + upload 3 × 4 MB at 5 Mbit/s ≈ 19.2 s + verify ≤ 10 s (remote phase cap; typical cache-warm < 1 s) + commit/response < 0.5 s ≈ 30 s worst case. The worst case sits on the gate, so TP13 proposes staged photo upload (upload each photo when "Use this photo" is tapped), which takes upload off the Submit-to-verdict path. It is an owner decision because it adds a ticket; HR3's measured photo size decides urgency.
+- **S3 ≤ 30 s (EV9).** Placeholder budget: GPS 0 s (fix already held, TP13) + hash/sign < 0.5 s + upload 3 × 4 MB at 5 Mbit/s ≈ 19.2 s + verify ≤ 10 s (remote phase cap; typical cache-warm < 1 s) + commit/response < 0.5 s ≈ 30 s worst case. The worst case sits on the gate, so TKT-30 (TP13, approved as TP28) stages each photo when "Use this photo" is tapped, taking upload off the Submit-to-verdict path: with staging complete, t0→t1 ≈ hash/sign + a few-KB request + verify + commit, about 11 s worst case. If staging hasn't finished at Submit, the remaining bytes go in the capture request as before. Photo size and network stay placeholders because HR3 was waived (TP29).
 - **S4 < 3 s (EV10).** Feed embedded in the page (no second round trip), no map tiles, no web fonts blocking (`display:swap`), verification in a microtask loop with WebCrypto; budget: HTML+JS ≤ 150 KB gzip for `/verify`, verification of 50 entries ≤ 300 ms at 4× throttle.
 - **Capture page JS** ≤ 200 KB gzip excluding the admin map chunk.
 
@@ -521,7 +524,7 @@ M-001 phases (tickets.md build order), with the native IDs and a disjoint file-o
 | P4 | TKT-05 (TASK-6), TKT-06 (TASK-7), TKT-08 (TASK-9), TKT-15 (TASK-16) | 3 at once (08 and 15 touch disjoint `lib/`; 05 and 06 share only the admin rail component — 05 owns it) | — |
 | P5 | TKT-07 (TASK-8), TKT-09 (TASK-10), TKT-10 (TASK-11), TKT-13 (TASK-14), TKT-14 (TASK-15), TKT-18 (TASK-19), TKT-19 (TASK-20) | 3 at once; TKT-09 and TKT-19 both touch `lib/capture/` → sequential; TKT-07/08/09 each add one-line registrations to `verification/registry.ts` and `evidence.ts` — expect trivial merges, resolve by keeping all lines | per-phase QA |
 | P6 | TKT-11 (TASK-12), TKT-12 (TASK-13), TKT-16 (TASK-17) | 3 | — |
-| P7 | TKT-17 (TASK-18) | — | — |
+| P7 | TKT-17 (TASK-18) ∥ TKT-30 (TASK-31) | 2 (disjoint: `lib/eudr` + certificate metadata vs `lib/capture/staging` + `src/client`) | — |
 | P8 | TKT-20 (TASK-21) | — | demo script green |
 | P9 | TKT-21 (TASK-22) | — | **M-001 gate** (owner) |
 M-002: TKT-22 (TASK-23, may run any time after TKT-01) → TKT-23 (TASK-24, Stage 4 re-entry, owner) → TKT-24 (TASK-25) → TKT-25 (TASK-26) ∥ TKT-26 (TASK-27). M-003: TKT-27 (TASK-28) → TKT-28 (TASK-29) → TKT-29 (TASK-30), after the Stage 10 gate.
@@ -530,7 +533,7 @@ M-002: TKT-22 (TASK-23, may run any time after TKT-01) → TKT-23 (TASK-24, Stag
 ## 21. Stage 7 cloud runbook (S11)
 
 ### 21.1 Pre-flight (after Stage 6 sign-off; mostly the owner, about 15 minutes)
-**1. Local session, on "approved":** commit the Stage 6 artifacts on `main` (technical-plan.md, test-cases.md, tickets.md mapping, decisions.md TP1–TP25, evals dataset 0.2.0, `backlog/`, HANDOFF.md, and the Stage 7 operating rules added to `CLAUDE.md` from §21.2) and push to `origin` (`007U5H4R/udgam`). Move Campfire TASK-1 to Done.
+**1. Local session, on "approved":** commit the Stage 6 artifacts on `main` (technical-plan.md, test-cases.md, tickets.md mapping, decisions.md TP1–TP29, evals dataset 0.2.0, `backlog/`, HANDOFF.md, and the Stage 7 operating rules added to `CLAUDE.md` from §21.2) and push to `origin` (`007U5H4R/udgam`). Move Campfire TASK-1 to Done.
 
 **2. GitHub access for the cloud:** the Claude GitHub App installed on `007U5H4R/udgam` (or `/web-setup` from the CLI).
 
@@ -1173,7 +1176,7 @@ Conventions for every task:
 
 **TSK-08.1 · EXIF extraction with the IST default**
 - **Files:** create `src/lib/media/exif.ts`, `src/lib/media/exif.test.ts`, `evals/fixtures/photos/{gps-time-offset.jpg,time-no-offset.jpg,no-exif.jpg,sample.heic}` + `evals/fixtures/photos/README.md` (how each was made: generated with `piexifjs` in `evals/fixtures/photos/make.ts`, except the HEIC, a public-domain sample with its source URL)
-- **Produces:** `type ExifFacts = { gps: { lat: number; lng: number } | null; takenAt: string | null /* ISO UTC */; hadOffset: boolean; make?: string; model?: string }`; `extractExif(bytes: Uint8Array): Promise<ExifFacts>` (never throws; a failure → all null); `sniffImage(bytes): 'jpeg' | 'heic' | null` (JPEG `FF D8 FF`; HEIC `ftyp` at offset 4 with brand `heic|heix|hevc|mif1`). TKT-19 reuses `sniffImage`.
+- **Produces:** `type ExifFacts = { gps: { lat: number; lng: number } | null; takenAt: string | null /* ISO UTC */; hadOffset: boolean; make?: string; model?: string }`; `extractExif(bytes: Uint8Array): Promise<ExifFacts>` (never throws; a failure → all null); `sniffImage(bytes): 'image/jpeg' | 'image/heic' | null` in `src/lib/media/sniff.ts` (JPEG `FF D8 FF`; HEIC `ftyp` at offset 4 with brand `heic|heix|heif|mif1|msf1`). TKT-08 creates `sniff.ts`; TKT-19 extends its tests and uses it at the boundary.
 - [ ] Write the failing test (TC-035):
   - `gps-time-offset.jpg` with `2026:09:20 10:15:00` and `+05:30` → `takenAt 2026-09-20T04:45:00.000Z`, GPS to 6 dp.
   - `time-no-offset.jpg` gives the same instant (IST assumed) and `hadOffset:false`.
@@ -2055,7 +2058,7 @@ Conventions for every task:
 **Brief for the implementer:** Reject before `verify()` runs, and cheapest check first: Content-Length → count → sizes → magic bytes → schema → canonical form → signature. Once a payload's signature is valid, every later refusal is anchored as a rejected `harvest_event` (Solution-PRD §7 rule 2). An unsigned or unparseable request is only logged. Camera captures are JPEG or HEIC/HEIF; nothing else is accepted. The CSP must not break Next's inline bootstrap: use a per-request nonce set in middleware (Next App Router reads it from the request CSP header). The embedded `application/json` feed needs no nonce.
 
 **TSK-19.1 · Magic-byte sniffing**
-- **Files:** create `src/lib/media/sniff.ts`, `src/lib/media/sniff.test.ts`.
+- **Files:** extend `src/lib/media/sniff.ts` (created by TKT-08) and create `src/lib/media/sniff.test.ts`.
 - **Produces:** `sniffImage(bytes: Uint8Array): 'image/jpeg' | 'image/heic' | null`.
 - [ ] Write the failing test: `FF D8 FF` → jpeg; ISO-BMFF `ftyp` brand `heic|heix|heif|mif1|msf1` at offset 4 → heic; PNG, WebP, GIF, PDF, a text file, empty and 3-byte inputs → `null`; the fixture photos from `evals/fixtures/photos/` sniff as expected.
 - [ ] Run → fails; implement; verify green.
@@ -2124,6 +2127,7 @@ Conventions for every task:
 **TSK-20.2 · Seed runner**
 - **Files:** create `scripts/seed.ts`, `scripts/seed/run.ts`, `scripts/seed/run.test.ts`; add `"seed": "tsx scripts/seed.ts"`.
 - [ ] Write the failing integration test (TC-077) on a temp `DATA_DIR`. `runSeed()` creates the orgs, users, 12 plots (registration checks via the fixture provider), agent–plot assignments, enrolled devices, and ~30 legitimate captures through `runCapture()`, all Verified except the cloud-blocked plot's (Needs Review). It also creates one batch transferred to the buyer, so the buyer list and a certificate exist before the demo. Every provenance table's rows have a valid `anchor_seq`. Afterwards the full ledger chain and all checkpoints verify (`verifyLedger()`). A second `runSeed()` on the same `DATA_DIR` throws "not empty — use --reset"; `--reset` wipes `DATA_DIR/{udgam.db,media,seed-*}` and rebuilds with the same counts.
+- [ ] Photos for seeded captures come from `assets/demo-photos/manifest.json` (TP29): each capture copies 1–3 slot images and writes synthetic EXIF (GPS inside its plot, `DateTimeOriginal` + `OffsetTimeOriginal` +05:30, `Make: Udgam demo`), so bytes are unique per capture; media rows carry `source: "generated-demo"`. The test asserts no two seeded media share a SHA-256 and every seeded media row has that source.
 - [ ] Run → fails; implement it; verify green; `pnpm seed` from a clean clone prints only counts plus the credentials-file path.
 - [ ] Commit: `Seed the Kodagu demo through the app's own functions (TASK-21)`
 
@@ -2500,7 +2504,7 @@ Conventions for every task:
 
 **TSK-29.1 · S3 perf mode (EVAL-070, automated part)**
 - **Files:** create `evals/harness/perf-s3.ts` (extends the TKT-21 perf runner behind `pnpm eval:perf --suite=s3`)
-- **Produces:** 20 Playwright runs against `--target`. Chromium CDP network emulation uses the HR3 profile (EV9 placeholder 10/5 Mbit/s, 80 ms RTT until calibrated). Three photos at the HR3 size, geolocation mocked inside a seeded plot. At least 5 runs use a cold harvest-window cache (the runner picks plots/months with no cache row). t0 = the Submit tap, t1 = the verdict card visible. The per-run phase split is GPS / hash+sign / upload / verify / response. A weak-network profile (1.5 Mbit/s up, 300 ms) is reported without a gate.
+- **Produces:** 20 Playwright runs against `--target`. Chromium CDP network emulation uses the EV9 placeholder profile (10/5 Mbit/s, 80 ms RTT; HR3 was waived, TP29, so the report labels it an assumption). Three photos padded from `assets/demo-photos/` to the 4 MB placeholder size, geolocation mocked inside a seeded plot. At least 5 runs use a cold harvest-window cache (the runner picks plots/months with no cache row). t0 = the Submit tap, t1 = the verdict card visible. The per-run phase split is GPS / hash+sign / upload / verify / response. A weak-network profile (1.5 Mbit/s up, 300 ms) is reported without a gate.
 - [ ] Unit test for the scorer's max/p50/p95 and the pass rule (every run ≤ 30 s). Then run `pnpm eval:perf --target=https://<domain> --suite=s3` → `evals/results/baseline-perf-v1-s3-<sha>.json`.
 - [ ] Commit: `Add S3 capture-to-verdict perf runner and record the production baseline (TASK-30)`
 
@@ -2519,11 +2523,61 @@ Conventions for every task:
 
 **Done gate:** "three consecutive production demo runs under 10 minutes" → EVAL-072; "capture-to-verdict ≤ 30 s on the reference condition" → EVAL-070 (20 automated + 5 manual, all ≤ 30 s); "evaluation report published in `/evals/reports`" → TSK-29.4.
 
+
+### TKT-30 → TASK-31 · Stage photo uploads when a photo is accepted (sp 3 · P1 · Enhancement)
+**Depends on:** TKT-10 (TASK-11), TKT-19 (TASK-20); runs after TKT-11 because both touch `src/client` · **TC:** TC-093, TC-094 · **EVAL:** EVAL-070 (instrumented) · **Owns files:** `src/lib/db/migrations/*_staged_media.sql`, `src/lib/capture/staging.ts` (+ tests), `src/app/api/capture/stage/route.ts`, edits to `src/lib/capture/{parse,boundary}.ts` and `src/client/capture-client.ts`, `src/client/stage-client.ts`, `e2e/capture-staging.spec.ts`
+**Brief for the implementer:** Staging only moves bytes earlier; it never changes what is signed or verified. The payload still lists every photo's `sha256` (S1). At capture time the server takes a staged file only if it belongs to the same agent and is unexpired, and it re-hashes the bytes before use. Staged files are not provenance: no anchor, not in `seenMediaHashes`. Every failure falls back to sending the bytes, so the farmer never loses a photo.
+
+**TSK-30.1 · `staged_media` table and staging store**
+- **Files:** create `src/lib/db/migrations/*_staged_media.sql` (table per §4.1), `src/lib/capture/staging.ts`, `src/lib/capture/staging.int.test.ts`.
+- **Produces:** `stagePhoto(db, store, { agentId, bytes, now }) → { sha256, expiresAt } | { error: 'too_large'|'bad_type'|'too_many' }` (reuses `sniffImage` and `MAX_PHOTO_BYTES`; cap 12 unexpired per agent; TTL 1 h; same bytes staged twice → one row, refreshed expiry); `takeStaged(db, { agentId, sha256, now }) → Uint8Array | null` (null if missing, expired, another agent's, or the bytes no longer hash to `sha256`); `sweepExpired(db, now)`.
+- [ ] Failing tests (TC-093 parts): the stored bytes hash to the returned `sha256`; the 13th → `too_many`; after 1 h + 1 s `takeStaged` → null and `sweepExpired` removes the file and row; agent B's `takeStaged` of agent A's hash → null; a file edited on disk → null.
+- [ ] Implement; staged files live at `DATA_DIR/staging/<agentId>/<sha256>`, written to a temp file then renamed.
+- [ ] Verify: `pnpm test:int src/lib/capture/staging`.
+- [ ] Commit: `Add per-agent photo staging with a one-hour expiry (TASK-31)`
+
+**TSK-30.2 · `POST /api/capture/stage`**
+- **Files:** create `src/app/api/capture/stage/route.ts`, `src/app/api/capture/stage/route.int.test.ts`.
+- [ ] Failing tests (TC-093): an agent session + JPEG → 201 `{sha256, expiresAt}`; no session → 401; admin or buyer → 403; text file → 415; 10 MB + 1 → 413 (Content-Length checked before reading the body); `too_many` → 429; 60 stage calls per agent per 10 min via `consume()` (TKT-19) → 429 with `Retry-After`; each call runs `sweepExpired` first.
+- [ ] Implement with `requireSession('agent')`; the body is the raw image (`Content-Type: image/jpeg|image/heic`), not multipart.
+- [ ] Verify: `pnpm test:int src/app/api/capture/stage`.
+- [ ] Commit: `Accept staged photo uploads from signed-in agents (TASK-31)`
+
+**TSK-30.3 · Capture resolves staged photos**
+- **Files:** modify `src/lib/capture/parse.ts` and `boundary.ts`; create `src/lib/capture/parse.staged.int.test.ts`.
+- [ ] Failing tests (TC-094 a–c): the form field `staged` (a JSON array of sha256) plus fewer file parts is accepted when the file parts and staged hashes together cover `payload.media` in order; the staged bytes pass the same sniff/size checks and the `media_hash_mismatch` check; a missing, expired or foreign staged hash → 409 `{reason:'media_not_staged', missing:[sha256…]}` and **no** anchor (no rejection has happened: the client will resend); a staged file tampered on disk → `media_hash_mismatch`, anchored as a rejected event; after COMMIT the consumed staged files move into the media store and their rows are deleted. A normal all-bytes capture is unchanged (the existing TC-043 tests stay green).
+- [ ] Implement.
+- [ ] Verify: `pnpm test:int src/lib/capture` and `pnpm eval` (no regression).
+- [ ] Commit: `Let captures reference staged photos after re-hashing them (TASK-31)`
+
+**TSK-30.4 · Client stages on "Use this photo" and falls back once**
+- **Files:** create `src/client/stage-client.ts` (+ test); modify `src/client/capture-client.ts` and the photo-review step of the record flow (TKT-10's `Use this photo` handler); create `e2e/capture-staging.spec.ts`.
+- **Produces:** `stagePhoto(file, sha256) → Promise<'staged'|'failed'>` (fire-and-forget from the UI, at most 2 in flight, no retry loop); `send()` puts staged hashes in `staged` and attaches bytes only for the rest; on 409 `media_not_staged` it resends once with all bytes; the outbox still keeps every blob until a verdict (TKT-11 unchanged).
+- [ ] Failing e2e (TC-094 d–e): with the EV9 network profile, three 4 MB photos (generated by padding `assets/demo-photos/*`), wait for staging, tap Submit → the `/api/capture` request body has no image parts; t0→t1 is below 12 s on the fixture provider; with the staged rows expired before Submit → exactly one 409, then success. No UI change: staging is invisible to the farmer (Tesler, Design.md §14).
+- [ ] Implement.
+- [ ] Verify: `E2E=1 pnpm test:e2e e2e/capture-staging.spec.ts` and the existing capture specs.
+- [ ] Commit: `Stage photos in the background and send only what is missing at Submit (TASK-31)`
+
+**TSK-30.5 · Timing split and docs**
+- **Files:** modify `src/client/capture-client.ts` (marks), `evals/harness/perf/*` if present (TKT-21/29 read the marks), `docs/exec/ledger.md`.
+- [ ] Add `performance.mark` for `udgam:stage-start:<i>` and `udgam:stage-end:<i>` next to the TKT-10 `udgam:t0-submit` / `udgam:t1-verdict` marks, so `pnpm eval:perf` reports upload outside t0→t1.
+- [ ] Verify: the TC-094 (d) spec asserts the marks exist and are ordered.
+- [ ] Commit: `Mark photo staging in the capture timing split (TASK-31)`
+
+**Done gate (TKT-30):**
+| AC | Evidence |
+|---|---|
+| Background upload on "Use this photo"; payload unchanged (S1) | TSK-30.4, TC-094 (d), TC-043 still green |
+| Submit sends only what is missing; staged files re-hashed | TSK-30.3, TC-094 (a, b) |
+| Ownership, 1 h expiry, 10 MB and 12 caps; never "seen" | TSK-30.1/30.2, TC-093 |
+| Expired or foreign hash → 409 and one resend; nothing lost | TSK-30.3/30.4, TC-094 (c, e) |
+| Upload off the Submit-to-verdict path | TSK-30.5 marks, EVAL-070 split |
+
 ---
 
 ## 23. Self-review (spec coverage, checked 2026-09-29)
-- **Tickets:** all 29 (TKT-01..29 → TASK-2..30) have a §22 plan with atomic tasks (198 in total), exact paths, a verification gate per task and a Done gate mapping every acceptance criterion to TC/EVAL evidence.
-- **Tests:** every TC-001..092 in `test-cases.md` is referenced by at least one task; no task references an undefined TC.
+- **Tickets:** all 30 (TKT-01..29 → TASK-2..30; TKT-30 → TASK-31, added 2026-09-29) have a §22 plan with atomic tasks (203 in total), exact paths, a verification gate per task and a Done gate mapping every acceptance criterion to TC/EVAL evidence.
+- **Tests:** every TC-001..094 in `test-cases.md` is referenced by at least one task; no task references an undefined TC.
 - **Evals:** every EVAL-001..105 in `evals/eval-dataset.json` (0.2.0) is referenced by at least one task. Pre-baseline growth blocks are reserved (§13).
 - **Spec gaps:** GAP-1 → TP4 · GAP-2 → TP5 · GAP-3 → TP6 · GAP-4 → TP7 · GAP-5 → TP2 · GAP-6 → TP8 · GAP-7 → declared limitation (TP6, EV6) · GAP-8 → TP3 · GAP-9 → TP9 + `docs/proof-feed.md` (TKT-15) + clean-room checker (TKT-18).
 - **Design.md deferred items:** noindex (TP16) · analytics tool (TP21: none; structured log events) · non-native scroll: none (§15 native) · no §26 Spatial 3D and no §27 Product Experience sections, so no 3D or analytics-SDK plan applies.
@@ -2544,4 +2598,5 @@ Conventions for every task:
   - the `E2E` flag name;
   - `/admin/demo` (TP27);
   - EIP-712 for M-002 on-chain signatures (TP26).
-- **Open for the owner:** TP13 (TKT-30 staged photo upload), HR3 calibration, yield reference validation (TP6), mass-balance bands (TKT-26), the processor role (TKT-23, next D#).
+- **Resolved 2026-09-29:** TP13 approved as TKT-30 (TP28); HR3 waived and replaced by generated demo photos (TP29).
+- **Open for the owner:** yield reference validation (TP6), mass-balance bands (TKT-26), the processor role (TKT-23, next D#).

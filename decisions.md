@@ -384,3 +384,16 @@
 **Context.** S5 and EV12 require the live demo to run with no shell step and no manual database edit. F15 seeds the four attack cases "ready to submit", but no screen submits them.
 **Decision.** Add `/admin/demo`, rendered only when `DEMO_MODE=1` and only for admins. It lists the four staged attack captures (each pre-built and signed by a seeded demo device) and submits them through the real `/api/capture` path, so each gets a genuine verdict and anchor. It is composed from frozen components (TP17), labelled "Demo tools", and is absent from production builds unless the flag is set for rehearsals (EVAL-072).
 **Rejected.** A CLI script during the demo (a shell step breaks S5); a second phone faking attacks live (unreliable in front of evaluators and slower).
+
+## TP28 · TP13 approved: staged photo upload becomes TKT-30 — accepted
+**Context.** The owner approved TP13 on 2026-09-29. The EV9 placeholder budget puts capture-to-verdict at about 30 s worst case, with photo upload the largest part.
+**Decision.** Add TKT-30 "Stage photo uploads when a photo is accepted" (Enhancement, P1, 3 sp, M-001, Campfire TASK-31; depends on TKT-10 and TKT-19; TKT-21 now depends on it). The capture payload and its signature are unchanged (S1). Staged files belong to one agent, expire after 1 h, are never provenance and never count as seen. A missing staged file makes the client resend the bytes once. Test cases TC-093 and TC-094; plan in technical-plan.md §22.
+**Rejected.** Deferring until HR3 (HR3 was waived, TP29, so the measurement that would have decided it will not come).
+
+## TP29 · HR3 field calibration waived; AI-generated demo photos used instead — accepted
+**Context.** evaluation-plan.md §9 HR3 asked for about 10 real captures on the demo phone, to calibrate the legitimate set's jitter (S2 realism) and the S3 reference condition. On 2026-09-29 the owner chose generated photos instead of real captures.
+**Decision.**
+- Eight AI-generated photos covering the three D6 slots (4 branch, 3 scale, 1 pile) are committed in `assets/demo-photos/`, with a manifest recording provider, model, prompt and SHA-256. They are used for seed data (with synthetic EXIF written per capture, `source: "generated-demo"`) and capture e2e fixtures, and are never presented as real evidence. Four further prompts are pending until the providers' daily limits reset.
+- **Consequences, stated in every eval report:** the S3 reference condition keeps its placeholders (3 × 4 MB photos, 10/5 Mbit/s, 80 ms) as assumptions, not measurements. The legitimate set's GPS-accuracy, EXIF-presence and EXIF-time jitter uses the values already in the dataset, not field data. S2 realism is therefore an unvalidated assumption.
+- The five manual demo-phone S3 runs (EV9) and the midday sunlight test are **not** waived.
+**Rejected.** Stock photos (licence terms and the Design.md anti-reference); leaving the seed without photos (the capture flow and admin review need them).

@@ -105,6 +105,8 @@
 | TC-090 | Health alert reaches the owner during an outage drill | M-003 · TKT-28 · TASK-29 | manual | P1 | M |
 | TC-091 | Link unfurls on production [TC-WEB-OG-UNFURL] | M-003 · TKT-28 · TASK-29 · EVAL-090 | manual | P1 | M |
 | TC-092 | Production configuration: secrets only in env, live providers, audit clean | M-003 · TKT-28 · TASK-29 · EVAL-085 | manual + ci | P1 | A + M |
+| TC-093 | Photo staging endpoint: validation, ownership, caps and expiry | M-001 · TKT-30 · TASK-31 | integration | P1 | A |
+| TC-094 | Capture with staged photos: same verdict, bytes re-hashed, expiry falls back | M-001 · TKT-30 · TASK-31 · EVAL-070 | integration + e2e | P1 | A |
 
 Not given a TC because an EVAL case already specifies them completely: S3 latency (EVAL-070), S4 latency (EVAL-071), S5 rehearsals (EVAL-072), the verifier attack and legitimate sets (harness). TKT-22 (spike) and TKT-23 (design addendum, approved as a D# decision) have no TC. TKT-29's evidence is EVAL-070/072.
 
@@ -619,6 +621,21 @@ Not given a TC because an EVAL case already specifies them completely: S3 latenc
 - **Links:** M-001 · every UI ticket · EVAL-089 · Design.md §17
 - **Type/Pri/Auto:** e2e · P1 · A
 - **Expected:** axe-core reports no serious or critical violations on every route in all four states; keyboard tab order equals visual order on the capture flow, review detail and certificate; the focus ring is visible.
+- **Status:** Not run · **Finding:** —
+
+### TC-093 · Photo staging endpoint: validation, ownership, caps and expiry
+- **Links:** M-001 · TKT-30 · TASK-31 · TP28
+- **Type/Pri/Auto:** integration · P1 · A
+- **Objective:** staging must not become a way round the capture boundary or a free file store.
+- **Steps:** as agent A, POST a JPEG to `/api/capture/stage`; POST a text file with a JPEG MIME type; POST 10 MB + 1 byte; POST a 13th photo while 12 are staged; POST without a session; advance the clock 1 h + 1 s and run the sweep.
+- **Expected:** the JPEG returns 201 `{sha256, expiresAt}` and the stored bytes hash to that value; the text file → 415 and the oversize file → 413 (the TKT-19 limits); the 13th → 429; no session → 401; after expiry the file and its `staged_media` row are gone; a staged hash is never in `seenMediaHashes`; nothing is anchored by staging.
+- **Status:** Not run · **Finding:** —
+
+### TC-094 · Capture with staged photos: same verdict, bytes re-hashed, expiry falls back
+- **Links:** M-001 · TKT-30 · TASK-31 · EVAL-070 · S1
+- **Type/Pri/Auto:** integration + e2e · P1 · A
+- **Steps:** (a) stage 3 photos, then submit a capture listing them as staged with no file parts; (b) the same, but tamper with one staged file on disk before Submit; (c) agent B submits a payload referencing agent A's staged hash; (d) at 375 px with the EV9 network profile (5 Mbit/s up, 80 ms), accept three 4 MB photos, wait until staging finishes, tap Submit; (e) let the staged files expire before Submit.
+- **Expected:** (a) the verdict and stored media equal those of a normal multipart capture of the same bytes; (b) → 4xx `media_hash_mismatch`, anchored as a rejected event; (c) → 409 `media_not_staged`; (d) the request after Submit carries no photo bytes, and the EVAL-070 timing split shows upload time outside t0→t1; (e) the client gets 409, resends the bytes once, and the verdict arrives with nothing lost.
 - **Status:** Not run · **Finding:** —
 
 ## M-002 · Contract farming on real smart contracts

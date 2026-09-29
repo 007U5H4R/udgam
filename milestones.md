@@ -8,11 +8,11 @@ IDs: milestones `M-###` are permanent. Tickets keep `TKT-##` as a cross-referenc
 ---
 
 ## M-001 · Trust at the edge, end to end (the vertical slice)
-- **Campfire:** milestone `m-0`; TASK-2 … TASK-22.
+- **Campfire:** milestone `m-0`; TASK-2 … TASK-22, TASK-31.
 - **Objective:** prove the riskiest assumption. A picking captured on a phone is signed on the device, checked against the plot, the photo history and satellite data, given an honest verdict, sealed in a tamper-evident ledger, and re-verified by anyone from a QR code in their own browser. Measured by the evaluation harness, not asserted.
 - **Scope:** F1–F15, N1–N7; design surfaces capture app, admin review, buyer list, public certificate, link preview (Design.md frozen).
 - **Deliverables:** running app on a cloud or local machine with seeded Kodagu demo data; `pnpm eval` report meeting S1, S2, S4, S6, S7; automated demo script (EVAL-073); clean-room verifier; baseline-v1.
-- **Tickets:** TKT-01 … TKT-21.
+- **Tickets:** TKT-01 … TKT-21, TKT-30 (added 2026-09-29, TP28).
 - **Dependencies:** approved Stages 1–4 (done); Stage 6 technical plan and test cases.
 - **Entry criteria:** Stage 6 approved; cloud environment set up from TKT-01's script.
 - **Exit criteria:** S1 ≥ 95 % (and ≥ 90 % per scenario, EV5), S2 ≤ 5 %, S4 < 3 s, S6 100 %, S7 yes, all CF-01–CF-14 clear, EVAL-073/074 pass, per-phase QA passed, owner demo sign-off.

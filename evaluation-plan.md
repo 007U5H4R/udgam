@@ -294,7 +294,7 @@ Specified here and implemented in Stage 7 under `evals/scorers/`. No scorer file
 **Human review (owner):**
 - **HR1 · Evidence-line rubric.** For each evidence template (check × status): states the measured value; states the threshold; plain words an FPO admin understands; tells the reader what to check next. Pass = 4/4 for every template. Done at Stage 9 and whenever templates change.
 - **HR2 · Known limitations and pairs.** The owner approves the wording in which the report discloses EVAL-029, EVAL-036, the salami limitation, and the pruning/clearing pair to evaluators.
-- **HR3 · Field calibration (before baseline-v1).** About 10 real captures on the demo phone at any outdoor location: record EXIF GPS present or absent, EXIF time offset, GPS accuracy, photo file sizes, and Submit-to-upload-complete time. These calibrate the legitimate-set jitter (S2 realism) and the S3 reference condition. It does not have to be in Kodagu.
+- **HR3 · Field calibration (before baseline-v1).** *Waived by the owner on 2026-09-29 (TP29): AI-generated demo photos replace the real captures, and the S3 reference condition and legitimate-set jitter stay labelled assumptions in every report.* About 10 real captures on the demo phone at any outdoor location: record EXIF GPS present or absent, EXIF time offset, GPS accuracy, photo file sizes, and Submit-to-upload-complete time. These calibrate the legitimate-set jitter (S2 realism) and the S3 reference condition. It does not have to be in Kodagu.
 - **HR4 · Demo rehearsals** (S5).
 - **HR5 · Design critique** (Stage 8, `DES-`).
 - **HR6 · Scorecard sign-off.** Before a scorecard goes to any evaluator, the owner checks that every number traces to a committed results file.

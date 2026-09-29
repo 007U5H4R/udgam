@@ -4,7 +4,7 @@ title: 'TKT-21: M-001 evaluation run, baseline-v1 and gate review'
 status: To Do
 assignee: []
 created_date: '2026-09-29 02:23'
-updated_date: '2026-09-29 03:06'
+updated_date: '2026-09-29 03:33'
 labels:
   - P0
   - 'sp:3'
@@ -16,6 +16,7 @@ dependencies:
   - TASK-14
   - TASK-18
   - TASK-20
+  - TASK-31
 documentation:
   - tickets.md
   - technical-plan.md

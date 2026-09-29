@@ -38,6 +38,7 @@ Each Campfire task carries: type, priority (P0/P1 → High, P2 → Medium), a `P
 | TKT-27 | TASK-28 |
 | TKT-28 | TASK-29 |
 | TKT-29 | TASK-30 |
+| TKT-30 | TASK-31 |
 
 ## Definition of Done (every ticket)
 Functional implementation complete · acceptance criteria met · required tests written and passing (TDD) · linked EVAL cases created/automated and passing, or explicitly marked for a later ticket · `pnpm typecheck && pnpm lint && pnpm test` green · no regression in the latest `pnpm eval` run · UI tickets match the frozen `Design.md` + `.design/exploration/final/` (four screen states, 375/768/1440, a11y) · docs updated where behaviour changed · observability added where the ticket creates a failure mode · no secrets committed.
@@ -59,11 +60,12 @@ TKT-01 ─┬─> TKT-02 ─┬─> TKT-03 ────────────�
         └─> TKT-22 (spike, parallel)                          │
 TKT-07 + 10 + 11 + 12 + 14 + 16 ─> TKT-20 ─┐                  │
 TKT-18 + TKT-20 + all M-001 ───────────────┴─> TKT-21 <───────┘   (M-001 exit)
+TKT-10 + TKT-19 ─> TKT-30 ─> TKT-21                              (added 2026-09-29, TP28)
 TKT-23 (design addendum) ─┬─> TKT-25 ;  TKT-15 + TKT-22 ─> TKT-24 ─> TKT-25 (needs 14)
                           └─> TKT-26 (needs 14, 24)
 TKT-21 ─> TKT-27 ─> TKT-28 ─> TKT-29                                (M-003)
 ```
-Build order for M-001 (one phase per line): **01 → 02 → 03 | 04 → 05, 06, 08, 15 → 07, 09, 10, 13, 14, 18, 19 → 11, 12, 16 → 17 → 20 → 21.**
+Build order for M-001 (one phase per line): **01 → 02 → 03 | 04 → 05, 06, 08, 15 → 07, 09, 10, 13, 14, 18, 19 → 11, 12, 16 → 17, 30 → 20 → 21.**
 
 ---
 
@@ -192,10 +194,16 @@ Build order for M-001 (one phase per line): **01 → 02 → 03 | 04 → 05, 06, 
 - **EVAL:** EVAL-073, 074. **TC:** TC-077, TC-078 · **Campfire:** TASK-21.
 
 ### TKT-21 · M-001 evaluation run, baseline-v1 and gate review
-- **Type** Task · **Priority** P0 · **sp** 3 · **Depends on** TKT-18, TKT-20, all M-001 tickets · **Milestone** M-001
+- **Type** Task · **Priority** P0 · **sp** 3 · **Depends on** TKT-18, TKT-20, all M-001 tickets (including TKT-30) · **Milestone** M-001
 - **Objective:** measure M-001 against its gates and freeze the baseline for everything after.
 - **Acceptance criteria:** `evals/results/eval-run-v1.json` + `evals/reports/eval-report-v1.md` from real output; S1 (≥ 95 % pooled, ≥ 90 % per scenario), S2, S4, S6, S7 met; CF-01–CF-14 clear; `baseline-v1.json` frozen (EV13); failures open Bug tickets, thresholds never lowered.
 - **EVAL:** all M1 cases; gates S1, S2, S4, S6, S7. **TC:** TC-079 · **Campfire:** TASK-22.
+
+### TKT-30 · Stage photo uploads when a photo is accepted
+- **Type** Enhancement · **Priority** P1 · **sp** 3 · **Depends on** TKT-10, TKT-19 · **Milestone** M-001 · *Added 2026-09-29 by owner approval of TP13 (TP28).*
+- **Objective:** take photo upload off the Submit-to-verdict path so capture-to-verdict stays within 30 s on field networks (S3, EV9).
+- **Acceptance criteria:** tapping "Use this photo" uploads its original bytes to `POST /api/capture/stage` in the background, and the signed payload is unchanged (S1); Submit sends only the payload, signature and any photos not yet staged, and the server re-hashes each staged file against the signed `sha256` before verification; staged files belong to the uploading agent, expire after 1 h, are capped at 10 MB each and 12 per agent, and never count as seen for `photo_uniqueness`; an expired or foreign staged hash returns 409 `media_not_staged` and the client resends the bytes once, so nothing is lost; the EVAL-070 timing split shows upload no longer on the Submit-to-verdict path.
+- **EVAL:** EVAL-070 (instrumented; measured in M-003). **TC:** TC-093, TC-094 · **Campfire:** TASK-31.
 
 ---
 
@@ -258,7 +266,7 @@ Build order for M-001 (one phase per line): **01 → 02 → 03 | 04 → 05, 06, 
 ## Totals
 | Milestone | Tickets | Story points |
 |---|---|---|
-| M-001 | 21 | 102 |
+| M-001 | 22 | 105 |
 | M-002 | 5 | 23 |
 | M-003 | 3 | 11 |
-| **All** | **29** | **136** |
+| **All** | **30** | **139** |
