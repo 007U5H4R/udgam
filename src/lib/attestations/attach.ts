@@ -5,7 +5,9 @@ import { writeTx, type Db } from "../db/client";
 import { attestations, farmers, plots } from "../db/schema";
 import { newId } from "../ids";
 import { append } from "../ledger/hashchain";
+import { log as defaultLog } from "../log";
 import { localMediaStore, type MediaStore } from "../media/store";
+import { istDate } from "../verification/evidence";
 
 // An organic certificate as an attestation (technical-plan §4.1, §8.1, TKT-13, DISC4). An issuer claims
 // the plot is certified; Udgam only proves that the certificate file has not changed since it was
@@ -21,12 +23,17 @@ import { localMediaStore, type MediaStore } from "../media/store";
 export const MAX_ATTESTATION_BYTES = 10 * 1024 * 1024;
 /** Longest issuer name stored. */
 export const MAX_ISSUER_CHARS = 120;
+/** Earliest validity date accepted. */
+export const MIN_VALID_DATE = "2000-01-01";
+/** How far past today (IST) a validity date may reach. */
+export const MAX_YEARS_AHEAD = 10;
 
 export type AttestationErrorCode =
   | "not_pdf"
   | "too_large"
   | "bad_dates"
   | "issuer_required"
+  | "issuer_invalid"
   | "issuer_too_long"
   | "plot_not_found";
 
@@ -48,7 +55,14 @@ export type AttachAttestationInput = {
   validTo: string;
 };
 
-export type AttachAttestationDeps = { store?: MediaStore; now?: () => Date };
+export type AttachAttestationDeps = {
+  store?: MediaStore;
+  now?: () => Date;
+  log?: Pick<typeof defaultLog, "error">;
+};
+
+const errClass = (err: unknown) =>
+  err instanceof Error ? err.constructor.name : typeof err;
 
 const PDF_MAGIC = [0x25, 0x50, 0x44, 0x46, 0x2d]; // "%PDF-"
 const isPdf = (b: Uint8Array) =>
@@ -61,20 +75,46 @@ export function isCalendarDate(s: string): boolean {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
 }
 
-/** True when the text holds a control character or a line or paragraph separator. */
-const hasControl = (s: string) =>
-  [...s].some((ch) => {
-    const c = ch.codePointAt(0)!;
-    return c < 0x20 || (c >= 0x7f && c <= 0x9f) || c === 0x2028 || c === 0x2029;
-  });
+/**
+ * True when the text holds a control character (C0, C1), a line or paragraph separator, or an invisible
+ * format character: the bidi controls (U+200E/F, U+202A–202E, U+2066–2069), the zero-width ones
+ * (U+200B–200D, U+2060, U+FEFF) and the rest of Unicode's format class. The issuer is anchored and shown
+ * on the public certificate for good, so nothing in it may reorder or hide the text around it.
+ */
+const hasControl = (s: string) => /[\p{Cc}\p{Cf}\u2028\u2029]/u.test(s);
+
+/**
+ * Wording an issuer's name may not carry (DISC4, CF-11): the same phrases the wording guard keeps out of
+ * the product copy (tests/wording-guard.test.ts), checked on the NFKC form so look-alike letters count.
+ * Written with a leading `\b` so this file itself passes that guard.
+ */
+const BANNED_IN_ISSUER: readonly RegExp[] = [
+  /\bverified\s+organic/i,
+  /\borganic\s+verified/i,
+  /\borganically\s+verified/i,
+  /\bfraud/i,
+  /\bfake\b/i,
+  /\bcheat/i,
+];
 
 function checkedIssuer(raw: string): string {
   const issuer = typeof raw === "string" ? raw.trim() : "";
-  if (issuer === "" || hasControl(issuer))
-    throw new AttestationError("issuer_required");
+  if (issuer === "") throw new AttestationError("issuer_required");
+  if (hasControl(issuer)) throw new AttestationError("issuer_invalid");
+  const plain = issuer.normalize("NFKC");
+  if (BANNED_IN_ISSUER.some((p) => p.test(plain)))
+    throw new AttestationError("issuer_invalid");
   if ([...issuer].length > MAX_ISSUER_CHARS)
     throw new AttestationError("issuer_too_long");
   return issuer;
+}
+
+/** Real calendar dates, in order, from 2000 on and at most ten years past today (IST). */
+function datesOk(validFrom: string, validTo: string, now: Date): boolean {
+  if (!isCalendarDate(validFrom) || !isCalendarDate(validTo)) return false;
+  const today = istDate(now.toISOString());
+  const latest = `${Number(today.slice(0, 4)) + MAX_YEARS_AHEAD}${today.slice(4)}`;
+  return validFrom >= MIN_VALID_DATE && validTo >= validFrom && validTo <= latest;
 }
 
 async function plotInOrg(
@@ -108,17 +148,13 @@ export async function attachAttestation(
   if (!isPdf(file)) throw new AttestationError("not_pdf");
   const issuer = checkedIssuer(input.issuer);
   const { validFrom, validTo } = input;
-  if (
-    !isCalendarDate(validFrom) ||
-    !isCalendarDate(validTo) ||
-    validTo < validFrom
-  )
+  const now = deps.now ?? (() => new Date());
+  if (!datesOk(validFrom, validTo, now()))
     throw new AttestationError("bad_dates");
   if (!(await plotInOrg(db, input.orgId, input.plotId)))
     throw new AttestationError("plot_not_found");
 
   const store = deps.store ?? localMediaStore(env.DATA_DIR);
-  const now = deps.now ?? (() => new Date());
   const fileHash = await sha256Hex(file);
   const id = newId("AT-");
   const { path } = await store.put(file, fileHash, "application/pdf");
@@ -165,8 +201,8 @@ export async function attachAttestation(
   } catch (err) {
     // Release first: removeIfUnused never deletes a file that a request still holds.
     store.release(path);
-    await store
-      .removeIfUnused(
+    try {
+      await store.removeIfUnused(
         path,
         async () =>
           (
@@ -176,8 +212,14 @@ export async function attachAttestation(
               .where(eq(attestations.filePath, path))
               .limit(1)
           ).length > 0,
-      )
-      .catch(() => false);
+      );
+    } catch (cleanupErr) {
+      // An orphan file is harmless but must be seen; the error class only (the message holds a path).
+      (deps.log ?? defaultLog).error(
+        { errClass: errClass(cleanupErr) },
+        "attestation.file_cleanup_failed",
+      );
+    }
     throw err;
   }
 }

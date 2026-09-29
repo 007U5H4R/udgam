@@ -14,7 +14,7 @@ export function AttestationCard({ plotId, records, today }: { plotId: string; re
       <h3 className={s.secH} id="att-h">
         Organic certificate
       </h3>
-      <p className={s.note}>The certificate is the issuer’s statement. Udgam keeps the file and its fingerprint on record and shows if it ever changes.</p>
+      <p className={s.note}>The certificate is the issuer’s statement. Udgam keeps the file and its fingerprint on record, and will not hand out a file whose fingerprint has changed.</p>
       {records.length === 0 ? (
         <p className={s.note} data-testid="attestation-empty">
           No certificate on record for this plot.
@@ -25,7 +25,7 @@ export function AttestationCard({ plotId, records, today }: { plotId: string; re
             <li key={a.id}>
               <AttestationLine issuer={a.issuer} validFrom={a.validFrom} validTo={a.validTo} today={today} />
               <p className={s.note}>
-                <a href={`/admin/plots/${plotId}/attestation/${a.id}`} download>
+                <a className={s.link} href={`/admin/plots/${plotId}/attestation/${a.id}`} download>
                   Download certificate (PDF)
                 </a>{' '}
                 · fingerprint {a.fileHash.slice(0, 12)}

@@ -23,18 +23,25 @@ function day(iso: string): string {
   return `${Number(d)} ${MONTHS[Number(m) - 1] ?? m} ${y}`;
 }
 
-/** "Certified by {issuer} — certificate on record · valid {from}–{to}" (or "· expired {to}"). */
-export function attestationText({ issuer, validFrom, validTo, today }: AttestationLineProps): string {
-  const head = `Certified by ${issuer} — certificate on record`;
+/** Everything after the issuer's name: " — certificate on record · valid {from}–{to}" (or "· expired {to}"). */
+function afterIssuer({ validFrom, validTo, today }: Omit<AttestationLineProps, 'issuer'>): string {
+  const head = ' — certificate on record';
   if (today > validTo) return `${head} · expired ${day(validTo)}`;
   if (today < validFrom) return `${head} · valid from ${day(validFrom)}`;
   return `${head} · valid ${day(validFrom)}–${day(validTo)}`;
 }
 
+/** "Certified by {issuer} — certificate on record · valid {from}–{to}" (or "· expired {to}"). */
+export function attestationText(props: AttestationLineProps): string {
+  return `Certified by ${props.issuer}${afterIssuer(props)}`;
+}
+
+/** The issuer sits in <bdi>: a right-to-left name cannot reorder the words after it (the text is anchored). */
 export function AttestationLine(props: AttestationLineProps) {
   return (
     <p className={styles.line} data-testid="attestation-line">
-      {attestationText(props)}
+      Certified by <bdi>{props.issuer}</bdi>
+      {afterIssuer(props)}
     </p>
   );
 }

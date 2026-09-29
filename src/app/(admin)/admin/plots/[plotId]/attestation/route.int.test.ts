@@ -162,6 +162,59 @@ describe('POST /admin/plots/[plotId]/attestation', () => {
   });
 });
 
+describe('POST /admin/plots/[plotId]/attestation: request origin and size near the cap', () => {
+  it('a same-site request (a sibling subdomain) is 403, like a cross-site one', async () => {
+    const res = await post('admin', plotA, fields(), { 'sec-fetch-site': 'same-site' });
+    expect([res.status, await res.json()]).toEqual([403, { ok: false, reason: 'not_allowed' }]);
+    expect(await t.db.select().from(attestations)).toEqual([]);
+  });
+
+  it('without Sec-Fetch-Site, an Origin other than this host is 403; this host, or no Origin, is accepted', async () => {
+    for (const origin of ['https://evil.example', 'http://sub.localhost', 'null', 'http://localhost:3999']) {
+      const res = await post('admin', plotA, fields(), { origin });
+      expect([res.status, await res.json()], origin).toEqual([403, { ok: false, reason: 'not_allowed' }]);
+    }
+    expect(await t.db.select().from(attestations)).toEqual([]);
+    expect((await post('admin', plotA, fields(), { origin: 'http://localhost' })).status).toBe(201);
+    expect((await post('admin', plotA, fields())).status).toBe(201);
+    expect(await t.db.select().from(attestations)).toHaveLength(2);
+  });
+
+  it('a certificate of exactly 10 MiB is accepted through the route; one byte more is too_large', async () => {
+    const edge = new Uint8Array(10 * 1024 * 1024);
+    edge.set(PDF.subarray(0, 5));
+    const ok = await post('admin', plotA, fields({ file: new File([edge], 'big.pdf', { type: 'application/pdf' }) }));
+    expect(ok.status).toBe(201);
+    const [row] = await t.db.select().from(attestations);
+    expect(row?.fileHash).toBe(createHash('sha256').update(edge).digest('hex'));
+    const over = new Uint8Array(10 * 1024 * 1024 + 1);
+    over.set(PDF.subarray(0, 5));
+    const res = await post('admin', plotA2, fields({ file: new File([over], 'big.pdf', { type: 'application/pdf' }) }));
+    expect([res.status, await res.json()]).toEqual([413, { ok: false, reason: 'too_large' }]);
+  }, 30_000);
+
+  it('the upload route is outside the proxy matcher (the proxy would truncate a body over 10 MiB); the plot page and the download stay inside it', async () => {
+    const { unstable_doesMiddlewareMatch } = await import('next/experimental/testing/server');
+    const { config } = await import('../../../../../../proxy');
+    const matches = (url: string) => unstable_doesMiddlewareMatch({ config, url });
+    for (const url of [`/admin/plots/${plotA}/attestation`, `/admin/plots/${plotA}/attestation/`]) {
+      expect(matches(url), url).toBe(false);
+    }
+    for (const url of [
+      `/admin/plots/${plotA}`,
+      `/admin/plots/${plotA}/attestation/AT-12345678`,
+      `/admin/plots/${plotA}/attestations`,
+      `/admin/plots/${plotA}/x/attestation`,
+      '/admin/plots/new',
+      '/admin',
+      '/field',
+      '/',
+    ]) {
+      expect(matches(url), url).toBe(true);
+    }
+  });
+});
+
 describe('GET /admin/plots/[plotId]/attestation/[attestationId]', () => {
   async function attach(plotId = plotA) {
     return ((await (await post('admin', plotId)).json()) as { id: string }).id;

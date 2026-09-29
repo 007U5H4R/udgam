@@ -11,7 +11,11 @@ import { contentSecurityPolicy, newNonce } from './lib/security/headers';
 //    never decides access: the server-side guards (src/app/_auth/require.ts) are the boundary (§10).
 //
 // The matcher skips /api (route handlers answer JSON or NDJSON, and a proxy in front of /api/capture
-// would buffer its up-to-30 MB body), /.well-known and static assets.
+// would buffer its up-to-30 MB body), /.well-known, static assets and the certificate upload
+// (POST /admin/plots/<id>/attestation, TKT-13): Next clones every body the proxy sees and cuts it at
+// 10 MiB (experimental.proxyClientMaxBodySize), which would truncate a certificate at the 10 MB cap. That
+// route answers JSON, checks the session itself and refuses a signed-out request with 401. The plot page
+// and the certificate download (/attestation/<id>) still pass through here.
 
 const SIGNED_IN = /^\/(field|admin|buyer)(\/|$)/;
 
@@ -43,7 +47,7 @@ export function proxy(req: NextRequest): NextResponse {
 export const config = {
   matcher: [
     {
-      source: '/((?!api/|api$|\\.well-known/|_next/static|_next/image|favicon\\.ico).*)',
+      source: '/((?!api/|api$|\\.well-known/|_next/static|_next/image|favicon\\.ico|admin/plots/[^/]+/attestation/?$).*)',
       // Router prefetches carry no document, so they need no policy of their own.
       missing: [
         { type: 'header', key: 'next-router-prefetch' },
