@@ -35,3 +35,7 @@ broadcast/
 
 # third-party reference screenshots (Mobbin/Opal) — local only, never committed
 .design/exploration/ref/
+
+# next.js generated
+next-env.d.ts
+*.tsbuildinfo
