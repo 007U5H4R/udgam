@@ -5,7 +5,7 @@ import { consume, IP_LIMIT, ipKey } from '../../../lib/capture/rate-limit';
 import { clientIp } from '../../../lib/client-ip';
 import { env } from '../../../lib/config/env';
 import { getDbReady } from '../../../lib/db/client';
-import { log } from '../../../lib/log';
+import { log, withRequestId } from '../../../lib/log';
 import { localMediaStore } from '../../../lib/media/store';
 import { requireSession, type Guarded } from '../../_auth/require';
 
@@ -102,7 +102,9 @@ export async function POST(req: Request): Promise<Response> {
 
   void (async () => {
     try {
-      await runCapture(form, { db, media: localMediaStore(env.DATA_DIR), agentId: agent.userId }, emit);
+      // The request id rides on every capture log line (e.g. capture.idempotent_replay, TKT-09).
+      const requestLog = withRequestId(req.headers.get('x-request-id') ?? undefined);
+      await runCapture(form, { db, media: localMediaStore(env.DATA_DIR), agentId: agent.userId, log: requestLog }, emit);
     } catch (err) {
       // runCapture never rejects; this is the media store's configuration failing.
       log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'capture.route_failed');

@@ -182,16 +182,20 @@ describe('boundary rejections are anchored (§3.1 step 2), except garbled payloa
     expect(await count('ledger_entries')).toBe(SEED_ENTRIES);
   });
 
-  it('uploaded bytes that differ from the signed hashes → 409, and a resend of that payload gets the same answer', async () => {
+  it('uploaded bytes that differ from the signed hashes → 409; the same bad resend gets the same answer, the signed bytes are accepted (TKT-09)', async () => {
     const f = await form({ photos: [photo('a')] });
     const good = f.fd.get('photo0') as File;
     f.fd.set('photo0', new File([photo('not-a')], 'p0.jpg', { type: 'image/jpeg' }));
     expect(await run(f.fd)).toEqual([{ t: 'rejected', reason: 'media_hash_mismatch', status: 409 }]);
     expect((await t.client.execute('SELECT device_id FROM harvest_events')).rows[0]?.device_id).toBe(world.deviceId);
-    f.fd.set('photo0', good);
     expect(await run(f.fd)).toEqual([{ t: 'rejected', reason: 'media_hash_mismatch', status: 409 }]);
-    expect(await count('harvest_events')).toBe(1);
+    expect(await count('harvest_events')).toBe(1); // the same refusal is anchored once
     expect(await count('media')).toBe(0);
+    // A stored refusal is not sticky: only an accepted payload short-circuits (TP7 as refined, EXE).
+    f.fd.set('photo0', good);
+    expect((await run(f.fd)).at(-1)).toMatchObject({ t: 'verdict', verdict: 'Verified' });
+    expect(await count('harvest_events')).toBe(2);
+    expect(await count('media')).toBe(1);
   });
 
   it('a signed size that differs from the uploaded byte length → 409 media_hash_mismatch, anchored, nothing stored', async () => {

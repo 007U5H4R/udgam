@@ -9,7 +9,9 @@ import { capturePayloadV1 } from './payload';
 // unsigned or garbled request (non_canonical, bad_schema, unknown_device, bad_signature) is only logged
 // (TSK-19.4). The signature is checked before revocation so that only the phone's own key can learn (or
 // be recorded as) a revoked or unassigned phone. The cheaper upload checks (count, size, magic bytes)
-// run earlier, in parse.ts (TSK-19.2).
+// run earlier, in parse.ts (TSK-19.2). The pipeline calls the two halves itself — authenticate, then its
+// device-ownership check and idempotent replay lookup (TKT-09), then admit — so an accepted payload's
+// retry is answered before revocation and assignment are looked at.
 
 export type BoundaryDevice = {
   id: string;
@@ -112,6 +114,20 @@ export async function authenticate(input: Pick<BoundaryInput, 'payloadString' | 
 export async function checkBoundary(input: BoundaryInput, deps: BoundaryDeps): Promise<BoundaryResult> {
   const auth = await authenticate(input, deps);
   if (!auth.ok) return auth;
+  return admit(auth, input, deps);
+}
+
+/**
+ * Steps 5–7 for a payload whose signature verified (`authenticate`): revocation, plot assignment, and the
+ * uploaded bytes. The pipeline runs its device-ownership check and the idempotent replay lookup (TKT-09)
+ * between the two halves, so an accepted payload's retry gets its original verdict even after a later
+ * revocation or un-assignment, but only once its signature has verified.
+ */
+export async function admit(
+  auth: Extract<AuthResult, { ok: true }>,
+  input: Pick<BoundaryInput, 'files'>,
+  deps: Pick<BoundaryDeps, 'isPlotAssigned'>,
+): Promise<BoundaryResult> {
   const { payload, payloadHash, device } = auth;
 
   // 5. Revocation.

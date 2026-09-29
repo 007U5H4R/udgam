@@ -129,7 +129,8 @@ describe('client disconnect', () => {
     }));
     const error = vi.fn();
     const warn = vi.fn();
-    vi.doMock('../../../lib/log', () => ({ log: { error, warn, info: vi.fn() } }));
+    const logger = { error, warn, info: vi.fn() };
+    vi.doMock('../../../lib/log', () => ({ log: logger, withRequestId: () => logger }));
     const unhandled: unknown[] = [];
     const onUnhandled = (reason: unknown) => unhandled.push(reason);
     process.on('unhandledRejection', onUnhandled);
