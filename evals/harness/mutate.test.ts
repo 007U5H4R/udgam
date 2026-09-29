@@ -271,7 +271,7 @@ describe('provider_fault', () => {
     expect(b.providerFaults).toEqual([{ provider: 'gfw', mode: 'http_500', cacheEmpty: true }]);
     const plot = { id: b.context.plot.id, polygon: b.context.plot.polygon, areaHa: b.context.plot.areaHa, geometryHash: 'not-used-by-the-fixture' };
     await expect(b.context.remoteSensing.forestLoss(plot)).rejects.toEqual(new ProviderError('gfw', 500));
-    await expect(b.context.remoteSensing.ndviWindow(plot, '2026-12-08', 30)).resolves.toEqual({ mean: 0.71, clearObservations: 4 });
+    await expect(b.context.remoteSensing.ndviWindow(plot, '2026-12-08', 30)).resolves.toEqual({ mean: 0.71, clearObservations: 4, source: 'fixture' });
   });
 
   it('sentinel-hub timeout (EVAL-016)', async () => {

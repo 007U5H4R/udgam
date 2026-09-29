@@ -87,7 +87,7 @@ export class FixtureProvider implements RemoteSensingProvider {
   forestLoss(plot: PlotGeom, opts?: CallOptions) {
     return this.answer('forestLoss', opts, () => {
       const { lossHa, lossPct, yearsFrom, dataYear } = this.profile(plot).forestLoss;
-      return { lossHa, lossPct, yearsFrom, dataYear };
+      return { lossHa, lossPct, yearsFrom, dataYear, source: 'fixture' as const };
     });
   }
 
@@ -99,14 +99,14 @@ export class FixtureProvider implements RemoteSensingProvider {
         const m = byMonth.find((x) => x.month === calendarMonth);
         return { month: key, mean: m?.mean ?? null, clearFraction: m?.clearFraction ?? 0 };
       });
-      return { months };
+      return { months, source: 'fixture' as const };
     });
   }
 
   ndviWindow(plot: PlotGeom, _centreDate: string, _days: number, opts?: CallOptions) {
     return this.answer('ndviWindow', opts, () => {
       const { mean, clearObservations } = this.profile(plot).ndviWindow;
-      return { mean, clearObservations };
+      return { mean, clearObservations, source: 'fixture' as const };
     });
   }
 }

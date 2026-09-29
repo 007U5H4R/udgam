@@ -51,7 +51,7 @@ describe('FixtureProvider', () => {
   });
 
   it('P01 → lossPct 0', async () => {
-    expect(await rs.forestLoss(geom('P01', 2))).toEqual({ lossHa: 0, lossPct: 0, yearsFrom: 2021, dataYear: 2025 });
+    expect(await rs.forestLoss(geom('P01', 2))).toEqual({ lossHa: 0, lossPct: 0, yearsFrom: 2021, dataYear: 2025, source: 'fixture' });
   });
 
   it('X02 → lossPct 10.5', async () => {
@@ -59,7 +59,7 @@ describe('FixtureProvider', () => {
   });
 
   it('P09 harvest window → { mean: null, clearObservations: 0 }', async () => {
-    expect(await rs.ndviWindow(geom('P09', 1.8), '2026-12-08', 30)).toEqual({ mean: null, clearObservations: 0 });
+    expect(await rs.ndviWindow(geom('P09', 1.8), '2026-12-08', 30)).toEqual({ mean: null, clearObservations: 0, source: 'fixture' });
   });
 
   it('ndviHistory returns the 12 months ending at endMonth, July cloud-covered', async () => {
@@ -81,7 +81,7 @@ describe('FixtureProvider', () => {
     expect((await byHash.forestLoss(geom('PL-ABCDEFGH', 1, 'hash-x02'))).lossPct).toBe(10.5);
     await expect(byHash.forestLoss(geom('PL-ABCDEFGH', 1, 'other'))).rejects.toThrow(/PL-ABCDEFGH/);
     const withFallback = createFixtureProvider({ profiles: PROFILES, fallback: PROFILES.P09! });
-    expect(await withFallback.ndviWindow(geom('PL-ABCDEFGH', 1, 'other'), '2026-12-08', 30)).toEqual({ mean: null, clearObservations: 0 });
+    expect(await withFallback.ndviWindow(geom('PL-ABCDEFGH', 1, 'other'), '2026-12-08', 30)).toEqual({ mean: null, clearObservations: 0, source: 'fixture' });
   });
 
   it('a profile named like an Object.prototype member is not found by accident', async () => {
@@ -102,11 +102,11 @@ describe('committed fixture set (TSK-07.1 profiles from the dataset)', () => {
       const window = await rs.ndviWindow(geom(id, areaHa), '2026-12-08', 30);
       return { lossPct: loss.lossPct, lossHa: loss.lossHa, min: Math.min(...clear), max: Math.max(...clear), clearMonths: clear.length, window };
     };
-    expect(await nums('P01', 2)).toEqual({ lossPct: 0, lossHa: 0, min: 0.62, max: 0.81, clearMonths: 11, window: { mean: 0.71, clearObservations: 4 } });
-    expect(await nums('X01', 2)).toEqual({ lossPct: 25, lossHa: 0.5, min: 0.21, max: 0.58, clearMonths: 11, window: { mean: 0.71, clearObservations: 4 } });
-    expect(await nums('X05', 1.2)).toEqual({ lossPct: 0, lossHa: 0, min: 0.28, max: 0.74, clearMonths: 11, window: { mean: 0.71, clearObservations: 4 } });
-    expect(await nums('X06', 2)).toEqual({ lossPct: 40, lossHa: 0.8, min: 0.21, max: 0.58, clearMonths: 11, window: { mean: 0.22, clearObservations: 3 } });
-    expect(await nums('P09', 1.8)).toEqual({ lossPct: 0, lossHa: 0, min: 0.62, max: 0.81, clearMonths: 11, window: { mean: null, clearObservations: 0 } });
+    expect(await nums('P01', 2)).toEqual({ lossPct: 0, lossHa: 0, min: 0.62, max: 0.81, clearMonths: 11, window: { mean: 0.71, clearObservations: 4, source: 'fixture' } });
+    expect(await nums('X01', 2)).toEqual({ lossPct: 25, lossHa: 0.5, min: 0.21, max: 0.58, clearMonths: 11, window: { mean: 0.71, clearObservations: 4, source: 'fixture' } });
+    expect(await nums('X05', 1.2)).toEqual({ lossPct: 0, lossHa: 0, min: 0.28, max: 0.74, clearMonths: 11, window: { mean: 0.71, clearObservations: 4, source: 'fixture' } });
+    expect(await nums('X06', 2)).toEqual({ lossPct: 40, lossHa: 0.8, min: 0.21, max: 0.58, clearMonths: 11, window: { mean: 0.22, clearObservations: 3, source: 'fixture' } });
+    expect(await nums('P09', 1.8)).toEqual({ lossPct: 0, lossHa: 0, min: 0.62, max: 0.81, clearMonths: 11, window: { mean: null, clearObservations: 0, source: 'fixture' } });
   });
 
   it('indexes dataset plots and the P01-edited-18pct geometry by geometry hash', async () => {
@@ -127,7 +127,7 @@ describe('FixtureProvider fault injection', () => {
     expect(err).toBeInstanceOf(ProviderError);
     expect(err).toMatchObject({ provider: 'gfw', kind: 'http', status: 500 });
     expect(err).toEqual(new ProviderError('gfw', 500));
-    expect(await rs.ndviWindow(geom('P01', 2), '2026-12-08', 30)).toEqual({ mean: 0.71, clearObservations: 4 });
+    expect(await rs.ndviWindow(geom('P01', 2), '2026-12-08', 30)).toEqual({ mean: 0.71, clearObservations: 4, source: 'fixture' });
     expect((await rs.ndviHistory(geom('P01', 2), '2026-12')).months).toHaveLength(12);
   });
 
@@ -158,7 +158,7 @@ describe('FixtureProvider fault injection', () => {
 
   it('a gfw timeout leaves sentinel-hub answering', async () => {
     const rs = createFixtureProvider({ profiles: PROFILES, faults: [{ provider: 'gfw', mode: 'timeout' }] });
-    expect(await rs.ndviWindow(geom('P01', 2), '2026-12-08', 30)).toEqual({ mean: 0.71, clearObservations: 4 });
+    expect(await rs.ndviWindow(geom('P01', 2), '2026-12-08', 30)).toEqual({ mean: 0.71, clearObservations: 4, source: 'fixture' });
   });
 
   it('exposes the injected faults (cacheEmpty is recorded for the cache wrapper)', () => {
@@ -177,7 +177,7 @@ describe('FixtureProvider delayMs', () => {
     await vi.advanceTimersByTimeAsync(11_999);
     expect(answer).toBeUndefined();
     await vi.advanceTimersByTimeAsync(1);
-    expect(answer).toEqual({ mean: 0.71, clearObservations: 4 });
+    expect(answer).toEqual({ mean: 0.71, clearObservations: 4, source: 'fixture' });
   });
 
   it('a delayed call rejects with timeout when the caller aborts first', async () => {

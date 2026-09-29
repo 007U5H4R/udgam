@@ -43,6 +43,10 @@ describe('forcedViewState (?state=, technical-plan §11)', () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('BETTER_AUTH_SECRET', 'x'.repeat(32));
     vi.stubEnv('E2E', '0');
+    vi.stubEnv('REMOTE_SENSING_PROVIDER', 'live'); // production refuses the fixture provider outside E2E (EXE12); placeholder keys
+    vi.stubEnv('GFW_API_KEY', 'k');
+    vi.stubEnv('CDSE_CLIENT_ID', 'i');
+    vi.stubEnv('CDSE_CLIENT_SECRET', 's');
     expect((await import('./view-state')).forcedViewState('error')).toBeNull();
     vi.resetModules();
     vi.stubEnv('E2E', '1');

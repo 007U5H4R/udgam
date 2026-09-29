@@ -2,18 +2,23 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { PlotPolygon, Polygon } from '../geo/types';
-import { createLiveProvider, createProviderHealth, getRemoteSensing, plotGeom, providerHealth } from './index';
+import { makeContext, makeDevice, makeSubmission } from '../../../tests/helpers/verify';
+import { CONFIG } from '../verification/config';
+import { REGISTRY } from '../verification/registry';
+import { verifyWith } from '../verification/verify';
+import { createLiveProvider, createProviderHealth, fixtureFallbackAllowed, getRemoteSensing, plotGeom, providerHealth, withTimeouts } from './index';
 
 // TSK-07.2: getRemoteSensing(env) picks the provider REMOTE_SENSING_PROVIDER names. In fixture mode the
 // app answers from the committed fixture set: a dataset plot's geometry by its geometry hash, the
-// P01-edited-18pct geometry (TC-028), and any other plot with the honest P01 profile.
+// P01-edited-18pct geometry (TC-028), and — only outside production, for E2E=1 or for DEMO_MODE=1
+// (EXE12) — any other plot with the honest P01 profile. Otherwise an unknown plot is an error.
 
 const FIXTURES = join(__dirname, '..', '..', '..', 'evals', 'fixtures');
 const geometry = (file: string): PlotPolygon => {
   const doc = JSON.parse(readFileSync(join(FIXTURES, file), 'utf8')) as { type: string; geometry?: PlotPolygon; features?: { geometry: PlotPolygon }[] };
   return doc.type === 'FeatureCollection' ? doc.features![0]!.geometry : doc.geometry!;
 };
-const FIXTURE_ENV = { REMOTE_SENSING_PROVIDER: 'fixture', PUBLIC_BASE_URL: 'http://localhost:3000' } as const;
+const FIXTURE_ENV = { REMOTE_SENSING_PROVIDER: 'fixture', PUBLIC_BASE_URL: 'http://localhost:3000', NODE_ENV: 'development', E2E: '0', DEMO_MODE: '0' } as const;
 
 describe('getRemoteSensing (fixture mode)', () => {
   const rs = getRemoteSensing(FIXTURE_ENV);
@@ -32,10 +37,45 @@ describe('getRemoteSensing (fixture mode)', () => {
     expect((await rs.forestLoss(g)).lossPct).toBe(18);
   });
 
-  it('answers any other plot with the honest P01 profile', async () => {
+  it('answers any other plot with the honest P01 profile, as fixture data', async () => {
     const g = await plotGeom({ id: 'PL-7K2M9Q4D', polygon: geometry('geometry/valid-polygon.geojson'), areaHa: 1.3 });
-    expect(await rs.forestLoss(g)).toEqual({ lossHa: 0, lossPct: 0, yearsFrom: 2021, dataYear: 2025 });
-    expect(await rs.ndviWindow(g, '2026-12-08', 30)).toEqual({ mean: 0.71, clearObservations: 4 });
+    expect(await rs.forestLoss(g)).toEqual({ lossHa: 0, lossPct: 0, yearsFrom: 2021, dataYear: 2025, source: 'fixture' });
+    expect(await rs.ndviWindow(g, '2026-12-08', 30)).toEqual({ mean: 0.71, clearObservations: 4, source: 'fixture' });
+  });
+});
+
+describe('the fixture fallback fails closed (EXE12)', () => {
+  it.each([
+    [{ NODE_ENV: 'development', E2E: '0', DEMO_MODE: '0' }, true],
+    [{ NODE_ENV: 'test', E2E: '0', DEMO_MODE: '0' }, true],
+    [{ NODE_ENV: 'production', E2E: '1', DEMO_MODE: '0' }, true],
+    [{ NODE_ENV: 'production', E2E: '0', DEMO_MODE: '1' }, true],
+    [{ NODE_ENV: 'production', E2E: '0', DEMO_MODE: '0' }, false],
+  ] as const)('%o → fallback %s', (e, allowed) => {
+    expect(fixtureFallbackAllowed(e)).toBe(allowed);
+  });
+
+  it('in production without E2E or DEMO_MODE an unknown plot is an error, and its checks are unavailable (Needs Review)', async () => {
+    const rs = getRemoteSensing({ ...FIXTURE_ENV, NODE_ENV: 'production' });
+    const unknown = await plotGeom({ id: 'PL-7K2M9Q4D', polygon: geometry('geometry/valid-polygon.geojson'), areaHa: 1.3 });
+    await expect(rs.forestLoss(unknown)).rejects.toThrow(/no remote-sensing fixture profile/);
+    await expect(rs.ndviHistory(unknown, '2026-12')).rejects.toThrow(/no remote-sensing fixture profile/);
+    // a dataset geometry still answers from its own profile
+    const x02 = await plotGeom({ id: 'PL-7K2M9Q4D', polygon: geometry('plots/X02.geojson'), areaHa: 1 });
+    expect((await rs.forestLoss(x02)).lossPct).toBe(10.5);
+
+    const device = await makeDevice(); // the helper's plot PL-TEST is not a fixture geometry either
+    const res = await verifyWith(REGISTRY, await makeSubmission({ device }), makeContext(device, { remoteSensing: withTimeouts(rs) }), undefined, CONFIG);
+    for (const id of ['deforestation_overlap', 'ndvi_cultivation', 'ndvi_harvest_window'] as const) {
+      expect(res.checks.find((c) => c.id === id)).toMatchObject({ status: 'unavailable', hardFail: false });
+    }
+    expect(res.verdict).toBe('Needs Review');
+  });
+
+  it('in production with E2E=1 an unknown plot gets the P01 profile', async () => {
+    const rs = getRemoteSensing({ ...FIXTURE_ENV, NODE_ENV: 'production', E2E: '1' });
+    const g = await plotGeom({ id: 'PL-7K2M9Q4D', polygon: geometry('geometry/valid-polygon.geojson'), areaHa: 1.3 });
+    expect((await rs.forestLoss(g)).lossPct).toBe(0);
   });
 });
 
@@ -83,7 +123,7 @@ describe('createLiveProvider (live mode)', () => {
     expect(live.name).toBe('live');
     const g = await plotGeom({ id: 'PL-7K2M9Q4D', polygon: geometry('plots/P01.geojson'), areaHa: 2 });
     expect((await live.forestLoss(g)).lossPct).toBe(0);
-    expect(await live.ndviWindow(g, '2026-12-08', 30)).toEqual({ mean: null, clearObservations: 0 });
+    expect(await live.ndviWindow(g, '2026-12-08', 30)).toEqual({ mean: null, clearObservations: 0, source: 'live' });
     expect(await live.probe()).toEqual({ gfw: 'ok', sentinelHub: 'ok' });
     expect(origins).toEqual(['https://udgam.example']);
     expect(calls).toEqual([
@@ -91,6 +131,7 @@ describe('createLiveProvider (live mode)', () => {
       'POST https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token',
       'POST https://sh.dataspace.copernicus.eu/statistics/v1',
       'GET https://data-api.globalforestwatch.org/dataset/umd_tree_cover_loss',
+      'POST https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token', // the probe asks for a fresh token
     ]);
   });
 

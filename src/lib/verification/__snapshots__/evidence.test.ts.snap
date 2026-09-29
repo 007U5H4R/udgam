@@ -9,6 +9,7 @@ exports[`evidence templates (TC-011) > render every §6.5 row (snapshot) 1`] = `
   "deforestation_overlap.fail": "25.0% of plot area lost since 2021 (hard fail at 10.0%)",
   "deforestation_overlap.flag": "9.5% of plot area lost since 2021 (hard fail at 10.0%)",
   "deforestation_overlap.ok": "0.0% of plot area lost since 2021 (hard fail at 10.0%)",
+  "deforestation_overlap.ok fixture source": "0.0% of plot area lost since 2021 (hard fail at 10.0%) (demo data)",
   "deforestation_overlap.unavailable": "Forest-loss data unavailable: timeout; an admin re-run will retry",
   "exif_gps_agreement.fail": "Photo location 3200 m from phone location (limit 50 m)",
   "exif_gps_agreement.flag": "Photo has no location data",

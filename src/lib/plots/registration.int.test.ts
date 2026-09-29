@@ -79,15 +79,16 @@ describe('registration checks on save (TC-034)', () => {
       lossHa: 0,
       yearsFrom: 2021,
       dataYear: 2025,
-      evidence: '0.0% of plot area lost since 2021 (hard fail at 10.0%)',
+      evidence: '0.0% of plot area lost since 2021 (hard fail at 10.0%) (demo data)', // CF-11: fixture answers are labelled
     });
+    expect(checks.source).toBe('fixture');
     expect(checks.ndviHistory).toMatchObject({
       status: 'ok',
       endMonth: '2026-12',
       min: 0.62,
       max: 0.81,
       clearMonths: 11,
-      evidence: 'Canopy all year: monthly NDVI 0.62–0.81 over 11 clear months (needs ≥ 0.50, swing ≤ 0.35)',
+      evidence: 'Canopy all year: monthly NDVI 0.62–0.81 over 11 clear months (needs ≥ 0.50, swing ≤ 0.35) (demo data)',
     });
     expect(row.registrationStale).toBe(0);
 
@@ -117,6 +118,46 @@ describe('registration checks on save (TC-034)', () => {
   });
 });
 
+describe('"Check again" anchors only a changed result', () => {
+  it('a re-run with the same results (only ranAt differs) appends no ledger entry and keeps the anchored text', async () => {
+    const f = await farmer();
+    const { plotId } = await registerPlot(t.db, 'ORG-A', { farmerId: f.id, crop: 'arabica', geometry: P01 }, NOW);
+    const before = await plotRow(plotId);
+    const later = () => new Date('2026-12-09T05:30:00.000Z'); // same registration month, a day later
+    const again = (await runRegistrationChecks(t.db, 'ORG-A', plotId, { remoteSensing: provider(), now: later }))!;
+    expect(again).toMatchObject({ anchored: false, anchorSeq: before.anchorSeq });
+    expect((await ledger()).map((e) => e.kind)).toEqual(['plot_registered', 'plot_edited']);
+    const after = await plotRow(plotId);
+    expect(after.registrationChecks).toBe(before.registrationChecks); // still the text whose hash is anchored
+    expect(after.anchorSeq).toBe(before.anchorSeq);
+  });
+
+  it('a re-run whose results changed anchors them', async () => {
+    faults = [{ provider: 'gfw', mode: 'http_500' }];
+    const f = await farmer();
+    const { plotId } = await registerPlot(t.db, 'ORG-A', { farmerId: f.id, crop: 'arabica', geometry: P01 }, NOW);
+    faults = [];
+    const again = (await runRegistrationChecks(t.db, 'ORG-A', plotId, { remoteSensing: provider(), now: NOW }))!;
+    expect(again.anchored).toBe(true);
+    const entries = await ledger();
+    expect(entries.map((e) => e.kind)).toEqual(['plot_registered', 'plot_edited', 'plot_edited']);
+    expect(entries[2]!.payload.registrationChecksHash).toBe(await sha256Hex((await plotRow(plotId)).registrationChecks!));
+  });
+});
+
+describe('an unknown plot with no fixture profile (fixture fallback off, EXE12)', () => {
+  it('is saved with both checks unavailable, naming the provider so "Check again" is offered', async () => {
+    const strict = createFixtureProvider({ profiles: {}, byGeometryHash: {} }); // no profile, no fallback
+    const f = await farmer();
+    setOnPlotGeometrySaved(async () => undefined); // run the checks below with the strict provider only
+    const { plotId } = await registerPlot(t.db, 'ORG-A', { farmerId: f.id, crop: 'arabica', geometry: P01 }, NOW);
+    const r = (await runRegistrationChecks(t.db, 'ORG-A', plotId, { remoteSensing: withTimeouts(strict), now: NOW }))!;
+    expect(r.forestLoss).toMatchObject({ status: 'unavailable', provider: 'gfw', hardFail: false, evidence: 'Check could not run: Error' });
+    expect(r.ndviHistory).toMatchObject({ status: 'unavailable', provider: 'sentinel-hub', hardFail: false, evidence: 'Check could not run: Error' });
+    expect(needsRerun(parseRegistrationChecks((await plotRow(plotId)).registrationChecks))).toBe(true);
+  });
+});
+
 describe('an edit to cleared land (TC-028 cache half, EVAL-044)', () => {
   it('re-queries because the geometry hash changed, records 18.0 %, and the next capture is Rejected by deforestation_overlap', async () => {
     const f = await farmer();
@@ -128,7 +169,7 @@ describe('an edit to cleared land (TC-028 cache half, EVAL-044)', () => {
     const row = await plotRow(plotId);
     const checks = parseRegistrationChecks(row.registrationChecks)!;
     expect(checks.forestLoss).toMatchObject({ status: 'fail', hardFail: true, lossPct: 18 });
-    expect(checks.forestLoss.evidence).toBe('18.0% of plot area lost since 2021 (hard fail at 10.0%)');
+    expect(checks.forestLoss.evidence).toBe('18.0% of plot area lost since 2021 (hard fail at 10.0%) (demo data)');
     expect(row.registrationStale).toBe(0);
     expect((await ledger()).map((e) => e.kind)).toEqual(['plot_registered', 'plot_edited', 'plot_edited', 'plot_edited']);
 

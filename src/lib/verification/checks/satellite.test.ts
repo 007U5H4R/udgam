@@ -3,7 +3,7 @@ import { buildProfile, type ProfileSpec } from '../../../../evals/fixtures/remot
 import { makeContext, makeDevice, makeSubmission, type TestDevice } from '../../../../tests/helpers/verify';
 import { withTimeouts } from '../../remote-sensing';
 import { createFixtureProvider, type FaultMode } from '../../remote-sensing/fixture';
-import type { NdviHistory, NdviWindow, ProviderName, RemoteSensingProvider } from '../../remote-sensing/types';
+import type { NdviHistory, NdviWindow, ProviderName, RemoteSensingProvider, RsSource } from '../../remote-sensing/types';
 import { CONFIG } from '../config';
 import { REGISTRY, type Check } from '../registry';
 import type { CheckResult, VerifyContext } from '../types';
@@ -35,16 +35,21 @@ const fixture = (spec: Partial<ProfileSpec> = {}, faults: { provider: ProviderNa
     faults,
     fallback: buildProfile({ plotId: 'PL-TEST', areaHa: 2, lossPct: 0, history: 'perennial_canopy', window: 'living_canopy', ...spec }),
   });
-/** A provider that answers one fixed thing per call kind (numbers the fixture profiles do not have). */
-const answering = (a: { lossPct?: number; history?: NdviHistory; window?: NdviWindow }): RemoteSensingProvider => {
+/**
+ * A stubbed provider that answers one fixed thing per call kind (numbers the fixture profiles do not
+ * have), as a live provider would (`source: 'live'`: no demo-data suffix) unless told otherwise.
+ */
+const answering = (a: { lossPct?: number; history?: Omit<NdviHistory, 'source'>; window?: Omit<NdviWindow, 'source'>; source?: RsSource }): RemoteSensingProvider => {
   const honest = fixture();
+  const source = a.source ?? 'live';
   return {
-    name: 'fixture',
-    forestLoss: async (p, o) => (a.lossPct === undefined ? honest.forestLoss(p, o) : { lossHa: 0, lossPct: a.lossPct, yearsFrom: 2021, dataYear: 2025 }),
-    ndviHistory: async (p, m, o) => a.history ?? honest.ndviHistory(p, m, o),
-    ndviWindow: async (p, d, n, o) => a.window ?? honest.ndviWindow(p, d, n, o),
+    name: source,
+    forestLoss: async (p, o) => (a.lossPct === undefined ? honest.forestLoss(p, o) : { lossHa: 0, lossPct: a.lossPct, yearsFrom: 2021, dataYear: 2025, source }),
+    ndviHistory: async (p, m, o) => (a.history ? { ...a.history, source } : honest.ndviHistory(p, m, o)),
+    ndviWindow: async (p, d, n, o) => (a.window ? { ...a.window, source } : honest.ndviWindow(p, d, n, o)),
   };
 };
+const DEMO = ' (demo data)';
 const run = async (check: Check, rs: RemoteSensingProvider) => runCheck(check, await sub(), await ctxWith(rs), CONFIG);
 
 afterEach(() => {
@@ -67,25 +72,40 @@ describe('deforestation_overlap (S5: any loss flags, ≥ 10.0 % hard fails)', ()
     [0, 'ok', false, '0.0% of plot area lost since 2021 (hard fail at 10.0%)'],
     [3.0, 'flag', false, '3.0% of plot area lost since 2021 (hard fail at 10.0%)'],
     [9.5, 'flag', false, '9.5% of plot area lost since 2021 (hard fail at 10.0%)'],
-    [9.96, 'flag', false, '10.0% of plot area lost since 2021 (hard fail at 10.0%)'],
+    [9.96, 'flag', false, '9.9% of plot area lost since 2021 (hard fail at 10.0%)'], // shown on the flag side of 10.0 %
     [10.0, 'fail', true, '10.0% of plot area lost since 2021 (hard fail at 10.0%)'],
     [10.5, 'fail', true, '10.5% of plot area lost since 2021 (hard fail at 10.0%)'],
     [25.0, 'fail', true, '25.0% of plot area lost since 2021 (hard fail at 10.0%)'],
-  ] as const)('lossPct %s → %s (hardFail %s)', async (lossPct, status, hardFail, sentence) => {
+    [100.0, 'fail', true, '100.0% of plot area lost since 2021 (hard fail at 10.0%)'],
+    // GFW sums whole-pixel areas (≈ 0.08 ha each): a small, fully cleared plot can read over 100 %.
+    [140.0, 'fail', true, '140.0% of plot area lost since 2021 (hard fail at 10.0%)'],
+  ] as const)('live lossPct %s → %s (hardFail %s), no demo-data suffix', async (lossPct, status, hardFail, sentence) => {
     const r = await run(deforestationOverlap, answering({ lossPct }));
     expect(r).toMatchObject({ id: 'deforestation_overlap', status, hardFail, evidence: sentence });
     expect(r.provider).toBeUndefined(); // the provider answered: nothing to re-run
   });
 
-  it('a nonsensical loss (negative, NaN, over 100) is a malformed answer: unavailable, never a verdict', async () => {
-    for (const lossPct of [-1, Number.NaN, 140]) {
-      expect(await run(deforestationOverlap, answering({ lossPct }))).toMatchObject({ status: 'unavailable', provider: 'gfw', hardFail: false });
+  it('a nonsensical loss (negative, NaN, infinite) is a malformed answer: unavailable, never a verdict', async () => {
+    for (const lossPct of [-1, -0.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(await run(deforestationOverlap, answering({ lossPct }))).toMatchObject({
+        status: 'unavailable',
+        provider: 'gfw',
+        hardFail: false,
+        evidence: 'Forest-loss data unavailable: malformed response; an admin re-run will retry',
+      });
     }
   });
 
-  it('reads the fixture profile of the plot (X02 10.5 % → hard fail; P05 loss only outside → ok)', async () => {
-    expect(await run(deforestationOverlap, fixture({ lossPct: 10.5 }))).toMatchObject({ status: 'fail', hardFail: true });
-    expect(await run(deforestationOverlap, fixture({ lossPct: 0, lossAdjacentOutside: true }))).toMatchObject({ status: 'ok' });
+  it('reads the fixture profile of the plot (X02 10.5 % → hard fail; P05 loss only outside → ok), labelled demo data (CF-11)', async () => {
+    expect(await run(deforestationOverlap, fixture({ lossPct: 10.5 }))).toMatchObject({
+      status: 'fail',
+      hardFail: true,
+      evidence: '10.5% of plot area lost since 2021 (hard fail at 10.0%) (demo data)',
+    });
+    expect(await run(deforestationOverlap, fixture({ lossPct: 0, lossAdjacentOutside: true }))).toMatchObject({
+      status: 'ok',
+      evidence: '0.0% of plot area lost since 2021 (hard fail at 10.0%) (demo data)',
+    });
   });
 });
 
@@ -93,7 +113,7 @@ describe('ndvi_cultivation (TP11: ≥ 6 clear months, min ≥ 0.50, swing ≤ 0.
   it('perennial_canopy → ok with the monthly range and clear months', async () => {
     expect(await run(ndviCultivation, fixture({ history: 'perennial_canopy' }))).toMatchObject({
       status: 'ok',
-      evidence: 'Canopy all year: monthly NDVI 0.62–0.81 over 11 clear months (needs ≥ 0.50, swing ≤ 0.35)',
+      evidence: `Canopy all year: monthly NDVI 0.62–0.81 over 11 clear months (needs ≥ 0.50, swing ≤ 0.35)${DEMO}`,
     });
   });
 
@@ -107,10 +127,10 @@ describe('ndvi_cultivation (TP11: ≥ 6 clear months, min ≥ 0.50, swing ≤ 0.
   it('annual_crop → fail (lowest month 0.28, swing 0.46)', async () => {
     const r = await run(ndviCultivation, fixture({ history: 'annual_crop' }));
     expect(r).toMatchObject({ status: 'fail' });
-    expect(r.evidence).toBe('No year-round canopy over 11 clear months: lowest month NDVI 0.28 (needs ≥ 0.50); seasonal swing 0.46 (limit 0.35)');
+    expect(r.evidence).toBe(`No year-round canopy over 11 clear months: lowest month NDVI 0.28 (needs ≥ 0.50); seasonal swing 0.46 (limit 0.35)${DEMO}`);
   });
 
-  const months = (means: (number | null)[]): NdviHistory => ({
+  const months = (means: (number | null)[]): Omit<NdviHistory, 'source'> => ({
     months: means.map((mean, i) => ({ month: `2026-${String(i + 1).padStart(2, '0')}`, mean, clearFraction: mean === null ? 0 : 0.9 })),
   });
 
@@ -118,6 +138,8 @@ describe('ndvi_cultivation (TP11: ≥ 6 clear months, min ≥ 0.50, swing ≤ 0.
     const r = await run(ndviCultivation, answering({ history: months([0.7, 0.7, 0.7, 0.7, 0.7, null, null, null, null, null, null, null]) }));
     expect(r).toMatchObject({ status: 'unavailable', evidence: 'Only 5 clear months of satellite data (needs 6)' });
     expect(r.provider).toBeUndefined();
+    const demo = await run(ndviCultivation, answering({ source: 'fixture', history: months([0.7, null, null, null, null, null, null, null, null, null, null, null]) }));
+    expect(demo.evidence).toBe('Only 1 clear months of satellite data (needs 6) (demo data)');
   });
 
   it('boundaries: min exactly 0.50 and swing exactly 0.35 are ok; 0.49 or a 0.36 swing fail', async () => {
@@ -147,9 +169,16 @@ describe('ndvi_harvest_window (TP11: ≥ 0.45 ok, 0.30–0.45 flag, < 0.30 fail)
     expect(await run(ndviHarvestWindow, answering({ window: { mean, clearObservations: 3 } }))).toMatchObject({ status, hardFail: false, evidence: sentence });
   });
 
+  it('the same answer from the fixture provider ends with " (demo data)" (CF-11)', async () => {
+    expect((await run(ndviHarvestWindow, answering({ source: 'fixture', window: { mean: 0.71, clearObservations: 3 } }))).evidence).toBe(
+      'Living canopy around the picking date: NDVI 0.71 (needs ≥ 0.45) (demo data)',
+    );
+    expect((await run(ndviHarvestWindow, fixture({ window: 'living_canopy' }))).evidence).toMatch(/ \(demo data\)$/);
+  });
+
   it('cloud_blocked (TC-031, EVAL-015) → unavailable with the cloud sentence', async () => {
     const r = await run(ndviHarvestWindow, fixture({ window: 'cloud_blocked' }));
-    expect(r).toMatchObject({ status: 'unavailable', evidence: 'Satellite view blocked by cloud for ±30 days' });
+    expect(r).toMatchObject({ status: 'unavailable', evidence: `Satellite view blocked by cloud for ±30 days${DEMO}` });
     expect(r.provider).toBeUndefined();
   });
 
