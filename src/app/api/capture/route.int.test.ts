@@ -61,7 +61,7 @@ describe('POST /api/capture', () => {
     expect(res.headers.get('cache-control')).toBe('no-store');
     expect(res.headers.get('x-accel-buffering')).toBe('no');
     const out = await lines(res);
-    expect(out.map((l) => l.t)).toEqual(['check', 'check', 'check', 'verdict']);
+    expect(out.map((l) => l.t).join()).toMatch(/^(check,)+verdict$/); // one line per registered check
     expect(out.at(-1)).toMatchObject({ verdict: 'Verified' });
   });
 

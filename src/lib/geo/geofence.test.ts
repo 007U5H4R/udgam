@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { distanceToEdgeM, haversineM } from './distance';
-import { geofenceStatus } from './geofence';
+import { geofenceStatus, locate } from './geofence';
 import type { MultiPolygon, Polygon } from './types';
 
 // A ~2 ha rectangle near Madikeri with axis-aligned edges, so a point due north of the top edge's
@@ -74,5 +74,41 @@ describe('geofenceStatus (technical-plan §6.3)', () => {
     const far = RING.map(([x, y]) => [x! + 0.01, y!]);
     const multi: MultiPolygon = { type: 'MultiPolygon', coordinates: [[far], [RING]] };
     expect(geofenceStatus({ lat: LAT, lng: LNG }, multi, 5, 25).status).toBe('ok');
+  });
+});
+
+describe('locate (technical-plan §22 TSK-08.3)', () => {
+  it('inside with the distance to the nearest edge segment, not to a vertex', () => {
+    const r = locate({ lat: LAT, lng: LNG }, SQUARE);
+    expect(r.inside).toBe(true);
+    expect(r.distanceToEdgeM).toBeCloseTo(70.59, 1); // east/west edges; the nearest vertex is ~101 m away
+  });
+
+  it('outside with the distance to the edge', () => {
+    const r = locate(northOfTop(12), SQUARE);
+    expect(r.inside).toBe(false);
+    expect(r.distanceToEdgeM).toBeCloseTo(12, 1);
+  });
+
+  it('a concave notch is outside although it is inside the bounding box', () => {
+    // An L: the square minus its north-east quarter.
+    const L: Polygon = {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [LNG - DX, LAT - DY],
+          [LNG + DX, LAT - DY],
+          [LNG + DX, LAT],
+          [LNG, LAT],
+          [LNG, LAT + DY],
+          [LNG - DX, LAT + DY],
+          [LNG - DX, LAT - DY],
+        ],
+      ],
+    };
+    const notch = { lat: LAT + DY / 2, lng: LNG + DX / 2 };
+    expect(locate(notch, L).inside).toBe(false);
+    expect(locate(notch, SQUARE).inside).toBe(true);
+    expect(locate({ lat: LAT - DY / 2, lng: LNG + DX / 2 }, L).inside).toBe(true);
   });
 });

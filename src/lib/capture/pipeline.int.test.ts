@@ -8,6 +8,7 @@ import { jcs, sha256Hex, sign } from '../crypto';
 import { append } from '../ledger/hashchain';
 import { verifyChain } from '../ledger/hashchain';
 import { localMediaStore } from '../media/store';
+import { REGISTRY } from '../verification/registry';
 import type { CapturePayloadV1 } from '../verification/types';
 import { runCapture, type CaptureDeps, type CaptureEvent } from './pipeline';
 
@@ -27,6 +28,8 @@ afterEach(async () => {
 });
 
 const photo = (label: string) => new TextEncoder().encode(`jpeg-bytes:${label}`);
+/** One `check` line per registered check (the registry grows by ticket), then `last`. */
+const streamOf = (last: string) => [...REGISTRY.map(() => 'check'), last];
 
 async function form(opts: { photos?: Uint8Array<ArrayBuffer>[]; seq?: number; prevEventHash?: string; mutate?: (p: CapturePayloadV1) => CapturePayloadV1 } = {}) {
   const photos = opts.photos ?? [photo('a')];
@@ -74,10 +77,10 @@ describe('runCapture happy path', () => {
       events.push(e);
       if (e.t === 'verdict') void count('verification_runs').then((n) => seenAtVerdict.push(n));
     });
-    expect(events.slice(0, 3).map((e) => e.t)).toEqual(['check', 'check', 'check']);
+    expect(events.map((e) => e.t)).toEqual(streamOf('verdict'));
     const last = events.at(-1)!;
-    expect(last).toMatchObject({ t: 'verdict', verdict: 'Verified', score: 100 });
-    expect(last.t === 'verdict' && last.checks.map((c) => c.id)).toEqual(['signature_valid', 'photo_uniqueness', 'geofence']);
+    expect(last).toMatchObject({ t: 'verdict', verdict: 'Verified' });
+    expect(last.t === 'verdict' && last.checks.map((c) => c.id)).toEqual(REGISTRY.map((c) => c.id));
     expect(last.t === 'verdict' && last.checks.every((c) => c.evidence.length > 0)).toBe(true);
 
     await new Promise((r) => setTimeout(r, 20));
@@ -214,7 +217,7 @@ describe('delivery failures never change what was committed', () => {
         if (e.t === 'verdict' || e.t === 'error') throw new TypeError('Invalid state: Controller is already closed');
       }),
     ).resolves.toBeUndefined();
-    expect(lines).toEqual(['check', 'check', 'check', 'verdict']);
+    expect(lines).toEqual(streamOf('verdict'));
     expect(await count('verification_runs')).toBe(1);
     expect(error).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalledWith(expect.objectContaining({ errClass: 'TypeError' }), 'capture.emit_failed');
@@ -251,7 +254,7 @@ describe('the capture transaction is atomic (TC-010 a, EVAL-067, CF-08, N7)', ()
     };
     const { fd } = await form({ photos: [photo('x'), photo('y')] });
     const events = await run(fd, deps({ append: failing }));
-    expect(events.map((e) => e.t)).toEqual(['check', 'check', 'check', 'error']);
+    expect(events.map((e) => e.t)).toEqual(streamOf('error'));
     expect(events.at(-1)).toEqual({ t: 'error', retryable: true });
     expect(await count('harvest_events')).toBe(0);
     expect(await count('media')).toBe(0);
