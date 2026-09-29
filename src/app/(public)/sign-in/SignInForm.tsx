@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect } from 'react';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import { Pill } from '../../../components/ui/Pill';
 import { TextField } from '../../../components/ui/TextField';
@@ -12,6 +12,13 @@ export type SignInLabels = { email: string; password: string; submit: string; wo
 /** One frosted card with the two fields, the inline error under them, and the one primary pill. */
 export function SignInForm({ labels }: { labels: SignInLabels }) {
   const [state, action, pending] = useActionState<SignInState, FormData>(signIn, { error: null });
+  // Signed in: load the role's home as a new document, so it gets its own Content-Security-Policy (the
+  // admin's allows the map tiles; a client navigation would keep the sign-in page's). TASK-20 fix round 2.
+  const home = state.home;
+  useEffect(() => {
+    if (home) window.location.assign(home);
+  }, [home]);
+  const busy = pending || home !== undefined; // the button stays "working" until the new page loads
   // Only a credential refusal marks the fields invalid; "unavailable" is not about what was typed.
   const invalid = state.error === 'credentials' && !pending;
   const message = pending || state.error === null ? '' : state.error === 'credentials' ? labels.error : labels.unavailable;
@@ -45,8 +52,8 @@ export function SignInForm({ labels }: { labels: SignInLabels }) {
       <p id="sign-in-error" className={s.error} role="alert">
         {message}
       </p>
-      <Pill type="submit" disabled={pending} aria-busy={pending || undefined}>
-        {pending ? labels.working : labels.submit}
+      <Pill type="submit" disabled={busy} aria-busy={busy || undefined}>
+        {busy ? labels.working : labels.submit}
       </Pill>
     </form>
   );

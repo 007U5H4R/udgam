@@ -201,7 +201,9 @@ describe('agent session guard (technical-plan §10, TC-018, EVAL-080)', () => {
     const src = readFileSync(new URL('./route.ts', import.meta.url), 'utf8');
     const guardAt = src.indexOf("await requireSession('agent', { request: req })");
     expect(guardAt).toBeGreaterThan(-1);
-    expect(guardAt).toBeLessThan(src.indexOf('req.formData()'));
+    // The body is read by readFormWithin (TASK-20 fix round 2: a deadline), never by req.formData().
+    expect(guardAt).toBeLessThan(src.indexOf('readFormWithin(req'));
+    expect(src).not.toContain('req.formData()');
     expect(src).toContain('agentId: agent.userId');
     expect(src).not.toContain('captureSessionGuard');
   });
