@@ -54,4 +54,41 @@ describe('agent foreign keys', () => {
     await t.client.execute(`INSERT INTO user (id, name, email, email_verified, created_at, updated_at, role, org_id) VALUES ('U-3', 'C', 'c@x.test', 1, 0, 0, 'agent', 'ORG-1')`);
     await expect(t.client.execute(`DELETE FROM user WHERE id = 'U-3'`)).resolves.toBeDefined();
   });
+
+  // TASK-20 fix round 2 (review #9; migration 0016_user_replace_guard). INSERT OR REPLACE resolves a
+  // conflict by deleting the old row, and with recursive_triggers off no DELETE trigger fires, so the
+  // guard above never saw it. A real foreign key would still refuse: the referenced id would be gone.
+  const insertUser = (verb: string, id: string, email: string, tail = '') =>
+    t.client.execute(
+      `${verb} INTO user (id, name, email, email_verified, created_at, updated_at, role, org_id) VALUES ('${id}', 'N', '${email}', 1, 0, 0, 'agent', 'ORG-1')${tail}`,
+    );
+  const userIds = async () => (await t.client.execute(`SELECT id FROM user ORDER BY id`)).rows.map((r) => r.id);
+
+  it('a referenced user cannot be replaced away through an email conflict (INSERT OR REPLACE / REPLACE)', async () => {
+    await device('DV-1', 'U-1');
+    await expect(insertUser('INSERT OR REPLACE', 'U-9', 'a@x.test')).rejects.toThrow('FOREIGN KEY constraint failed: user referenced by devices or harvest_events');
+    await expect(insertUser('REPLACE', 'U-9', 'a@x.test')).rejects.toThrow('FOREIGN KEY constraint failed: user referenced by devices or harvest_events');
+    expect(await userIds()).toEqual(['U-1']);
+  });
+
+  it('a user named only by a capture is guarded too', async () => {
+    await insertUser('INSERT', 'U-2', 'b@x.test');
+    await event('HE-1', 'U-2');
+    await expect(insertUser('INSERT OR REPLACE', 'U-8', 'b@x.test')).rejects.toThrow('FOREIGN KEY constraint failed: user referenced by devices or harvest_events');
+    expect(await userIds()).toEqual(['U-1', 'U-2']);
+  });
+
+  it('what a foreign key allows stays allowed: replacing the same id, replacing an unreferenced user, the seed upsert', async () => {
+    await device('DV-1', 'U-1');
+    // Same id: the referencing rows still name an existing user afterwards.
+    await expect(insertUser('INSERT OR REPLACE', 'U-1', 'a@x.test')).resolves.toBeDefined();
+    // An unreferenced user may be replaced through its email, as a FK would allow.
+    await insertUser('INSERT', 'U-3', 'c@x.test');
+    await expect(insertUser('INSERT OR REPLACE', 'U-7', 'c@x.test')).resolves.toBeDefined();
+    // scripts/seed-accounts.ts upserts on id; that path never deletes a row.
+    await expect(insertUser('INSERT', 'U-1', 'a@x.test', ` ON CONFLICT (id) DO UPDATE SET name = 'Renamed'`)).resolves.toBeDefined();
+    expect(await userIds()).toEqual(['U-1', 'U-7']);
+    expect((await t.client.execute(`SELECT name FROM user WHERE id = 'U-1'`)).rows[0]?.name).toBe('Renamed');
+    expect((await t.client.execute(`SELECT count(*) AS n FROM devices WHERE agent_id = 'U-1'`)).rows[0]?.n).toBe(1);
+  });
 });

@@ -73,10 +73,66 @@ describe('sniffImage', () => {
     }
   });
 
-  it('the HEIC fixture sniffs as HEIC from its first SNIFF_BYTES bytes (fix round 1)', async () => {
+  it('the HEIC fixture sniffs as HEIC from its first SNIFF_BYTES bytes (fix round 1; 4 KB since fix round 2)', async () => {
     const { SNIFF_BYTES } = await import('./sniff');
-    expect(SNIFF_BYTES).toBe(64);
+    expect(SNIFF_BYTES).toBe(4096);
     expect(sniffImage(new Uint8Array(readFileSync('evals/fixtures/photos/sample.heic')).subarray(0, SNIFF_BYTES))).toBe('image/heic');
+  });
+});
+
+describe('sniffImage: the ftyp box edge cases (TASK-20 fix round 2, N5)', () => {
+  /** An ftyp box whose size field says `size`, whatever its real length. */
+  const withSize = (size: number, box: Uint8Array) => {
+    const out = new Uint8Array(box);
+    new DataView(out.buffer).setUint32(0, size);
+    return out;
+  };
+  /** 'mif1' major, then `n` filler brands, then `last` (so `last` sits at byte 16 + 4n). */
+  const longBox = (n: number, last: string) => {
+    const box = ftypBox('mif1', ...Array<string>(n).fill('miaf'), last);
+    return withSize(box.length, box); // ftypBox writes a one-byte size
+  };
+
+  it('size 0 ("to end of file") and size 1 (a 64-bit size follows) are refused: a phone never writes them', () => {
+    expect(sniffImage(withSize(0, ftypBox('mif1', 'mif1', 'heic')))).toBeNull();
+    expect(sniffImage(withSize(0, ftypBox('mif1', 'mif1', 'avif')))).toBeNull();
+    // size 1: the 64-bit size sits where the major brand would, and can be made to spell one
+    const large = new Uint8Array([0, 0, 0, 1, ...text('ftypmif1'), 0, 0, 0, 40, ...text('mif1\0\0\0\0mif1avif')]);
+    expect(sniffImage(large)).toBeNull();
+    expect(sniffImage(withSize(1, ftypBox('heic', 'mif1', 'heic')))).toBeNull();
+  });
+
+  it('a size smaller than an ftyp header (16 bytes) is refused', () => {
+    for (const n of [2, 8, 12, 15]) expect(sniffImage(withSize(n, ftypBox('heic', 'mif1', 'heic'))), String(n)).toBeNull();
+    expect(sniffImage(withSize(16, ftypBox('heic', 'mif1', 'heic')))).toBe('image/heic'); // no compatible brands at all
+  });
+
+  it('the compatible brands are read across the whole box, not only its first 64 bytes', () => {
+    expect(sniffImage(longBox(20, 'heic'))).toBe('image/heic');
+    expect(sniffImage(longBox(20, 'avif'))).toBeNull(); // avif at byte 96
+    expect(sniffImage(longBox(1000, 'avif'))).toBeNull(); // avif at byte 4016, the box is 4020 bytes
+    expect(longBox(1019, 'avif').length).toBe(4096);
+    expect(sniffImage(longBox(1019, 'avif'))).toBeNull(); // the last brand of a 4 KB box
+  });
+
+  it('only as far as the box goes: bytes after it are not brands', () => {
+    const box = ftypBox('mif1', 'mif1', 'heic');
+    const next = new Uint8Array([...box, 0, 0, 0, 12, ...text('metaavif')]);
+    expect(sniffImage(next)).toBe('image/heic');
+  });
+
+  it('a box larger than 4 KB is refused (its brands could not all be read)', () => {
+    expect(longBox(1020, 'heic').length).toBe(4100);
+    expect(sniffImage(longBox(1020, 'heic'))).toBeNull();
+  });
+
+  it('the server sees what the phone sees: the first SNIFF_BYTES bytes give the same answer as the whole file', async () => {
+    const { SNIFF_BYTES } = await import('./sniff');
+    const photo = (box: Uint8Array) => new Uint8Array([...box, ...new Uint8Array(20_000).fill(7)]);
+    for (const box of [longBox(3, 'heic'), longBox(20, 'avif'), longBox(1000, 'avif'), longBox(1019, 'avif'), longBox(1019, 'heic'), longBox(1020, 'heic')]) {
+      const whole = photo(box);
+      expect(sniffImage(whole.subarray(0, SNIFF_BYTES)), `${box.length}`).toBe(sniffImage(whole));
+    }
   });
 });
 

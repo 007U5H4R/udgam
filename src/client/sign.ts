@@ -1,23 +1,23 @@
-import { jcs, sha256Hex, sign } from '../lib/crypto';
+import { jcs, sign } from '../lib/crypto';
 import type { CapturePayloadV1 } from '../lib/verification/types';
 
-// Browser side of capture (technical-plan §5.2, §9): build payload v1 from the exact photo bytes,
-// canonicalise (RFC 8785) and sign with the device key. Isomorphic, so it is unit-tested in Node.
+// Browser side of capture (technical-plan §5.2, §9): build payload v1 from the photos' hashes, canonicalise
+// (RFC 8785) and sign with the device key. Isomorphic, so it is unit-tested in Node. The hashes and MIME
+// types come from hashFile when each photo is accepted (TKT-10): the MIME is the sniffed one, which the
+// server checks against the bytes (TASK-20 fix round 2 removed buildAndSign, which signed `File.type`).
 
-export type CaptureDraft = {
+/** A draft whose photos were already hashed when accepted (TKT-10): Submit only canonicalises and signs. */
+export type HashedDraft = {
   plotId: string;
   deviceId: string;
   seq: number;
   prevEventHash: string;
   gps: { lat: number; lng: number; accuracyM: number };
   cherryKg: number;
-  files: File[];
+  media: CapturePayloadV1['media'];
 };
 
 const round = (x: number, dp: number) => Math.round(x * 10 ** dp) / 10 ** dp;
-
-/** A draft whose photos were already hashed when accepted (TKT-10): Submit only canonicalises and signs. */
-export type HashedDraft = Omit<CaptureDraft, 'files'> & { media: CapturePayloadV1['media'] };
 
 /** Build payload v1 from pre-computed photo hashes, canonicalise (RFC 8785) and sign. */
 export async function signCapture(
@@ -38,21 +38,4 @@ export async function signCapture(
   };
   const payloadString = jcs(payload);
   return { payload, payloadString, signature: await sign(key, payloadString) };
-}
-
-export async function buildAndSign(
-  draft: CaptureDraft,
-  key: CryptoKey,
-  now: () => Date = () => new Date(),
-): Promise<{ payload: CapturePayloadV1; payloadString: string; signature: string }> {
-  const media = await Promise.all(
-    draft.files.map(async (f) => ({
-      sha256: await sha256Hex(new Uint8Array(await f.arrayBuffer())),
-      size: f.size,
-      mime: f.type || 'image/jpeg',
-    })),
-  );
-  const { files: _files, ...rest } = draft;
-  void _files;
-  return signCapture({ ...rest, media }, key, now);
 }

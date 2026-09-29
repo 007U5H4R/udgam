@@ -104,3 +104,85 @@ test.describe('TC-076 security headers and CSP', () => {
     expect(violations).toEqual([]);
   });
 });
+
+type MarkedWindow = { __doc?: string; next: { router: { push: (href: string) => void } } };
+const TILE_HOST = 'https://ibasemaps-api.arcgis.com';
+
+/** Mark the current document; the mark survives client navigations and is gone after any new document load. */
+const markDocument = (page: Page, name: string) => page.evaluate((n) => void ((window as unknown as MarkedWindow).__doc = n), name);
+const documentMark = (page: Page) => page.evaluate(() => (window as unknown as MarkedWindow).__doc);
+/** A client navigation, exactly what a next/link click does (the admin Rail and "Add a plot" are Links). */
+const clientNavigate = (page: Page, href: string) => page.evaluate((h) => (window as unknown as MarkedWindow).next.router.push(h), href);
+
+/** Record each document response's path and img-src, and every tile request that completed. */
+function watchDocumentsAndTiles(page: Page) {
+  const documents: { path: string; imgSrc: string }[] = [];
+  const tiles: string[] = [];
+  page.on('response', async (r) => {
+    if (r.request().resourceType() !== 'document') return;
+    const csp = (await r.allHeaders())['content-security-policy'] ?? '';
+    documents.push({ path: new URL(r.url()).pathname, imgSrc: /img-src[^;]*/.exec(csp)?.[0] ?? '' });
+  });
+  page.on('requestfinished', (r) => {
+    if (r.url().includes('arcgis.com')) tiles.push(r.url());
+  });
+  return { documents, tiles };
+}
+
+test.describe('TC-076 the admin map tiles after a real sign-in (TASK-20 fix round 2, review N1)', () => {
+  test('from the sign-in FORM: the admin is a new document with the tile host; Rail → Plots → Add a plot loads tiles, no violation', async ({ page }) => {
+    await stubTiles(page);
+    const violations = await watchViolations(page);
+    const seen = watchDocumentsAndTiles(page);
+    // No /admin page is ever loaded by the test itself: the only way in is the form.
+    await page.goto('/sign-in');
+    await markDocument(page, 'sign-in');
+    await page.getByLabel('Email').fill(DEMO_ACCOUNTS.adminA.email);
+    await page.getByLabel('Password').fill(SEED_PASSWORD);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page).toHaveURL(/\/admin$/);
+    await page.waitForLoadState('load');
+    // Sign-in ended in a full load of /admin, served with the admin policy (a client redirect would have
+    // kept the sign-in document, whose img-src has no tile host).
+    expect(await documentMark(page)).toBeUndefined();
+    expect(seen.documents.map((d) => d.path)).toEqual(['/sign-in', '/admin']);
+    expect(seen.documents[0]!.imgSrc).toBe("img-src 'self' data: blob:");
+    expect(seen.documents[1]!.imgSrc).toBe(`img-src 'self' data: blob: ${TILE_HOST}`);
+    await markDocument(page, 'admin');
+    // /admin is still a placeholder without the Rail (TKT-12 ports it): reach a Rail page the way its
+    // Link would, then use the real Rail and the real "Add a plot" link.
+    await clientNavigate(page, '/admin/phones');
+    await expect(page).toHaveURL(/\/admin\/phones$/);
+    await page.getByRole('navigation', { name: 'Admin sections' }).getByRole('link', { name: 'Plots' }).click();
+    await expect(page).toHaveURL(/\/admin\/plots$/);
+    await page.getByRole('link', { name: 'Add a plot' }).click();
+    await expect(page).toHaveURL(/\/admin\/plots\/new$/);
+    await expect(page.locator('.leaflet-container')).toBeVisible();
+    await page.locator('.leaflet-tile-loaded').first().waitFor();
+    expect(await documentMark(page)).toBe('admin'); // all client navigations, in the document sign-in loaded
+    expect(seen.documents.map((d) => d.path)).toEqual(['/sign-in', '/admin']);
+    expect(await page.locator('.leaflet-tile-loaded').count()).toBeGreaterThan(0);
+    expect(seen.tiles.length).toBeGreaterThan(0); // the stub tile was fetched, not blocked
+    expect(violations).toEqual([]);
+  });
+
+  test('any other client navigation into the admin from a non-admin document reloads it as an admin document', async ({ page }) => {
+    await stubTiles(page);
+    const violations = await watchViolations(page);
+    const seen = watchDocumentsAndTiles(page);
+    await signIn(page, DEMO_ACCOUNTS.adminA.email, SEED_PASSWORD);
+    // A public document, whose policy has no tile host, with the admin still signed in.
+    await page.goto('/verify/B-0000TEST?h=000000000000');
+    await page.waitForLoadState('networkidle');
+    await markDocument(page, 'public');
+    const before = seen.documents.length;
+    await clientNavigate(page, '/admin/plots/new');
+    await expect(page).toHaveURL(/\/admin\/plots\/new$/);
+    await expect(page.locator('.leaflet-container')).toBeVisible();
+    await page.locator('.leaflet-tile-loaded').first().waitFor();
+    expect(await documentMark(page)).toBeUndefined(); // reloaded as its own document
+    expect(seen.documents.slice(before)).toEqual([{ path: '/admin/plots/new', imgSrc: `img-src 'self' data: blob: ${TILE_HOST}` }]);
+    expect(seen.tiles.length).toBeGreaterThan(0);
+    expect(violations).toEqual([]); // the map never started inside the public document
+  });
+});

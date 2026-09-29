@@ -6,8 +6,11 @@ import { outcome } from '../../../../tests/helpers/next';
 // password is not right" message. Other Better Auth refusals answer "unavailable" and are logged;
 // errors that are not refusals are rethrown.
 
-const h = vi.hoisted(() => ({ signInEmail: vi.fn(), error: vi.fn(), warn: vi.fn(), reserve: vi.fn(), refund: vi.fn() }));
-vi.mock('next/headers', () => ({ headers: async () => new Headers({ 'x-forwarded-for': '203.0.113.5' }) }));
+const h = vi.hoisted(() => ({ signInEmail: vi.fn(), error: vi.fn(), warn: vi.fn(), reserve: vi.fn(), refund: vi.fn(), js: false }));
+// `js`: the form was submitted by the Next client (a fetch carrying Next-Action), not posted without JavaScript.
+vi.mock('next/headers', () => ({
+  headers: async () => new Headers({ 'x-forwarded-for': '203.0.113.5', ...(h.js ? { 'next-action': '7f00c0ffee' } : {}) }),
+}));
 vi.mock('../../_auth/auth', () => ({ appAuth: () => ({ api: { signInEmail: h.signInEmail } }) }));
 vi.mock('../../../lib/log', () => ({ log: { error: h.error, warn: h.warn } }));
 vi.mock('../../../lib/db/client', () => ({ getDbReady: async () => 'db' }));
@@ -28,6 +31,7 @@ beforeEach(() => {
   h.warn.mockReset();
   h.reserve.mockReset().mockResolvedValue(RESERVED);
   h.refund.mockReset().mockResolvedValue(undefined);
+  h.js = false;
 });
 
 describe('signIn action', () => {
@@ -107,9 +111,27 @@ describe('signIn action', () => {
     expect(h.error).toHaveBeenCalledWith({ errClass: 'Error' }, 'auth.sign_in_refund_failed');
   });
 
-  it('success → redirect to the role home', async () => {
+  it('success, form posted without JavaScript → redirect to the role home (Next answers a 303: a full page load)', async () => {
     const { signIn } = await import('./actions');
     h.signInEmail.mockResolvedValue({ user: { role: 'admin' } });
     expect(await outcome(() => signIn({ error: null }, form('admin@a.test', 'pw')))).toEqual({ redirect: '/admin' });
+  });
+
+  it('success from the Next client → the role home for a full page load, never a client-side redirect (fix round 2, N1)', async () => {
+    const { signIn } = await import('./actions');
+    h.js = true;
+    for (const [role, home] of [
+      ['admin', '/admin'],
+      ['agent', '/field'],
+      ['buyer', '/buyer'],
+      ['something else', '/sign-in'],
+    ] as const) {
+      h.signInEmail.mockResolvedValue({ user: { role } });
+      expect(await outcome(() => signIn({ error: null }, form('x@a.test', 'pw'))), role).toEqual({ rendered: { error: null, home } });
+    }
+    expect(h.refund).toHaveBeenCalledTimes(4);
+    // refusals are unchanged
+    h.signInEmail.mockRejectedValue(APIError.from('UNAUTHORIZED', { code: 'INVALID_EMAIL_OR_PASSWORD', message: 'Invalid email or password' }));
+    expect(await signIn({ error: null }, form('x@a.test', 'wrong'))).toEqual({ error: 'credentials' });
   });
 });

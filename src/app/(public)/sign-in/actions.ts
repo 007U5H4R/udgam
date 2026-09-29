@@ -14,10 +14,19 @@ import { appAuth } from '../../_auth/auth';
 // Sign-in and sign-out Server Actions (TKT-04). Public by nature: they create or end a session and
 // read nothing org-scoped. Cookies are set and cleared by Better Auth's nextCookies plugin.
 
-export type SignInState = { error: SignInFailure | null };
+/**
+ * The form's state. `home` is set on success: the form then loads that page as a new document
+ * (`window.location.assign`), never by a client navigation.
+ */
+export type SignInState = { error: SignInFailure | null; home?: string };
 
 /**
- * Sign in with email + password and go to the role's home. A credential refusal answers
+ * Sign in with email + password and go to the role's home. A Content-Security-Policy belongs to the
+ * document, and a redirect() from a Server Action is applied as a client navigation: the admin would land
+ * on /admin still inside the /sign-in document, whose policy has no map-tile host, and every later click
+ * would stay in it (TASK-20 fix round 2, review N1). So a success answers `{ error: null, home }` and the
+ * form loads `home` in full. A form posted without JavaScript (no `Next-Action` header) still gets the
+ * redirect, which Next answers with a 303 and so a full load too. A credential refusal answers
  * `{ error: 'credentials' }` and the form shows one message for every cause (never which field was
  * wrong, TC-020). Any other Better Auth refusal (5xx, rate limit, a session it could not create)
  * answers `{ error: 'unavailable' }` and is logged by status and code. Anything else (the database
@@ -50,7 +59,9 @@ export async function signIn(_prev: SignInState, form: FormData): Promise<SignIn
     return { error: failure };
   }
   await refund(reservation);
-  redirect(isRole(role) ? HOME[role] : '/sign-in');
+  const home = isRole(role) ? HOME[role] : '/sign-in';
+  if (!requestHeaders.has('next-action')) redirect(home); // no JavaScript: a 303, a full page load
+  return { error: null, home };
 }
 
 /** Give an attempt's reservation back. Never fails the sign-in: a lost refund only counts one attempt. */

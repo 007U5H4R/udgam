@@ -64,6 +64,15 @@ function outcome(line: Line): SendResult | null {
   }
 }
 
+/** The longest a phone waits on a server's Retry-After before it sends an outbox copy again (N6). */
+export const MAX_RETRY_WAIT_SEC = 60;
+
+/** A Retry-After header in whole seconds (the delay form), or undefined when absent or not positive. */
+function retryAfter(res: Response): number | undefined {
+  const after = Number(res.headers.get('Retry-After'));
+  return Number.isFinite(after) && after > 0 ? after : undefined;
+}
+
 /** POST one signed capture and follow its NDJSON stream (TP12). Never throws. */
 export async function sendCapture(capture: SignedCapture, opts: SendOptions = {}): Promise<SendResult> {
   const fetchImpl = opts.fetchImpl ?? ((url, init) => fetch(url, init));
@@ -73,7 +82,11 @@ export async function sendCapture(capture: SignedCapture, opts: SendOptions = {}
   } catch {
     return { kind: 'retryable', cause: 'offline' };
   }
-  if (res.status >= 500) return { kind: 'retryable', cause: 'server' };
+  if (res.status >= 500) {
+    // The busy answer (TASK-20 fix round 2, N6) says when to come back; sendOutboxItem waits that long.
+    const after = res.status === 503 ? retryAfter(res) : undefined;
+    return { kind: 'retryable', cause: 'server', ...(after !== undefined ? { retryAfterSec: Math.min(after, MAX_RETRY_WAIT_SEC) } : {}) };
+  }
   if (!res.body) return res.ok ? { kind: 'retryable', cause: 'server' } : { kind: 'rejected', reason: 'other' };
 
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -112,8 +125,8 @@ export async function sendCapture(capture: SignedCapture, opts: SendOptions = {}
   const last = handle(buffer);
   if (last) return last;
   if (res.status === 429) {
-    const after = Number(res.headers.get('Retry-After'));
-    return { kind: 'retryable', cause: 'server', ...(Number.isFinite(after) && after > 0 ? { retryAfterSec: after } : {}) };
+    const after = retryAfter(res);
+    return { kind: 'retryable', cause: 'server', ...(after !== undefined ? { retryAfterSec: after } : {}) };
   }
   return res.ok ? { kind: 'retryable', cause: 'server' } : { kind: 'rejected', reason: 'other' };
 }
@@ -161,13 +174,40 @@ export async function submitCapture(
   return { ...r, item };
 }
 
-/** Send a stored capture as it is — the identical payload string and blobs, never re-signed (TP7). */
+/** When each outbox copy may be sent again (epoch ms), after an answer that carried Retry-After. */
+const notBefore = new Map<string, number>();
+
+/** Wait `ms`, or until `signal` aborts; true when the wait ran out. */
+function pause(ms: number, signal?: AbortSignal): Promise<boolean> {
+  if (signal?.aborted) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve(false);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve(true);
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+/**
+ * Send a stored capture as it is — the identical payload string and blobs, never re-signed (TP7). When
+ * the last send of this copy was answered with Retry-After (the busy 503, or 429), this one first waits
+ * out what is left of it, at most MAX_RETRY_WAIT_SEC (TASK-20 fix round 2, N6).
+ */
 export async function sendOutboxItem(
   item: OutboxSend,
   opts: SendOptions & { keepOnRefusal?: (reason: string) => boolean } = {},
 ): Promise<SendResult> {
+  const wait = (notBefore.get(item.id) ?? 0) - Date.now();
+  if (wait > 0 && !(await pause(wait, opts.signal))) return { kind: 'retryable', cause: 'offline' };
+  notBefore.delete(item.id);
   await countAttempt(item.id).catch(() => undefined);
   const r = await sendCapture({ payload: item.payload, signature: item.signature, files: item.files }, opts);
+  if (r.kind === 'retryable' && r.retryAfterSec !== undefined) notBefore.set(item.id, Date.now() + Math.min(r.retryAfterSec, MAX_RETRY_WAIT_SEC) * 1000);
   if (r.kind === 'verdict') {
     await advanceDevice(item.deviceId, item.seq, await sha256Hex(item.payload));
     await deleteOutbox(item.id);

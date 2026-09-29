@@ -38,6 +38,8 @@ describe('Content-Security-Policy (TC-076)', () => {
     expect(d.get('frame-ancestors')).toEqual(["'none'"]);
     expect(d.get('base-uri')).toEqual(["'self'"]);
     expect(d.get('form-action')).toEqual(["'self'"]);
+    expect(d.get('object-src')).toEqual(["'none'"]); // fix round 2 (review #11): no plugins, not even from self
+    expect([...d.keys()]).toEqual(['default-src', 'script-src', 'style-src', 'img-src', 'connect-src', 'object-src', 'frame-ancestors', 'base-uri', 'form-action']);
     expect(cspOf(b)).not.toBe(cspOf(a)); // per request
     // Next reads the nonce from the request's CSP header when it renders its bootstrap scripts
     expect(a.headers.get('x-middleware-request-content-security-policy')).toBe(cspOf(a));
