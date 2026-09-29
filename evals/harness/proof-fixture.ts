@@ -43,16 +43,25 @@ export async function buildProofFixture(opts: ProofFixtureOptions = {}): Promise
   const dir = await mkdtemp(join(tmpdir(), 'udgam-proof-fixture-'));
   const { db, client, ready } = createDb(`file:${join(dir, 'ledger.db')}`);
   const keyPath = join(dir, 'keys', 'ledger.jwk');
+  let previousHook: Parameters<typeof setOnAppended>[0] | null = null;
+  let closed = false;
+  // Restores the hook that was installed before this fixture (not blindly maybeCheckpoint), then
+  // closes the database and always removes the temp directory. Safe to call twice.
   const close = async () => {
-    setOnAppended(maybeCheckpoint);
-    client.close();
-    await rm(dir, { recursive: true, force: true });
+    if (closed) return;
+    closed = true;
+    if (previousHook !== null) setOnAppended(previousHook);
+    try {
+      client.close();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   };
   try {
     await ready;
     await runMigrations(db, join(ROOT, 'src/lib/db/migrations'));
     const key = await loadLedgerKey(keyPath);
-    setOnAppended((tx, seq) => maybeCheckpoint(tx, seq, { key }));
+    previousHook = setOnAppended((tx, seq) => maybeCheckpoint(tx, seq, { key })) ?? undefined;
 
     const w = await seedBatchWorld(db, {
       events: opts.events ?? 50,

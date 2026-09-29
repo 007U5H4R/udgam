@@ -187,7 +187,7 @@ export function renderReportFromResults(r: ResultsFile, resultsPath: string): st
       out.push(
         `S6 score (evals/scorers/proof-verifier.ts): coverage library ${pct(score.coverage.lib)}, clean-room ${pct(score.coverage.cleanRoom)}; ` +
           `tampers rejected library ${pct(score.tamperRejected.lib)}, clean-room ${pct(score.tamperRejected.cleanRoom)} over ${score.perVariant.length} variants; ` +
-          `CF-04 ${score.cf04.fired ? `fired (${score.cf04.variants.join(', ')})` : 'not fired'}.`,
+          `variants accepted by either verifier: ${score.cf04.fired ? score.cf04.variants.join(', ') : 'none'} (run-level CF-04, which also covers a rejection at the wrong step, is under "Critical conditions").`,
       );
       out.push('');
       out.push(...table(['Variant', 'Expected step', 'Library', 'Clean-room', 'Steps match'], score.perVariant.map((v) => [v.variant, v.expectedStep, v.lib.step ?? 'ACCEPTED', v.cleanRoom.step ?? 'ACCEPTED', v.stepMatches ? 'yes' : 'NO'])));

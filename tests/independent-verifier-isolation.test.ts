@@ -2,7 +2,8 @@
 // Every import in evals/scorers/independent-verifier/** must be relative and resolve inside that
 // folder, or be a `node:` built-in. Test files may also import the test runner (`vitest`), which is
 // not app code and never ships with the checker.
-import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -50,37 +51,56 @@ describe('TC-073 static: the clean-room checker imports nothing from the app', (
     expect(violations(ROOT)).toEqual([]);
   });
 
-  it('detects a planted import of app code', () => {
-    const planted = join(ROOT, 'src', `__planted_${process.pid}.ts`);
-    mkdirSync(dirname(planted), { recursive: true });
-    writeFileSync(planted, "import { sha256Hex } from '../../../src/lib/crypto';\nexport const x = sha256Hex;\n");
+  // Planted files go into a temporary copy of the folder, never into the live tree, so a concurrent
+  // tsc or eslint run (another worktree, an IDE) never sees them and a killed worker leaves nothing behind.
+  const withCopy = (plant: (copy: string) => void, check: (copy: string) => void) => {
+    const copy = join(mkdtempSync(join(tmpdir(), 'udgam-isolation-')), 'independent-verifier');
     try {
-      const bad = violations(ROOT);
-      expect(bad).toHaveLength(1);
-      expect(bad[0]).toContain('../../../src/lib/crypto');
+      cpSync(ROOT, copy, { recursive: true });
+      plant(copy);
+      check(copy);
     } finally {
-      rmSync(planted, { force: true });
+      rmSync(dirname(copy), { recursive: true, force: true });
     }
+  };
+
+  it('a clean copy of the folder has no violations (the copy is a faithful scan target)', () => {
+    withCopy(
+      () => {},
+      (copy) => expect(violations(copy)).toEqual([]),
+    );
+  });
+
+  it('detects a planted import of app code', () => {
+    withCopy(
+      (copy) => writeFileSync(join(copy, 'src', 'planted.ts'), "import { sha256Hex } from '../../../src/lib/crypto';\nexport const x = sha256Hex;\n"),
+      (copy) => {
+        const bad = violations(copy);
+        expect(bad).toHaveLength(1);
+        expect(bad[0]).toContain('../../../src/lib/crypto');
+      },
+    );
   });
 
   it('detects bare packages, path aliases, dynamic imports and require', () => {
-    const planted = join(ROOT, `__planted2_${process.pid}.ts`);
-    writeFileSync(
-      planted,
-      [
-        "import canonicalize from 'canonicalize';",
-        "import { x } from '@/lib/ledger/merkle';",
-        "const m = await import('../proof-verifier');",
-        "const r = require('crypto');",
-        "import { readFileSync } from 'node:fs';",
-        "export { canonicalize, x, m, r, readFileSync };",
-      ].join('\n'),
+    withCopy(
+      (copy) =>
+        writeFileSync(
+          join(copy, 'planted2.ts'),
+          [
+            "import canonicalize from 'canonicalize';",
+            "import { x } from '@/lib/ledger/merkle';",
+            "const m = await import('../proof-verifier');",
+            "const r = require('crypto');",
+            "import { readFileSync } from 'node:fs';",
+            'export { canonicalize, x, m, r, readFileSync };',
+          ].join('\n'),
+        ),
+      (copy) => expect(violations(copy).map((b) => b.split(': ')[1]).sort()).toEqual(['../proof-verifier', '@/lib/ledger/merkle', 'canonicalize', 'crypto']),
     );
-    try {
-      const bad = violations(ROOT).map((b) => b.split(': ')[1]);
-      expect(bad.sort()).toEqual(['../proof-verifier', '@/lib/ledger/merkle', 'canonicalize', 'crypto']);
-    } finally {
-      rmSync(planted, { force: true });
-    }
+  });
+
+  it('never leaves planted files in the live tree', () => {
+    expect(tsFiles(ROOT).filter((f) => /planted/.test(f))).toEqual([]);
   });
 });

@@ -29,7 +29,12 @@ Two more modes serve the harness proof suite (`evals/harness/suites/proof.ts`), 
 checker as a child process, so it shares no module state with the app's verifier:
 
 - `cli.ts --batch <jobs.json>`: `jobs.json` is `[{ "feed": "<path>", "keys": "<path>" }, …]`. It
-  prints the results as a JSON array in job order.
+  prints the results as a JSON array in job order. A job whose files cannot be read gets
+  `{ "ok": false, "verified": 0, "total": 0, "error": "…" }`; it never aborts the batch.
+
+`checkFeed` never throws: an unexpected error becomes a failure at step `format`, and a feed nested
+arbitrarily deep fails at `payload-hash` (or is ignored where the member is unknown) instead of
+overflowing the stack.
 - `cli.ts --vectors <crypto-vectors.json>`: checks the shared JCS, SHA-256, thumbprint and ES256
   vectors with this folder's code and prints `{ ok, total, failed }` (the clean-room half of
   EVAL-066).

@@ -14,19 +14,21 @@ describe('src/lib imports nothing from Next.js or React (TC-005)', () => {
       const [result] = await eslint.lintText(code, { filePath: 'src/lib/x.ts' });
       expect(rule(result!.messages)).toHaveLength(1);
     },
-    30_000,
+    60_000, // heavy by design: the first call loads the ESLint config cold
   );
 
+  // Heavy by design: ESLint loads the Next.js + TypeScript config programmatically (seconds when cold).
   it('does not restrict the same import outside src/lib', async () => {
     const [result] = await eslint.lintText("import { NextResponse } from 'next/server'", {
       filePath: 'src/app/x.ts',
     });
     expect(rule(result!.messages)).toHaveLength(0);
-  });
+  }, 60_000);
 
+  // Heavy by design: lints every file under src/lib.
   it('finds no restricted imports in the real src/lib', async () => {
     const results = await eslint.lintFiles(['src/lib']);
     expect(results.length).toBeGreaterThan(0);
     expect(results.flatMap((r) => rule(r.messages))).toHaveLength(0);
-  }, 30_000);
+  }, 120_000);
 });

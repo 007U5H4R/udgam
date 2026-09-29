@@ -61,12 +61,19 @@ const isName = (v: unknown): v is string => isStr(v) && v.length > 0;
 const isHex64 = (v: unknown): v is string => isStr(v) && HEX64.test(v);
 const own = (o: Obj, k: string): unknown => (Object.prototype.hasOwnProperty.call(o, k) ? o[k] : undefined);
 
-function hasForbiddenKey(v: unknown): boolean {
-  if (Array.isArray(v)) return v.some(hasForbiddenKey);
-  if (!isObj(v)) return false;
-  for (const k of Object.keys(v)) {
-    if (FORBIDDEN.has(k)) return true;
-    if (hasForbiddenKey(own(v, k))) return true;
+/** Iterative (an explicit stack), so a feed nested arbitrarily deep cannot overflow the call stack. */
+function hasForbiddenKey(root: unknown): boolean {
+  const stack: unknown[] = [root];
+  while (stack.length > 0) {
+    const v = stack.pop();
+    if (Array.isArray(v)) {
+      for (const x of v) stack.push(x);
+    } else if (isObj(v)) {
+      for (const k of Object.keys(v)) {
+        if (FORBIDDEN.has(k)) return true;
+        stack.push(own(v, k));
+      }
+    }
   }
   return false;
 }
@@ -203,7 +210,7 @@ function closureComplete(batchId: string, b: Entry, entries: Entry[]): boolean {
     if (!isObj(ev)) return false;
     const eventId = own(ev, 'eventId');
     const payloadHash = own(ev, 'payloadHash');
-    if (!isStr(eventId) || !isStr(payloadHash)) return false;
+    if (!isName(eventId) || !isStr(payloadHash)) return false;
     // Several harvest_event entries for one eventId: the one with the highest seq counts (§9.3).
     const h = harvests.filter((x) => own(x.payload, 'eventId') === eventId).at(-1);
     if (!h || own(h.payload, 'payloadHash') !== payloadHash) return false;
@@ -214,21 +221,41 @@ function closureComplete(batchId: string, b: Entry, entries: Entry[]): boolean {
   for (const h of harvests) {
     const plotId = own(h.payload, 'plotId');
     const deviceId = own(h.payload, 'deviceId');
-    if (!isStr(plotId) || !isStr(deviceId)) return false;
+    if (!isName(plotId) || !isName(deviceId)) return false;
     if (!plots.has(plotId) || !devices.has(deviceId)) return false;
   }
   const transfers = of('custody_transfer').filter((e) => own(e.payload, 'batchId') === batchId);
+  // Org ids are non-empty strings: a chain never starts "from nobody" (§9.3 rule 3).
   let holder = own(b.payload, 'orgId');
+  if (!isName(holder)) return false;
   for (const t of transfers) {
-    if (t.seq <= b.seq) return false;
-    if (own(t.payload, 'fromOrg') !== holder) return false;
-    holder = own(t.payload, 'toOrg');
+    const fromOrg = own(t.payload, 'fromOrg');
+    const toOrg = own(t.payload, 'toOrg');
+    if (t.seq <= b.seq || !isName(fromOrg) || !isName(toOrg) || fromOrg !== holder) return false;
+    holder = toOrg;
   }
   return true;
 }
 
-/** Verifies a proof feed against a key document `{ keys: [...] }`. Never throws. */
+/**
+ * Verifies a proof feed against a key document `{ keys: [...] }`. Never throws: an unexpected error
+ * (a hostile key document, exhausted resources) is a failure at step `format`.
+ */
 export async function checkFeed(feed: unknown, keys: unknown): Promise<CheckResult> {
+  try {
+    return await checkFeedUnguarded(feed, keys);
+  } catch {
+    let total = 0;
+    try {
+      total = totalOf(feed);
+    } catch {
+      total = 0;
+    }
+    return { ok: false, verified: 0, total, failure: { step: 'format' } };
+  }
+}
+
+async function checkFeedUnguarded(feed: unknown, keys: unknown): Promise<CheckResult> {
   const parsed = parseFeed(feed);
   if (!parsed) return { ok: false, verified: 0, total: totalOf(feed), failure: { step: 'format' } };
   const { batchId, shortHash, checkpoints, entries } = parsed;
