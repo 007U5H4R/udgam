@@ -50,14 +50,14 @@ const counts = async () => ({ ledger: await t.db.$count(ledgerEntries), custody:
 
 describe('transferBatch (TC-060)', () => {
   it('records a custody row whose signature verifies against the admin key, anchors custody_transfer and locks the batch', async () => {
-    const out = await transferBatch(t.db, { orgId: w.orgId, adminId: w.adminId, batchId: b.batchId, toOrgId: buyer });
+    const out = await transferBatch(t.db, { orgId: w.orgId, adminId: w.adminId, batchId: b.batchId, toOrgId: buyer }, () => new Date('2026-10-02T06:00:00.000Z'));
     expect(out.transferId).toMatch(/^CT-/);
 
     const [row] = await t.db.select().from(custodyTransfers).where(eq(custodyTransfers.id, out.transferId));
-    expect(row).toMatchObject({ batchId: b.batchId, fromOrg: w.orgId, toOrg: buyer, adminId: w.adminId, anchorSeq: out.anchorSeq });
+    expect(row).toMatchObject({ batchId: b.batchId, fromOrg: w.orgId, toOrg: buyer, adminId: w.adminId, anchorSeq: out.anchorSeq, transferredAt: '2026-10-02T06:00:00.000Z' });
     const admin = await getUserPublicKey(w.adminId);
     expect(row!.keyId).toBe(admin.kid);
-    const statement = jcs({ v: 1, batchId: b.batchId, fromOrg: w.orgId, toOrg: buyer, ts: row!.transferredAt, adminId: w.adminId });
+    const statement = jcs({ v: 1, batchId: b.batchId, fromOrg: w.orgId, toOrg: buyer, ts: '2026-10-02T06:00:00.000Z', adminId: w.adminId });
     expect(await verify(admin.publicJwk, statement, row!.signature)).toBe(true);
 
     const [entry] = await t.db.select().from(ledgerEntries).where(eq(ledgerEntries.seq, out.anchorSeq));
@@ -68,7 +68,7 @@ describe('transferBatch (TC-060)', () => {
       batchId: b.batchId,
       fromOrg: w.orgId,
       toOrg: buyer,
-      ts: row!.transferredAt,
+      ts: '2026-10-02T06:00:00.000Z',
       adminId: w.adminId,
       kid: admin.kid,
       publicJwk: admin.publicJwk,

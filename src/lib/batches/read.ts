@@ -47,7 +47,10 @@ export async function listOrgBatches(db: Db, orgId: string): Promise<BatchSummar
   return rows.map(toSummary);
 }
 
-/** The members of a batch, in eventId order (the order batch_created lists them). */
+/**
+ * The members of a batch, in eventId order (the order batch_created lists them).
+ * UNSCOPED: call only after an org-scoped lookup of `batchId` (getOrgBatch, getBuyerBatch).
+ */
 export async function batchMembers(db: Db, batchId: string): Promise<BatchMember[]> {
   const score = sql<number>`(SELECT ${verificationRuns.score} FROM ${verificationRuns} WHERE ${verificationRuns.eventId} = ${harvestEvents.id} ORDER BY ${verificationRuns.runNo} DESC LIMIT 1)`;
   const rows = await db
@@ -68,7 +71,10 @@ export async function batchMembers(db: Db, batchId: string): Promise<BatchMember
   return rows.map((r) => ({ ...r, cherryKg: r.cherryKg ?? 0, score: Number(r.score) }));
 }
 
-/** The batch's custody chain, oldest first, with organisation names. */
+/**
+ * The batch's custody chain, oldest first, with organisation names.
+ * UNSCOPED: call only after an org-scoped lookup of `batchId` (getOrgBatch, getBuyerBatch).
+ */
 export async function custodyChain(db: Db, batchId: string): Promise<CustodyLink[]> {
   const rows = await db
     .select({
@@ -84,6 +90,7 @@ export async function custodyChain(db: Db, batchId: string): Promise<CustodyLink
   return rows.map((r) => ({ ...r, fromOrgName: names.get(r.fromOrgId) ?? r.fromOrgId, toOrgName: names.get(r.toOrgId) ?? r.toOrgId }));
 }
 
+/** Organisation display names by id. UNSCOPED: pass only ids the caller may already see. */
 export async function orgNames(db: Db, ids: string[]): Promise<Map<string, string>> {
   const unique = [...new Set(ids)];
   if (unique.length === 0) return new Map();

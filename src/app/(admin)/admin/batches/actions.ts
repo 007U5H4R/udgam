@@ -23,7 +23,8 @@ const text = (v: FormDataEntryValue | null): string => (typeof v === 'string' ? 
 export async function createBatchAction(_prev: CreateBatchState, form: FormData): Promise<CreateBatchState> {
   const me = await requireSession('admin', { action: true });
   const crop = text(form.get('crop'));
-  const eventIds = form.getAll('eventId').map(text).filter((id) => id.length > 0 && id.length <= 64);
+  // Empty values are ignored; an over-long id is passed on and refused as not_eligible by createBatch.
+  const eventIds = form.getAll('eventId').map(text).filter((id) => id.length > 0);
   if (eventIds.length === 0) return { error: 'empty' };
   if (eventIds.length > MAX_EVENTS) return { error: 'not_eligible' };
   if (!isCrop(crop)) return { error: 'mixed_crop' };
