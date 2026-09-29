@@ -43,3 +43,6 @@ next-env.d.ts
 
 # e2e scratch data
 .e2e-data/
+
+# eval harness: ad-hoc runs (formal runs in evals/results/ are committed)
+evals/results/local/
