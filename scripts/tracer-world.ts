@@ -1,32 +1,15 @@
 import { jwkThumbprint, publicMembers } from '../src/lib/crypto';
 import { writeTx, type Db } from '../src/lib/db/client';
 import { devices, farmers, organisations, plots } from '../src/lib/db/schema';
-import type { Polygon } from '../src/lib/geo/types';
 import { newId } from '../src/lib/ids';
 import { append } from '../src/lib/ledger/hashchain';
+import { P01_AREA_HA, P01_INSIDE, P01_POLYGON } from './tracer-plot';
 
-// The TKT-02 tracer's world: one FPO, one farmer, plot P01 and one enrolled phone. TKT-03 generates
-// the harness plot fixtures; until then P01 is defined here and imported by the seed script, the
-// integration tests and the tracer e2e. TKT-05/06 replace this with real enrolment and registration.
+export { P01_AREA_HA, P01_INSIDE, P01_POLYGON };
 
-/** P01: a 2.0 ha convex hexagon near Madikeri, Kodagu (RFC 7946 order, counter-clockwise, 7 dp). */
-export const P01_POLYGON: Polygon = {
-  type: 'Polygon',
-  coordinates: [
-    [
-      [75.739986, 12.4213057],
-      [75.7393573, 12.4218229],
-      [75.7385331, 12.4216088],
-      [75.7384847, 12.4207742],
-      [75.7390777, 12.4202501],
-      [75.7397745, 12.4205949],
-      [75.739986, 12.4213057],
-    ],
-  ],
-};
-export const P01_AREA_HA = 2.0;
-/** Near the centroid, well inside P01. */
-export const P01_INSIDE = { lat: 12.4211, lng: 75.7392 };
+// The TKT-02 tracer's world: one FPO, one farmer, plot P01 (scripts/tracer-plot.ts) and one enrolled
+// phone. Used by the seed script and the integration tests; TKT-05/06 replace it with real enrolment
+// and plot registration.
 
 /** `prefix` + 8 random Crockford base32 characters. */
 export const randomId = (prefix: string): string => newId(prefix);
