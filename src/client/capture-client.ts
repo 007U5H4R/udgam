@@ -3,7 +3,7 @@ import type { FormReason } from '../lib/capture/parse';
 import type { CaptureEvent } from '../lib/capture/pipeline';
 import { sha256Hex } from '../lib/crypto';
 import type { CheckId, CheckStatus } from '../lib/verification/types';
-import { advanceDevice, answeredItems, countAttempt, deleteOutbox, loadSigner, markAnswered, putOutbox, type Advance } from './capture-store';
+import { advanceDevice, answeredItems, bumpAttempt, deleteOutbox, loadSigner, markAnswered, putOutbox, type Advance } from './capture-store';
 import type { GpsWatch } from './gps';
 import { signCapture } from './sign';
 
@@ -289,7 +289,7 @@ export async function sendOutboxItem(
   const wait = (notBefore.get(item.id) ?? 0) - Date.now();
   if (wait > 0 && !(await pause(wait, opts.signal))) return { kind: 'retryable', cause: 'offline' };
   notBefore.delete(item.id);
-  await countAttempt(item.id).catch((err: unknown) => console.warn('capture.count_attempt_failed', { errClass: errName(err) }));
+  await bumpAttempt(item.id).catch((err: unknown) => console.warn('capture.count_attempt_failed', { errClass: errName(err) }));
   const r = await sendCapture({ payload: item.payload, signature: item.signature, files: item.files }, opts);
   if (r.kind === 'retryable' && r.retryAfterSec !== undefined) notBefore.set(item.id, Date.now() + Math.min(r.retryAfterSec, MAX_RETRY_WAIT_SEC) * 1000);
   if (r.kind === 'verdict') {

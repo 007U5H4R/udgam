@@ -5,7 +5,7 @@ import { sendCapture, sendOutboxItem, type OutboxSend } from './capture-client';
 // and Retry-After. The phone honours it: the next send of that outbox copy waits that long (at most 60 s).
 
 vi.mock('./capture-store', () => ({
-  countAttempt: vi.fn(async () => undefined),
+  bumpAttempt: vi.fn(async () => undefined),
   deleteOutbox: vi.fn(async () => undefined),
   advanceDevice: vi.fn(async () => undefined),
   loadSigner: vi.fn(async () => null),

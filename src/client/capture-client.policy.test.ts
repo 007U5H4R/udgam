@@ -10,7 +10,7 @@ import { refusalKeepsOutbox } from '../lib/i18n/farmer-evidence';
 // device's chain head moves on only on a verdict.
 
 vi.mock('./capture-store', () => ({
-  countAttempt: vi.fn(async () => undefined),
+  bumpAttempt: vi.fn(async () => undefined),
   deleteOutbox: vi.fn(async () => undefined),
   advanceDevice: vi.fn(async () => undefined),
   markAnswered: vi.fn(async () => undefined),
