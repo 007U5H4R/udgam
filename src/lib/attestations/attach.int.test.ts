@@ -239,6 +239,23 @@ describe("attachAttestation (TC-058)", () => {
     }
   });
 
+  it("a date before 2000 or more than 10 years after today is bad_dates; the edges are allowed", async () => {
+    // today (deps().now, IST) is 2026-10-05, so the last allowed day is 2036-10-05
+    expect(await refused({ validFrom: "1999-12-31" })).toBe("bad_dates");
+    expect(await refused({ validFrom: "0000-01-01" })).toBe("bad_dates");
+    expect(await refused({ validTo: "2036-10-06" })).toBe("bad_dates");
+    expect(await refused({ validTo: "9999-12-31" })).toBe("bad_dates");
+    expect(
+      await refused({ validFrom: "2036-10-06", validTo: "2036-10-07" }),
+    ).toBe("bad_dates");
+    const r = await attachAttestation(
+      t.db,
+      input({ validFrom: "2000-01-01", validTo: "2036-10-05" }),
+      deps(),
+    );
+    expect(r.anchorSeq).toBeGreaterThan(0);
+  });
+
   it("one-day validity (validTo = validFrom) is allowed", async () => {
     const r = await attachAttestation(
       t.db,
@@ -254,9 +271,51 @@ describe("attachAttestation (TC-058)", () => {
     expect(await refused({ issuer: "x".repeat(121) })).toBe("issuer_too_long");
   });
 
-  it("control characters in the issuer are refused (they would reach every surface)", async () => {
-    expect(await refused({ issuer: "INDO\u0000CERT" })).toBe("issuer_required");
-    expect(await refused({ issuer: "INDO\nCERT" })).toBe("issuer_required");
+  it("control characters in the issuer are issuer_invalid (they would reach every surface)", async () => {
+    expect(await refused({ issuer: "INDO\u0000CERT" })).toBe("issuer_invalid");
+    expect(await refused({ issuer: "INDO\nCERT" })).toBe("issuer_invalid");
+    expect(await refused({ issuer: "INDO\u0085CERT" })).toBe("issuer_invalid");
+    expect(await refused({ issuer: "INDO\u2028CERT" })).toBe("issuer_invalid");
+  });
+
+  it("bidi controls and zero-width characters in the issuer are issuer_invalid (the anchored text is permanent)", async () => {
+    const invisible = [
+      0x200b, 0x200c, 0x200d, 0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d,
+      0x202e, 0x2066, 0x2067, 0x2068, 0x2069, 0xfeff, 0x2060, 0x00ad,
+    ];
+    for (const c of invisible) {
+      const issuer = `INDOCERT${String.fromCodePoint(c)} Ltd`;
+      expect(await refused({ issuer }), `U+${c.toString(16)}`).toBe(
+        "issuer_invalid",
+      );
+    }
+    // the neighbours of those ranges are ordinary text
+    const ok = await attachAttestation(
+      t.db,
+      input({ issuer: "Öko\u2010Garantie \u2070 Ltd" }),
+      deps(),
+    );
+    expect(ok.anchorSeq).toBeGreaterThan(0);
+  });
+
+  it("an issuer that claims verification or accuses anyone is issuer_invalid, in any case", async () => {
+    for (const issuer of [
+      "Verified Organic Ltd",
+      "VERIFIED  ORGANIC",
+      "Organic Verified Co",
+      "organically verified farms",
+      "Anti-Fraud Certifiers",
+      "Not A Fake Body",
+      "Cheaters Inc",
+      "Ｖｅｒｉｆｉｅｄ Ｏｒｇａｎｉｃ",
+    ]) {
+      expect(await refused({ issuer }), issuer).toBe("issuer_invalid");
+    }
+    // ordinary certifier names pass, including ones that merely contain the word organic
+    for (const issuer of ["INDOCERT", "Control Union Certifications", "Organic Certification Body of India"]) {
+      const r = await attachAttestation(t.db, input({ issuer }), deps());
+      expect(r.anchorSeq, issuer).toBeGreaterThan(0);
+    }
   });
 
   it("another org's plot and an unknown plot are both plot_not_found; the file is not stored", async () => {
@@ -284,6 +343,36 @@ describe("attachAttestation (TC-058)", () => {
     expect((await t.db.select().from(ledgerEntries)).length).toBe(before);
     expect(existsSync(join(t.dir, "attestations", `${sha(file)}.pdf`))).toBe(
       false,
+    );
+  });
+
+  it("a failed file cleanup is logged by error class only, and the original error still surfaces", async () => {
+    const file = pdf("cleanup fails");
+    const base = store();
+    const failing = {
+      ...base,
+      put: base.put.bind(base),
+      release: base.release.bind(base),
+      removeIfUnused: async () => {
+        throw new TypeError("EACCES /data/attestations/secret-path.pdf");
+      },
+    };
+    const error = vi.fn();
+    setOnAppended(async () => {
+      throw new Error("injected");
+    });
+    await expect(
+      attachAttestation(t.db, input({ file }), {
+        ...deps(),
+        store: failing,
+        log: { error },
+      }),
+    ).rejects.toThrow("injected");
+    setOnAppended(maybeCheckpoint);
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalledWith(
+      { errClass: "TypeError" },
+      "attestation.file_cleanup_failed",
     );
   });
 

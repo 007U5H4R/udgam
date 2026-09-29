@@ -48,8 +48,13 @@ describe('<AttestationLine>', () => {
     const html = renderToStaticMarkup(
       createElement(AttestationLine, { issuer: '<b>Odd & Co</b>', validFrom: '2026-01-01', validTo: '2027-01-01', today: '2026-10-05' }),
     );
-    expect(html).toContain('Certified by &lt;b&gt;Odd &amp; Co&lt;/b&gt; — certificate on record · valid 1 Jan 2026–1 Jan 2027');
+    expect(html).toContain('Certified by <bdi>&lt;b&gt;Odd &amp; Co&lt;/b&gt;</bdi> — certificate on record · valid 1 Jan 2026–1 Jan 2027');
     expect(html).not.toContain('<b>');
     expect(html).toContain('data-testid="attestation-line"');
+  });
+
+  it('isolates the issuer in <bdi>, so a right-to-left name cannot reorder the words after it', () => {
+    const html = renderToStaticMarkup(createElement(AttestationLine, { issuer: 'شهادة', validFrom: '2026-01-01', validTo: '2027-01-01', today: '2027-02-01' }));
+    expect(html).toContain('data-testid="attestation-line">Certified by <bdi>شهادة</bdi> — certificate on record · expired 1 Jan 2027</p>');
   });
 });

@@ -12,6 +12,10 @@ import { stubTiles } from './helpers/stubs';
 
 const GEOMETRY = fileURLToPath(new URL('../evals/fixtures/geometry', import.meta.url));
 const PDF_TEXT = '%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n';
+/** A validity end inside the accepted range (at most 10 years past today). */
+const TO_YEAR = new Date().getUTCFullYear() + 5;
+const TO = `${TO_YEAR}-12-31`;
+const MIB10 = 10 * 1024 * 1024;
 
 test.beforeAll(() => seedAccounts());
 
@@ -58,15 +62,17 @@ test.describe('TKT-13 organic certificate as an attestation', () => {
     const card = page.getByRole('region', { name: 'Organic certificate' });
     await expect(card.getByTestId('attestation-empty')).toHaveText('No certificate on record for this plot.');
 
-    await fillForm(page, { issuer: 'INDOCERT', from: '2020-01-01', to: '2099-12-31', file: { name: 'npop.pdf', mimeType: 'application/pdf', buffer: Buffer.from(PDF_TEXT) } });
+    await fillForm(page, { issuer: 'INDOCERT', from: '2020-01-01', to: TO, file: { name: 'npop.pdf', mimeType: 'application/pdf', buffer: Buffer.from(PDF_TEXT) } });
     await card.getByRole('button', { name: 'Attach certificate' }).click();
 
     const line = card.getByTestId('attestation-line');
-    await expect(line).toHaveText('Certified by INDOCERT — certificate on record · valid 1 Jan 2020–31 Dec 2099');
+    await expect(line).toHaveText(`Certified by INDOCERT — certificate on record · valid 1 Jan 2020–31 Dec ${TO_YEAR}`);
+    await expect(line.locator('bdi')).toHaveText('INDOCERT'); // the issuer is isolated from the words around it
     await expect(card.getByTestId('attestation-empty')).toHaveCount(0);
 
     // the download link returns the exact file to a signed-in admin, and never to a signed-out visitor
     const link = card.getByRole('link', { name: 'Download certificate (PDF)' });
+    await expect(link).toHaveCSS('text-decoration-line', 'underline'); // reads as a link without colour
     const href = await link.getAttribute('href');
     expect(href).toMatch(new RegExp(`^/admin/plots/${plotId}/attestation/AT-[0-9A-Z]{8}$`));
     const file = await page.request.get(href!);
@@ -104,7 +110,7 @@ test.describe('TKT-13 organic certificate as an attestation', () => {
     await uploadPlot(page, uniqueName('Refused'));
     const card = page.getByRole('region', { name: 'Organic certificate' });
     const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
-    await fillForm(page, { issuer: 'INDOCERT', from: '2020-01-01', to: '2099-12-31', file: { name: 'renamed.pdf', mimeType: 'application/pdf', buffer: png } });
+    await fillForm(page, { issuer: 'INDOCERT', from: '2020-01-01', to: TO, file: { name: 'renamed.pdf', mimeType: 'application/pdf', buffer: png } });
     await card.getByRole('button', { name: 'Attach certificate' }).click();
     await expect(card.locator('#att-error')).toHaveText('That file is not a PDF. Choose the certificate as a PDF file.');
     await expect(card.locator('#att-error')).toHaveRole('alert');
@@ -117,6 +123,40 @@ test.describe('TKT-13 organic certificate as an attestation', () => {
     await card.getByRole('button', { name: 'Attach certificate' }).click();
     await expect(card.locator('#att-error')).toContainText('cannot be before');
     await expect(card.getByTestId('attestation-empty')).toBeVisible();
+  });
+
+  test('a signed-out submit says to sign in again, not to fill in the form', async ({ page, context }) => {
+    test.slow();
+    await uploadPlot(page, uniqueName('Expired session'));
+    const card = page.getByRole('region', { name: 'Organic certificate' });
+    await fillForm(page, { issuer: 'INDOCERT', from: '2020-01-01', to: TO, file: { name: 'npop.pdf', mimeType: 'application/pdf', buffer: Buffer.from(PDF_TEXT) } });
+    await context.clearCookies();
+    await card.getByRole('button', { name: 'Attach certificate' }).click();
+    await expect(card.locator('#att-error')).toHaveText('Your session has ended. Sign in again, then attach the certificate.');
+    await expect(card.getByTestId('attestation-empty')).toBeVisible();
+  });
+
+  test('a certificate of exactly 10 MiB reaches the route whole and is recorded; one byte more is too large (the proxy never cuts the body)', async ({ page }) => {
+    test.slow();
+    const plotId = await uploadPlot(page, uniqueName('Near cap'));
+    const pdfOf = (size: number) => {
+      const b = Buffer.alloc(size, 0x20);
+      b.write('%PDF-1.7\n', 0, 'latin1');
+      return b;
+    };
+    const send = (buffer: Buffer) =>
+      page.request.post(`/admin/plots/${plotId}/attestation`, {
+        multipart: { issuer: 'INDOCERT', validFrom: '2020-01-01', validTo: TO, file: { name: 'big.pdf', mimeType: 'application/pdf', buffer } },
+        timeout: 60_000,
+      });
+    const over = await send(pdfOf(MIB10 + 1));
+    expect([over.status(), await over.json()]).toEqual([413, { ok: false, reason: 'too_large' }]);
+    const edge = await send(pdfOf(MIB10));
+    expect(edge.status()).toBe(201);
+    const { id } = (await edge.json()) as { id: string };
+    const back = await page.request.get(`/admin/plots/${plotId}/attestation/${id}`);
+    expect(back.status()).toBe(200);
+    expect((await back.body()).length).toBe(MIB10);
   });
 
   test('the registration checks card and the admin rail stay on the plot page beside the certificate card', async ({ page }) => {

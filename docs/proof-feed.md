@@ -357,8 +357,8 @@ Payload members a verifier relies on (all others are informational and covered b
 For display: `harvest_event.payload.capture` is the exact object the phone signed (weight in
 `capture.cherryKg`), `verification_run.payload` carries `verdict`, `score` and the `checks` with their
 evidence sentences, `plot_registered`/`plot_edited` carry `producerId`, `crop`, `areaHa` and the
-GeoJSON `polygon`, and `attestation` carries `issuer`, `validFrom`, `validTo` and the certificate
-`fileHash`.
+GeoJSON `polygon`, and `attestation` carries `attestationId`, `plotId`, `issuer`, `validFrom`,
+`validTo` and the certificate `fileHash`.
 
 ### 9.2 Signed payloads
 

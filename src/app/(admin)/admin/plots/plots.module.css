@@ -418,6 +418,14 @@
   margin-top: 2px;
   overflow-wrap: anywhere;
 }
+/* A text link inside a note (the certificate download, TKT-13): the mockup's `a` rule (admin.html),
+   underlined so it reads as a link without relying on colour (WCAG 1.4.1). */
+.link {
+  color: #b9f5d2;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .rerun {
   display: grid;
   justify-items: start;

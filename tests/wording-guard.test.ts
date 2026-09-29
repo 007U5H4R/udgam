@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-// TSK-13.3 / TC-058 (the static half), TC-057, EVAL-079, DISC4, CF-11: product copy never says organic
+// TSK-13.3 / TC-058 (the static half), EVAL-079, DISC4, CF-11: product copy never says organic
 // status is verified, and never accuses anyone. A certificate is an issuer's statement that Udgam keeps
 // unchanged on record ("Certified by <issuer> — certificate on record"); a rejected capture is "Not
 // accepted", never a charge of fraud. The guard searches every non-test file under src/ (which holds
@@ -51,7 +51,7 @@ export function scan(root: string): { files: string[]; hits: string[] } {
   return { files, hits };
 }
 
-describe('wording guard (TC-058, TC-057, EVAL-079)', () => {
+describe('wording guard (TC-058, EVAL-079)', () => {
   it('src/ and the i18n dictionaries contain none of the banned phrases', () => {
     const { files, hits } = scan(SRC);
     // not vacuous: it really read the app, the dictionaries and the shared attestation wording

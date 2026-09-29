@@ -5,7 +5,7 @@ import { useRef, useState, useTransition, type FormEvent } from 'react';
 import { Pill } from '../../../../../../components/ui/Pill';
 import { TextField } from '../../../../../../components/ui/TextField';
 import s from '../../plots.module.css';
-import { REASON_TEXT, type AttestationResult } from './copy';
+import { outcomeOf, REASON_TEXT } from './copy';
 
 // "Attach a certificate" (TKT-13): the issuer's name, the validity dates and the PDF. It posts to this
 // plot's attestation route (a route handler, so the 10 MB file is not held to the Server Action cap) and
@@ -24,15 +24,17 @@ export function AttestationForm({ plotId }: { plotId: string }) {
     if (!(file instanceof File) || file.size === 0) return setError(REASON_TEXT.no_file);
     setError('');
     start(async () => {
-      let result: AttestationResult;
+      let res: Response;
       try {
-        const res = await fetch(`/admin/plots/${plotId}/attestation`, { method: 'POST', body: form });
-        result = (await res.json()) as AttestationResult;
+        res = await fetch(`/admin/plots/${plotId}/attestation`, { method: 'POST', body: form });
       } catch {
         setError('Could not reach the server. Check the connection and try again.');
         return;
       }
-      if (!result.ok) return setError(REASON_TEXT[result.reason] ?? REASON_TEXT.invalid_input);
+      // The status decides before the body: a 401, a proxy's 413 or a 5xx page is not the route's JSON.
+      const body: unknown = await res.json().catch(() => null);
+      const result = outcomeOf(res.status, body);
+      if (!result.ok) return setError(result.message);
       ref.current?.reset();
       router.refresh();
     });
