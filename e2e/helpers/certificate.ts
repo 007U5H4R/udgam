@@ -12,13 +12,14 @@ export type SeededCertificate = { batchId: string; shortHash: string; producerId
 export const SENTINELS = { name: 'Zzsentinel Farmer', identifier: 'ID-SENTINEL-9999', phone: '9999988888' } as const;
 
 /** Seed one certificate-ready batch into the e2e database (new IDs every call). */
-export function seedCertificate(opts: { events?: number; plots?: number; transfer?: boolean; attestation?: boolean; sentinel?: boolean } = {}): SeededCertificate {
+export function seedCertificate(opts: { events?: number; plots?: number; transfer?: boolean; attestation?: boolean; override?: boolean; sentinel?: boolean } = {}): SeededCertificate {
   const env: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: 'test', DATA_DIR: E2E_DATA_DIR, LOG_LEVEL: 'silent', REMOTE_SENSING_PROVIDER: 'fixture' };
   delete env.DATABASE_URL;
   delete env.LEDGER_KEY_PATH;
   const args = ['e2e/helpers/seed-certificate.ts', '--events', String(opts.events ?? 3), '--plots', String(opts.plots ?? 3)];
   if (opts.transfer === false) args.push('--no-transfer');
   if (opts.attestation === false) args.push('--no-attestation');
+  if (opts.override) args.push('--override');
   if (opts.sentinel) args.push('--sentinel');
   const out = execFileSync('./node_modules/.bin/tsx', args, { env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
   return JSON.parse(out.trim().split('\n').pop()!) as SeededCertificate;

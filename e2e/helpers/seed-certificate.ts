@@ -5,7 +5,7 @@
 // material.
 //
 // Usage: NODE_ENV=test DATA_DIR=.e2e-data pnpm exec tsx e2e/helpers/seed-certificate.ts
-//          [--events 3] [--plots 3] [--no-transfer] [--no-attestation] [--sentinel]
+//          [--events 3] [--plots 3] [--no-transfer] [--no-attestation] [--override] [--sentinel]
 // --sentinel plants the TSK-16.9 sentinels: every farmer is "Zzsentinel Farmer" with identifier
 // "ID-SENTINEL-9999", and the FPO's office phone is 9999988888 (EVAL-084).
 import { closeDb, getDbReady } from '../../src/lib/db/client';
@@ -28,6 +28,7 @@ try {
     plots: arg('--plots', 3),
     attestation: !has('--no-attestation'),
     transfer: !has('--no-transfer'),
+    ...(has('--override') ? { overrideReason: 'Scale photo checked by the office' } : {}),
     ...(sentinel ? { farmer: () => ({ name: SENTINELS.name, identifier: SENTINELS.identifier }), officePhone: SENTINELS.phone } : {}),
   });
   const out: SeededCertificate = { batchId: w.batchId, shortHash: w.shortHash, producerIds: w.producerIds, plotIds: w.plotIds, eventIds: w.eventIds, totalKg: w.totalKg };

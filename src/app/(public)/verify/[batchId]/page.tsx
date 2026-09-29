@@ -1,15 +1,19 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { AttestationLine } from '../../../../components/ui/AttestationLine';
+import { CertIcon } from '../../../../components/ui/CertIcon';
+import { EntryList, type EntryRow } from '../../../../components/ui/EntryList';
 import { OriginTable } from '../../../../components/ui/OriginTable';
 import { ProofPanel } from '../../../../components/ui/ProofPanel';
 import { Timeline, type TimelineStep } from '../../../../components/ui/Timeline';
-import { certCopy, istDay, istRange, kg1, kgShort } from '../../../../lib/certificate/copy';
+import { certCopy, istDay, istRange, istToday, kg1, kgShort } from '../../../../lib/certificate/copy';
 import { FEED_ELEMENT_ID, serializeFeedForEmbed } from '../../../../lib/certificate/embed';
-import { buildCertificateView, type CertificateView } from '../../../../lib/certificate/view-model';
+import { buildCertificateView, type CertificateView, type EntryVerdict } from '../../../../lib/certificate/view-model';
 import { getDbReady } from '../../../../lib/db/client';
 import { resolveFeed } from '../../../../lib/ledger/feed';
 import c from './certificate.module.css';
 import { OriginMap } from './OriginMap';
+import { PrintButton } from './PrintButton';
 import { SiteHeader } from './SiteHeader';
 import './certificate-state.css';
 
@@ -46,6 +50,27 @@ function journeySteps(view: CertificateView): TimelineStep[] {
         return { key: `t${i}`, step: j.handed, when: istDay(step.at), where: j.to(step.org) };
     }
   });
+}
+
+/** Farmer-facing verdict words (D5) and their marks: the system states stay Verified | Needs Review | Rejected. */
+const VERDICT: Record<EntryVerdict, EntryRow['verdict']> = {
+  Verified: { word: 'Verified', mark: 'ok' },
+  'Needs Review': { word: 'Needs a check', mark: 'check' },
+  Rejected: { word: 'Not accepted', mark: 'bad' },
+};
+
+function entryRows(view: CertificateView): EntryRow[] {
+  return view.entries.map((e) => ({
+    n: e.n,
+    eventId: e.eventId,
+    date: istDay(e.capturedAt),
+    farm: e.producerId,
+    kg: kg1(e.kg),
+    verdict: VERDICT[e.verdict],
+    evidence: e.evidence,
+    ...(e.override ? { override: { word: VERDICT[e.override.verdict].word, reason: e.override.reason } } : {}),
+    seqs: e.seqs,
+  }));
 }
 
 export default async function CertificatePage({ params, searchParams }: Props) {
@@ -106,6 +131,53 @@ export default async function CertificatePage({ params, searchParams }: Props) {
               },
             ]}
           />
+        </section>
+
+        <section className={c.block} aria-labelledby="entries-h">
+          <h2 id="entries-h">
+            {certCopy.entries.heading} <span className={c.muted}>({view.entries.length})</span>
+          </h2>
+          <div className={c.glass}>
+            <EntryList rows={entryRows(view)} totalKg={kg1(view.headline.quantityKg)} />
+          </div>
+        </section>
+
+        <div className={c.bottomGrid}>
+          {view.organic ? (
+            <section className={c.block} aria-labelledby="org-h">
+              <h2 id="org-h">{certCopy.organic.heading}</h2>
+              <div className={`${c.glass} ${c.organic}`}>
+                <CertIcon name="seal" className={c.ic} />
+                <div className={c.organicText}>
+                  <AttestationLine issuer={view.organic.issuer} validFrom={view.organic.validFrom} validTo={view.organic.validTo} today={istToday(new Date())} />
+                  <p className={c.muted}>
+                    {view.organic.allPlots ? null : `${certCopy.organic.partOf(view.organic.plotIds.map((id) => certCopy.map.farm(view.plots.find((p) => p.plotId === id)?.producerId ?? id)).join(', '))} `}
+                    {certCopy.organic.notChecked}
+                  </p>
+                </div>
+              </div>
+            </section>
+          ) : null}
+          <section className={c.block} id="dl-block" aria-labelledby="dl-h">
+            <h2 id="dl-h">{certCopy.files.heading}</h2>
+            <div className={c.downloads}>
+              <a className={c.pill} id="geojson" href={`/api/verify/${encodeURIComponent(view.batchId)}/geojson?h=${view.shortHash}`} download={`udgam-${view.batchId}-eudr.geojson`}>
+                <CertIcon name="download" className={c.ic} />
+                {certCopy.files.geojson}
+              </a>
+              <PrintButton label={certCopy.files.print} />
+            </div>
+          </section>
+        </div>
+
+        <section className={`${c.block} ${c.limits}`} id="limits" aria-labelledby="limits-h">
+          <h2 id="limits-h">{certCopy.limits.heading}</h2>
+          <p data-limit="trust">{certCopy.limits.trust}</p>
+          <p data-limit="gps">{certCopy.limits.gps}</p>
+          <p data-limit="photos">{certCopy.limits.photos}</p>
+          <p data-limit="salami">{certCopy.limits.salami}</p>
+          <p data-limit="clearing">{certCopy.limits.clearing}</p>
+          <p data-limit="declared">{certCopy.limits.declared}</p>
         </section>
 
         <footer className={c.siteFoot}>{certCopy.footer(view.batchId)}</footer>

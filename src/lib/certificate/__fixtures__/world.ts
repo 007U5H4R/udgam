@@ -1,15 +1,17 @@
 import { eq } from 'drizzle-orm';
 import { attachAttestation } from '../../attestations/attach';
+import { signAsUser } from '../../auth/signing-keys';
 import { createBatch } from '../../batches/create';
 import { persistAccepted } from '../../capture/persist';
 import { generateKeyPair, jcs, publicMembers, sha256Hex, sign } from '../../crypto';
 import { transferBatch } from '../../custody/transfer';
 import { writeTx, type Db } from '../../db/client';
-import { farmers, organisations, plots, user } from '../../db/schema';
+import { farmers, organisations, plots, user, verificationRuns } from '../../db/schema';
 import { issueCode } from '../../enrolment/codes';
 import { enrolDevice } from '../../enrolment/enrol';
 import type { Polygon } from '../../geo/types';
 import { newId } from '../../ids';
+import { append } from '../../ledger/hashchain';
 import { registerPlot } from '../../plots/plots';
 import type { CapturePayloadV1, CheckResult, VerifyResult } from '../../verification/types';
 
@@ -84,6 +86,12 @@ export type CertificateWorldOptions = {
   transfer?: boolean;
   /** An existing buyer organisation to transfer to (instead of a new one). */
   buyerOrgId?: string;
+  /**
+   * Anchor an office decision on the first picking's run, as TKT-12's override service will: an
+   * `admin_override` {v, runId, eventId, newVerdict, reason, adminId, ts} signed on the admin's behalf
+   * (TP15). Test data for the certificate's override line only: no admin_overrides row is written.
+   */
+  overrideReason?: string;
 };
 
 export type CertificateWorld = {
@@ -176,6 +184,12 @@ export async function seedCertificateWorld(db: Db, o: CertificateWorldOptions): 
   }
 
   const batch = await createBatch(db, { orgId, adminId, crop: 'arabica', eventIds });
+  if (o.overrideReason) {
+    const [run] = await db.select({ id: verificationRuns.id }).from(verificationRuns).where(eq(verificationRuns.eventId, eventIds[0]!));
+    const statement = { v: 1, runId: run!.id, eventId: eventIds[0]!, newVerdict: 'Verified', reason: o.overrideReason, adminId, ts: new Date().toISOString() };
+    const signed = await signAsUser(adminId, jcs(statement));
+    await writeTx(db, (tx) => append(tx, 'admin_override', { ...statement, ...signed }));
+  }
   let buyerOrgId: string | null = null;
   if (o.transfer) {
     buyerOrgId = o.buyerOrgId ?? newId('ORG-');

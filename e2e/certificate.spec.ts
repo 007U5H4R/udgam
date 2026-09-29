@@ -85,3 +85,69 @@ test.describe('certificate hero, origin map and journey (TSK-16.4, @eval EVAL-08
     expect(embedded).toEqual(await api.json());
   });
 });
+
+test.describe('certificate entries, organic line, files and limits (TSK-16.5)', () => {
+  test('each entry: date, kg, verdict word + mark, three evidence lines, "See all checks" for the rest', async ({ page }) => {
+    await openVerified(page);
+    const entries = page.locator(width(page) >= 760 ? 'table.e-table tbody tr[data-event]' : 'ol.e-list > li');
+    await expect(entries).toHaveCount(3);
+    const expected = [
+      ['2 Sep 2026', '38.0 kg'],
+      ['4 Sep 2026', '41.5 kg'],
+      ['6 Sep 2026', '45.0 kg'],
+    ];
+    for (const [i, [date, kg]] of expected.entries()) {
+      await expect(entries.nth(i)).toContainText(date!);
+      await expect(entries.nth(i)).toContainText(kg!);
+      await expect(entries.nth(i)).toContainText(`Farm ${seeded.producerIds[i]}`);
+      const chip = entries.nth(i).locator('.vchip');
+      await expect(chip).toHaveText('Verified'); // the word…
+      await expect(chip.locator('svg[data-mark="ok"]')).toHaveCount(1); // …and the mark, never colour alone
+    }
+    const evidence = page.getByTestId('evidence').filter({ visible: true }).first();
+    await expect(evidence.locator('li')).toHaveCount(3);
+    await expect(evidence).toContainText('Signed by enrolled phone DV-');
+    const more = page.locator('details').filter({ visible: true }).filter({ hasText: 'See all checks (9 more)' }).first();
+    await expect(more.locator('li').first()).toBeHidden();
+    await more.locator('summary').click();
+    // the rest, with the fixture satellite lines labelled "(demo data)" exactly as recorded (EXE12)
+    await expect(more).toContainText('0.0% of plot area lost since 2021 (hard fail at 10.0%) (demo data)');
+    await expect(more).toContainText('Living canopy around the picking date: NDVI 0.71 (needs ≥ 0.45) (demo data)');
+  });
+
+  test('the organic line reads "Certified by <issuer> — certificate on record" with its validity', async ({ page }) => {
+    await openVerified(page);
+    const line = page.getByTestId('attestation-line');
+    await expect(line).toHaveText('Certified by INDOCERT — certificate on record · valid 1 Jan 2026–31 Dec 2027');
+    await expect(page.getByText(`Covers Farm ${seeded.producerIds[0]} only, not every farm in this batch.`)).toBeVisible();
+  });
+
+  test('files: the EUDR GeoJSON link behind the same h, and Print', async ({ page }) => {
+    await openVerified(page);
+    const block = page.locator('#dl-block');
+    await expect(block.getByRole('link', { name: 'Download EUDR map file (GeoJSON)' })).toHaveAttribute('href', `/api/verify/${seeded.batchId}/geojson?h=${seeded.shortHash}`);
+    await expect(block.getByRole('button', { name: 'Print certificate' })).toBeVisible();
+  });
+
+  test('honest limits: trust anchor, GPS inside the plot, re-encoded photos, salami, pruning vs clearing', async ({ page }) => {
+    await openVerified(page);
+    const limits = page.locator('#limits');
+    await expect(limits.getByRole('heading', { level: 2 })).toHaveText('What this can’t prove');
+    await expect(limits.locator('[data-limit="trust"]')).toContainText('the key Udgam publishes');
+    await expect(limits.locator('[data-limit="gps"]')).toContainText('inside the plot is not proof');
+    await expect(limits.locator('[data-limit="photos"]')).toContainText('re-saved or edited');
+    await expect(limits.locator('[data-limit="salami"]')).toContainText('Many small pickings');
+    await expect(limits.locator('[data-limit="clearing"]')).toContainText('pruning');
+    await page.getByRole('link', { name: 'What this can’t prove' }).click();
+    await expect(page).toHaveURL(/#limits$/);
+  });
+
+  test('an office decision shows its reason as text; no attestation, no organic line', async ({ page }) => {
+    const other = seedCertificate({ events: 2, plots: 1, override: true, attestation: false });
+    await page.goto(certificateUrl(other));
+    expect(await proofFinalState(page)).toBe('verified');
+    await expect(page.getByTestId('override-reason').filter({ visible: true })).toHaveText('Decided by the office: Verified · Reason: Scale photo checked by the office');
+    await expect(page.getByTestId('attestation-line')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Organic' })).toHaveCount(0);
+  });
+});

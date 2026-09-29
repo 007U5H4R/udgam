@@ -302,6 +302,7 @@
 .organicText {
   display: grid;
   gap: 4px;
+  font-size: 15px;
 }
 .downloads {
   display: grid;

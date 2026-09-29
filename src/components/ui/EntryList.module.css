@@ -1,0 +1,190 @@
+/* The certificate's harvest entries (TKT-16), ported from .design/exploration/final/verify.html "6 · harvest
+   entries": the compact list on phones (.e-list, .e-total) and the table from 760 px (.e-table), each
+   with the verdict chip (.vchip: word + mark, never colour alone). Composed from the same parts (TP17):
+   up to three evidence lines under each entry, "See all checks" for the rest, and an office decision's
+   reason as text. */
+.vchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 3px 11px 3px 6px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.mk {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.ok {
+  background: var(--ok-tint);
+  color: var(--ok-ink);
+}
+.check {
+  background: var(--check-tint);
+  color: var(--check-ink);
+}
+.bad {
+  background: var(--bad-tint);
+  color: var(--bad-ink);
+}
+.plain {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--ink);
+}
+
+.list {
+  display: grid;
+  margin: 0;
+  padding: 4px 18px;
+  list-style: none;
+}
+.list > li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas: 'n d kg' 'n f v' 'n e e';
+  gap: 2px 12px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.list > li:last-child {
+  border-bottom: 0;
+}
+.n {
+  grid-area: n;
+  align-self: start;
+  min-width: 26px;
+  color: var(--ink-2);
+  font-size: 15px;
+  font-weight: 700;
+  padding-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.d {
+  grid-area: d;
+  font-weight: 600;
+}
+.f {
+  grid-area: f;
+  color: var(--ink-2);
+  font-size: 15px;
+}
+.kg {
+  grid-area: kg;
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.v {
+  grid-area: v;
+  justify-self: end;
+}
+.e {
+  grid-area: e;
+  min-width: 0;
+}
+.list > li.flag {
+  margin: 0 -10px;
+  padding: 12px 10px;
+  border-radius: 16px;
+  background: rgba(239, 106, 91, 0.12);
+  border-bottom-color: transparent;
+}
+.total {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  padding: 14px 18px 16px;
+  border-top: 1px solid var(--hairline);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* evidence lines and the office's decision */
+.ev {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-2);
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.more summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 12px;
+}
+.more[open] summary {
+  min-height: 40px;
+}
+.ov {
+  margin: 8px 0 0;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.ov b {
+  font-weight: 700;
+}
+
+/* the table from 760 px */
+.tableCard {
+  display: none;
+  padding: 6px 20px;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.table th {
+  text-align: left;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink-2);
+  padding: 12px 12px 10px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.table td {
+  padding: 14px 12px 14px 0;
+  border-bottom: 1px solid var(--hairline);
+  vertical-align: middle;
+}
+.table tr.head td {
+  border-bottom: 0;
+  padding-bottom: 4px;
+}
+.table tr.evRow td {
+  padding-top: 0;
+}
+.table tr.flag td {
+  background: rgba(239, 106, 91, 0.12);
+}
+.table tfoot td {
+  font-weight: 700;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 0;
+}
+.num {
+  text-align: right;
+  padding-right: 0 !important;
+}
+@media (min-width: 760px) {
+  .list,
+  .total {
+    display: none;
+  }
+  .tableCard {
+    display: block;
+  }
+}
