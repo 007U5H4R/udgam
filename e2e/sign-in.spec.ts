@@ -23,7 +23,7 @@ test.describe('TC-020 sign-in', () => {
   for (const [who, account, home, heading] of [
     // The capture Home (TKT-10): its heading says where the phone is, or that no plot is assigned yet.
     ['agent', DEMO_ACCOUNTS.agentA, '/field', /^(No plot is assigned to you yet|Finding your location…|Location is off|You're .+)$/],
-    ['admin', DEMO_ACCOUNTS.adminA, '/admin', 'Review'],
+    ['admin', DEMO_ACCOUNTS.adminA, '/admin', /Pickings to check$/],
     ['buyer', DEMO_ACCOUNTS.buyerA, '/buyer', 'Batches'],
   ] as const) {
     test(`the ${who} signs in and lands on ${home}; TC-080/TC-081 on that shell`, async ({ page }) => {

@@ -315,7 +315,7 @@ describe('guard coverage (TSK-04.4, TC-018)', () => {
   it('scans every file under src/app, including the capture route and the group pages', () => {
     const rel = filesInScope().map((f) => relative(APP, f).split(sep).join('/'));
     expect(rel).toContain('api/capture/route.ts');
-    expect(rel).toContain('(admin)/admin/page.tsx');
+    expect(rel).toContain('(admin)/admin/(review)/(queue)/page.tsx');
     expect(rel).toContain('(public)/sign-in/actions.ts');
   });
 

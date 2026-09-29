@@ -15,6 +15,10 @@ import { log as defaultLog } from '../log';
 // the limit or that sharp cannot decode (some HEIC builds) gets a plain placeholder, which is cached
 // like any thumbnail so it is not decoded again on every request.
 
+// sharp's operation cache is off (TKT-12): with it on, repeated large thumbnails for the admin review
+// plateau at ~1.26 GB resident; thumbnails are cached on disk below instead.
+sharp.cache(false);
+
 export const THUMB_PX = 320;
 /** The largest input sharp will decode for a thumbnail (a 12 MP phone photo is well under it). */
 export const THUMB_MAX_INPUT_PIXELS = 50_000_000;
