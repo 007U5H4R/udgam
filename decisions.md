@@ -583,3 +583,96 @@ Each guarantee has a named test in TKT-09.
 - The app trusts only that value (`src/lib/client-ip.ts`, last hop), and the app port is never published.
 - TSK-27.3 gains a test showing that client-supplied `X-Forwarded-For` or `X-Real-IP` headers cannot dodge the per-IP sign-in and capture limits.
 - Map-key restrictions, the live provider with re-recorded fixtures, and the Kannada native review stay owner items before production (docs/exec owner review file).
+
+## EXE15 · Clean-room checker and harness scoping (TKT-18) — accepted
+- **Milestone scoping.** The harness runs `--milestone=M1` by default. Out-of-scope cases (EVAL-103, M2) are built and reported separately and counted in the totals, but never pooled into that milestone's gates and never dropped (CF-12). `inMilestone` fails closed, and `DEFAULT_MILESTONE` moves to M2 at M-002.
+- **Verification outcomes.** `docs/proof-feed.md` is authoritative: a dropped entry fails at `closure-incomplete`, and a reordered pair at `merkle-path`.
+- **Harness and checker structure.**
+  - The tamper generator moved to `src/lib/ledger/testing/tamper.ts`, and the proof suite moved to `evals/harness/suites/proof.ts`.
+  - The checker CLI adds `--batch` and `--vectors` modes, so the suite uses one or two child processes.
+  - S6-lib keeps its id and name but now requires both verifiers to agree.
+- **Test budgets.** Vitest budgets are 20 s per unit test and 60 s for the integration hooks. The root cause was the cold Better Auth import cost under parallel load, not flakiness.
+
+## EXE16 · Batches, custody transfer and the buyer list (TKT-14) — accepted
+- **List routes.** They sit in `(list)` route groups, so another org's batch detail returns a real 404 rather than a streamed 200 (EVAL-080, TC-019).
+- **Database invariants beyond §4.2:**
+  - members belong to the batch's org;
+  - membership is fixed once written;
+  - a batch is inserted open and empty;
+  - batch identity is immutable, and batches are never deleted;
+  - aggregates equal the `batch_aggregates` view;
+  - custody moves only from the holding org while the batch is open, and `custody_transfers` is append-only;
+  - a new verification run on a batched event aborts, because its verdict is frozen in `batch_created`. TKT-12's re-run and override screens must explain this.
+- **Extra columns:** `batches.created_at` and `custody_transfers.admin_id` (FK to user). With `admin_id`, a transfer's signature verifies from the row alone.
+- **Display values.** The plot label is the plot id, because plots have no name column. `integrityScore` is each member's latest run.
+
+## EXE17 · Capture boundary hardening, CSP and sign-in limits (TKT-19, fix rounds 1–2) — accepted
+- **Anchoring and refusals.**
+  - A refusal is anchored only for a canonical, schema-valid payload whose signature verifies, or whose key is unknown (EVAL-051/053). Unsigned or garbled bodies are only logged.
+  - New refusal reasons: `media_count` (400), `media_too_large` (413), `media_type` (415), `length_required` (411), `body_too_large` (413) and `rate_limited` (429).
+  - AVIF is refused. The signed mime must equal the sniffed type, read from up to 4 KB of the ftyp box; box sizes 0 and 1 are refused.
+- **CSP and routing.**
+  - The CSP uses a per-request nonce plus `'strict-dynamic'`, with `object-src 'none'`. `style-src 'self' 'unsafe-inline'` stays, because Next renders style attributes that no nonce can cover.
+  - Every page renders dynamically. The proxy lives in `src/proxy.ts` (Next 16) and excludes `/api`, so capture bodies are not buffered.
+  - The map-tile host is allowed on every `/admin*` page. A successful sign-in ends in a full document load; the `AdminDocument` guard reloads any admin page reached by client navigation from a non-admin document.
+- **Auth and sign-in limits.**
+  - `/api/auth` answers only GET get-session and POST sign-out; everything else is 404.
+  - Limits are 10 per (email, address), 50 per email and 30 per address in 15 minutes. Each attempt is reserved atomically and refunded unless the password was wrong.
+  - Trade-off: an attacker can lock one email out for 15 minutes.
+  - IPv6 is keyed by /64, and an IPv4-mapped address by its IPv4 address.
+- **Capture slots.**
+  - At most 4 captures in flight overall and 2 per agent. The per-IP and per-agent checks run before a slot is taken, and a busy 503 counts against the IP budget.
+  - The body has a 60 s read deadline; exceeding it gives a retryable 408 line, so the phone keeps its copy.
+  - Phone buckets are keyed per (agent, device).
+- **Foreign keys by trigger.** Agent foreign keys (`devices`, `harvest_events` → `user`) are enforced by triggers, because a drizzle table rebuild fails on dependent triggers. Migration 0016 refuses REPLACE of a referenced user, with FK semantics.
+- **SQLITE_BUSY root cause.** `next start` loaded the DB module twice. The handle and write queue are now shared per process via `globalThis`.
+- **Recorded for Stage 10:** two agents behind one address can hold all 4 slots; a 503 spends a shared address's budget; the body is read into memory (about 3× per slot); per-instance state (throttles, slots, dev secret) assumes one app instance.
+
+## EXE18 · Satellite checks, caching and honest failure (TKT-07, fix round 1) — accepted
+- **Geometry and fixtures.** `PlotGeom` keeps `polygon` (not `geometry`) and adds `geometryHash`. Fixture mode matches plots by geometry hash; the fallback profile is limited by EXE12.
+- **Timeouts and provider versions.**
+  - Per-call 8 s timeouts use a timer and AbortController and honour the caller's signal. The 10 s remote cap uses the provider's own unavailable sentence.
+  - The GFW dataset version defaults to cfg-1's pinned `v1.13`, and the resolved version is recorded.
+- **Unavailable results.** Cloud-blocked windows and histories with fewer than 6 clear months are `unavailable` with no provider named, and are never cached. So TKT-12's re-run must retry every unavailable remote check by kind, not only those naming a provider.
+- **Registration anchor.** It is a `plot_edited` entry that carries the full current geometry (including `polygon`) plus `registrationChecksHash`. "Check again" anchors only when the result changed.
+- **Cache behaviour.**
+  - The harvest-window centre is the IST date of the server receipt time.
+  - Cache writes run in the background through `writeTx`, and failures are logged.
+  - A corrupt cache row is treated as a miss.
+- **Evidence and hard fails.**
+  - Rounding in evidence never shows a value on the wrong side of its threshold.
+  - Any finite loss of 10 % or more is a hard fail, above 100 % included; NaN, infinite or negative values are `unavailable`.
+
+## EXE19 · Organic certificate attestation (TKT-13 and follow-up) — accepted
+- **Upload route.** The upload is a route handler, not a Server Action, because the action body cap is global. The proxy matcher excludes only `admin/plots/<id>/attestation`.
+- **Issuer validation.** Issuer text refuses:
+  - control characters and Unicode format characters (bidi and zero-width);
+  - the banned wording (case-insensitive, after NFKC);
+  - over-long values.
+
+  It renders inside `<bdi>`.
+- **Validity dates.** They must fall between 2000-01-01 and today (IST) plus 10 years.
+- **Database guards.** `attestations` also has `attestations_no_update`, and its payload carries `attestationId`.
+- **Requests without CSRF headers.** A POST with neither `Sec-Fetch-Site` nor `Origin` is accepted: it is a non-browser client, and the session cookie is `SameSite=lax`.
+
+## EXE20 · Yield, chain and replay under the write lock (TKT-09, fix round 1) — accepted (the X-Y-X rule is pending owner acknowledgement)
+- **Replay (EXE11).** A rejected payload is also unique per (payload_hash, boundary_reason). So a payload refused for X, then Y, then X again gets the original X refusal back, keeping all three guarantees; **the owner is asked to acknowledge this narrowing**. The plan's `findPriorOutcome` became `findAcceptedOutcome` plus `findRejection`.
+- **Boundary order:** signature → device ownership → replay of an accepted payload → revocation → plot assignment → media. A replay of an accepted payload keeps its verdict after a later revocation or un-assignment.
+- **Under-lock re-check.**
+  - Inside the write transaction the capture re-reads everything a concurrent capture can change: season kg, chain head, the agent's accepted count, seen photos and the previous capture. It then re-runs `yield_plausibility`, `chain_continuity`, `photo_uniqueness` and `movement_plausibility` and re-scores.
+  - Adding movement was directed by the orchestrator beyond the fix brief.
+- **Yield reference.** It is seeded at boot. `VerifyContext.yieldReference` may be null, giving an `unavailable` yield check.
+- **Harness and tests.**
+  - The harness gains `reuse_media.which` (1–3) and `input.context.crop`.
+  - A client `x-request-id` is accepted only if it matches `^[A-Za-z0-9._-]{1,64}$`.
+  - `pnpm test:tz` runs the unit suite under Los Angeles and Kolkata; CI does not run it yet.
+- **Owner items:** EVAL-049 is unreachable as one picking; the GAP-7 wording needs HR2.
+
+## EXE21 · How Stage 7 merges parallel work — accepted
+- **Who merges.** Implementers commit on their own worktree branches, and the orchestrator merges them into `build/stage7` after running the gates. The owner approved this route on 2026-09-29, after the permission check blocked subagent merges.
+- **Migrations.** Parallel migrations are renumbered at merge by regenerating with drizzle-kit, with custom SQL re-added unchanged; meta files are never hand-edited.
+- **Fixes after a merge.**
+  - Semantic merge breaks, such as type changes across branches or e2e expectations, are fixed by the orchestrator in the merge or in a separate commit, and named in the message.
+  - Fix rounds start fresh implementers at the current head instead of resuming old worktrees.
+- **Reviews.** Reviewers work read-only in their own `git clone --shared` copies at a pinned SHA.
+- **Container restarts.** After a restart, interrupted agents resume from their transcripts, and their uncommitted work is reviewed before it is committed.
