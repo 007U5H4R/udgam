@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { getDbReady } from '../../../../../lib/db/client';
+import { userName } from '../../../../../lib/enrolment/phones';
 import { tileLayerConfig } from '../../../../../lib/geo/tiles';
 import { listFarmers } from '../../../../../lib/plots/farmers';
 import { listPlots } from '../../../../../lib/plots/plots';
 import { requireSession } from '../../../../_auth/require';
 import { NewPlotForm } from '../NewPlotForm';
-import { loadList, PlotsScreen } from '../PlotsScreen';
+import { adminName, loadList, PlotsScreen } from '../PlotsScreen';
 import { forcedState } from '../state';
 import s from '../plots.module.css';
 
@@ -15,12 +16,13 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Add a plot · Udgam' };
 
 export default async function NewPlotPage({ searchParams }: { searchParams: Promise<{ state?: string | string[] }> }) {
-  const { orgId } = await requireSession('admin');
+  const { orgId, userId } = await requireSession('admin');
   const db = await getDbReady();
   const list = await loadList(forcedState((await searchParams).state), () => listPlots(db, orgId));
+  const me = await adminName(() => userName(db, userId));
   const farmers = await listFarmers(db, orgId);
   return (
-    <PlotsScreen list={list} detailOpen primaryAdd={false}>
+    <PlotsScreen me={me} list={list} detailOpen primaryAdd={false}>
       <header>
         <p className={s.eyebrow}>Plots · New</p>
         <div className={s.dTitle}>
