@@ -50,6 +50,19 @@ export function exifTimeToIso(raw: string, offset?: string | null): string | nul
 
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() !== '' ? v.trim() : undefined);
 
+/** Camera make/model are free text from the file: at most this many characters are kept (TKT-19). */
+export const MAX_LABEL_CHARS = 64;
+
+/**
+ * A camera label fit to store and show: control and format characters (C0/C1, DEL, bidi overrides)
+ * removed, trimmed, capped at MAX_LABEL_CHARS code points; undefined when nothing printable is left.
+ */
+export function exifLabel(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined;
+  const clean = [...v.replace(/[\p{Cc}\p{Cf}]/gu, '').trim()].slice(0, MAX_LABEL_CHARS).join('').trim();
+  return clean === '' ? undefined : clean;
+}
+
 function validGps(g: { latitude?: unknown; longitude?: unknown } | undefined): LatLng | null {
   if (!g) return null;
   const { latitude: lat, longitude: lng } = g;
@@ -69,8 +82,8 @@ export async function extractExif(bytes: Uint8Array): Promise<ExifFacts> {
   const raw = str(tags?.DateTimeOriginal);
   const offset = str(tags?.OffsetTimeOriginal);
   const takenAt = raw ? exifTimeToIso(raw, offset) : null;
-  const make = str(tags?.Make);
-  const model = str(tags?.Model);
+  const make = exifLabel(tags?.Make);
+  const model = exifLabel(tags?.Model);
   return {
     gps: validGps(gps),
     takenAt,

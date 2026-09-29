@@ -69,3 +69,27 @@ describe('exifTimeToIso (TP25)', () => {
     expect(exifTimeToIso('2026-09-20T10:15:00')).toBeNull();
   });
 });
+
+describe('camera make and model are bounded, printable text (TKT-19)', () => {
+  const jpegWith = async (make: string, model: string) => {
+    const sharp = (await import('sharp')).default;
+    const buf = await sharp({ create: { width: 8, height: 8, channels: 3, background: { r: 0, g: 0, b: 0 } } })
+      .jpeg()
+      .withExif({ IFD0: { Make: make, Model: model } })
+      .toBuffer();
+    return new Uint8Array(buf);
+  };
+
+  it('strips control characters and caps each at 64 characters', async () => {
+    const f = await extractExif(await jpegWith(`Evil\u0007Cam\u001b[31m${'X'.repeat(200)}`, 'Pixel\u00019\tPro'));
+    expect(f.make).toBe(`EvilCam[31m${'X'.repeat(64 - 'EvilCam[31m'.length)}`);
+    expect(f.make).toHaveLength(64);
+    expect(f.model).toBe('Pixel9Pro');
+  });
+
+  it('a make or model that is only control characters or spaces is left out', async () => {
+    const f = await extractExif(await jpegWith('\u0001\u0002', '   '));
+    expect(f).not.toHaveProperty('make');
+    expect(f).not.toHaveProperty('model');
+  });
+});
