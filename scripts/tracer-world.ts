@@ -1,14 +1,15 @@
+import { hashPassword } from 'better-auth/crypto';
 import { jwkThumbprint, publicMembers } from '../src/lib/crypto';
 import { writeTx, type Db } from '../src/lib/db/client';
-import { devices, farmers, organisations, plots } from '../src/lib/db/schema';
+import { account, devices, farmers, organisations, plots, user } from '../src/lib/db/schema';
 import { newId } from '../src/lib/ids';
 import { append } from '../src/lib/ledger/hashchain';
 import { P01_AREA_HA, P01_INSIDE, P01_POLYGON } from './tracer-plot';
 
 export { P01_AREA_HA, P01_INSIDE, P01_POLYGON };
 
-// The TKT-02 tracer's world: one FPO, one farmer, plot P01 (scripts/tracer-plot.ts) and one enrolled
-// phone. Used by the seed script and the integration tests; TKT-05/06 replace it with real enrolment
+// The TKT-02 tracer's world: one FPO, one farmer, plot P01 (scripts/tracer-plot.ts), the FPO's field
+// agent (a Better Auth user, TKT-04) and one phone enrolled to that agent. Used by the seed script and the integration tests; TKT-05/06 replace it with real enrolment
 // and plot registration.
 
 /** `prefix` + 8 random Crockford base32 characters. */
@@ -21,26 +22,39 @@ export type TracerWorld = {
   plotId: string;
   deviceId: string;
   agentId: string;
+  /** The agent's sign-in email; with `agentPassword` the agent can sign in (the /api/capture guard). */
+  agentEmail: string;
 };
 
 /**
- * Seed one FPO, one farmer, plot P01 and one device enrolled with `publicJwk`, anchoring the plot
- * and the device in the ledger in the same transaction. Every run makes new random IDs.
+ * Seed one FPO, one farmer, plot P01, the FPO's agent and one device enrolled to that agent with
+ * `publicJwk`, anchoring the plot and the device in the ledger in the same transaction. Every run makes
+ * new random IDs. With `agentPassword` the agent gets an email + password credential.
  */
-export async function seedTracerWorld(db: Db, { publicJwk, now = new Date() }: { publicJwk: JsonWebKey; now?: Date }): Promise<TracerWorld> {
+export async function seedTracerWorld(
+  db: Db,
+  { publicJwk, now = new Date(), agentPassword }: { publicJwk: JsonWebKey; now?: Date; agentPassword?: string },
+): Promise<TracerWorld> {
+  const agentId = randomId('AG-');
   const world: TracerWorld = {
     orgId: randomId('ORG-'),
     farmerId: randomId('FA-'),
     producerId: randomId('PR-'),
     plotId: randomId('PL-'),
     deviceId: randomId('DV-'),
-    agentId: randomId('AG-'),
+    agentId,
+    agentEmail: `${agentId.toLowerCase()}@tracer.udgam.test`,
   };
   const jwk = publicMembers(publicJwk);
   const kid = await jwkThumbprint(jwk);
   const ts = now.toISOString();
+  const passwordHash = agentPassword === undefined ? undefined : await hashPassword(agentPassword);
   await writeTx(db, async (tx) => {
     await tx.insert(organisations).values({ id: world.orgId, type: 'fpo', name: 'Tracer FPO (Kodagu)' });
+    await tx.insert(user).values({ id: agentId, name: 'Tracer agent', email: world.agentEmail, emailVerified: true, role: 'agent', orgId: world.orgId });
+    if (passwordHash !== undefined) {
+      await tx.insert(account).values({ id: `${agentId}-cred`, accountId: agentId, providerId: 'credential', userId: agentId, password: passwordHash, updatedAt: now });
+    }
     await tx.insert(farmers).values({ id: world.farmerId, orgId: world.orgId, name: 'Tracer farmer', producerId: world.producerId });
     // Ledger payloads are public-safe (EV16): IDs, numbers, geometry and producer_id, never names.
     const plotAnchor = await append(tx, 'plot_registered', {

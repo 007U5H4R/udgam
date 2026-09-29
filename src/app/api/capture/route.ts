@@ -1,9 +1,10 @@
+import { AuthError, authErrorResponse } from '../../../lib/auth/guards';
 import { runCapture, type CaptureEvent } from '../../../lib/capture/pipeline';
 import { env } from '../../../lib/config/env';
 import { getDbReady } from '../../../lib/db/client';
 import { log } from '../../../lib/log';
 import { localMediaStore } from '../../../lib/media/store';
-import { captureSessionGuard } from './guard';
+import { requireSession, type Guarded } from '../../_auth/require';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,10 +20,16 @@ const line = (e: CaptureEvent) => new TextEncoder().encode(`${JSON.stringify(e)}
 /**
  * POST /api/capture (technical-plan §3.1): multipart in, NDJSON progress out. The HTTP status follows
  * the first line: a boundary refusal answers 4xx; a capture that reaches verification streams 200.
+ * Needs an agent session (401/403 JSON otherwise) and a device enrolled to that agent (§10).
  */
 export async function POST(req: Request): Promise<Response> {
-  const guard = await captureSessionGuard(req);
-  if (!guard.ok) return guard.response;
+  let agent: Guarded;
+  try {
+    agent = await requireSession('agent', { request: req });
+  } catch (err) {
+    if (err instanceof AuthError) return authErrorResponse(err);
+    throw err;
+  }
 
   let form: FormData;
   try {
@@ -69,7 +76,7 @@ export async function POST(req: Request): Promise<Response> {
   void (async () => {
     try {
       const db = await getDbReady();
-      await runCapture(form, { db, media: localMediaStore(env.DATA_DIR) }, emit);
+      await runCapture(form, { db, media: localMediaStore(env.DATA_DIR), agentId: agent.userId }, emit);
     } catch (err) {
       // runCapture never rejects; this is the database handle failing to open.
       log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'capture.route_failed');

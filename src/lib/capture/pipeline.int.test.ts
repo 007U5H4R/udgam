@@ -52,7 +52,7 @@ async function form(opts: { photos?: Uint8Array<ArrayBuffer>[]; seq?: number; pr
 }
 
 function deps(over: Partial<CaptureDeps> = {}): CaptureDeps {
-  return { db: t.db, media: localMediaStore(t.dir), now: () => new Date('2026-10-14T04:12:34.000Z'), ...over };
+  return { db: t.db, media: localMediaStore(t.dir), agentId: world.agentId, now: () => new Date('2026-10-14T04:12:34.000Z'), ...over };
 }
 
 async function run(fd: FormData, d = deps()) {
@@ -198,6 +198,33 @@ describe('boundary rejections are anchored (§3.1 step 2)', () => {
     const fd = new FormData();
     fd.set('payload', '{}');
     expect(await run(fd)).toEqual([{ t: 'rejected', reason: 'bad_form', status: 400 }]);
+    expect(await count('harvest_events')).toBe(0);
+  });
+});
+
+describe('the device must belong to the signed-in agent (technical-plan §10, EVAL-080)', () => {
+  it("another agent sending this agent's signed capture → 403 device_not_owned, nothing written or anchored", async () => {
+    const { fd } = await form();
+    const entries = await count('ledger_entries');
+    expect(await run(fd, deps({ agentId: 'AG-SOMEONE' }))).toEqual([{ t: 'rejected', reason: 'device_not_owned', status: 403 }]);
+    expect(await count('harvest_events')).toBe(0);
+    expect(await count('ledger_entries')).toBe(entries);
+    expect(existsSync(join(t.dir, 'media'))).toBe(false);
+    // …so the owner's own upload of the same payload is still accepted
+    expect((await run(fd)).at(-1)).toMatchObject({ t: 'verdict', verdict: 'Verified' });
+  });
+
+  it("is checked before the idempotent replay: another agent's resend never gets the recorded verdict", async () => {
+    const { fd } = await form();
+    expect((await run(fd)).at(-1)).toMatchObject({ t: 'verdict' });
+    expect(await run(fd, deps({ agentId: 'AG-SOMEONE' }))).toEqual([{ t: 'rejected', reason: 'device_not_owned', status: 403 }]);
+    expect((await run(fd)).at(-1)).toMatchObject({ t: 'verdict', idempotent: true });
+  });
+
+  it("is checked before a signed rejection is anchored against another agent's phone", async () => {
+    const f = await form({ photos: [photo('a')] });
+    f.fd.set('photo0', new File([photo('not-a')], 'p0.jpg', { type: 'image/jpeg' }));
+    expect(await run(f.fd, deps({ agentId: 'AG-SOMEONE' }))).toEqual([{ t: 'rejected', reason: 'device_not_owned', status: 403 }]);
     expect(await count('harvest_events')).toBe(0);
   });
 });

@@ -1,0 +1,58 @@
+/* Ported verbatim from .design/exploration/final/index.html ".pill" (Design.md §13: primary pill, 60 px,
+   glow). Rule of light: the glow is on the primary pill only; `ghost` has none. */
+.pill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 60px;
+  padding: 0 24px;
+  border-radius: 999px;
+  border: 1px solid var(--pill-line);
+  background: var(--pill-glow), var(--pill-bg);
+  color: #fff;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition:
+    transform 0.12s ease,
+    background-color 0.2s ease;
+}
+.pill:hover {
+  background: var(--pill-glow), rgba(255, 255, 255, 0.11);
+}
+.pill:active {
+  transform: scale(0.985);
+}
+.pill:disabled {
+  cursor: not-allowed;
+  background: var(--pill-bg);
+  color: var(--ink-2);
+}
+.amber {
+  background: var(--pill-glow-amber), var(--pill-bg);
+}
+.ghost {
+  background: rgba(255, 255, 255, 0.05);
+  min-height: 56px;
+  box-shadow: none;
+}
+.ghost:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill {
+    transition: none;
+  }
+  .pill:active {
+    transform: none;
+  }
+}

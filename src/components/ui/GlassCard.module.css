@@ -1,0 +1,16 @@
+/* Ported verbatim from .design/exploration/final/index.html ".glass" + ".card". Rule of light: glass only
+   on cards, the tab bar and sheets. */
+.glass {
+  background: var(--surface);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  backdrop-filter: blur(20px) saturate(1.2);
+  border: 1px solid var(--hairline);
+}
+.card {
+  border-radius: var(--r-card);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background: var(--surface-solid);
+  }
+}

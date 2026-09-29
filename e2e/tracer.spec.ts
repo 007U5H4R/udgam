@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { P01_INSIDE } from '../scripts/tracer-plot';
+import { signIn } from './helpers/auth';
 import { mockGeolocation } from './helpers/stubs';
 import { query, seedTracer, type TracerKey } from './helpers/tracer';
 
@@ -50,6 +51,8 @@ async function capture(page: Page, kg: string) {
 test('TC-013 EVAL-001 EVAL-002 a seeded phone signs a picking and sees Verified with evidence', async ({ page, context }) => {
   const key = seedTracer();
   await mockGeolocation(context, { lat: P01_INSIDE.lat, lng: P01_INSIDE.lng, accuracy: 8 });
+  // /api/capture needs the device's agent signed in (technical-plan §10, TKT-04)
+  await signIn(page, key.agentEmail, key.testOnlyAgentPassword);
   await page.goto(`/field/tracer?plot=${key.plotId}`);
   await injectDevice(page, key);
 
