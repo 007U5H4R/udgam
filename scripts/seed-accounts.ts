@@ -1,6 +1,7 @@
 // Seeds the demo organisations and one account per role and org (technical-plan TSK-04.5):
 // two FPOs (Hosahalli FPO, and a second FPO for cross-org tests), two buyers, and `agent@` + `admin@`
-// per FPO and `buyer@` per buyer. Idempotent: re-running keeps IDs and resets the passwords.
+// per FPO and `buyer@` per buyer. Idempotent: re-running keeps IDs, resets the passwords and clears
+// the accounts' sign-in failure counts (TKT-19), as a password reset would.
 //
 // Passwords come from SEED_PASSWORD. Only when NODE_ENV is explicitly `development` or `test` does a
 // demo default stand in; otherwise a missing SEED_PASSWORD stops the seed. The password is never printed.
@@ -11,9 +12,11 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { hashPassword } from 'better-auth/crypto';
 import { env } from '../src/lib/config/env';
+import { emailKey } from '../src/lib/auth/sign-in-limit';
 import { writeTx, type Db } from '../src/lib/db/client';
-import { account, organisations, user } from '../src/lib/db/schema';
+import { account, organisations, rateLimits, user } from '../src/lib/db/schema';
 import type { Role } from '../src/lib/auth/session';
+import { inArray } from 'drizzle-orm';
 
 /** Demo-only default for dev and test databases. Used only when NODE_ENV is explicitly development or test. */
 export const DEV_SEED_PASSWORD = 'kodagu-coffee-demo';
@@ -53,7 +56,9 @@ export function seedPassword(): string {
 export async function seedAccounts(db: Db, password: string, now = new Date()): Promise<DemoAccount[]> {
   const accounts: DemoAccount[] = Object.values(DEMO_ACCOUNTS);
   const hashes = await Promise.all(accounts.map(() => hashPassword(password)));
+  const throttles = await Promise.all(accounts.map((a) => emailKey(a.email)));
   await writeTx(db, async (tx) => {
+    await tx.delete(rateLimits).where(inArray(rateLimits.key, throttles));
     for (const o of Object.values(DEMO_ORGS)) await tx.insert(organisations).values(o).onConflictDoNothing();
     for (const [i, a] of accounts.entries()) {
       await tx
