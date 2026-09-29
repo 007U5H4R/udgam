@@ -55,6 +55,7 @@ describe('parsePlotFile — refused with a reason (TC-026)', () => {
   it.each([
     ['empty.geojson', 'empty'],
     ['open-ring.geojson', 'open_ring'],
+    ['bowtie.geojson', 'self_intersection'],
     ['projected.geojson', 'not_wgs84'],
     ['too-many-vertices.geojson', 'too_many_vertices'],
   ] as const)('%s → %s', (name, reason) => {
