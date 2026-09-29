@@ -22,7 +22,7 @@ export type { PlotGeom, RemoteSensingProvider } from './types';
  * providers.timeoutMs, 8000) or when the caller's own signal aborts, whichever is first. The call is
  * handed that signal (so a live fetch is cancelled) and rejects at the deadline with a `timeout`
  * ProviderError naming the provider, even if the adapter ignores the signal. A timer rather than
- * AbortSignal.timeout(), so fake timers can drive it in tests (TC-032).
+ * AbortSignal.timeout(), so a test clock can drive it in tests (TC-032).
  */
 export function withTimeouts(provider: RemoteSensingProvider, opts: { timeoutMs?: number } = {}): RemoteSensingProvider {
   const timeoutMs = opts.timeoutMs ?? CONFIG.providers.timeoutMs;
