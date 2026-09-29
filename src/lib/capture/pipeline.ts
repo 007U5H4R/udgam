@@ -6,10 +6,13 @@ import { isPlotAssigned } from '../enrolment/assign';
 import { log as defaultLog } from '../log';
 import { extractExif } from '../media/exif';
 import type { MediaStore } from '../media/store';
-import { verify } from '../verification/verify';
-import type { CapturePayloadV1, CheckId, CheckResult, CheckStatus, Submission, Verdict } from '../verification/types';
+import { photoUniqueness } from '../verification/checks/photo-uniqueness';
+import { CONFIG } from '../verification/config';
+import { score } from '../verification/score';
+import { runCheck, verify } from '../verification/verify';
+import type { CapturePayloadV1, CheckId, CheckResult, CheckStatus, Submission, Verdict, VerifyContext, VerifyResult } from '../verification/types';
 import { authenticate, checkBoundary, STATUS, type BoundaryDevice, type BoundaryReason } from './boundary';
-import { buildContext } from './context';
+import { buildContext, seenMediaHashes } from './context';
 import { claimedDeviceId, parseCaptureForm, type FormReason } from './parse';
 import { persistAccepted, persistRejected, type AppendFn, type StoredMedia } from './persist';
 import { consume, DEVICE_LIMIT, deviceKey } from './rate-limit';
@@ -165,6 +168,26 @@ export async function runCapture(form: FormData, deps: CaptureDeps, emit: (line:
   send(terminal);
 }
 
+/**
+ * photo_uniqueness under the write lock (TKT-19): the context read the seen photo hashes before media
+ * storage and verification, so two captures carrying the same new photo could both pass. Re-read them
+ * inside the write transaction; if a photo has been accepted since, re-run that (local, pure) check and
+ * re-score. Returns the result to commit.
+ */
+async function recheckPhotoUniqueness(tx: Tx, sub: Submission, ctx: VerifyContext, result: VerifyResult): Promise<VerifyResult> {
+  const i = result.checks.findIndex((c) => c.id === photoUniqueness.id);
+  if (i < 0) return result;
+  const seen = await seenMediaHashes(
+    tx,
+    sub.media.map((m) => m.sha256),
+  );
+  if ([...seen].every((h) => ctx.seenMediaHashes.has(h))) return result;
+  const check = await runCheck(photoUniqueness, sub, { ...ctx, seenMediaHashes: seen }, CONFIG);
+  const checks = result.checks.map((c, j) => (j === i ? check : c));
+  const s = score(checks, CONFIG);
+  return { ...result, checks, verdict: s.verdict, score: s.score, capReasons: s.capReasons };
+}
+
 /** Upload refusals from parse.ts that a valid signature makes attributable (anchored, TSK-19.4). */
 const MEDIA_REASONS = new Set<FormReason>(['media_count', 'media_too_large', 'media_type']);
 /** Signature refusals of a well-formed payload that are anchored without naming a device (EVAL-051/053). */
@@ -281,7 +304,9 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
   const result = await verify(sub, ctx, { onCheck: (r) => send({ t: 'check', id: r.id, status: r.status }) });
 
   // 7. one transaction: re-check revocation and assignment, then event, media, run and both ledger
-  // entries — or, if either changed meanwhile, the anchored refusal instead
+  // entries — or, if either changed meanwhile, the anchored refusal instead. photo_uniqueness is
+  // re-read under the lock too, so the verdict streamed after COMMIT is the one committed.
+  let final = result;
   const committed = await writeTx(db, async (tx) => {
     const late = await lateRefusal(tx, device, payload.plotId);
     if (late) {
@@ -292,14 +317,15 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
       );
       return { refused: late } as const;
     }
+    final = await recheckPhotoUniqueness(tx, sub, ctx, result);
     return persistAccepted(
       tx,
-      { payload, payloadString: form_.payloadString, payloadHash, signature: form_.signature, serverReceivedAt, device, media: stored, result },
+      { payload, payloadString: form_.payloadString, payloadHash, signature: form_.signature, serverReceivedAt, device, media: stored, result: final },
       deps.append,
     );
   });
   if ('refused' in committed) return { t: 'rejected', reason: committed.refused, status: STATUS[committed.refused] };
 
   // 8. the verdict line; runCapture sends it only now, after COMMIT
-  return verdictLine(committed.eventId, result);
+  return verdictLine(committed.eventId, final);
 }
