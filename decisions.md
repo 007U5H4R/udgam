@@ -397,3 +397,11 @@
 - **Consequences, stated in every eval report:** the S3 reference condition keeps its placeholders (3 × 4 MB photos, 10/5 Mbit/s, 80 ms) as assumptions, not measurements. The legitimate set's GPS-accuracy, EXIF-presence and EXIF-time jitter uses the values already in the dataset, not field data. S2 realism is therefore an unvalidated assumption.
 - The five manual demo-phone S3 runs (EV9) and the midday sunlight test are **not** waived.
 **Rejected.** Stock photos (licence terms and the Design.md anti-reference); leaving the seed without photos (the capture flow and admin review need them).
+
+## TP30 · The GitHub repo stays public — accepted (supersedes DISC16's private-repo clause)
+**Context.** DISC16 chose a private proprietary repo. On 2026-09-29 `007U5H4R/udgam` was found to be public already (created 2026-09-28), and the owner confirmed it should stay public. A scan of all 113 commits on every branch found no secrets; the only key material is the test-only vectors in `evals/fixtures/crypto-vectors.json`, plus a planted canary string used by the secret-scan test.
+**Decision.** The repo stays public. Consequences:
+- Commit author emails, the vendored `.claude/workflow/` files (including the owner's personal global rules and vault path) and the full planning record (PRDs, grant strategy, cost model) are public.
+- There is no LICENSE, so the code is visible but all rights are reserved. Choosing an open licence is a separate owner decision.
+- Nothing about secrets changes: they come only from env or `.secrets/`; gitleaks runs in CI (TKT-01); the pre-commit habit of scanning stays.
+**Rejected.** Switching back to private (the owner chose public).
