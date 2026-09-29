@@ -454,3 +454,65 @@
 - **Sign-in errors and the seed.** Only credential refusals show "Email or password is not right". Other Better Auth failures show "Couldn't sign in right now. Try again." and are logged by status and code only; that string goes to the Stage 8 copy review. `SEED_PASSWORD` lives in `env.ts` but not in `.env.example`, which is pinned to the §17 names. Its demo default applies only when `NODE_ENV` is explicitly `development` or `test`.
 - **Handed on.** Rate limiting the sign-in Server Action goes to TKT-19. Foreign keys from `devices.agent_id` and `harvest_events.agent_id` to `user` go to TKT-05.
 **Rejected.** Anchoring `device_not_owned` (it creates a cross-agent blocking vector). Relying on the proxy or on layouts alone for authorisation.
+
+## EXE6 · Location and time checks: dataset 0.3.0, a measured lone-flag miss and exifr outside the bundle — accepted
+**Context.** TKT-08 (TASK-9) added the five location and time checks. EXIF parsing, the scenario-1 cases and three honest misses needed decisions.
+**Decision.**
+- **Dataset 0.3.0.** Scenario 1 now has at least 10 attack cases: EVAL-110–113 were appended in the reserved block, and `dataset_version` moved 0.2.0 → 0.3.0. No existing case changed.
+- **Duration wording follows §6.5.** A 120-minute gap is "2 h", because "N min" applies only under 120 min. The TSK-08 bullet saying "120 min" contradicted §6.5.
+- **Build details.**
+  - exifr runs outside the Next bundle (`serverExternalPackages: ["exifr"]`), because bundling broke its fs loader.
+  - The HEIC fixture is exifr's MIT-licensed `heic-single.heic`; its source and licence are in `evals/fixtures/photos/README.md`.
+  - The fixture JPEGs are generated with sharp, so no new dependency was added.
+- **A lone time flag is a measured miss.** EVAL-034, EVAL-055 and EVAL-056 each raise the correct `exif_time_agreement` flag, but the verdict stays Verified: under cfg-1 a lone flag other than deforestation or yield does not cap the verdict (EV7). The dataset's own note on EVAL-034 says the case "measures that". These are recorded as undetected, and cfg-1 is unchanged.
+- **Owner item for the baseline-v1 decision (TKT-21).**
+  1. Whether a lone time flag should cap the verdict.
+  2. Whether `exif_time_agreement` should judge the worst photo rather than the latest, as `exif_gps_agreement` does. Today an old, unseen photo sent alongside one fresh photo passes the time check.
+
+  Changing either needs a TP/EV decision and two new attack cases per affected scenario first (EV13, CF-13).
+**Rejected.** Editing the expected verdicts or moving cfg-1 to make these cases pass.
+
+## EXE7 · Enrolment and device-state rules (TKT-05) — accepted
+**Context.** TKT-05 (TASK-6) built enrolment, revocation and plot assignment. The review then found key re-encoding and a race against the capture commit.
+**Decision.**
+- **Boundary order** is unknown key → signature → revoked → plot assignment → media. All of these run before the idempotent replay. Checking the signature before revocation means only a holder of the phone's key can learn, or record, that the phone is revoked or unassigned.
+- **Revocation and assignment are re-checked inside the capture's write transaction.** If either changed during the request, the capture is anchored as rejected instead. This closes a race where a revoke landed during media storage.
+- **Device JWKs are canonical.** A key must be exactly `{kty:'EC', crv:'P-256', x, y}` with 43-character base64url coordinates. The server re-exports it and uses that form for both the stored JWK and the thumbprint, so a revoked key cannot be re-enrolled under a different encoding.
+- **Enrolment codes.**
+  - Five attempts over the code's whole life, enforced on `enrollment_codes.attempts`, independent of the rate-limit window.
+  - Issuing a new code retires the agent's older unused codes.
+  - The per-IP limit uses the last X-Forwarded-For hop only; the reverse proxy must overwrite that header (TKT-27).
+- **`device_enrolled` payload** is `{deviceId, agentId, thumbprint}` and carries no public key, so the proof feed does not check capture signatures. doc §1 lists capture signatures as out of scope. QA-P4-2 noted that TC-022's wording ("only the device ID and thumbprint") omits `agentId`; that's an owner item.
+- **Deferred.**
+  - To TKT-09: an accepted payload re-sent after revocation or un-assignment currently answers `rejected`.
+  - To TKT-19: the foreign keys from `devices.agent_id` and `harvest_events.agent_id` to `user`.
+**Rejected.** Checking revocation before the signature, which would let anyone probe device state.
+
+## EXE8 · Plot geometry and anchoring (TKT-06) — accepted
+**Context.** TKT-06 (TASK-7) built plot registration and editing. Downstream tickets need each plot's outline from the ledger, and the review found geometry the validator let through.
+**Decision.**
+- **Payloads carry the outline.** `plot_registered` and `plot_edited` payloads carry `polygon`; `plot_edited` also carries `producerId` and `crop`. The certificate, the EUDR export and proof feed §9 read each plot's outline from its latest plot entry. No farmer name or identifier is ever included (EV16). **TKT-07 and any later plot entry must keep `polygon`.**
+- **Additional geometry refusals** (reasons, all tested):
+  - `has_holes`: a MultiPolygon part nested inside another part. Before, its area was counted twice.
+  - `degenerate`: a part under 1 m².
+  - `out_of_region`: a vertex outside the India box `PLOT_REGION` (lat 6–37, lng 68–98), or a ring spanning more than 1°. This also catches swapped lat/lng and antimeridian rings.
+  - `not_polygon`: nesting deeper than 32 levels.
+  - `unsupported_kml`: any KML containing `<!DOCTYPE`, which blocks XXE and billion-laughs attacks.
+- **Area** is spherical (`@turf/area`), about 0.39 % high at Kodagu, within TC-027's 0.5 %.
+- **Tile keys.** `ARCGIS_API_KEY` and `MAPTILER_KEY` are visible to signed-in admins in tile URLs, which TP19 accepts. The owner must restrict each key by referrer, to basemaps only, with a usage cap.
+- **Server Action body limit.** The Next 16 limit is global (3 MB), is documented in `next.config.ts`, and is revisited in TKT-19.
+- **Admin rail.** Admin screens render `RailShell` per page, not in the layout, because `current` differs per page.
+
+## EXE9 · Proof feed v1 hardening (TKT-15) — accepted
+**Context.** The TKT-15 (TASK-16) review showed the verifier could accept unhashed data and that closure completeness was weaker than the doc claimed.
+**Decision.**
+- **Payload integrity.** `verifyFeed` hashes each payload as received. It rejects `__proto__`, `constructor` and `prototype` keys at any depth at the `format` step. Ledger payload authors must never use those keys.
+- **Closure completeness.** Every `harvest_event` in the closure requires its `device_enrolled` and `plot_registered` entries. `batch_created.events[].payloadHash` must equal the capture hash. A custody transfer for another batch is ignored. doc §1 lists the omissions the verifier cannot detect.
+- **Signed payloads** (`batch_created`, `custody_transfer`, `admin_override`) embed `kid`, `publicJwk` (exactly `{kty,crv,x,y}`) and `signature`. The statement is the payload minus those three members, and `kid` is the RFC 7638 thumbprint.
+- **Test-step mapping for tampers.** A dropped entry fails at `closure-incomplete` and a swapped pair fails at `merkle-path`, following §8.3 and the doc. The TSK-18.5 plan text saying otherwise is superseded.
+- **Ledger key.**
+  - Created atomically (temp file, fsync, then `link`); the Oracle A1 filesystem must support hard links (TKT-27).
+  - A checkpoint signed by a kid that is no longer published makes `/api/health` return 503 with `keyMismatch`.
+  - An invalid environment reads as `config:"error"`, not a database fault (QA-P1-1).
+- **`pnpm eval` never touches `./data`.** It isolates `DATA_DIR`/`LEDGER_KEY_PATH` in a temp directory.
+- **Doc sufficiency.** Three rounds of review by a clean-room reviewer who read only the doc and vectors all concluded SUFFICIENT: YES (`scratchpad` report `TASK-16-doc-sufficiency.md`, summarised in the ledger).

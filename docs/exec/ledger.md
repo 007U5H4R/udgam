@@ -41,9 +41,13 @@ Branch `build/stage7` (from `main` @ `b397c08`). Protocol: technical-plan.md §2
 | TASK-5 | 04.4 guard coverage | done | eb8083e, 41384f0 (fix round 1) | PASS (planted fixtures) | | stricter rule (EXE5) |
 | TASK-5 | 04.5 seed + org scope | done | c11b7ee | TC-019 PASS (batch part → TKT-14) | | |
 | TASK-5 | 04.6 sign-in screen | done | f8ac500 (merge edcf4d3) | TC-020, TC-080/081 PASS | scratchpad qa/P3 sign-in 375/1440 | |
+| TASK-6 (TKT-05) | 05.1–05.7 | done | e690212…cd692ff (merge 0594e60), e69b18d (fix round 1) | TC-021–025, EVAL-051, 052, 054, 082 PASS | QA P4 running build 9/9 | EXE7 |
+| TASK-7 (TKT-06) | 06.1–06.6 | done | 82976cf…becd162 (merge 6164c32), 19484dc (fix round 1, merge 1a58451) | TC-026, 027, 028 (edit half), 029, EVAL-005/026 PASS; EVAL-044 edit path PASS (cache half → TKT-07) | scratchpad qa/P4 | EXE8 |
+| TASK-9 (TKT-08) | 08.1–08.6 | done | 9300814…c5abee6, merge 2fb9927 | TC-035–037 PASS; scenario 1 11/11; EVAL-034/055/056 measured misses (EXE6) | eval local run | dataset 0.3.0 (EVAL-110–113) |
+| TASK-16 (TKT-15) | 15.1–15.8 | done | 641de72…99f4042 (merge b617732, migrations renumbered 0003/0004), 68efd3b (fix round 1) | TC-001 (ledger), TC-061–064, EVAL-058–063, 065 PASS | doc-only sufficiency YES ×3 | EXE9 |
 
 ## Decisions and parked items
-- EXE1 (owner gate waiver), EXE2 (TKT-01 toolchain), EXE3 (TKT-02 foundations: `writeTx`, boundary statuses, test route, `E2E_PORT`), EXE4 (harness semantics), EXE5 (auth under Next 16 and Better Auth; `device_not_owned` not anchored) are in `decisions.md`.
+- EXE1 (owner gate waiver), EXE2 (TKT-01 toolchain), EXE3 (TKT-02 foundations: `writeTx`, boundary statuses, test route, `E2E_PORT`), EXE4 (harness semantics), EXE5 (auth under Next 16 and Better Auth; `device_not_owned` not anchored), EXE6 (location/time checks; lone time-flag misses), EXE7 (enrolment and device state), EXE8 (plot geometry), EXE9 (proof feed hardening) are in `decisions.md`.
 - QA-P1-1 (low, parked → TKT-15 health work): when env is invalid in production (e.g. no `BETTER_AUTH_SECRET`), `/api/health` answers 503 `db:"error"` and logs `health.config_invalid`, so a config fault reads as a DB fault in the body. No values leak.
 - Carried to later tickets from the TKT-02 review: re-evaluating stored boundary rejections for the same `payload_hash` and the duplicate-resend race go to TKT-09; binding the device to the session agent before the replay lookup goes to TKT-04; anonymous ledger growth goes to TKT-04/19; aborting remote checks at the 10 s cap goes to TKT-07; the concurrent same-photo race goes to TKT-19.
 - QA-P2-1 (low, parked → TKT-10): the temporary tracer page's file input overflows at 375 px, and TKT-10 replaces the page.
@@ -95,3 +99,47 @@ Branch `build/stage7` (from `main` @ `b397c08`). Protocol: technical-plan.md §2
   - TC-019: batch and HTTP-level cross-org parts wait for TKT-14 (QA-P3-2).
   - P1–P2 regressions: PASS.
 - **Open:** QA-P3-1 (compare later runs to baseline-v0 by case ID, since the dataset grew); QA-P3-2 → TKT-14. GitHub Actions still has no runners.
+
+---
+
+## Gate P4 — TKT-05 (TASK-6), TKT-06 (TASK-7), TKT-08 (TASK-9), TKT-15 (TASK-16) · PASS with one recorded exception · 2026-09-29
+- **Reviews:**
+  - **TKT-08:** spec and quality both PASS on the first round.
+  - **TKT-15:** spec FAIL (proof suite not wired into `pnpm eval`) and quality FAIL (payload not hashed as received, so `__proto__` bypassed the check). Fix round 1 → both PASS. The doc-only sufficiency review was run three times, SUFFICIENT: YES each time.
+  - **TKT-05:** spec PASS; quality FAIL on three security majors: key re-encoding allowed re-enrolment of a revoked phone, a revoke racing the capture commit, and 10 code attempts instead of 5. Fix round 1 → PASS.
+  - **TKT-06:** spec FAIL (the admin rail was missing) and quality FAIL (a nested MultiPolygon double-counted area). Fix round 1 → both PASS.
+- **Gate commands (independent QA, @ 1a58451):**
+  - `pnpm typecheck && pnpm lint && pnpm test`: 964 passed.
+  - `pnpm test:int`: 222 passed.
+  - `pnpm eval:validate`: dataset 0.3.0, 109 cases.
+  - `E2E_PORT=3104 pnpm test:e2e`: 136 passed, 4 skipped by design.
+  - `pnpm build`: ok.
+- **`pnpm eval`:** 64 active · 27 passed · 37 failed (34 `not_yet_implemented`) · 0 errored · 0 skipped.
+
+  | Gate | Result |
+  |---|---|
+  | S1 | 50.0 % (15/30) FAIL |
+  | S1-floor | FAIL |
+  | S2 | FAIL (not-yet-built checks) |
+  | S6-lib | **100 % (7/7) PASS** |
+  | S7 | PASS |
+  | CF | 0 |
+
+  Per scenario: 1: 11/11 · 2: 4/6 · 3: 0/7 · 4: 0/6 · 6 (stretch): 1/3.
+- **Eval delta since P3:** S6-lib 0/8 → 7/7; passed cases 20 → 27.
+- **Running build (9/9):**
+  - enrol at 375 px, then an unassigned-plot capture gets 403 `plot_not_assigned`, anchored;
+  - revoke, then the next capture gets 403 `device_revoked`, anchored;
+  - `plot_registered` then `plot_edited`, both carrying `polygon`;
+  - `/.well-known` returns the public key only;
+  - all three 404 bodies are byte-identical, and a correct feed verifies in the clean-room CLI;
+  - health has the ledger block and returns 503 when the key is missing;
+  - the 11th wrong code gets 429.
+- **Exception (QA-P4-1, owner decision):** EVAL-034 (high priority, not critical), plus stretch cases EVAL-055/056. A lone `exif_time_agreement` flag is correct, but under cfg-1 / EV7 it does not cap the verdict, so the verdict stays Verified. Changing that means moving cfg-1, which needs a TP/EV decision and new attack cases first (EV13). It is deferred to the baseline-v1 decision at TKT-21 with the full numbers (EXE6); no threshold, weight or expected verdict was touched.
+- **Other QA findings:**
+  - QA-P4-2 (P2): TC-022 wording vs the `agentId` in `device_enrolled` → owner item.
+  - QA-P4-3 (P2): add a route-level test for the identical 404s → TKT-16.
+  - QA-P4-4 (info): drag editing is checked manually.
+  - QA-P4-5 (info): the S2 FAIL reflects not-yet-built checks.
+- **Test infrastructure:** under the load of parallel agents, some heavy tests exceeded the default 5 s timeout. Root cause: child-process suites plus the default timeout. The fix is queued in the TKT-18 follow-up. QA ran with no timeouts.
+- **Open:** GitHub Actions still has no runners.
