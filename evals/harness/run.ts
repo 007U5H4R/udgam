@@ -16,7 +16,7 @@ import { fixtureFiles, generateDeviceKeys, loadHarnessInputs, type DeviceKeys, t
 import { loadDataset, type EvalCase, type Suite } from './dataset';
 import { mulberry32 } from './fixtures';
 import { buildCase as realBuildCase, type BuiltCase } from './mutate';
-import { runProofSuite, type ProofCaseResult, type ProofSuiteOptions } from './proof-suite';
+import { runProofSuite, type ProofCaseResult, type ProofSuiteOptions } from './suites/proof';
 import { provenance, REPO_ROOT, type Provenance } from './provenance';
 import { renderReportFromResults } from './report';
 import { isFileStem, REPORTS_DIR, RESULTS_DIR, reportPathFor, writeReport, writeResults, type Out } from './results';
@@ -37,6 +37,20 @@ import { isFileStem, REPORTS_DIR, RESULTS_DIR, reportPathFor, writeReport, write
 
 export type ConfigMode = 'full' | 'ledger-only';
 export type ProviderMode = 'fixture' | 'live';
+
+/**
+ * Milestone scoping (EXE, carry-forward TKT-18): `--milestone=M1` (the default until M-002 starts)
+ * scopes the gates to cases of milestones up to and including M1. Cases of a later milestone are still
+ * built and run where possible and appear in `cases`, but are REPORTED in a separate "Out of milestone
+ * scope" section, never pooled into that milestone's gates or critical conditions, and never dropped
+ * (CF-12, EVAL-092).
+ */
+export const MILESTONES = ['M1', 'M2', 'M3'] as const;
+export type Milestone = (typeof MILESTONES)[number];
+export const inMilestone = (caseMilestone: string, scope: Milestone): boolean => {
+  const rank = MILESTONES.indexOf(caseMilestone as Milestone);
+  return rank !== -1 && rank <= MILESTONES.indexOf(scope);
+};
 
 export type Gate = {
   id: string;
@@ -70,6 +84,8 @@ export type ResultsFile = {
   knownLimitations: { id: string; scenario: number | null; outcome: string; verdict: string | null; behavior: string | null }[];
   pairs: Pair[];
   comparison: Comparison;
+  /** The run's milestone scope; out-of-scope cases are in `cases` but outside every gate (absent in older files). */
+  scope?: { milestone: Milestone; outOfScope: { id: string; suite: string; milestone: string; outcome: string; notes: string[] }[] };
   cases: CaseResult[];
   runtime: { networkCalls: string[]; executionOrder: string[] };
 };
@@ -79,6 +95,8 @@ export type RunOptions = {
   provider?: ProviderMode;
   suites?: Suite[];
   seed?: number;
+  /** Gates cover cases of milestones up to this one (default M1). */
+  milestone?: Milestone;
   out?: Out;
   name?: string;
   reportName?: string;
@@ -119,7 +137,7 @@ type SuiteEnv = {
   proofResults: () => Promise<ProofCaseResult[]>;
 };
 export type SuiteRunner = (c: EvalCase, env: SuiteEnv) => Promise<Omit<CaseResult, keyof CaseMeta | 'durationMs'>>;
-type CaseMeta = Pick<CaseResult, 'id' | 'suite' | 'datasetStatus' | 'caseClass' | 'scenario' | 'priority' | 'criticalConditions' | 'pair' | 'tags' | 'expected' | 'faultInjected'>;
+type CaseMeta = Pick<CaseResult, 'id' | 'suite' | 'datasetStatus' | 'caseClass' | 'scenario' | 'priority' | 'criticalConditions' | 'pair' | 'tags' | 'expected' | 'milestone' | 'inMilestoneScope' | 'faultInjected'>;
 
 function errorOf(e: unknown): { class: string; message: string } {
   return e instanceof Error ? { class: e.constructor.name, message: e.message } : { class: typeof e, message: String(e) };
@@ -210,30 +228,31 @@ const PROOF_LATER: Record<string, string> = {
   'EVAL-103': 'EVM anchoring (M-002) arrives with TKT-23 (TSK-24.8); the harness-proof suite does not run it yet',
 };
 
-/** One proof case's assertions: EVAL-058 coverage, each tamper variant's step, EVAL-066's vectors. */
+/** One proof case's assertions: EVAL-058 coverage by both verifiers, each tamper variant's step by both, EVAL-066's vectors. */
 function proofAssertions(r: ProofCaseResult): CaseResult['assertions'] {
   if (r.metrics) {
     const m = r.metrics;
     return [
-      { name: 'library verifier accepts the intact feed', pass: r.status === 'passed', detail: r.detail ?? '' },
-      { name: 'closure coverage = 100 %', pass: m.coverage === 1, detail: `${m.verified}/${m.closureEntries} closure entries verified under ${m.checkpoints} checkpoints` },
+      { name: 'both verifiers accept the intact feed', pass: r.status === 'passed', detail: r.detail ?? '' },
+      { name: 'library closure coverage = 100 %', pass: m.coverage === 1, detail: `${m.verified}/${m.closureEntries} closure entries verified under ${m.checkpoints} checkpoints` },
+      { name: 'clean-room closure coverage = 100 %', pass: m.cleanRoomCoverage === 1, detail: `${m.cleanRoomVerified}/${m.closureEntries} closure entries verified` },
     ];
   }
   if (r.variants.length > 0) {
     return r.variants.map((v) => ({
-      name: `${v.variant} rejected at ${v.expectedStep}`,
-      pass: v.lib.rejected && v.stepMatches,
-      detail: `library verifier: ${v.lib.rejected ? `rejected at ${v.lib.step}` : 'ACCEPTED'}`,
+      name: `${v.variant} rejected at ${v.expectedStep} by both verifiers`,
+      pass: v.lib.rejected && v.cleanRoom.rejected && v.stepMatches,
+      detail: `library: ${v.lib.rejected ? `rejected at ${v.lib.step}` : 'ACCEPTED'}; clean-room: ${v.cleanRoom.rejected ? `rejected at ${v.cleanRoom.step}` : 'ACCEPTED'}`,
     }));
   }
   return [{ name: r.title, pass: r.status === 'passed', detail: r.detail ?? '' }];
 }
 
 /**
- * harness-proof (TSK-15.8, evaluation-plan §4.6 S6-lib): runProofSuite runs once per evaluate() in a
- * temporary ledger with a throwaway key (never ./data), and each case reads its own result. The
- * library verifier decides the outcome; the clean-room checker column (TKT-18) is kept in `proof` and
- * the notes as not_yet_implemented until then, never dropped.
+ * harness-proof (TSK-15.8, TSK-18.6, evaluation-plan §4.6 S6-lib): runProofSuite runs once per
+ * evaluate() in a temporary ledger with a throwaway key (never ./data), and each case reads its own
+ * result. A case passes only when the library verifier and the clean-room checker both agree with the
+ * documented step (both columns are kept in `proof`).
  */
 const proofSuite: SuiteRunner = async (c, env) => {
   const later = PROOF_LATER[c.id];
@@ -253,18 +272,18 @@ const proofSuite: SuiteRunner = async (c, env) => {
     assertions: proofAssertions(r),
     detected: null,
     error: null,
-    notes: [...(r.detail ? [`library: ${r.detail}`] : []), `clean-room checker: ${r.cleanRoom.status} (TKT-18)`],
-    proof: { metrics: r.metrics ?? null, variants: r.variants, cleanRoom: r.cleanRoom },
+    notes: [...(r.detail ? [`library: ${r.detail}`] : []), `clean-room checker: ${r.cleanRoom.detail}`],
+    proof: { metrics: r.metrics ?? null, variants: r.variants, cleanRoom: r.cleanRoom, ...(r.score ? { score: r.score } : {}) },
   };
 };
 
-/** Suite runners by name. TKT-18 adds the clean-room checker column to harness-proof. */
+/** Suite runners by name. */
 export const SUITES: Record<'harness-verifier' | 'harness-proof', SuiteRunner> = {
   'harness-verifier': verifierSuite,
   'harness-proof': proofSuite,
 };
 
-function metaOf(c: EvalCase): CaseMeta {
+function metaOf(c: EvalCase, milestone: Milestone): CaseMeta {
   return {
     id: c.id,
     suite: c.suite,
@@ -276,6 +295,8 @@ function metaOf(c: EvalCase): CaseMeta {
     pair: c.pair ?? null,
     tags: c.tags ?? [],
     expected: c.expected,
+    milestone: c.milestone,
+    inMilestoneScope: inMilestone(c.milestone, milestone),
     faultInjected: (c.input.mutations ?? []).some((m) => m.op === 'provider_fault' || m.op === 'check_throws'),
   };
 }
@@ -294,6 +315,12 @@ function gatesOf(results: CaseResult[], suites: Suite[], detection: Detection, f
   const floor = scen.some((r) => r.rate === null) ? null : Math.min(...scen.map((r) => r.rate!));
   const proofCases = results.filter((r) => r.suite === 'harness-proof' && r.datasetStatus === 'active');
   const proofRate = rate(proofCases.filter((r) => r.outcome === 'passed').length, proofCases.length);
+  const score = proofCases.find((r) => r.proof?.score)?.proof?.score;
+  const both = (x: { lib: number; cleanRoom: number }) => `library ${pct(x.lib)}, clean-room ${pct(x.cleanRoom)}`;
+  const proofDetail = [
+    ...(score ? [`coverage ${both(score.coverage)}`, `tampers rejected ${both(score.tamperRejected)} (${score.perVariant.length} variants)`] : []),
+    `${proofCases.filter((r) => r.outcome === 'not_yet_implemented').length} not yet implemented`,
+  ].join('; ');
 
   return [
     verifier
@@ -337,7 +364,7 @@ function gatesOf(results: CaseResult[], suites: Suite[], detection: Detection, f
           display: rateDisplay(proofRate),
           target: '100.0 %',
           pass: proofRate.rate === 1,
-          detail: `${proofCases.filter((r) => r.outcome === 'not_yet_implemented').length} not yet implemented`,
+          detail: proofDetail,
         }
       : notRun('S6-lib', 'Proof suite (library side)', '100.0 %'),
     {
@@ -523,6 +550,7 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
   const provider = opts.provider ?? 'fixture';
   if (provider !== 'fixture') throw new Error('--provider=live arrives with TKT-07 (TSK-07.7); pnpm eval runs on the fixture provider');
   const suites = opts.suites ?? [...HARNESS_SUITES];
+  const milestone = opts.milestone ?? 'M1';
   const seed = opts.seed ?? Date.now() % 2 ** 31;
   const registry = opts.registry ?? REGISTRY;
   const enabled = mode === 'ledger-only' ? LEDGER_ONLY : [...CHECK_IDS];
@@ -555,7 +583,7 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
       const body = run
         ? await withWatchdog(run(c, env), caseLimitMs(c, opts.caseTimeoutMs))
         : { outcome: 'errored' as const, missingChecks: [], result: null, assertions: [], detected: null, error: { class: 'Error', message: `no runner for suite ${c.suite}` }, notes: [] };
-      cases.push({ ...metaOf(c), ...body, durationMs: Math.round((performance.now() - started) * 100) / 100 });
+      cases.push({ ...metaOf(c, milestone), ...body, durationMs: Math.round((performance.now() - started) * 100) / 100 });
     }
   } finally {
     globalThis.fetch = realFetch;
@@ -573,10 +601,13 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
     integ.ok = false;
     integ.problems.push(...prior.problems);
   }
-  const detection = detectionRate(cases);
-  const fp = falsePositiveRate(cases);
-  const cfs = criticalConditions(cases, { integrity: integ, configDrift: prior.configDrift }).fired;
-  const gates = gatesOf(cases, suites, detection, fp, integ, cfs);
+  // Gates and critical conditions see only the cases inside the milestone scope; the rest are reported.
+  const scoped = cases.filter((c) => c.inMilestoneScope);
+  const outOfScope = cases.filter((c) => !c.inMilestoneScope);
+  const detection = detectionRate(scoped);
+  const fp = falsePositiveRate(scoped);
+  const cfs = criticalConditions(scoped, { integrity: integ, configDrift: prior.configDrift }).fired;
+  const gates = gatesOf(scoped, suites, detection, fp, integ, cfs);
   const pass = gates.every((g) => g.pass);
   const blockers = [...gates.filter((g) => !g.pass).map((g) => `${g.id} ${g.name}: ${g.display} (target ${g.target})`), ...cfs.map((f) => `${f.id}: ${f.reason}`)];
   const nyi = integ.notYetImplemented;
@@ -607,15 +638,16 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
     },
     totals: integ,
     gates,
-    categoryGates: categoryGatesOf(cases),
+    categoryGates: categoryGatesOf(scoped),
     detection,
     falsePositives: fp,
     criticalConditions: cfs,
-    knownLimitations: cases
+    knownLimitations: scoped
       .filter((r) => r.caseClass === 'known_limitation')
       .map((r) => ({ id: r.id, scenario: r.scenario, outcome: r.outcome, verdict: r.result?.verdict ?? null, behavior: r.expected.behavior ?? null })),
     pairs: pairsOf(cases),
     comparison: prior.comparison,
+    scope: { milestone, outOfScope: outOfScope.map((c) => ({ id: c.id, suite: c.suite, milestone: c.milestone ?? '—', outcome: c.outcome, notes: c.notes })) },
     cases,
     runtime: { networkCalls, executionOrder: order.map((c) => c.id) },
   };
@@ -634,8 +666,8 @@ export async function runHarness(opts: RunOptions = {}): Promise<{ results: Resu
 
 // ── CLI ───────────────────────────────────────────────────────────────────────────────────────────
 
-export function parseArgs(argv: string[]): Required<Pick<RunOptions, 'config' | 'provider' | 'suites' | 'out'>> & Pick<RunOptions, 'seed' | 'name' | 'reportName'> {
-  const o = { config: 'full' as ConfigMode, provider: 'fixture' as ProviderMode, suites: [...HARNESS_SUITES] as Suite[], out: 'local' as Out } as ReturnType<typeof parseArgs>;
+export function parseArgs(argv: string[]): Required<Pick<RunOptions, 'config' | 'provider' | 'suites' | 'out' | 'milestone'>> & Pick<RunOptions, 'seed' | 'name' | 'reportName'> {
+  const o = { config: 'full' as ConfigMode, provider: 'fixture' as ProviderMode, suites: [...HARNESS_SUITES] as Suite[], out: 'local' as Out, milestone: 'M1' as Milestone } as ReturnType<typeof parseArgs>;
   for (const arg of argv) {
     const m = /^--([a-z-]+)=(.*)$/.exec(arg);
     const [flag, value] = m ? [m[1], m[2]!] : [arg, ''];
@@ -655,6 +687,10 @@ export function parseArgs(argv: string[]): Required<Pick<RunOptions, 'config' | 
         o.suites = list as Suite[];
         break;
       }
+      case 'milestone':
+        if (!(MILESTONES as readonly string[]).includes(value)) throw new Error(`--milestone must be ${MILESTONES.join(', ')}; got ${value}`);
+        o.milestone = value as Milestone;
+        break;
       case 'seed':
         if (!/^\d+$/.test(value)) throw new Error(`--seed must be a non-negative integer, got ${value}`);
         o.seed = Number(value);
@@ -683,6 +719,7 @@ function summaryLines(r: ResultsFile, resultsPath: string, reportPath: string): 
   return [
     `pnpm eval — ${r.summary.overall} (config ${r.provenance.config.mode}, seed ${r.provenance.seed}, ${r.provenance.durationMs} ms)`,
     `cases: ${t.active} active · ${t.passed} passed · ${t.failed} failed (${t.notYetImplemented} not yet implemented) · ${t.errored} errored · ${t.skipped} skipped`,
+    ...(r.scope ? [`milestone scope ${r.scope.milestone}: ${r.scope.outOfScope.length === 0 ? 'every case in scope' : `${r.scope.outOfScope.map((c) => `${c.id} (${c.milestone}, ${c.outcome})`).join(', ')} out of scope, reported separately and not in any gate`}`] : []),
     ...r.gates.map((g) => `  ${g.pass ? 'PASS' : 'FAIL'}  ${g.id.padEnd(8)} ${g.display} (target ${g.target})`),
     ...(r.criticalConditions.length > 0 ? [`critical conditions: ${r.criticalConditions.map((f) => `${f.id} [${f.caseIds.join(', ')}]`).join('; ')}`] : []),
     `results: ${relative(process.cwd(), resultsPath)}`,

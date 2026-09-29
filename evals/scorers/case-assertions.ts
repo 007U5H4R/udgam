@@ -1,6 +1,6 @@
 import type { CheckId, CheckResult, VerifyResult } from '../../src/lib/verification/types';
 import type { CaseClass, CaseStatus, EvalCase, Suite } from '../harness/dataset';
-import type { ProofCaseResult } from '../harness/proof-suite';
+import type { ProofCaseResult } from '../harness/suites/proof';
 
 // case-assertions (evaluation-plan §8, §7.4; technical-plan §22 TSK-03.5): score one verify() result
 // against a case's `expected` block. Detection needs attribution (EV4): the verdict is acceptable AND
@@ -21,6 +21,9 @@ export type CaseResult = {
   pair: string | null;
   tags: string[];
   expected: EvalCase['expected'];
+  /** The dataset milestone (M1–M3) and whether it is inside the run's --milestone scope (absent in older results files). */
+  milestone?: string;
+  inMilestoneScope?: boolean;
   outcome: CaseOutcome;
   /** Checks the case needs that the registry does not have yet (→ not_yet_implemented). */
   missingChecks: CheckId[];
@@ -34,8 +37,13 @@ export type CaseResult = {
   error: { class: string; message: string } | null;
   notes: string[];
   durationMs: number;
-  /** harness-proof cases only: the library verifier's detail and the clean-room checker column (TKT-18). */
-  proof?: { metrics: ProofCaseResult['metrics'] | null; variants: ProofCaseResult['variants']; cleanRoom: ProofCaseResult['cleanRoom'] };
+  /** harness-proof cases only: both verifiers' results (library and clean-room checker, TKT-18); EVAL-058 carries the S6 score. */
+  proof?: {
+    metrics: ProofCaseResult['metrics'] | null;
+    variants: ProofCaseResult['variants'];
+    cleanRoom: ProofCaseResult['cleanRoom'] | { status: string; detail?: string };
+    score?: ProofCaseResult['score'];
+  };
 };
 
 /** Lowercase and strip all whitespace (evaluation-plan §7.4). */

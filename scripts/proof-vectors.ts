@@ -20,9 +20,20 @@ const { buildFeed } = await import('../src/lib/ledger/feed');
 const { publishedKeys } = await import('../src/lib/ledger/keys');
 const { verifyFeed, checkpointStatementOf, payloadStatement } = await import('../src/lib/ledger/proof');
 const { leafHash, merkleRoot } = await import('../src/lib/ledger/merkle');
-const { bytesToHex, hexToBytes, jcs, sha256Hex } = await import('../src/lib/crypto');
-const { seedBatchWorld } = await import('../tests/helpers/batch-world');
-const { TAMPER_VARIANTS, TAMPER_DESCRIPTIONS, applyTamper } = await import('../evals/harness/tamper');
+const { bytesToHex, hexToBytes, jcs, jwkThumbprint, sha256Hex } = await import('../src/lib/crypto');
+const { makeAdminKey, seedBatchWorld, signStatement } = await import('../tests/helpers/batch-world');
+const { VECTOR_TAMPERS, TAMPER_DESCRIPTIONS, applyTamper } = await import('../src/lib/ledger/testing/tamper');
+
+/** An admin_override statement on the world's first member event (as TKT-12 anchors it). */
+const overrideStatement = (w: { eventIds: string[]; runIds: string[]; admin: { adminId: string } }) => ({
+  v: 1,
+  runId: w.runIds[0]!,
+  eventId: w.eventIds[0]!,
+  newVerdict: 'Verified',
+  reason: 'Scale photo checked by the office',
+  adminId: w.admin.adminId,
+  ts: new Date().toISOString(),
+});
 
 const OUT = resolve(fileURLToPath(new URL('../docs/proof-feed.vectors.json', import.meta.url)));
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -84,7 +95,7 @@ try {
   // Each tamper is checked as a verifier receives it: serialised, then parsed.
   const asReceived = (f: unknown) => JSON.parse(JSON.stringify(f)) as unknown;
   const tampers = [];
-  for (const variant of TAMPER_VARIANTS) {
+  for (const variant of VECTOR_TAMPERS) {
     const t = await applyTamper(feed, keys.keys, variant);
     const out = await verifyFeed(asReceived(t.feed), keys.keys);
     if (out.ok || out.step !== t.expectedStep) throw new Error(`tamper ${variant}: expected ${t.expectedStep}, got ${out.ok ? 'ok' : out.step}`);
@@ -109,6 +120,75 @@ try {
     });
   } finally {
     second.client.close();
+  }
+
+  // More insider vectors (TKT-18): genuine ledgers sealed by the same key, each holding one signed
+  // payload that is wrong in one way. Every hash, path and checkpoint signature verifies; only step 7
+  // (payload-signature) or step 9 (the custody chain) catches it.
+  const other = await makeAdminKey();
+  const insiders: { variant: string; description: string; expectedStep: string; anchor: (w: Awaited<ReturnType<typeof seedBatchWorld>>) => Promise<{ kind: 'admin_override' | 'custody_transfer'; payload: Record<string, unknown> }> }[] = [
+    {
+      variant: 'payload_signature',
+      description: "an admin_override on the first member whose signature is a valid signature by the same admin key over a different statement",
+      expectedStep: 'payload-signature',
+      anchor: async (w) => {
+        const statement = overrideStatement(w);
+        const signed = await signStatement(w.admin, statement);
+        const elsewhere = await signStatement(w.admin, { ...statement, reason: 'a different statement' });
+        return { kind: 'admin_override', payload: { ...signed, signature: elsewhere.signature } };
+      },
+    },
+    {
+      variant: 'payload_wrong_kid',
+      description: "an admin_override on the first member, correctly signed, whose kid is the thumbprint of a different key",
+      expectedStep: 'payload-signature',
+      anchor: async (w) => ({ kind: 'admin_override', payload: { ...(await signStatement(w.admin, overrideStatement(w))), kid: other.kid } }),
+    },
+    {
+      variant: 'payload_jwk_extra_member',
+      description: 'an admin_override on the first member, correctly signed, whose publicJwk carries an extra member "d"',
+      expectedStep: 'payload-signature',
+      anchor: async (w) => {
+        const signed = await signStatement(w.admin, overrideStatement(w));
+        return { kind: 'admin_override', payload: { ...signed, publicJwk: { ...(signed.publicJwk as Record<string, unknown>), d: 'A'.repeat(43) } } };
+      },
+    },
+    {
+      variant: 'payload_jwk_off_curve',
+      description: 'an admin_override on the first member whose publicJwk is not a point on P-256 (y replaced by x) and whose kid is that JWK\'s thumbprint',
+      expectedStep: 'payload-signature',
+      anchor: async (w) => {
+        const signed = await signStatement(w.admin, overrideStatement(w));
+        const jwk = signed.publicJwk as { kty: string; crv: string; x: string; y: string };
+        const offCurve = { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.x };
+        return { kind: 'admin_override', payload: { ...signed, publicJwk: offCurve, kid: await jwkThumbprint(offCurve) } };
+      },
+    },
+    {
+      variant: 'custody_chain',
+      description: "a correctly signed custody_transfer of the batch whose fromOrg is not the batch's organisation (the chain does not start at the batch's orgId)",
+      expectedStep: 'closure-incomplete',
+      anchor: async (w) => ({
+        kind: 'custody_transfer',
+        payload: await signStatement(w.admin, { v: 1, batchId: w.batchId, fromOrg: 'ORG-NOTHOLDER', toOrg: 'ORG-ELSEWHERE', ts: new Date().toISOString(), adminId: w.admin.adminId }),
+      }),
+    },
+  ];
+  for (const [i, v] of insiders.entries()) {
+    const ledger = createDb(`file:${join(dir, `insider-${i}.db`)}`);
+    try {
+      await ledger.ready;
+      await runMigrations(ledger.db, join(ROOT, 'src/lib/db/migrations'));
+      const w = await seedBatchWorld(ledger.db, { events: 1, plots: 1, devices: 1 });
+      const { kind, payload } = await v.anchor(w);
+      await writeTx(ledger.db, (tx) => append(tx, kind, payload));
+      const insiderFeed = await buildFeed(ledger.db, w.batchId);
+      const out = await verifyFeed(asReceived(insiderFeed), keys.keys);
+      if (out.ok || out.step !== v.expectedStep) throw new Error(`${v.variant}: expected ${v.expectedStep}, got ${out.ok ? 'ok' : out.step}`);
+      tampers.push({ variant: v.variant, description: v.description, expectedStep: v.expectedStep, feed: insiderFeed });
+    } finally {
+      ledger.client.close();
+    }
   }
 
   const vectors = {
