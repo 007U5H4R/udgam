@@ -11,6 +11,8 @@ test-results/
 .env
 .env.*
 !.env.example
+# CI-only fake values for the bundle-secrets job (TKT-19); never real secrets
+!.env.ci.example
 .secrets/
 *.pem
 *.key
@@ -20,7 +22,8 @@ test-results/
 *.db-*
 *.sqlite
 data/
-media/
+/media/
+# (anchored: src/lib/media/ is source code; uploads live under DATA_DIR/media)
 
 # foundry
 cache/
@@ -35,3 +38,13 @@ broadcast/
 
 # third-party reference screenshots (Mobbin/Opal) — local only, never committed
 .design/exploration/ref/
+
+# next.js generated
+next-env.d.ts
+*.tsbuildinfo
+
+# e2e scratch data
+.e2e-data/
+
+# eval harness: ad-hoc runs (formal runs in evals/results/ are committed)
+evals/results/local/

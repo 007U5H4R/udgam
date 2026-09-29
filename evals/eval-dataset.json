@@ -1,7 +1,7 @@
 {
   "$schema": "./eval-dataset.schema.json",
-  "dataset_version": "0.2.0",
-  "status": "Stage 3 seed. Representative cases only; Stage 7 extends to about 40 legitimate and at least 10 attack cases per scenario 1-4, appending new IDs after the last one used here. IDs are never renumbered or reused. 0.2.0 (Stage 6, TP23): added Milestone 2 cases EVAL-093 to EVAL-105; EVAL-054 and EVAL-068 activated by TP5 and TP7.",
+  "dataset_version": "0.6.0",
+  "status": "Stage 3 seed. Representative cases only; Stage 7 extends to about 40 legitimate and at least 10 attack cases per scenario 1-4, appending new IDs after the last one used here. IDs are never renumbered or reused. 0.2.0 (Stage 6, TP23): added Milestone 2 cases EVAL-093 to EVAL-105; EVAL-054 and EVAL-068 activated by TP5 and TP7. 0.3.0 (Stage 7, TKT-08): added scenario 1 attack cases EVAL-110 to EVAL-113 (scenario 1 to 11 active S1 cases). 0.4.0 (Stage 7, TKT-07): added plot-laundering fixtures X08 to X10 and scenario 3 attack cases EVAL-106 to EVAL-108 (scenario 3 to 10 active S1 cases). 0.5.0 (Stage 7, TKT-09): added scenario 2 replay cases EVAL-114 to EVAL-117 and scenario 4 yield cases EVAL-118 to EVAL-121 (each scenario to 10 active S1 cases); input.context.crop overrides a fixture plot's crop (EVAL-121).",
   "plan": "evaluation-plan.md (project root, authoritative)",
   "conventions": {
     "evidence_matching": "Scorer lowercases both the evidence sentence and each expected substring and strips all whitespace before a substring test, so '182 m' matches '182m' and '182 M'.",
@@ -33,7 +33,10 @@
       { "id": "X04", "role": "adversarial", "area_ha": 1.5, "shape": "convex", "remote_sensing": { "deforestation_loss_pct_inside": 3.0, "ndvi_history": "perennial_canopy", "ndvi_harvest_window": "living_canopy" }, "notes": "Small clearing; data identical to E01." },
       { "id": "X05", "role": "adversarial", "area_ha": 1.2, "shape": "convex", "remote_sensing": { "deforestation_loss_pct_inside": 0, "ndvi_history": "annual_crop", "ndvi_harvest_window": "living_canopy" }, "notes": "GFW shows no loss, but the NDVI history is not perennial canopy." },
       { "id": "X06", "role": "adversarial", "area_ha": 2.0, "shape": "convex", "remote_sensing": { "deforestation_loss_pct_inside": 40.0, "ndvi_history": "cleared_then_planted", "ndvi_harvest_window": "bare" } },
-      { "id": "X07", "role": "adversarial", "area_ha": 1.5, "shape": "convex", "remote_sensing": { "deforestation_loss_pct_inside": 0, "ndvi_history": "perennial_canopy", "ndvi_harvest_window": "bare" }, "notes": "Registered clean; the canopy was removed after registration." }
+      { "id": "X07", "role": "adversarial", "area_ha": 1.5, "shape": "convex", "remote_sensing": { "deforestation_loss_pct_inside": 0, "ndvi_history": "perennial_canopy", "ndvi_harvest_window": "bare" }, "notes": "Registered clean; the canopy was removed after registration." },
+      { "id": "X08", "role": "adversarial", "area_ha": 2.0, "shape": "convex", "remote_sensing": { "deforestation_loss_pct_inside": 10.0, "ndvi_history": "perennial_canopy", "ndvi_harvest_window": "living_canopy" }, "notes": "Exactly at the 10 % hard-fail threshold (S5): the boundary is inclusive." },
+      { "id": "X09", "role": "adversarial", "area_ha": 5.5, "shape": "convex", "remote_sensing": { "deforestation_loss_pct_inside": 0.4, "ndvi_history": "perennial_canopy", "ndvi_harvest_window": "living_canopy" }, "notes": "Large plot with a small clearing: 0.022 ha is 0.4 % of its area, far below 10 %, but any loss inside the polygon flags." },
+      { "id": "X10", "role": "adversarial", "area_ha": 1.5, "shape": "convex", "remote_sensing": { "deforestation_loss_pct_inside": 0, "ndvi_history": "cleared_then_planted", "ndvi_harvest_window": "living_canopy" }, "notes": "GFW shows no loss (cleared before 2021 or under its canopy threshold), but the NDVI history dips to bare ground and regrows." }
     ],
     "devices": [
       { "id": "D-A1", "agent": "agent-A", "state": "enrolled" },
@@ -453,9 +456,9 @@
       "priority": "high", "automated": true, "milestone": "M1", "status": "active",
       "depends_on": ["EV7"],
       "input": { "plot": "P01", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "exif_time", "mode": "offset", "offset_min": -4320 } ] },
-      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["exif_time_agreement"], "check_status": { "exif_time_agreement": "flag" } },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["exif_time_agreement"], "check_status": { "exif_time_agreement": "fail" } },
       "failure_conditions": ["Verified"],
-      "notes": "A lone flag. Detection depends on the verdict rule for flags (EV7) or on weights; this case measures that.",
+      "notes": "Owner decision EXE10: an EXIF gap over 24 h fails. Detection depends on the verdict rule for flags (EV7) or on weights; this case measures that.",
       "tags": ["single-signal", "subtle"]
     },
     {
@@ -1282,6 +1285,210 @@
       "expected": { "behavior": "No horizontal scroll; all four states render; axe reports no serious or critical violations; the screens match the approved addendum." },
       "failure_conditions": ["Any gate fails"],
       "tags": ["design"]
+    },
+    {
+      "id": "EVAL-110",
+      "title": "Capture 100 m outside a plot with a poor 30 m fix and matching camera EXIF",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 1, "gates": ["S1"],
+      "priority": "high", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "P08", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "gps_place", "where": "outside_edge", "distance_m": 100 }, { "op": "gps_accuracy", "accuracy_m": 30 }, { "op": "exif_gps", "mode": "match" } ] },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["geofence", "gps_accuracy"], "check_status": { "geofence": "fail", "gps_accuracy": "flag" }, "evidence_substrings": { "geofence": ["100 m", "allowance 25 m"] } },
+      "failure_conditions": ["Verified", "geofence flag instead of fail (buffer = min(30, 25) = 25 m)"],
+      "tags": ["boundary", "evasion"]
+    },
+    {
+      "id": "EVAL-111",
+      "title": "GPS spoofed inside the plot; camera EXIF GPS 60 m away, just over the 50 m limit",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 1, "gates": ["S1"],
+      "priority": "high", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "P01", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "gps_place", "where": "inside_centroid" }, { "op": "exif_gps", "mode": "offset", "distance_m": 60 } ] },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["exif_gps_agreement"], "check_status": { "exif_gps_agreement": "fail" }, "evidence_substrings": { "exif_gps_agreement": ["60 m"] } },
+      "failure_conditions": ["Verified", "exif_gps_agreement ok or flag at 60 m"],
+      "tags": ["single-signal", "exif", "boundary"]
+    },
+    {
+      "id": "EVAL-112",
+      "title": "Spoofed inside the plot; the previous capture was 21 km away 10 minutes earlier (126 km/h)",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 1, "gates": ["S1"],
+      "priority": "high", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "P06", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "gps_place", "where": "inside_centroid" }, { "op": "prev_event", "distance_km": 21, "minutes_before": 10 } ] },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["movement_plausibility"], "check_status": { "movement_plausibility": "fail" }, "evidence_substrings": { "movement_plausibility": ["126 km/h"] } },
+      "failure_conditions": ["Verified", "movement_plausibility ok just over 120 km/h"],
+      "tags": ["single-signal", "movement", "boundary"]
+    },
+    {
+      "id": "EVAL-113",
+      "title": "Capture 55 m outside a small plot with a 5 m fix; browser stripped the EXIF GPS",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 1, "gates": ["S1"],
+      "priority": "high", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "P02", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "gps_place", "where": "outside_edge", "distance_m": 55 }, { "op": "gps_accuracy", "accuracy_m": 5 }, { "op": "exif_gps", "mode": "absent" } ] },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["geofence"], "check_status": { "geofence": "fail", "exif_gps_agreement": "flag" }, "evidence_substrings": { "geofence": ["55 m", "allowance 5 m"] } },
+      "failure_conditions": ["Verified", "Absent EXIF GPS excuses a location outside the plot"],
+      "tags": ["small-plot", "exif"]
+    },
+    {
+      "id": "EVAL-106",
+      "title": "Plot laundering: exactly 10.0 % loss, on the hard-fail threshold",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 3, "gates": ["S1"], "critical_conditions": ["CF-01"],
+      "priority": "critical", "automated": true, "milestone": "M1", "status": "active",
+      "input": { "plot": "X08", "device": "D-A1", "base_case": "EVAL-001" },
+      "expected": { "verdict": "Rejected", "catching_checks": ["deforestation_overlap"], "hard_fail_checks": ["deforestation_overlap"], "evidence_substrings": { "deforestation_overlap": ["10.0%"] } },
+      "failure_conditions": ["Any verdict other than Rejected", "Threshold applied as strictly greater than 10 %"],
+      "tags": ["hard-fail", "boundary"]
+    },
+    {
+      "id": "EVAL-107",
+      "title": "Plot laundering: a small clearing on a 5.5 ha plot is 0.4 % of its area",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 3, "gates": ["S1"],
+      "priority": "critical", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "X09", "device": "D-A1", "base_case": "EVAL-001" },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["deforestation_overlap"], "check_status": { "deforestation_overlap": "flag" }, "evidence_substrings": { "deforestation_overlap": ["0.4%"] } },
+      "failure_conditions": ["Verified", "Loss rounded or diluted to 0 on a large plot"],
+      "tags": ["single-signal", "large-plot"]
+    },
+    {
+      "id": "EVAL-108",
+      "title": "Plot laundering missed by GFW: no loss, but the NDVI history shows clearing and replanting",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 3, "gates": ["S1"],
+      "priority": "critical", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "X10", "device": "D-A1", "base_case": "EVAL-001" },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["ndvi_cultivation"], "check_status": { "deforestation_overlap": "ok", "ndvi_cultivation": "fail" } },
+      "failure_conditions": ["Verified"],
+      "tags": ["single-signal"]
+    },
+    {
+      "id": "EVAL-114",
+      "title": "Replay across agents: two of three photos from an accepted capture reused on another agent's plot",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 2, "gates": ["S1"], "critical_conditions": ["CF-01"],
+      "priority": "critical", "automated": true, "milestone": "M1", "status": "active",
+      "input": { "plot": "P05", "device": "D-B1", "base_case": "EVAL-004", "mutations": [ { "op": "photos", "count": 3 }, { "op": "reuse_media", "from_case": "EVAL-004", "which": 2, "note": "the first two of EVAL-004's three photos" } ], "context": { "seen_media_from": ["EVAL-004"] } },
+      "expected": { "verdict": "Rejected", "catching_checks": ["photo_uniqueness"], "hard_fail_checks": ["photo_uniqueness"], "evidence_substrings": { "photo_uniqueness": ["2 of 3"] } },
+      "failure_conditions": ["Any verdict other than Rejected", "Uniqueness checked per agent or per plot instead of globally"],
+      "tags": ["hard-fail", "cross-plot", "cross-agent"]
+    },
+    {
+      "id": "EVAL-115",
+      "title": "Replay a day later on the same plot: all photos reused, fresh chain position, matching EXIF",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 2, "gates": ["S1"], "critical_conditions": ["CF-01"],
+      "priority": "critical", "automated": true, "milestone": "M1", "status": "active",
+      "input": { "plot": "P03", "device": "D-A1", "base_case": "EVAL-004", "mutations": [ { "op": "chain", "seq_delta": 1, "prev_hash": "correct" }, { "op": "prev_event", "distance_km": 0.05, "minutes_before": 1440 }, { "op": "exif_gps", "mode": "match" }, { "op": "exif_time", "mode": "match" }, { "op": "reuse_media", "from_case": "EVAL-004", "which": "all" } ], "context": { "seen_media_from": ["EVAL-004"] } },
+      "expected": { "verdict": "Rejected", "catching_checks": ["photo_uniqueness"], "hard_fail_checks": ["photo_uniqueness"], "check_status": { "chain_continuity": "ok", "exif_time_agreement": "ok" }, "evidence_substrings": { "photo_uniqueness": ["3 of 3"] } },
+      "failure_conditions": ["Any verdict other than Rejected", "A clean chain position or matching EXIF excuses reused photos"],
+      "notes": "Reuses EVAL-004's three photos (EVAL-001 has two) so the evidence reads 3 of 3; every other signal is clean.",
+      "tags": ["hard-fail", "single-signal"]
+    },
+    {
+      "id": "EVAL-116",
+      "title": "Old, never-submitted photo: EXIF time 8 days before capture",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 2, "gates": ["S1"],
+      "priority": "high", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "P01", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "exif_time", "mode": "offset", "offset_min": -11520 } ] },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["exif_time_agreement"], "check_status": { "exif_time_agreement": "fail" }, "evidence_substrings": { "exif_time_agreement": ["8 days", "fail over 7 days"] } },
+      "failure_conditions": ["Verified", "exif_time_agreement only flags a gap over 7 days"],
+      "tags": ["single-signal", "boundary"]
+    },
+    {
+      "id": "EVAL-117",
+      "title": "Stale signed capture replayed out of sequence with its original photos",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 2, "gates": ["S1"], "critical_conditions": ["CF-01"],
+      "priority": "critical", "automated": true, "milestone": "M1", "status": "active",
+      "input": { "plot": "P01", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "chain", "seq_delta": -1, "prev_hash": "stale" }, { "op": "reuse_media", "from_case": "EVAL-002", "which": "all" } ], "context": { "seen_media_from": ["EVAL-002"] } },
+      "expected": { "verdict": "Rejected", "catching_checks": ["photo_uniqueness", "chain_continuity"], "hard_fail_checks": ["photo_uniqueness"], "check_status": { "photo_uniqueness": "fail", "chain_continuity": "flag" } },
+      "failure_conditions": ["Any verdict other than Rejected", "chain_continuity returns fail (TP10: flag only)"],
+      "notes": "A different payload from the original (older chain position), so it is verified rather than answered as an idempotent replay (TP7).",
+      "tags": ["hard-fail", "multi-signal", "chain"]
+    },
+    {
+      "id": "EVAL-118",
+      "title": "Yield inflation: 1.55 x U, just above the flag threshold",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 4, "gates": ["S1"],
+      "priority": "high", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "P06", "device": "D-A1", "base_case": "EVAL-001", "mutations": [ { "op": "season_cumulative", "ratio_after_event": 1.55 } ] },
+      "expected": { "verdict": "Needs Review", "catching_checks": ["yield_plausibility"], "check_status": { "yield_plausibility": "flag" }, "evidence_substrings": { "yield_plausibility": ["1.55x"] } },
+      "failure_conditions": ["Verified", "yield_plausibility ok above 1.5 x U"],
+      "tags": ["single-signal", "boundary"]
+    },
+    {
+      "id": "EVAL-119",
+      "title": "Yield inflation: 2.01 x U on a 4 ha plot",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 4, "gates": ["S1"], "critical_conditions": ["CF-01"],
+      "priority": "critical", "automated": true, "milestone": "M1", "status": "active",
+      "input": { "plot": "P10", "device": "D-A1", "base_case": "EVAL-001", "mutations": [ { "op": "season_cumulative", "ratio_after_event": 2.01 } ] },
+      "expected": { "verdict": "Rejected", "catching_checks": ["yield_plausibility"], "hard_fail_checks": ["yield_plausibility"], "evidence_substrings": { "yield_plausibility": ["2.01x"] } },
+      "failure_conditions": ["Any verdict other than Rejected"],
+      "tags": ["hard-fail", "boundary"]
+    },
+    {
+      "id": "EVAL-120",
+      "title": "Salami yield inflation on a 0.4 ha plot: one capture takes the season from 1.40 to 1.60 x U",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 4, "gates": ["S1"],
+      "priority": "high", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "P07", "device": "D-A1", "base_case": "EVAL-008", "mutations": [ { "op": "season_cumulative", "ratio_before_event": 1.4, "ratio_after_event": 1.6 } ] },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["yield_plausibility"], "check_status": { "yield_plausibility": "flag" }, "evidence_substrings": { "yield_plausibility": ["1.60x"] } },
+      "failure_conditions": ["Verified", "Check evaluates the single capture's kg (0.20 x U) instead of the season cumulative"],
+      "notes": "0.20 x U on 0.4 ha is a single picking inside the 500 kg capture limit.",
+      "tags": ["single-signal", "cumulative", "small-plot"]
+    },
+    {
+      "id": "EVAL-121",
+      "title": "Yield inflation on a robusta plot: 2.20 x U",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 4, "gates": ["S1"], "critical_conditions": ["CF-01"],
+      "priority": "critical", "automated": true, "milestone": "M1", "status": "active",
+      "input": { "plot": "P08", "device": "D-A1", "base_case": "EVAL-001", "mutations": [ { "op": "season_cumulative", "ratio_after_event": 2.2 } ], "context": { "crop": "robusta" } },
+      "expected": { "verdict": "Rejected", "catching_checks": ["yield_plausibility"], "hard_fail_checks": ["yield_plausibility"], "evidence_substrings": { "yield_plausibility": ["2.20x"] } },
+      "failure_conditions": ["Any verdict other than Rejected", "Robusta judged against a missing or arabica-only reference"],
+      "notes": "P08 with a case-level crop override (input.context.crop); U is the robusta reference row's upper bound (synthetic in the harness).",
+      "tags": ["hard-fail", "robusta"]
+    },
+    {
+      "id": "EVAL-122",
+      "title": "Subtle: photo taken 23 h before submission (just under the 24 h EXIF fail limit)",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 2, "gates": ["S1"],
+      "priority": "high", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "P01", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "exif_time", "mode": "offset", "offset_min": -1380 } ] },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["exif_time_agreement"], "check_status": { "exif_time_agreement": "flag" } },
+      "failure_conditions": ["Verified"],
+      "notes": "Owner decision EXE10: an EXIF gap up to 24 h is a flag, so a time-zone misread never fails an honest farmer. A lone flag; detection depends on the verdict rule for flags (EV7).",
+      "tags": ["single-signal", "subtle", "boundary"]
+    },
+    {
+      "id": "EVAL-123",
+      "title": "Subtle: photo taken 25 h before submission (just over the 24 h EXIF fail limit)",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 2, "gates": ["S1"],
+      "priority": "high", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "P01", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "exif_time", "mode": "offset", "offset_min": -1500 } ] },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["exif_time_agreement"], "check_status": { "exif_time_agreement": "fail" } },
+      "failure_conditions": ["Verified"],
+      "notes": "Owner decision EXE10: an EXIF gap over 24 h fails.",
+      "tags": ["single-signal", "subtle", "boundary"]
     }
   ]
 }

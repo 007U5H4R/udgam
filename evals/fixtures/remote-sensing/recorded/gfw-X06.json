@@ -1,0 +1,25 @@
+{
+  "synthetic": true,
+  "note": "Hand-written in the documented GFW Data API query/json shape (one row per loss year) until a real answer is recorded. X06 (2.0 ha) loses 0.8 ha since 2021: 40.0 %. The request asked for `latest`; the answer came from the v1.13 URL after GFW's 307 redirect.",
+  "provider": "gfw",
+  "kind": "loss",
+  "plotId": "X06",
+  "providerVersion": "v1.13",
+  "fetchedAt": null,
+  "request": {
+    "method": "POST",
+    "path": "/dataset/umd_tree_cover_loss/latest/query/json"
+  },
+  "response": {
+    "status": 200,
+    "url": "https://data-api.globalforestwatch.org/dataset/umd_tree_cover_loss/v1.13/query/json",
+    "body": {
+      "data": [
+        { "umd_tree_cover_loss__year": 2021, "area__ha": 0.1125 },
+        { "umd_tree_cover_loss__year": 2022, "area__ha": 0.4375 },
+        { "umd_tree_cover_loss__year": 2024, "area__ha": 0.25 }
+      ],
+      "status": "success"
+    }
+  }
+}

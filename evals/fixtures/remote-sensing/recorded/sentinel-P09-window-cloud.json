@@ -1,0 +1,110 @@
+{
+  "synthetic": true,
+  "note": "Hand-written in the documented Sentinel Hub Statistical API shape until a real answer is recorded. P09 harvest window \u00b130 days around 2026-08-08 in 10-day (P10D) intervals: every interval is fully cloud-masked, and two have no acquisition at all (absent from data[]).",
+  "provider": "sentinel-hub",
+  "kind": "ndvi_window",
+  "plotId": "P09",
+  "providerVersion": "statistics/v1 sentinel-2-l2a",
+  "fetchedAt": null,
+  "request": {
+    "centreDate": "2026-08-08",
+    "days": 30,
+    "aggregationInterval": "P10D"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "data": [
+        {
+          "interval": {
+            "from": "2026-07-09T00:00:00Z",
+            "to": "2026-07-19T00:00:00Z"
+          },
+          "outputs": {
+            "ndvi": {
+              "bands": {
+                "B0": {
+                  "stats": {
+                    "min": "NaN",
+                    "max": "NaN",
+                    "mean": "NaN",
+                    "stDev": "NaN",
+                    "sampleCount": 180,
+                    "noDataCount": 180
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "interval": {
+            "from": "2026-07-29T00:00:00Z",
+            "to": "2026-08-08T00:00:00Z"
+          },
+          "outputs": {
+            "ndvi": {
+              "bands": {
+                "B0": {
+                  "stats": {
+                    "min": "NaN",
+                    "max": "NaN",
+                    "mean": "NaN",
+                    "stDev": "NaN",
+                    "sampleCount": 180,
+                    "noDataCount": 180
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "interval": {
+            "from": "2026-08-08T00:00:00Z",
+            "to": "2026-08-18T00:00:00Z"
+          },
+          "outputs": {
+            "ndvi": {
+              "bands": {
+                "B0": {
+                  "stats": {
+                    "min": "NaN",
+                    "max": "NaN",
+                    "mean": "NaN",
+                    "stDev": "NaN",
+                    "sampleCount": 180,
+                    "noDataCount": 180
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "interval": {
+            "from": "2026-08-28T00:00:00Z",
+            "to": "2026-09-07T00:00:00Z"
+          },
+          "outputs": {
+            "ndvi": {
+              "bands": {
+                "B0": {
+                  "stats": {
+                    "min": "NaN",
+                    "max": "NaN",
+                    "mean": "NaN",
+                    "stDev": "NaN",
+                    "sampleCount": 180,
+                    "noDataCount": 180
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "status": "OK"
+    }
+  }
+}

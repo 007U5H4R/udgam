@@ -1,0 +1,44 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "P10",
+    "role": "legitimate",
+    "area_ha": 4,
+    "shape": "convex",
+    "anchor": {
+      "place": "Srimangala, Kodagu",
+      "lat": 12.0272,
+      "lng": 75.9959
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 2313415710
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.9949901,
+          12.0261962
+        ],
+        [
+          75.9972213,
+          12.0268399
+        ],
+        [
+          75.9968099,
+          12.0282038
+        ],
+        [
+          75.9945787,
+          12.0275601
+        ],
+        [
+          75.9949901,
+          12.0261962
+        ]
+      ]
+    ]
+  }
+}

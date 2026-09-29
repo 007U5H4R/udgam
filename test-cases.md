@@ -262,7 +262,7 @@ Not given a TC because an EVAL case already specifies them completely: S3 latenc
 ### TC-022 · Enrolment creates a non-extractable key and anchors `device_enrolled`
 - **Links:** M-001 · TKT-05 · TASK-6 · F3
 - **Type/Pri/Auto:** e2e · P0 · A
-- **Expected:** after a valid code, IndexedDB holds a `CryptoKey` with `extractable:false`; `crypto.subtle.exportKey` on it rejects; the server has the public JWK and thumbprint; a `device_enrolled` ledger entry exists whose payload carries only the device ID and thumbprint.
+- **Expected:** after a valid code, IndexedDB holds a `CryptoKey` with `extractable:false`; `crypto.subtle.exportKey` on it rejects; the server has the public JWK and thumbprint; a `device_enrolled` ledger entry exists whose payload carries only the device ID, the agent's user ID (`agentId`: an opaque random ID, never an email, name or organisation name, EV16) and the key thumbprint (amended by EXE13).
 - **Status:** Not run · **Finding:** —
 
 ### TC-023 · Unknown or revoked keys are refused at the boundary and anchored
@@ -335,7 +335,7 @@ Not given a TC because an EVAL case already specifies them completely: S3 latenc
 ### TC-034 · Registration runs forest loss and 12-month NDVI and anchors them
 - **Links:** M-001 · TKT-07 · TASK-8 · F2
 - **Type/Pri/Auto:** integration · P0 · A
-- **Expected:** saving a plot stores `registration_checks` with the loss %, the NDVI history summary and their evidence, and anchors `plot_registered` carrying the results' hash; a provider failure at registration saves the plot with the check marked unavailable and a re-run control.
+- **Expected:** saving a plot stores `registration_checks` with the loss %, the NDVI history summary and their evidence, and anchors them in a `plot_edited` entry that carries the current geometry (including `polygon`) plus `registrationChecksHash` (amended by EXE18); a provider failure at registration saves the plot with the check marked unavailable and a re-run control.
 - **Status:** Not run · **Finding:** —
 
 ### TC-035 · EXIF extraction from real photo fixtures
@@ -354,7 +354,7 @@ Not given a TC because an EVAL case already specifies them completely: S3 latenc
 ### TC-037 · Time and movement rules at every threshold pair
 - **Links:** M-001 · TKT-08 · TASK-9 · EVAL-011, 013, 028, 033, 034, 055–057 · TP4 (GAP-1)
 - **Type/Pri/Auto:** unit · P0 · A
-- **Expected:** EXIF–client 9 min → ok, 11 min → flag, 120 min → flag, 3 days → flag, 7 days + 1 min → fail, 45 days → fail; client–server 23 h → ok, 3 days → flag, 9 days → fail; EXIF absent → flag. Speed 75 km/h → ok, 119 → ok, 120 → fail, 150 → fail; no previous event → ok ("First entry from this phone").
+- **Expected:** EXIF–client (worst photo) 9 min → ok, 11 min → flag, 120 min → flag, 23 h → flag, 24 h + 1 min → fail, 3 days → fail, 45 days → fail (amended by EXE10); client–server 23 h → ok, 3 days → flag, 9 days → fail; EXIF absent → flag. Speed 75 km/h → ok, 119 → ok, 120 → fail, 150 → fail; no previous event → ok ("First entry from this phone").
 - **Status:** Not run · **Finding:** —
 
 ### TC-038 · Yield season window, conversion and thresholds
@@ -590,7 +590,7 @@ Not given a TC because an EVAL case already specifies them completely: S3 latenc
 ### TC-076 · Security headers and CSP
 - **Links:** M-001 · TKT-19 · TASK-20 · technical-plan §16
 - **Type/Pri/Auto:** integration · P1 · A
-- **Expected:** responses carry the CSP (`default-src 'self'`; tile hosts only on `/admin/plots*`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and a `Permissions-Policy` limiting camera and geolocation to self; no page violates its CSP during e2e (console check).
+- **Expected:** responses carry the CSP (`default-src 'self'`; nonce + `'strict-dynamic'` scripts; `object-src 'none'`; tile hosts only on `/admin*` pages (amended by EXE17)), `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and a `Permissions-Policy` limiting camera and geolocation to self; no page violates its CSP during e2e (console check).
 - **Status:** Not run · **Finding:** —
 
 ### TC-077 · Seed builds the Kodagu demo state from nothing, repeatably

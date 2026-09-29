@@ -1,0 +1,12 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`projectToBox > is deterministic (snapshot) 1`] = `
+{
+  "dot": {
+    "x": 180,
+    "y": 111,
+  },
+  "inside": true,
+  "path": "M143.1 196 L272.6 107 L216.9 26 L87.4 115 Z",
+}
+`;

@@ -398,6 +398,125 @@
 - The five manual demo-phone S3 runs (EV9) and the midday sunlight test are **not** waived.
 **Rejected.** Stock photos (licence terms and the Design.md anti-reference); leaving the seed without photos (the capture flow and admin review need them).
 
+## EXE1 · Owner waiver: Stage 7 runs through every phase gate and the M-001 gate without stopping — accepted (owner, 2026-09-29)
+**Context.** CLAUDE.md and technical-plan §21.2 stop the cloud session after each §20 phase and at the M-001 gate for owner approval.
+**Decision.** On 2026-09-29, in the Stage 7 cloud session, the owner waived these stops. The session completes M-001 (P1–P9, including TKT-30 = TASK-31) and then M-002 (TKT-22 spike, TKT-23 design addendum, TKT-24, TKT-25, TKT-26) without waiting. Every quality gate still runs: per-task TDD with a spec-compliance review and a code-quality review; per phase `pnpm typecheck && pnpm lint && pnpm test`, `pnpm eval` (from P3) and `pnpm test:e2e` (UI phases), plus an independent QA pass. Each gate report is written to `docs/exec/ledger.md`, and `build/stage7` is pushed after each phase. The TKT-23 addendum is recorded as a D# decision "approved under the owner's blanket waiver, pending owner review at Stage 8". M-003 (TKT-27–29) is out of scope: it needs an Oracle instance, a domain and provider keys, and it follows the Stage 10 gate. Owner review items HR1, HR2 and HR6 are prepared in `docs/exec/` without waiting for them. A fix loop that hits its cap writes a `BLOCKED` ledger row, and work moves to the next unblocked ticket. Unchanged: no threshold, weight, expected verdict or case class is lowered, `cfg-1` is not moved after baseline-v1, no Design Freeze item changes, `backlog/` is not edited, and no secret is printed.
+**Rejected.** Stopping at each gate as CLAUDE.md prescribes, which the owner overrode for this session.
+
+## EXE2 · TKT-01 toolchain adjustments for pnpm 12 and the cloud VM — accepted
+**Context.** Implementing TKT-01 (TASK-2) in the claude.ai/code VM surfaced tool behaviour the plan did not anticipate.
+**Decision.**
+- **pnpm.** `packageManager` is `pnpm@12.6.0` (the corepack default). A `pnpm-workspace.yaml` lists `allowBuilds` for esbuild, sharp and unrs-resolver, set to `false`, because pnpm 12 refuses to install with unreviewed build scripts. All three ship prebuilt binaries.
+- **Playwright.** `@playwright/test` 1.63.0 expects Chromium revision 1243; the VM ships 1194 at `/opt/pw-browsers`. `playwright.config.ts` uses `PW_CHROMIUM_PATH`, else `/opt/pw-browsers/chromium` when it exists outside CI, else Playwright's own browser. `playwright install` is never run in the VM; CI installs normally.
+- **Playwright webServer.** Uses `next start` directly, because `pnpm start` under pnpm 12 outlives Playwright's teardown.
+- **Env and logger are lazy.** They are parsed on first use, so `next build` succeeds without production secrets. The `window` guard stays eager.
+- **`.gitleaks.toml`.** Uses a path-scoped `[allowlist]` (older-gitleaks syntax) instead of the plan's path+rule form.
+- **Build-time injection.** `commit` in `/api/health` comes from `git rev-parse --short HEAD` at build.
+**Rejected.** Downgrading `@playwright/test` to match the VM's Chromium, because the §0 pins stay.
+
+## EXE3 · TKT-02 foundations: an in-process write queue, boundary status codes and a test-only route path — accepted
+**Context.** The tracer bullet (TKT-02, TASK-3) fixed shapes that every later ticket builds on. Four points needed a choice the plan did not make.
+**Decision.**
+- **Writes go through `writeTx(db, fn)`** (`src/lib/db/client.ts`). This is an in-process FIFO queue in front of `BEGIN IMMEDIATE`. It exists because the `@libsql/client` 0.18 file driver busy-waits on the event loop when the lock is taken: with 20 concurrent `db.transaction()` calls, the holder could never finish and the calls failed with SQLITE_BUSY. Across processes, `BEGIN IMMEDIATE` and `busy_timeout` still serialise writers. A nested `writeTx` throws immediately rather than deadlocking. Reads may use `db` directly.
+- **Boundary status codes:**
+  - 400: `non_canonical`, `bad_schema`, `bad_form` (a malformed form with no payload is not anchored);
+  - 401: `unknown_device`, `bad_signature`;
+  - 403: `device_revoked`, `plot_not_assigned`;
+  - 409: `media_hash_mismatch`, which also covers a signed size that differs from the upload.
+
+  Base64url signatures must use canonical encoding, so each signature has exactly one accepted string.
+- **Minimal idempotency.** A payload that was already stored gets its original answer and writes nothing, because `payload_hash` is UNIQUE. TKT-09 still owns EVAL-068 and decides whether a stored boundary *rejection* may be re-evaluated. Today a stored rejection is sticky: for example, a `bad_signature` rejection blocks a later genuine submission of the same payload.
+- **Test-only route.** The test-only crypto page lives at `src/app/%5F_test__/crypto/`, which serves `/__test__/crypto`, because Next.js does not route folders that start with `_`. It returns 404 unless `E2E=1`. `E2E` is an env flag that is deliberately absent from `.env.example`.
+- **Playwright port.** The e2e server port comes from `E2E_PORT` (default 3100), so parallel worktrees never reuse each other's server.
+**Rejected.** Retry loops on SQLITE_BUSY, because they don't fix the event-loop starvation. A `public/` HTML page for the crypto vectors, because public files cannot be turned off by env.
+
+## EXE4 · Eval harness v0 semantics — accepted
+**Context.** TKT-03 (TASK-4) built `pnpm eval`. The spec left several scoring details open, and one plan sentence contradicts the dataset.
+**Decision.**
+- **When a case counts as not yet built.** A case is `not_yet_implemented`, and counts as failed, when a check it needs is missing from the registry. A legitimate case needs all twelve checks, because "Verified" asserts that every check stays quiet. A check that `--config=ledger-only` switches off does not count as missing. `not_yet_implemented` cases fire no CF, but they fail every gate they belong to. S2 counts a `not_yet_implemented` or `errored` legitimate case as a false positive, which is stricter than §4.1.
+- **Stretch cases.** Scenario 6 cases (EVAL-055–057) run and are reported separately. They are never pooled into S1, but any CF they fire still blocks.
+- **Extra gate row.** The gate table has an `S1-floor` row (≥ 90 % per scenario, EV5) and a CF row. Neither loosens an existing gate.
+- **`client_clock` sign.** `capturedAt = serverReceivedAt + offset_from_server_min`, so a negative offset means the phone clock is behind. This matches the dataset's case titles (−4320 is "3 days behind"). technical-plan §22 TSK-03.4's "serverReceivedAt − offset" wording is superseded here; the gap magnitude is the same.
+- **Chain mutations.** `correct` and `stale` count `seq_delta` from a device head of 12 entries; `genesis` counts from seq 1.
+- **Geometry the plot cannot fit.** EVAL-013 asks for a point 40 m inside P02, but the 0.6 ha plot cannot hold it. The engine uses the deepest reachable point (37 m) and records a case note; the expected outcome is unchanged.
+- **Oversized picking.** EVAL-049 needs one 3,000 kg picking under the placeholder U. That is above the 500 kg capture-boundary limit, and `verify()` does not re-check the limit. TKT-09 must not add a per-capture kg cap inside `verify()` without revisiting this case (owner visibility).
+- **Baseline naming.** The baseline file is `evals/results/baseline-v0-ledger-only.json` (technical-plan §13 and TSK-03.7) and its report is `eval-report-baseline-v0.md`. tickets.md's `baseline-v0.json` refers to the same artifact. The baseline came from a real run at `7c93ac4` with seed 20260929. That commit is kept reachable by a merge commit, not a cherry-pick.
+**Rejected.** Dropping or skipping cases whose checks are not built yet (CF-12). Editing EVAL-013/049 to fit the geometry or the boundary (CF-13).
+
+## EXE5 · Auth under Next 16 and Better Auth 1.7: proxy, redirects, unanchored ownership refusals and a stricter guard rule — accepted
+**Context.** Building sign-in with roles and organisation boundaries (TKT-04, TASK-5) meant adapting the plan to Next 16 and Better Auth 1.7.6. The build also needed a rule for captures from another agent's phone.
+**Decision.**
+- **Tooling names.** The Better Auth CLI is published as `auth@1.7.6`; `@better-auth/cli@1.7.6` does not exist. Next 16 replaces `middleware.ts` with `src/proxy.ts`, which only redirects unauthenticated navigation and is never the security boundary (§10).
+- **Wrong-role page visits redirect.** A signed-in user who opens another role's page is redirected to their own home, as TC-018 and TSK-04.3 specify, not given `notFound()` as §10 suggests. Server Actions and route handlers still answer 401/403 JSON. Cross-org IDs return 404 (CF-10).
+- **Better Auth writes are serialised.** They go through `writeTx` (`serialisedWrites`), so a sign-in during an open capture transaction cannot hit SQLITE_BUSY.
+- **A capture from another agent's phone is refused, not anchored.** It gets 403 `device_not_owned`, checked after the signature verifies and before the idempotent replay, and nothing is written. Anchoring it would let an agent put rows into another org's device history and block the owner's upload through `payload_hash` uniqueness. Replaying would leak the owner's verdict. This narrows Solution-PRD §7 rule 2 / §3.1 ("boundary rejections are anchored") for authorisation refusals only. Signature and schema rejections are still anchored.
+- **Stricter guard coverage (TC-018).** The guard's role must match its route group. Every page and layout in a group guards itself. Every `'use server'` file under `src/app` is scanned; `(public)/sign-in/actions.ts` is the only public action, and any future public action must be added to `PUBLIC_ACTIONS`. A guard inside `try` counts only if every catch rethrows or returns. Database helpers called before the guard are flagged, on a best-effort basis by import source. Because of this rule, the temporary tracer page is split into a guarded server page and a client component.
+- **Sign-in errors and the seed.** Only credential refusals show "Email or password is not right". Other Better Auth failures show "Couldn't sign in right now. Try again." and are logged by status and code only; that string goes to the Stage 8 copy review. `SEED_PASSWORD` lives in `env.ts` but not in `.env.example`, which is pinned to the §17 names. Its demo default applies only when `NODE_ENV` is explicitly `development` or `test`.
+- **Handed on.** Rate limiting the sign-in Server Action goes to TKT-19. Foreign keys from `devices.agent_id` and `harvest_events.agent_id` to `user` go to TKT-05.
+**Rejected.** Anchoring `device_not_owned` (it creates a cross-agent blocking vector). Relying on the proxy or on layouts alone for authorisation.
+
+## EXE6 · Location and time checks: dataset 0.3.0, a measured lone-flag miss and exifr outside the bundle — accepted
+**Context.** TKT-08 (TASK-9) added the five location and time checks. EXIF parsing, the scenario-1 cases and three honest misses needed decisions.
+**Decision.**
+- **Dataset 0.3.0.** Scenario 1 now has at least 10 attack cases: EVAL-110–113 were appended in the reserved block, and `dataset_version` moved 0.2.0 → 0.3.0. No existing case changed.
+- **Duration wording follows §6.5.** A 120-minute gap is "2 h", because "N min" applies only under 120 min. The TSK-08 bullet saying "120 min" contradicted §6.5.
+- **Build details.**
+  - exifr runs outside the Next bundle (`serverExternalPackages: ["exifr"]`), because bundling broke its fs loader.
+  - The HEIC fixture is exifr's MIT-licensed `heic-single.heic`; its source and licence are in `evals/fixtures/photos/README.md`.
+  - The fixture JPEGs are generated with sharp, so no new dependency was added.
+- **A lone time flag is a measured miss.** EVAL-034, EVAL-055 and EVAL-056 each raise the correct `exif_time_agreement` flag, but the verdict stays Verified: under cfg-1 a lone flag other than deforestation or yield does not cap the verdict (EV7). The dataset's own note on EVAL-034 says the case "measures that". These are recorded as undetected, and cfg-1 is unchanged.
+- **Owner item for the baseline-v1 decision (TKT-21).**
+  1. Whether a lone time flag should cap the verdict.
+  2. Whether `exif_time_agreement` should judge the worst photo rather than the latest, as `exif_gps_agreement` does. Today an old, unseen photo sent alongside one fresh photo passes the time check.
+
+  Changing either needs a TP/EV decision and two new attack cases per affected scenario first (EV13, CF-13).
+**Rejected.** Editing the expected verdicts or moving cfg-1 to make these cases pass.
+
+## EXE7 · Enrolment and device-state rules (TKT-05) — accepted
+**Context.** TKT-05 (TASK-6) built enrolment, revocation and plot assignment. The review then found key re-encoding and a race against the capture commit.
+**Decision.**
+- **Boundary order** is unknown key → signature → revoked → plot assignment → media. All of these run before the idempotent replay. Checking the signature before revocation means only a holder of the phone's key can learn, or record, that the phone is revoked or unassigned.
+- **Revocation and assignment are re-checked inside the capture's write transaction.** If either changed during the request, the capture is anchored as rejected instead. This closes a race where a revoke landed during media storage.
+- **Device JWKs are canonical.** A key must be exactly `{kty:'EC', crv:'P-256', x, y}` with 43-character base64url coordinates. The server re-exports it and uses that form for both the stored JWK and the thumbprint, so a revoked key cannot be re-enrolled under a different encoding.
+- **Enrolment codes.**
+  - Five attempts over the code's whole life, enforced on `enrollment_codes.attempts`, independent of the rate-limit window.
+  - Issuing a new code retires the agent's older unused codes.
+  - The per-IP limit uses the last X-Forwarded-For hop only; the reverse proxy must overwrite that header (TKT-27).
+- **`device_enrolled` payload** is `{deviceId, agentId, thumbprint}` and carries no public key, so the proof feed does not check capture signatures. doc §1 lists capture signatures as out of scope. QA-P4-2 noted that TC-022's wording ("only the device ID and thumbprint") omits `agentId`; that's an owner item.
+- **Deferred.**
+  - To TKT-09: an accepted payload re-sent after revocation or un-assignment currently answers `rejected`.
+  - To TKT-19: the foreign keys from `devices.agent_id` and `harvest_events.agent_id` to `user`.
+**Rejected.** Checking revocation before the signature, which would let anyone probe device state.
+
+## EXE8 · Plot geometry and anchoring (TKT-06) — accepted
+**Context.** TKT-06 (TASK-7) built plot registration and editing. Downstream tickets need each plot's outline from the ledger, and the review found geometry the validator let through.
+**Decision.**
+- **Payloads carry the outline.** `plot_registered` and `plot_edited` payloads carry `polygon`; `plot_edited` also carries `producerId` and `crop`. The certificate, the EUDR export and proof feed §9 read each plot's outline from its latest plot entry. No farmer name or identifier is ever included (EV16). **TKT-07 and any later plot entry must keep `polygon`.**
+- **Additional geometry refusals** (reasons, all tested):
+  - `has_holes`: a MultiPolygon part nested inside another part. Before, its area was counted twice.
+  - `degenerate`: a part under 1 m².
+  - `out_of_region`: a vertex outside the India box `PLOT_REGION` (lat 6–37, lng 68–98), or a ring spanning more than 1°. This also catches swapped lat/lng and antimeridian rings.
+  - `not_polygon`: nesting deeper than 32 levels.
+  - `unsupported_kml`: any KML containing `<!DOCTYPE`, which blocks XXE and billion-laughs attacks.
+- **Area** is spherical (`@turf/area`), about 0.39 % high at Kodagu, within TC-027's 0.5 %.
+- **Tile keys.** `ARCGIS_API_KEY` and `MAPTILER_KEY` are visible to signed-in admins in tile URLs, which TP19 accepts. The owner must restrict each key by referrer, to basemaps only, with a usage cap.
+- **Server Action body limit.** The Next 16 limit is global (3 MB), is documented in `next.config.ts`, and is revisited in TKT-19.
+- **Admin rail.** Admin screens render `RailShell` per page, not in the layout, because `current` differs per page.
+
+## EXE9 · Proof feed v1 hardening (TKT-15) — accepted
+**Context.** The TKT-15 (TASK-16) review showed the verifier could accept unhashed data and that closure completeness was weaker than the doc claimed.
+**Decision.**
+- **Payload integrity.** `verifyFeed` hashes each payload as received. It rejects `__proto__`, `constructor` and `prototype` keys at any depth at the `format` step. Ledger payload authors must never use those keys.
+- **Closure completeness.** Every `harvest_event` in the closure requires its `device_enrolled` and `plot_registered` entries. `batch_created.events[].payloadHash` must equal the capture hash. A custody transfer for another batch is ignored. doc §1 lists the omissions the verifier cannot detect.
+- **Signed payloads** (`batch_created`, `custody_transfer`, `admin_override`) embed `kid`, `publicJwk` (exactly `{kty,crv,x,y}`) and `signature`. The statement is the payload minus those three members, and `kid` is the RFC 7638 thumbprint.
+- **Test-step mapping for tampers.** A dropped entry fails at `closure-incomplete` and a swapped pair fails at `merkle-path`, following §8.3 and the doc. The TSK-18.5 plan text saying otherwise is superseded.
+- **Ledger key.**
+  - Created atomically (temp file, fsync, then `link`); the Oracle A1 filesystem must support hard links (TKT-27).
+  - A checkpoint signed by a kid that is no longer published makes `/api/health` return 503 with `keyMismatch`.
+  - An invalid environment reads as `config:"error"`, not a database fault (QA-P1-1).
+- **`pnpm eval` never touches `./data`.** It isolates `DATA_DIR`/`LEDGER_KEY_PATH` in a temp directory.
+- **Doc sufficiency.** Three rounds of review by a clean-room reviewer who read only the doc and vectors all concluded SUFFICIENT: YES (`scratchpad` report `TASK-16-doc-sufficiency.md`, summarised in the ledger).
+
 ## TP30 · The GitHub repo stays public — accepted (supersedes DISC16's private-repo clause)
 **Context.** DISC16 chose a private proprietary repo. On 2026-09-29 `007U5H4R/udgam` was found to be public already (created 2026-09-28), and the owner confirmed it should stay public. A scan of all 113 commits on every branch found no secrets; the only key material is the test-only vectors in `evals/fixtures/crypto-vectors.json`, plus a planted canary string used by the secret-scan test.
 **Decision.** The repo stays public. Consequences:
@@ -405,3 +524,155 @@
 - There is no LICENSE, so the code is visible but all rights are reserved. Choosing an open licence is a separate owner decision.
 - Nothing about secrets changes: they come only from env or `.secrets/`; gitleaks runs in CI (TKT-01); the pre-commit habit of scanning stays.
 **Rejected.** Switching back to private (the owner chose public).
+
+## EXE10 · EXIF time gap over 24 h fails, judged by the worst photo — accepted (owner, 2026-09-29; amends TP4)
+**Context.** At the P4 gate EVAL-034 (a photo taken 3 days before submission) was a measured miss: under TP4 an EXIF gap under 7 days was only a flag, and a lone flag does not stop Verified. The check also judged by the latest photo, so one old photo among fresh ones passed.
+**Decision (owner).** Applied now, before baseline-v1:
+- EXIF-to-capture gap, per photo, judged by the worst photo (largest gap), like `exif_gps_agreement`. The rule is:
+  - up to 10 min → ok;
+  - over 10 min, up to 24 h → flag;
+  - over 24 h → fail;
+  - flag when no photo has an EXIF time.
+- Client-to-server gap unchanged: over 24 h → flag, over 7 days → fail, because an honest outbox retry can arrive days later.
+- 24 h is chosen so a time-zone misread (up to about 14 h) never fails an honest farmer.
+- cfg-1 `exifTime` splits into separate EXIF and client-server fail limits. This tightens the check before baseline-v1, so no threshold is weakened (CF-13).
+- Dataset changes:
+  - EVAL-034's expected `exif_time_agreement` status changes from flag to fail.
+  - Two boundary cases are added: EVAL-122 (23 h → flag) and EVAL-123 (25 h → fail). They are the next IDs past TKT-09's reserved block, so TKT-20's block now starts at EVAL-124.
+  - The dataset minor version is bumped.
+- EVAL-055 and EVAL-056 stay reported scenario-6 stretch misses, with no further tuning.
+- Updated to match: technical-plan §6.3 (rule table, config, evidence), TC-036, and the Solution-PRD check table.
+**Rejected.** Keeping the 7-day EXIF fail (the P4 miss stands); failing at 10 min (time-zone misreads would reject honest farmers).
+
+## EXE11 · Replayed rejected captures are re-checked, not frozen — accepted (owner, 2026-09-29; refines TP7 and TSK-09.6)
+**Decision (owner).**
+- **Accepted payload:** an identical one returns the same verdict as before (`idempotent:true`), with no new rows and no new anchor.
+- **Rejected payload:** the boundary checks run again.
+  - Same reason as the stored rejection → the original rejection is returned, with no new row and no new anchor.
+  - Different reason → a normal new rejection.
+  - Now passes (for example after re-enrolment or plot assignment) → processed as a new capture.
+- `harvest_events.payload_hash` is unique for accepted rows only (partial unique index); the concurrent-race handling stays on that index.
+**Guarantees any alternative design must keep:**
+- no double-counted kg;
+- no ledger spam from replays;
+- an honest agent is never stuck behind an old rejection.
+
+Each guarantee has a named test in TKT-09.
+**Rejected.** Returning the original rejection forever (an honest agent stays stuck after the cause is fixed).
+
+## EXE12 · Fixture satellite data cannot run in production and is labelled everywhere — accepted (owner, 2026-09-29; moved forward from TKT-27/28)
+**Decision (owner).**
+- `env.ts` refuses to start when `NODE_ENV=production` and `REMOTE_SENSING_PROVIDER=fixture`.
+- Every evidence sentence derived from fixture remote-sensing data ends with "(demo data)". So no public certificate presents fixture results as real satellite evidence (CF-11).
+- The only exception to the start refusal is `E2E=1`. Playwright runs `next build && next start` (production mode) with the fixture provider. `E2E=1` also exposes the test-only routes, so it is never set in a real deployment.
+- `DEMO_MODE=1` is not an exception.
+- Implemented in the TKT-07 fix round (TASK-8).
+**Rejected.** Waiting for TKT-27/28 (fixture evidence could reach a public certificate before then); an exception for `DEMO_MODE` (a demo deployment is still public).
+
+## EXE13 · device_enrolled keeps agentId, which is an opaque random ID — accepted (owner, 2026-09-29)
+**Decision (owner).**
+- `device_enrolled` keeps `agentId` alongside the device ID and thumbprint. In production it is Better Auth's random `user.id`.
+- The demo seed hard-coded readable IDs (for example `USR-HOSAHALLI-AGENT`), which put an organisation name and role into anchored payloads, against EV16. Seeded user IDs become fixed opaque values: `USR-` plus 8 Crockford base32 characters.
+- A test pins the payload's keys and checks that agentId carries no email, name or organisation name.
+- TC-022's wording is updated to match the code.
+**Rejected.** Dropping agentId from the payload (the owner kept it; it links an enrolment to the responsible account without personal data).
+
+## EXE14 · Caddy overwrites X-Forwarded-For and the app trusts only that value — accepted (owner, 2026-09-29; added to TKT-27)
+**Decision (owner).**
+- In production, Caddy sets `X-Forwarded-For` to the real remote address, with `trusted_proxies` unset.
+- The app trusts only that value (`src/lib/client-ip.ts`, last hop), and the app port is never published.
+- TSK-27.3 gains a test showing that client-supplied `X-Forwarded-For` or `X-Real-IP` headers cannot dodge the per-IP sign-in and capture limits.
+- Map-key restrictions, the live provider with re-recorded fixtures, and the Kannada native review stay owner items before production (docs/exec owner review file).
+
+## EXE15 · Clean-room checker and harness scoping (TKT-18) — accepted
+- **Milestone scoping.** The harness runs `--milestone=M1` by default. Out-of-scope cases (EVAL-103, M2) are built and reported separately and counted in the totals, but never pooled into that milestone's gates and never dropped (CF-12). `inMilestone` fails closed, and `DEFAULT_MILESTONE` moves to M2 at M-002.
+- **Verification outcomes.** `docs/proof-feed.md` is authoritative: a dropped entry fails at `closure-incomplete`, and a reordered pair at `merkle-path`.
+- **Harness and checker structure.**
+  - The tamper generator moved to `src/lib/ledger/testing/tamper.ts`, and the proof suite moved to `evals/harness/suites/proof.ts`.
+  - The checker CLI adds `--batch` and `--vectors` modes, so the suite uses one or two child processes.
+  - S6-lib keeps its id and name but now requires both verifiers to agree.
+- **Test budgets.** Vitest budgets are 20 s per unit test and 60 s for the integration hooks. The root cause was the cold Better Auth import cost under parallel load, not flakiness.
+
+## EXE16 · Batches, custody transfer and the buyer list (TKT-14) — accepted
+- **List routes.** They sit in `(list)` route groups, so another org's batch detail returns a real 404 rather than a streamed 200 (EVAL-080, TC-019).
+- **Database invariants beyond §4.2:**
+  - members belong to the batch's org;
+  - membership is fixed once written;
+  - a batch is inserted open and empty;
+  - batch identity is immutable, and batches are never deleted;
+  - aggregates equal the `batch_aggregates` view;
+  - custody moves only from the holding org while the batch is open, and `custody_transfers` is append-only;
+  - a new verification run on a batched event aborts, because its verdict is frozen in `batch_created`. TKT-12's re-run and override screens must explain this.
+- **Extra columns:** `batches.created_at` and `custody_transfers.admin_id` (FK to user). With `admin_id`, a transfer's signature verifies from the row alone.
+- **Display values.** The plot label is the plot id, because plots have no name column. `integrityScore` is each member's latest run.
+
+## EXE17 · Capture boundary hardening, CSP and sign-in limits (TKT-19, fix rounds 1–2) — accepted
+- **Anchoring and refusals.**
+  - A refusal is anchored only for a canonical, schema-valid payload whose signature verifies, or whose key is unknown (EVAL-051/053). Unsigned or garbled bodies are only logged.
+  - New refusal reasons: `media_count` (400), `media_too_large` (413), `media_type` (415), `length_required` (411), `body_too_large` (413) and `rate_limited` (429).
+  - AVIF is refused. The signed mime must equal the sniffed type, read from up to 4 KB of the ftyp box; box sizes 0 and 1 are refused.
+- **CSP and routing.**
+  - The CSP uses a per-request nonce plus `'strict-dynamic'`, with `object-src 'none'`. `style-src 'self' 'unsafe-inline'` stays, because Next renders style attributes that no nonce can cover.
+  - Every page renders dynamically. The proxy lives in `src/proxy.ts` (Next 16) and excludes `/api`, so capture bodies are not buffered.
+  - The map-tile host is allowed on every `/admin*` page. A successful sign-in ends in a full document load; the `AdminDocument` guard reloads any admin page reached by client navigation from a non-admin document.
+- **Auth and sign-in limits.**
+  - `/api/auth` answers only GET get-session and POST sign-out; everything else is 404.
+  - Limits are 10 per (email, address), 50 per email and 30 per address in 15 minutes. Each attempt is reserved atomically and refunded unless the password was wrong.
+  - Trade-off: an attacker can lock one email out for 15 minutes.
+  - IPv6 is keyed by /64, and an IPv4-mapped address by its IPv4 address.
+- **Capture slots.**
+  - At most 4 captures in flight overall and 2 per agent. The per-IP and per-agent checks run before a slot is taken, and a busy 503 counts against the IP budget.
+  - The body has a 60 s read deadline; exceeding it gives a retryable 408 line, so the phone keeps its copy.
+  - Phone buckets are keyed per (agent, device).
+- **Foreign keys by trigger.** Agent foreign keys (`devices`, `harvest_events` → `user`) are enforced by triggers, because a drizzle table rebuild fails on dependent triggers. Migration 0016 refuses REPLACE of a referenced user, with FK semantics.
+- **SQLITE_BUSY root cause.** `next start` loaded the DB module twice. The handle and write queue are now shared per process via `globalThis`.
+- **Recorded for Stage 10:** two agents behind one address can hold all 4 slots; a 503 spends a shared address's budget; the body is read into memory (about 3× per slot); per-instance state (throttles, slots, dev secret) assumes one app instance.
+
+## EXE18 · Satellite checks, caching and honest failure (TKT-07, fix round 1) — accepted
+- **Geometry and fixtures.** `PlotGeom` keeps `polygon` (not `geometry`) and adds `geometryHash`. Fixture mode matches plots by geometry hash; the fallback profile is limited by EXE12.
+- **Timeouts and provider versions.**
+  - Per-call 8 s timeouts use a timer and AbortController and honour the caller's signal. The 10 s remote cap uses the provider's own unavailable sentence.
+  - The GFW dataset version defaults to cfg-1's pinned `v1.13`, and the resolved version is recorded.
+- **Unavailable results.** Cloud-blocked windows and histories with fewer than 6 clear months are `unavailable` with no provider named, and are never cached. So TKT-12's re-run must retry every unavailable remote check by kind, not only those naming a provider.
+- **Registration anchor.** It is a `plot_edited` entry that carries the full current geometry (including `polygon`) plus `registrationChecksHash`. "Check again" anchors only when the result changed.
+- **Cache behaviour.**
+  - The harvest-window centre is the IST date of the server receipt time.
+  - Cache writes run in the background through `writeTx`, and failures are logged.
+  - A corrupt cache row is treated as a miss.
+- **Evidence and hard fails.**
+  - Rounding in evidence never shows a value on the wrong side of its threshold.
+  - Any finite loss of 10 % or more is a hard fail, above 100 % included; NaN, infinite or negative values are `unavailable`.
+
+## EXE19 · Organic certificate attestation (TKT-13 and follow-up) — accepted
+- **Upload route.** The upload is a route handler, not a Server Action, because the action body cap is global. The proxy matcher excludes only `admin/plots/<id>/attestation`.
+- **Issuer validation.** Issuer text refuses:
+  - control characters and Unicode format characters (bidi and zero-width);
+  - the banned wording (case-insensitive, after NFKC);
+  - over-long values.
+
+  It renders inside `<bdi>`.
+- **Validity dates.** They must fall between 2000-01-01 and today (IST) plus 10 years.
+- **Database guards.** `attestations` also has `attestations_no_update`, and its payload carries `attestationId`.
+- **Requests without CSRF headers.** A POST with neither `Sec-Fetch-Site` nor `Origin` is accepted: it is a non-browser client, and the session cookie is `SameSite=lax`.
+
+## EXE20 · Yield, chain and replay under the write lock (TKT-09, fix round 1) — accepted (the X-Y-X rule is pending owner acknowledgement)
+- **Replay (EXE11).** A rejected payload is also unique per (payload_hash, boundary_reason). So a payload refused for X, then Y, then X again gets the original X refusal back, keeping all three guarantees; **the owner is asked to acknowledge this narrowing**. The plan's `findPriorOutcome` became `findAcceptedOutcome` plus `findRejection`.
+- **Boundary order:** signature → device ownership → replay of an accepted payload → revocation → plot assignment → media. A replay of an accepted payload keeps its verdict after a later revocation or un-assignment.
+- **Under-lock re-check.**
+  - Inside the write transaction the capture re-reads everything a concurrent capture can change: season kg, chain head, the agent's accepted count, seen photos and the previous capture. It then re-runs `yield_plausibility`, `chain_continuity`, `photo_uniqueness` and `movement_plausibility` and re-scores.
+  - Adding movement was directed by the orchestrator beyond the fix brief.
+- **Yield reference.** It is seeded at boot. `VerifyContext.yieldReference` may be null, giving an `unavailable` yield check.
+- **Harness and tests.**
+  - The harness gains `reuse_media.which` (1–3) and `input.context.crop`.
+  - A client `x-request-id` is accepted only if it matches `^[A-Za-z0-9._-]{1,64}$`.
+  - `pnpm test:tz` runs the unit suite under Los Angeles and Kolkata; CI does not run it yet.
+- **Owner items:** EVAL-049 is unreachable as one picking; the GAP-7 wording needs HR2.
+
+## EXE21 · How Stage 7 merges parallel work — accepted
+- **Who merges.** Implementers commit on their own worktree branches, and the orchestrator merges them into `build/stage7` after running the gates. The owner approved this route on 2026-09-29, after the permission check blocked subagent merges.
+- **Migrations.** Parallel migrations are renumbered at merge by regenerating with drizzle-kit, with custom SQL re-added unchanged; meta files are never hand-edited.
+- **Fixes after a merge.**
+  - Semantic merge breaks, such as type changes across branches or e2e expectations, are fixed by the orchestrator in the merge or in a separate commit, and named in the message.
+  - Fix rounds start fresh implementers at the current head instead of resuming old worktrees.
+- **Reviews.** Reviewers work read-only in their own `git clone --shared` copies at a pinned SHA.
+- **Container restarts.** After a restart, interrupted agents resume from their transcripts, and their uncommitted work is reviewed before it is committed.

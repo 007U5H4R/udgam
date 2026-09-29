@@ -1,0 +1,50 @@
+@import "./tokens.css";
+@import "tailwindcss";
+
+@media (max-width: 360px) {
+  :root {
+    --pad: 16px;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  position: relative;
+  isolation: isolate; /* keeps the z-index:-1 glow above the body background */
+  background: var(--bg);
+  color: var(--ink);
+  /* next/font family variables go ahead of the frozen --font stack */
+  font-family: var(--font-figtree), var(--font-noto-sans-kannada), var(--font);
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Rule of light: the ground glow */
+body::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 100svh;
+  background: var(--glow);
+  z-index: -1;
+  pointer-events: none;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 7px rgba(216, 245, 140, 0.22);
+}

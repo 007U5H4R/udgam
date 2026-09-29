@@ -1,0 +1,6 @@
+# pnpm 12 blocks dependency build scripts by default. None are needed:
+# esbuild, sharp and unrs-resolver ship prebuilt binaries as optional packages.
+allowBuilds:
+  esbuild: false
+  sharp: false
+  unrs-resolver: false

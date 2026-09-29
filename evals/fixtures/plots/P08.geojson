@@ -1,0 +1,44 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "P08",
+    "role": "legitimate",
+    "area_ha": 2.5,
+    "shape": "convex",
+    "anchor": {
+      "place": "Chettalli, Kodagu",
+      "lat": 12.3714,
+      "lng": 75.8279
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 2280007567
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.827964,
+          12.3703413
+        ],
+        [
+          75.8288462,
+          12.3719201
+        ],
+        [
+          75.827836,
+          12.3724587
+        ],
+        [
+          75.8269538,
+          12.3708799
+        ],
+        [
+          75.827964,
+          12.3703413
+        ]
+      ]
+    ]
+  }
+}

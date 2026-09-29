@@ -1,0 +1,44 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "X04",
+    "role": "adversarial",
+    "area_ha": 1.5,
+    "shape": "convex",
+    "anchor": {
+      "place": "Balehonnur, Chikkamagaluru",
+      "lat": 13.348,
+      "lng": 75.46
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 3799841683
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.4603383,
+          13.3472474
+        ],
+        [
+          75.4605471,
+          13.3486257
+        ],
+        [
+          75.4596617,
+          13.3487526
+        ],
+        [
+          75.4594529,
+          13.3473743
+        ],
+        [
+          75.4603383,
+          13.3472474
+        ]
+      ]
+    ]
+  }
+}
