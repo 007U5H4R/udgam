@@ -10,7 +10,12 @@ const PRE_INSTALLED = '/opt/pw-browsers/chromium';
 const executablePath =
   process.env.PW_CHROMIUM_PATH ?? (!process.env.CI && existsSync(PRE_INSTALLED) ? PRE_INSTALLED : undefined);
 
-const PORT = 3100;
+// E2E_PORT (default 3100) sets the web server's port and baseURL. With reuseExistingServer on
+// (outside CI), a run whose port is already served reuses that server, even one started from
+// another worktree with other code and another .e2e-data. Parallel worktrees and agents must
+// therefore each pick their own port, for example `E2E_PORT=3101 pnpm test:e2e`.
+const PORT = Number(process.env.E2E_PORT ?? 3100);
+if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) throw new Error('E2E_PORT must be a TCP port number');
 
 export default defineConfig({
   testDir: './e2e',
