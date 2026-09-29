@@ -98,6 +98,18 @@ export const en = {
   // Not accepted at the capture boundary (TKT-05; the verdict screen itself is TKT-10's)
   'capture.rejected.plot_not_assigned': 'This plot is not assigned to you. Ask the office to assign it to you, then record the picking again.',
 
+  // The capture app (TKT-10), ported from final/index.html
+  'verdict.verified': 'Verified',
+  'verdict.needsReview': 'Needs a check',
+  'verdict.rejected': 'Not accepted',
+  'tabs.label': 'Main',
+  'tabs.home': 'Home',
+  'tabs.pickings': 'Pickings',
+  'tabs.help': 'Help',
+  'home.record': "Record today's picking",
+  'home.recent': 'Your last pickings',
+  'home.kg': '{kg} kg',
+
   // Farmer evidence lines on the verdict screens (TKT-10, src/lib/i18n/farmer-evidence.ts). Numbers come
   // from the verifier's evidence as written ({m} = "14 m", {pct} = "18.0%", {d} = "3 h", {x} = "1.75x").
   'fe.plot.default': 'the plot',

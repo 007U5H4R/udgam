@@ -32,6 +32,17 @@ export const kn: Partial<Record<MessageKey, string>> = {
 
   'capture.rejected.plot_not_assigned': 'ಈ ತೋಟ ನಿಮಗೆ ನಿಯೋಜಿಸಿಲ್ಲ. ಅದನ್ನು ನಿಮಗೆ ನಿಯೋಜಿಸಲು ಕಚೇರಿಗೆ ಕೇಳಿ, ನಂತರ ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ.', // REVIEW: native speaker
 
+  'verdict.verified': 'ಪರಿಶೀಲಿತ', // REVIEW: native speaker
+  'verdict.needsReview': 'ಪರಿಶೀಲನೆ ಬೇಕು', // REVIEW: native speaker
+  'verdict.rejected': 'ಸ್ವೀಕರಿಸಿಲ್ಲ', // REVIEW: native speaker
+  'tabs.label': 'ಮುಖ್ಯ', // REVIEW: native speaker
+  'tabs.home': 'ಮುಖಪುಟ', // REVIEW: native speaker
+  'tabs.pickings': 'ಕೊಯ್ಲುಗಳು', // REVIEW: native speaker
+  'tabs.help': 'ಸಹಾಯ', // REVIEW: native speaker
+  'home.record': 'ಇಂದಿನ ಕೊಯ್ಲು ದಾಖಲಿಸಿ', // REVIEW: native speaker
+  'home.recent': 'ನಿಮ್ಮ ಇತ್ತೀಚಿನ ಕೊಯ್ಲುಗಳು', // REVIEW: native speaker
+  'home.kg': '{kg} ಕೆಜಿ', // REVIEW: native speaker
+
   'fe.plot.default': 'ತೋಟ', // REVIEW: native speaker
   'fe.location.inside': 'ನೀವು {plot} ಒಳಗೆ {m} ಇದ್ದಿರಿ', // REVIEW: native speaker
   'fe.location.edge': 'ನೀವು {plot} ಹೊರಗೆ {m} ಇದ್ದಿರಿ, GPS ಅನುಮತಿಯ ಒಳಗೆ.', // REVIEW: native speaker
