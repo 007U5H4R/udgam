@@ -2,30 +2,18 @@
 
 import type { VerdictView } from '../../client/capture-client';
 import { t, type Lang, type MessageKey } from '../../lib/i18n';
-import { farmerLines, refusalCopy, type FarmerLine } from '../../lib/i18n/farmer-evidence';
-import type { VerifyResult } from '../../lib/verification/types';
+import { farmerLines, refusalCopy, retryWait, type FarmerLine } from '../../lib/i18n/farmer-evidence';
 import { EvidenceList } from '../ui/EvidenceList';
 import { Pill } from '../ui/Pill';
 import { Sheet } from '../ui/Sheet';
 import { VerdictChip } from '../ui/VerdictChip';
 import { VerdictScreen } from '../ui/VerdictScreen';
 import { Ic } from './icons';
+import { streamedResult } from './verdict-result';
 
 // The verdict step (TSK-10.11): Verified (#s5), Needs a check (#s6) and Not accepted (the D5 template)
 // on one VerdictScreen, with the farmer copy layer's evidence lines; and the "saved on this phone"
 // state when the send could not finish (the amber sheet of #s7; TKT-11 grows it into the full retry).
-
-/** The streamed verdict as the copy layer reads it (the stream carries status and evidence per check). */
-function asResult(v: VerdictView): VerifyResult {
-  return {
-    verdict: v.verdict,
-    score: v.score,
-    checks: v.checks.map((c) => ({ ...c, score: 0, weight: 1, hardFail: false })),
-    unavailableProviders: [],
-    capReasons: [],
-    config: { version: '', hash: '' },
-  };
-}
 
 function Kg({ kg }: { kg: string }) {
   return <b>{kg}</b>;
@@ -75,7 +63,7 @@ export function VerdictStep({
         doneLabel={done}
         onDone={onDone}
       >
-        <EvidenceList tone="ok" label={tr('v.evidence.ok')} lines={farmerLines(asResult(result), lang, { plot: plotName })} />
+        <EvidenceList tone="ok" label={tr('v.evidence.ok')} lines={farmerLines(streamedResult(result), lang, { plot: plotName })} />
       </VerdictScreen>
     );
   }
@@ -93,7 +81,7 @@ export function VerdictStep({
         <EvidenceList
           tone="amber"
           label={tr('v.evidence.check')}
-          lines={farmerLines(asResult(result), lang, { plot: plotName })}
+          lines={farmerLines(streamedResult(result), lang, { plot: plotName })}
           small={tr('v.check.saved', { kg: kgText })}
         />
       </VerdictScreen>
@@ -102,7 +90,7 @@ export function VerdictStep({
 
   // Not accepted: a Rejected verdict, or a refusal at the boundary.
   let lines: FarmerLine[];
-  if (result) lines = farmerLines(asResult(result), lang, { plot: plotName });
+  if (result) lines = farmerLines(streamedResult(result), lang, { plot: plotName });
   else {
     const c = refusalCopy(refusal?.reason ?? 'other', lang);
     lines = [
@@ -126,7 +114,8 @@ export function VerdictStep({
 
 /**
  * Could not send (#s7): the amber sheet over the weight screen says what happened and that nothing is
- * lost, with Try again (the identical saved copy) and Try later.
+ * lost, with Try again (the identical saved copy) and Try later. A 429 or a busy 503 also says how long
+ * to wait (its Retry-After), in plain words.
  */
 export function SavedStep({
   cause,
@@ -161,6 +150,8 @@ export function SavedStep({
         <h2 id="saved-h2">{title}</h2>
         {refusal ? <p>{refusal.todo}</p> : null}
         {body ? <p>{body}</p> : null}
+        {/* A busy server's Retry-After (503); a 429's wait is in the rate_limited copy above. */}
+        {!refusal && retryAfterSec !== undefined ? <p data-testid="saved-wait">{retryWait(retryAfterSec, lang)}</p> : null}
         <Pill variant="amber" icon={<Ic name="retry" />} onClick={onRetry}>
           {tr('rec.saved.retry')}
         </Pill>

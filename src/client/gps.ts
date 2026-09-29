@@ -23,7 +23,7 @@ export function startGpsWatch(geo: Geolocation | undefined = globalThis.navigato
   let fixes: Fix[] = [];
   let denied = !geo;
   const listeners = new Set<() => void>();
-  const waiters = new Set<(f: Fix) => void>();
+  const waiters = new Set<() => void>(); // each re-reads the held fixes when woken
   const changed = () => {
     for (const cb of [...listeners]) cb();
   };
@@ -40,7 +40,7 @@ export function startGpsWatch(geo: Geolocation | undefined = globalThis.navigato
       const fix: Fix = { lat: p.coords.latitude, lng: p.coords.longitude, accuracyM: p.coords.accuracy, at: now() };
       fixes = [...fixes.filter((f) => f.at >= fix.at - KEEP_MS), fix];
       denied = false;
-      for (const w of [...waiters]) w(fix);
+      for (const w of [...waiters]) w();
       changed();
     },
     (e) => {
@@ -67,12 +67,11 @@ export function startGpsWatch(geo: Geolocation | undefined = globalThis.navigato
       return new Promise<Fix | null>((resolve) => {
         const done = () => {
           clearTimeout(timer);
-          waiters.delete(onFix);
+          waiters.delete(done);
           resolve(fresh() ?? best());
         };
-        const onFix = () => done();
         const timer = setTimeout(done, maxMs);
-        waiters.add(onFix);
+        waiters.add(done);
       });
     },
     onChange(cb) {
@@ -82,7 +81,7 @@ export function startGpsWatch(geo: Geolocation | undefined = globalThis.navigato
     stop() {
       if (id !== undefined) geo?.clearWatch(id);
       listeners.clear();
-      for (const w of [...waiters]) w(best() as Fix);
+      for (const w of [...waiters]) w();
     },
   };
 }

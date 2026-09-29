@@ -32,7 +32,10 @@ export type CaptureEvent =
       eventId: string;
       verdict: Verdict;
       score: number;
-      checks: { id: CheckId; status: CheckStatus; evidence: string }[];
+      /** `hardFail` (TASK-11 fix round 1, additive): the check that decided a Rejected verdict. */
+      checks: { id: CheckId; status: CheckStatus; evidence: string; hardFail?: boolean }[];
+      /** The score caps that applied (§6.3; additive, TASK-11 fix round 1). Older clients ignore both. */
+      capReasons?: string[];
       idempotent?: boolean;
     }
   | {
@@ -77,13 +80,19 @@ async function findDevice(db: Db, id: string): Promise<BoundaryDevice | null> {
   };
 }
 
-function verdictLine(eventId: string, run: { verdict: Verdict; score: number; checks: CheckResult[] }) {
+/**
+ * The verdict line. `hardFail` per check and `capReasons` are additive (TASK-11 fix round 1): the phone
+ * names the check that decided a Rejected verdict. A replay's stored run has no cap reasons column, so
+ * they are scored again from its stored checks (score() is pure; cfg-1 is fixed).
+ */
+function verdictLine(eventId: string, run: { verdict: Verdict; score: number; checks: CheckResult[]; capReasons?: string[] }) {
   return {
     t: 'verdict' as const,
     eventId,
     verdict: run.verdict,
     score: run.score,
-    checks: run.checks.map(({ id, status, evidence }) => ({ id, status, evidence })),
+    checks: run.checks.map(({ id, status, evidence, hardFail }) => ({ id, status, evidence, hardFail: hardFail === true })),
+    capReasons: run.capReasons ?? score(run.checks, CONFIG).capReasons,
   };
 }
 

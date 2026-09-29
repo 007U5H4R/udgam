@@ -111,6 +111,32 @@ describe('GET /api/media/[mediaId]/thumb', () => {
   });
 });
 
+describe('GET /api/media/[mediaId]/thumb failures (TASK-11 fix round 1)', () => {
+  it('stored bytes sharp cannot decode: 200 with the 320 px placeholder, not an error', async () => {
+    const { mkdirSync, writeFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    mkdirSync(join(t.dir, 'junk'), { recursive: true });
+    writeFileSync(join(t.dir, 'junk', 'x.jpg'), Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]));
+    await t.client.execute({ sql: 'UPDATE media SET path = ?, sha256 = ? WHERE id = ?', args: ['junk/x.jpg', 'c'.repeat(64), mediaId] });
+    const res = await get(await signIn(world.agentEmail));
+    expect(res.status).toBe(200);
+    const meta = await sharp(Buffer.from(await res.arrayBuffer())).metadata();
+    expect([meta.format, meta.width, meta.height]).toEqual(['jpeg', 320, 320]);
+  });
+
+  it('a stored path outside the data directory is a server error (500, logged), never a read and never a 404', async () => {
+    await t.client.execute({ sql: 'UPDATE media SET path = ?, sha256 = ? WHERE id = ?', args: ['../outside.jpg', 'd'.repeat(64), mediaId] });
+    const res = await get(await signIn(world.agentEmail));
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'thumb_failed' });
+  });
+
+  it('a missing original is a server error (500), not a 404', async () => {
+    await t.client.execute({ sql: 'UPDATE media SET path = ?, sha256 = ? WHERE id = ?', args: ['gone/none.jpg', 'e'.repeat(64), mediaId] });
+    expect((await get(await signIn(world.agentEmail))).status).toBe(500);
+  });
+});
+
 describe('canReadMedia', () => {
   it('never lets a buyer read a photo, even of their own org id', async () => {
     const { db } = t;

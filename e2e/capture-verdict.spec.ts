@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { createClient } from '@libsql/client';
 import { expect, test, type Page } from '@playwright/test';
 import { demoPhoto, expectNoHorizontalScroll, openField, seedCaptureWorld, type SeededCapture } from './helpers/capture';
-import { E2E_DATA_DIR, query } from './helpers/tracer';
+import { E2E_DATA_DIR } from './helpers/tracer';
 
 // TSK-10.11 · the three verdict screens on one template: Verified (#s5), Needs a check (#s6), and Not
 // accepted from the D5 template (TC-048: --bad tokens, no green, no cherry rim, reason + what to do,
@@ -22,6 +22,25 @@ async function record(page: Page, seed: SeededCapture, photo: Buffer, plot = see
   await page.locator('#send-btn').click();
   await expect(page.locator('#verdict-h')).toBeVisible({ timeout: 45_000 });
 }
+
+/** How many signed pickings are saved in the phone's outbox (IndexedDB `udgam` / `outbox`). */
+const outboxCount = (page: Page) =>
+  page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((res, rej) => {
+      const q = indexedDB.open('udgam');
+      q.onsuccess = () => res(q.result);
+      q.onerror = () => rej(q.error);
+    });
+    try {
+      if (!db.objectStoreNames.contains('outbox')) return 0;
+      return await new Promise<number>((res) => {
+        const r = db.transaction('outbox').objectStore('outbox').count();
+        r.onsuccess = () => res(r.result);
+      });
+    } finally {
+      db.close();
+    }
+  });
 
 /** Elements whose computed text colour is --ok or --ok-ink (TC-048: none on Not accepted). */
 const greenText = (page: Page) =>
@@ -77,18 +96,15 @@ test('Needs a check (weak GPS): amber cherry, the chip, "The office will check t
   await expect(page.locator('main button')).toHaveCount(1);
 });
 
-test('Needs a check (P09, satellite picture cloudy) — needs TKT-07 remote checks', async ({ page, context }) => {
+test('Needs a check (P09, satellite picture cloudy): the fixture-derived line ends with "(demo data)" (EXE12)', async ({ page, context }) => {
   const seed = seedCaptureWorld({ plots: ['P09'] });
   await openField(page, context, seed);
   await record(page, seed, demoPhoto());
-  const [run] = await query<{ checks: string }>(
-    'SELECT vr.checks FROM verification_runs vr JOIN harvest_events he ON he.id = vr.event_id WHERE he.device_id = ?',
-    [seed.deviceId],
-  );
-  test.skip(!run!.checks.includes('"ndvi_harvest_window"'), 'remote-sensing checks (TKT-07) are not registered at this base');
   await expect(page.getByTestId('cherry')).toHaveClass(/\bamber\b/);
   await expect(page.locator('#verdict-h')).toHaveText('The office will check this one');
-  await expect(page.getByTestId('evidence')).toContainText('The satellite picture for this month was cloudy.');
+  const cloudy = page.getByTestId('evidence').locator('li', { hasText: 'The satellite picture for this month was cloudy.' });
+  await expect(cloudy).toHaveText(/\(demo data\)$/);
+  await expect(cloudy).toHaveText('The satellite picture for this month was cloudy. (demo data)');
   await expect(page.getByTestId('evidence')).toContainText('The office will look at this.');
 });
 
@@ -150,21 +166,23 @@ test('no network at Send: the amber sheet says nothing is lost; Try again sends 
   const sheet = page.getByTestId('saved-sheet');
   await expect(sheet.getByRole('heading')).toHaveText('No network here');
   await expect(sheet).toContainText('Nothing is lost: 1 photo and 42.5 kg are saved on this phone.');
-  const saved = await page.evaluate(async () => {
-    const db = await new Promise<IDBDatabase>((res, rej) => {
-      const q = indexedDB.open('udgam');
-      q.onsuccess = () => res(q.result);
-      q.onerror = () => rej(q.error);
-    });
-    const n = await new Promise<number>((res) => {
-      const r = db.transaction('outbox').objectStore('outbox').count();
-      r.onsuccess = () => res(r.result);
-    });
-    db.close();
-    return n;
-  });
-  expect(saved).toBe(1);
+  expect(await outboxCount(page)).toBe(1);
   await page.unroute('**/api/capture');
   await sheet.getByRole('button', { name: 'Try again' }).click();
   await expect(page.locator('#verdict-h')).toHaveText('Verified', { timeout: 45_000 });
+  // the saved copy is gone once the office has it
+  expect(await outboxCount(page)).toBe(0);
+});
+
+test('a picture the office cannot read (PNG) is refused on "Use this photo", before anything is signed', async ({ page, context }) => {
+  const seed = seedCaptureWorld();
+  await openField(page, context, seed);
+  await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
+  const png = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010806000000', 'hex');
+  await page.getByLabel('The branch').setInputFiles({ name: 'branch.png', mimeType: 'image/png', buffer: png });
+  await page.getByRole('button', { name: 'Use this photo' }).click();
+  await expect(page.getByTestId('photo-error')).toHaveText('This photo is not a camera picture the office can read. Take it again with Open camera.');
+  await expect(page.getByRole('button', { name: 'Use this photo' })).toBeDisabled();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Is the photo clear?');
+  expect(await outboxCount(page)).toBe(0);
 });

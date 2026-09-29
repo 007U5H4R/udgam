@@ -33,6 +33,21 @@ const grab = (s: string, re: RegExp, n = 1): string | null => re.exec(s)?.[n] ??
 const metres = (s: string) => grab(s, /(-?\d+ m)\b/);
 const plotName = (ctx: Ctx, tr: Tr) => ctx.plot ?? tr('fe.plot.default');
 
+/**
+ * The label the verifier appends to an evidence sentence derived from fixture remote-sensing data
+ * (DEMO_DATA_SUFFIX in lib/verification/evidence.ts, owner decision EXE12). Kept here as a literal so
+ * the capture bundle does not pull in the verifier's config; a unit test holds the two equal.
+ */
+export const FIXTURE_MARK = ' (demo data)';
+/** Lines that report a provider failure: no data was derived, so there is nothing to label. */
+const NO_DATA = new Set<MessageKey>(['fe.forest.down', 'fe.sat.down', 'fe.threw']);
+
+/** A remote-sensing line in plain words, with the localised "(demo data)" label when its evidence is fixture-derived. */
+function sensed(c: CheckResult, key: MessageKey, tr: Tr, vars: Record<string, string | number> = {}): string {
+  const text = tr(key, vars);
+  return !NO_DATA.has(key) && c.evidence.endsWith(FIXTURE_MARK) ? `${text}${tr('fe.demo')}` : text;
+}
+
 /** A finding's line in plain words, or null when the check has nothing to say to the farmer. */
 function findingLine(c: CheckResult, tr: Tr, ctx: Ctx): string | null {
   const e = c.evidence;
@@ -68,13 +83,13 @@ function findingLine(c: CheckResult, tr: Tr, ctx: Ctx): string | null {
       return tr('fe.photos.used', { k: grab(e, /^(\d+) of/) ?? '', n: grab(e, /of (\d+)/) ?? '' });
     case 'deforestation_overlap':
       if (c.status === 'unavailable') return tr('fe.forest.down');
-      return tr('fe.forest.loss', { pct: grab(e, /^([\d.]+%)/) ?? '', year: grab(e, /since (\d{4})/) ?? '' });
+      return sensed(c, 'fe.forest.loss', tr, { pct: grab(e, /^([\d.]+%)/) ?? '', year: grab(e, /since (\d{4})/) ?? '' });
     case 'ndvi_cultivation':
-      if (c.status === 'unavailable') return /clear months/.test(e) ? tr('fe.canopy.few') : tr('fe.sat.down');
-      return tr('fe.canopy.none');
+      if (c.status === 'unavailable') return /clear months/.test(e) ? sensed(c, 'fe.canopy.few', tr) : tr('fe.sat.down');
+      return sensed(c, 'fe.canopy.none', tr);
     case 'ndvi_harvest_window':
-      if (c.status === 'unavailable') return /cloud/.test(e) ? tr('fe.sat.cloud') : tr('fe.sat.down');
-      return tr('fe.sat.low', { ndvi: grab(e, /NDVI ([\d.]+)/) ?? '' });
+      if (c.status === 'unavailable') return /cloud/.test(e) ? sensed(c, 'fe.sat.cloud', tr) : tr('fe.sat.down');
+      return sensed(c, 'fe.sat.low', tr, { ndvi: grab(e, /NDVI ([\d.]+)/) ?? '' });
     case 'yield_plausibility':
       if (c.status === 'unavailable') return tr('fe.yield.none');
       return tr('fe.yield.high', { x: grab(e, /total ([\d.]+x)/) ?? '' });
@@ -115,20 +130,23 @@ function positives(checks: Map<CheckId, CheckResult>, tr: Tr, ctx: Ctx): FarmerL
     out.push({ icon: 'camera', text: tr(n === 1 ? `fe.photos.new1${today}` : `fe.photos.new${today}`, { n }) });
   }
   const forest = ok('deforestation_overlap');
-  if (forest) out.push({ icon: 'tree', text: tr('fe.forest.none', { year: grab(forest.evidence, /since (\d{4})/) ?? '' }) });
+  if (forest) out.push({ icon: 'tree', text: sensed(forest, 'fe.forest.none', tr, { year: grab(forest.evidence, /since (\d{4})/) ?? '' }) });
   const fallbacks: [CheckId, FarmerLine['icon'], MessageKey][] = [
     ['ndvi_cultivation', 'tree', 'fe.canopy.ok'],
     ['ndvi_harvest_window', 'cloud', 'fe.sat.ok'],
     ['signature_valid', 'seal', 'fe.seal.ok'],
   ];
-  for (const [id, icon, key] of fallbacks) if (out.length < 3 && ok(id)) out.push({ icon, text: tr(key) });
+  for (const [id, icon, key] of fallbacks) {
+    const c = ok(id);
+    if (out.length < 3 && c) out.push({ icon, text: sensed(c, key, tr) });
+  }
   return out.slice(0, 3);
 }
 
 /** Findings worth telling the farmer, most serious first: hard fails, fails, unavailable, capped flags, flags. */
 function findings(r: VerifyResult): CheckResult[] {
   const rank = (c: CheckResult) =>
-    c.hardFail ? 0 : c.status === 'fail' ? 1 : c.status === 'unavailable' ? 2 : r.capReasons.includes(`flag:${c.id}`) ? 3 : c.status === 'flag' ? 4 : 9;
+    c.hardFail ? 0 : c.status === 'fail' ? 1 : c.status === 'unavailable' ? 2 : c.status !== 'flag' ? 9 : r.capReasons.includes(`flag:${c.id}`) ? 3 : 4;
   return r.checks.filter((c) => rank(c) < 9).sort((a, b) => rank(a) - rank(b));
 }
 
@@ -194,6 +212,15 @@ export function refusalCopy(reason: string, lang: Lang, o: { retryAfterSec?: num
     todo = tr(min === 1 ? 'refusal.rate_limited.todo1' : 'refusal.rate_limited.todo', { min });
   }
   return { happened, todo, nothingLost: KEEPS_OUTBOX.has(known) };
+}
+
+/** How long to wait before trying again (a Retry-After in seconds), in plain words for the saved screen. */
+export function retryWait(sec: number, lang: Lang): string {
+  const tr: Tr = (key, vars = {}) => t(key, vars, lang);
+  const s = Math.max(1, Math.ceil(sec));
+  if (s < 60) return s === 1 ? tr('rec.saved.waitSec1') : tr('rec.saved.waitSec', { sec: s });
+  const min = Math.ceil(s / 60);
+  return min === 1 ? tr('rec.saved.wait1') : tr('rec.saved.waitMin', { min });
 }
 
 /** Does retrying after this refusal make sense (keep the signed copy on the phone)? */

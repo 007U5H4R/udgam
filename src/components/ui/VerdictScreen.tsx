@@ -9,8 +9,12 @@ import { Pill } from './Pill';
 // #s5 (Verified) and #s6 (Needs a check); Not accepted uses the same template with --bad tokens, no
 // cherry rim and no green anywhere (TP17). The cherry rises and its rim blooms only on Verified and
 // only without reduced motion (the one motion moment, Design.md §15). When the heading is on screen,
-// focus moves to it and `udgam:t1-verdict` is marked (EV9 t1 = card visible; EVAL-070).
+// focus moves to it.
 
+/**
+ * EVAL-070 t1 (EV9). The record flow marks it when the verdict has rendered on the checking screen,
+ * before the 600 ms auto-advance hold to this screen (TASK-11 fix round 1).
+ */
 export const T1_MARK = 'udgam:t1-verdict';
 
 export type VerdictTone = 'ok' | 'check' | 'bad';
@@ -40,8 +44,6 @@ export function VerdictScreen({
   const h1 = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     h1.current?.focus({ preventScroll: true });
-    const id = requestAnimationFrame(() => performance.mark(T1_MARK));
-    return () => cancelAnimationFrame(id);
   }, []);
   return (
     <main className="screen" aria-labelledby="verdict-h" data-verdict-tone={tone}>

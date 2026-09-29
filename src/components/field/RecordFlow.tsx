@@ -2,15 +2,16 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from 'react';
-import { sendOutboxItem, submitCapture, type OutboxSend, type SubmitResult } from '../../client/capture-client';
+import { finishAnswered, type OutboxSend } from '../../client/capture-client';
 import { hashFile } from '../../client/hash-file';
-import { refusalKeepsOutbox } from '../../lib/i18n/farmer-evidence';
 import type { CheckId, CheckStatus } from '../../lib/verification/types';
 import { t, type Lang } from '../../lib/i18n';
+import { T1_MARK } from '../ui/VerdictScreen';
 import { CheckingStep } from './CheckingStep';
 import { PhotosStep, SLOTS } from './PhotosStep';
-import { initialFlow, kgValue, reduce, usedPhotos, type FlowAction, type Slot } from './record-flow';
+import { initialFlow, kgValue, photoProblem, reduce, usedPhotos, type Slot } from './record-flow';
 import { ReviewStep } from './ReviewStep';
+import { sendPicking, settleAction } from './send-picking';
 import { useGps } from './useGps';
 import { SavedStep, VerdictStep } from './VerdictStep';
 import { WeightStep } from './WeightStep';
@@ -47,12 +48,30 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
   const [hashing, setHashing] = useState(false);
   const gps = useGps();
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
-  const sent = useRef<OutboxSend | null>(null);
+  /** The signed, saved copy of this picking, from the moment it is stored: Try again re-sends it (TP7). */
+  const held = useRef<OutboxSend | null>(null);
+  /** A send is running: a second tap never signs a second copy. */
+  const busy = useRef(false);
   const reduced = useReducedMotion();
   // The verdict whose screen is showing; until then the finished checking screen stays up.
   const [seenFor, setSeenFor] = useState<string | null>(null);
   const resultId = flow.step === 'verdict' ? (flow.result?.eventId ?? null) : null;
   const holdChecking = resultId !== null && seenFor !== resultId;
+
+  // Bookkeeping owed from an earlier answer (a store error after the server answered) is finished when
+  // the flow opens, before this picking is signed (TASK-11 fix round 1).
+  useEffect(() => {
+    void finishAnswered();
+  }, []);
+
+  // EVAL-070 t1: the verdict (or refusal) has rendered — marked before the 600 ms auto-advance hold and
+  // before "See result" under reduced motion, so the S3 time holds no designed delay (TASK-11 fix round 1).
+  const answered = flow.step === 'verdict';
+  useEffect(() => {
+    if (!answered) return;
+    const id = requestAnimationFrame(() => performance.mark(T1_MARK));
+    return () => cancelAnimationFrame(id);
+  }, [answered]);
 
   useEffect(() => {
     if (resultId === null || reduced) return;
@@ -87,24 +106,19 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
   async function acceptPhoto() {
     const slot = flow.reviewing;
     const file = slot === undefined ? undefined : flow.photos[slot]?.file;
-    if (!file) return;
+    if (slot === undefined || !file) return;
     setHashing(true);
     try {
       const h = await hashFile(file);
-      dispatch({ type: 'use', ...h });
+      // Never sign a photo the capture boundary will refuse (415 / 413): say so here instead.
+      const problem = photoProblem(h);
+      dispatch(problem ? { type: 'refuse', slot, file, why: problem } : { type: 'use', slot, file, ...h });
+    } catch (err) {
+      console.error('capture.photo_read_failed', { errClass: err instanceof Error ? err.name : typeof err });
+      dispatch({ type: 'refuse', slot, file, why: 'read' });
     } finally {
       setHashing(false);
     }
-  }
-
-  /** The screen's answer to a send: verdict, Not accepted, or saved on the phone. */
-  function settle(r: SubmitResult) {
-    const fail = (a: Omit<Extract<FlowAction, { type: 'fail' }>, 'type'>) => dispatch({ type: 'fail', ...a });
-    if (r.kind === 'verdict') dispatch({ type: 'verdict', v: r.verdict });
-    else if (r.kind === 'rejected') fail(refusalKeepsOutbox(r.reason) ? { kind: 'server', reason: r.reason } : { kind: 'rejected', reason: r.reason });
-    else if (r.kind === 'retryable') fail({ kind: r.cause, ...(r.retryAfterSec !== undefined ? { retryAfterSec: r.retryAfterSec } : {}) });
-    else if (r.reason === 'no_device') fail({ kind: 'rejected', reason: 'unknown_device' });
-    else fail({ kind: 'server', reason: 'no_fix' });
   }
 
   const onCheck = (id: CheckId, status: CheckStatus) => dispatch({ type: 'check', id, status });
@@ -112,23 +126,16 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
   /** Send: sign and keep the picking, then upload it; "Try again" re-sends the identical copy (TP7). */
   async function send() {
     const cherryKg = kgValue(flow.kg);
-    if (cherryKg === null) return;
+    if (cherryKg === null || busy.current) return;
+    busy.current = true;
     dispatch({ type: 'send' });
-    let r: SubmitResult;
     try {
-      if (sent.current) {
-        r = await sendOutboxItem(sent.current, { onCheck, keepOnRefusal: refusalKeepsOutbox });
-      } else {
-        const photos = usedPhotos(flow).map(({ file, sha256, size, mime }) => ({ file, sha256, size, mime }));
-        const out = await submitCapture({ plotId: plot.id, cherryKg, photos, gps: gps.watch() }, { onCheck, keepOnRefusal: refusalKeepsOutbox });
-        if (out.item) sent.current = out.item;
-        r = out;
-      }
-    } catch {
-      r = { kind: 'retryable', cause: 'server' }; // IndexedDB or signing failed: nothing was sent
+      const photos = usedPhotos(flow).map(({ file, sha256, size, mime }) => ({ file, sha256, size, mime }));
+      const r = await sendPicking(held, { plotId: plot.id, cherryKg, photos, gps: gps.watch() }, { onCheck });
+      dispatch(settleAction(r));
+    } finally {
+      busy.current = false;
     }
-    if (r.kind === 'verdict' || (r.kind === 'rejected' && !refusalKeepsOutbox(r.reason))) sent.current = null;
-    settle(r);
   }
 
   function retake() {
@@ -176,6 +183,7 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
           preview={previews[flow.reviewing]}
           lang={lang}
           busy={hashing}
+          error={flow.photoError}
           onBack={() => dispatch({ type: 'back' })}
           onUse={() => void acceptPhoto()}
           onRetake={retake}

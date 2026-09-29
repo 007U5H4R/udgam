@@ -87,7 +87,7 @@ describe('photo_uniqueness across agents and plots (TC-042)', () => {
   it('EVAL-031/032: one photo already on agent B’s accepted event on another plot → hard fail "1 of 3 photos seen before"', async () => {
     const mine = photos3('a');
     await agentBEvent([mine[1]!], { status: 'accepted' });
-    expect(await captureA(mine)).toEqual({ verdict: 'Rejected', uniqueness: { id: 'photo_uniqueness', status: 'fail', evidence: '1 of 3 photos seen before' } });
+    expect(await captureA(mine)).toEqual({ verdict: 'Rejected', uniqueness: { id: 'photo_uniqueness', status: 'fail', evidence: '1 of 3 photos seen before', hardFail: true } });
   });
 
   it('EVAL-030: all three reused → "3 of 3 photos seen before"', async () => {
@@ -99,7 +99,7 @@ describe('photo_uniqueness across agents and plots (TC-042)', () => {
   it('a photo only on a boundary-rejected event is not "seen": the honest retake is accepted', async () => {
     const mine = photos3('c');
     await agentBEvent(mine, { status: 'rejected' });
-    expect(await captureA(mine)).toEqual({ verdict: 'Verified', uniqueness: { id: 'photo_uniqueness', status: 'ok', evidence: '3 of 3 photos are new' } });
+    expect(await captureA(mine)).toEqual({ verdict: 'Verified', uniqueness: { id: 'photo_uniqueness', status: 'ok', evidence: '3 of 3 photos are new', hardFail: false } });
   });
 
   it('a photo on an event Rejected by a check (still boundary-accepted) counts as seen: it was used', async () => {

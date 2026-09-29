@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { evidence } from '../verification/evidence';
+import { DEMO_DATA_SUFFIX, evidence, sourced } from '../verification/evidence';
 import type { CheckId, CheckResult, CheckStatus, Verdict, VerifyResult } from '../verification/types';
-import { farmerLines, refusalCopy } from './farmer-evidence';
+import { en } from './en';
+import { farmerLines, FIXTURE_MARK, refusalCopy, retryWait } from './farmer-evidence';
+import { kn } from './kn';
 
 // TSK-10.1: the farmer copy layer. The verifier's evidence sentences are rewritten in plain words for
 // the verdict screens (Design.md §19); every number is passed through from the evidence, never
@@ -123,6 +125,84 @@ describe('farmerLines', () => {
   });
 });
 
+describe('farmerLines: demo data (owner decision EXE12)', () => {
+  // Every evidence sentence derived from fixture remote-sensing data ends with "(demo data)"; the
+  // farmer's plain-words line keeps that label, after the sentence's own full stop.
+  const fixture = (c: CheckResult) => ({ ...c, evidence: sourced({ evidence: c.evidence }, 'fixture').evidence });
+  const base = clean.filter((c) => c.id !== 'deforestation_overlap');
+  const forestOk = check('deforestation_overlap', 'ok', evidence.deforestation_overlap.ok({ lossPct: 0 }));
+  const canopyOk = check('ndvi_cultivation', 'ok', evidence.ndvi_cultivation.ok({ min: 0.62, max: 0.78, clearMonths: 10 }));
+  const satOk = check('ndvi_harvest_window', 'ok', evidence.ndvi_harvest_window.ok({ ndvi: 0.66 }));
+  const needs = (c: CheckResult, cap: string) => farmerLines(result('Needs Review', [...clean.filter((x) => x.id !== c.id), c], [cap]), 'en')[0]!;
+
+  it('Verified positives from fixture data: forest, canopy and satellite lines each end with "(demo data)"', () => {
+    const lines = farmerLines(result('Verified', [check('signature_valid', 'ok', 'Signed'), fixture(forestOk), fixture(canopyOk), fixture(satOk)]), 'en');
+    expect(lines).toEqual([
+      { icon: 'tree', text: 'Forest map: no trees cleared since 2021 (demo data)' },
+      { icon: 'tree', text: 'Satellite: trees on the plot all year (demo data)' },
+      { icon: 'cloud', text: 'Satellite: green trees this month (demo data)' },
+    ]);
+    const all3 = farmerLines(result('Verified', [...base, fixture(forestOk)]), 'en', { plot: 'Plot 2' });
+    expect(all3[2]).toEqual({ icon: 'tree', text: 'Forest map: no trees cleared since 2021 (demo data)' });
+  });
+
+  it('the same positives from live data carry no label', () => {
+    const lines = farmerLines(result('Verified', [check('signature_valid', 'ok', 'Signed'), forestOk, canopyOk, satOk]), 'en');
+    expect(lines.map((l) => l.text)).toEqual(['Forest map: no trees cleared since 2021', 'Satellite: trees on the plot all year', 'Satellite: green trees this month']);
+  });
+
+  it('findings from fixture data: forest loss, no canopy, too few clear months, cloudy, little green', () => {
+    expect(needs(fixture(check('deforestation_overlap', 'flag', evidence.deforestation_overlap.flag({ lossPct: 6 }))), 'flag:deforestation_overlap')).toEqual({
+      icon: 'tree',
+      text: 'Forest map: 6.0% of the plot cleared since 2021. (demo data)',
+    });
+    expect(needs(fixture(check('ndvi_cultivation', 'fail', evidence.ndvi_cultivation.fail({ min: 0.2, max: 0.5, clearMonths: 10 }))), 'anyFail').text).toBe(
+      'The satellite does not see trees on the plot all year. (demo data)',
+    );
+    expect(needs(fixture(check('ndvi_cultivation', 'unavailable', evidence.ndvi_cultivation.unavailable({ reason: 'few_clear_months', clearMonths: 3 }))), 'anyUnavailable').text).toBe(
+      'There are not enough clear satellite pictures of this plot yet. (demo data)',
+    );
+    expect(needs(fixture(check('ndvi_harvest_window', 'unavailable', evidence.ndvi_harvest_window.unavailable({ reason: 'cloud' }))), 'anyUnavailable').text).toBe(
+      'The satellite picture for this month was cloudy. (demo data)',
+    );
+    expect(needs(fixture(check('ndvi_harvest_window', 'flag', evidence.ndvi_harvest_window.flag({ ndvi: 0.38 }))), 'flag:ndvi_harvest_window').text).toBe(
+      'The satellite sees little green on the plot this month (NDVI 0.38). (demo data)',
+    );
+    const rejected = farmerLines(result('Rejected', [fixture(check('deforestation_overlap', 'fail', evidence.deforestation_overlap.fail({ lossPct: 18 }), true))], ['anyFail']), 'en');
+    expect(rejected[0]).toEqual({ icon: 'tree', text: 'Forest map: 18.0% of the plot cleared since 2021. (demo data)' });
+  });
+
+  it('a capped-flag reason never turns an ok check of the same id into a finding', () => {
+    const checks = [...clean.filter((c) => c.id !== 'gps_accuracy'), check('gps_accuracy', 'flag', evidence.gps_accuracy.flag({ accuracyM: 60 }))];
+    const r = result('Needs Review', checks, ['flag:deforestation_overlap']); // deforestation_overlap is ok here
+    expect(farmerLines(r, 'en').map((l) => l.text)).toEqual([
+      'The GPS signal was weak (60 m).',
+      "The office will look at this. You don't need to do anything.",
+    ]);
+  });
+
+  it('a live finding has no label, and a provider failure (no data derived) never has one', () => {
+    expect(needs(check('ndvi_harvest_window', 'unavailable', evidence.ndvi_harvest_window.unavailable({ reason: 'cloud' })), 'anyUnavailable').text).toBe(
+      'The satellite picture for this month was cloudy.',
+    );
+    expect(needs(check('deforestation_overlap', 'unavailable', evidence.deforestation_overlap.unavailable({ reason: 'GFW timeout' })), 'anyUnavailable').text).toBe(
+      'The forest map did not answer. The office will try again.',
+    );
+    expect(needs(check('ndvi_harvest_window', 'unavailable', evidence.ndvi_harvest_window.unavailable({ reason: 'provider', detail: 'timeout' })), 'anyUnavailable').text).toBe(
+      'The satellite did not answer. The office will try again.',
+    );
+  });
+
+  it('Kannada lines carry the Kannada label', () => {
+    const [line] = farmerLines(result('Verified', [fixture(forestOk)]), 'kn');
+    expect(line!.text).toBe(`${kn['fe.forest.none']!.replace('{year}', '2021')}${kn['fe.demo']}`);
+    expect(kn['fe.demo']).not.toBe(en['fe.demo']);
+    expect(en['fe.demo']).toBe(' (demo data)');
+    expect(en['fe.demo']).toBe(DEMO_DATA_SUFFIX);
+    expect(FIXTURE_MARK).toBe(DEMO_DATA_SUFFIX);
+  });
+});
+
 describe('refusalCopy', () => {
   it('gives each boundary refusal what happened and what to do, with no accusation words', () => {
     for (const reason of [
@@ -161,5 +241,21 @@ describe('refusalCopy', () => {
     expect(`${refusalCopy('plot_not_assigned', 'en').happened} ${refusalCopy('plot_not_assigned', 'en').todo}`).toBe(
       'This plot is not assigned to you. Ask the office to assign it to you, then record the picking again.',
     );
+  });
+});
+
+describe('retryWait (the saved screen after a 429 or a busy 503 with Retry-After)', () => {
+  it('says how long to wait in plain words: seconds under a minute, else whole minutes rounded up', () => {
+    expect(retryWait(1, 'en')).toBe('You can try again in 1 second.');
+    expect(retryWait(5, 'en')).toBe('You can try again in 5 seconds.');
+    expect(retryWait(60, 'en')).toBe('You can try again in 1 minute.');
+    expect(retryWait(61, 'en')).toBe('You can try again in 2 minutes.');
+    expect(retryWait(3600, 'en')).toBe('You can try again in 60 minutes.');
+  });
+
+  it('has Kannada copy with the number in it', () => {
+    expect(retryWait(5, 'kn')).toBe(kn['rec.saved.waitSec']!.replace('{sec}', '5'));
+    expect(retryWait(120, 'kn')).toBe(kn['rec.saved.waitMin']!.replace('{min}', '2'));
+    expect(retryWait(120, 'kn')).not.toBe(retryWait(120, 'en'));
   });
 });

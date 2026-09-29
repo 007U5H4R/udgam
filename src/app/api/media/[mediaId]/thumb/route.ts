@@ -14,6 +14,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const NOT_FOUND = () => Response.json({ error: 'not_found' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
+/** A database, disk or path-guard failure: an outage is not hidden as "no such photo" (CF-10's 404 is for access only). */
+const FAILED = () => Response.json({ error: 'thumb_failed' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
 
 export async function GET(req: Request, ctx: { params: Promise<{ mediaId: string }> }): Promise<Response> {
   let who: Guarded;
@@ -34,6 +36,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ mediaId: string
     });
   } catch (err) {
     log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'media.thumb_failed');
-    return NOT_FOUND();
+    return FAILED();
   }
 }

@@ -7,13 +7,13 @@ import styles from './Sheet.module.css';
 // `.sheet-panel`). A modal <dialog>: focus moves into it and stays there, the page behind is inert.
 // Escape and a tap on the backdrop call `onClose`; the parent owns `open`.
 
-export type SheetTone = 'neutral' | 'amber';
+export type SheetTone = 'default' | 'amber';
 
 export function Sheet({
   open,
   onClose,
   labelledBy,
-  tone = 'neutral',
+  tone = 'default',
   className,
   children,
   testId,

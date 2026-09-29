@@ -1,4 +1,5 @@
 import type { VerdictView } from '../../client/capture-client';
+import { MAX_PHOTO_BYTES } from '../../lib/capture/limits';
 import type { CheckId, CheckStatus } from '../../lib/verification/types';
 
 // The record flow as a pure state machine (TSK-10.6): photos → review → weight → checking → verdict,
@@ -18,15 +19,22 @@ export type FlowState = {
   retakeSlot?: Slot;
   /** "At least 1 photo is needed." */
   needOne?: boolean;
+  /** Why the reviewed photo cannot be used (TASK-11 fix round 1): not a camera JPEG/HEIC, too large, or unreadable. */
+  photoError?: PhotoProblem;
   kg: string;
   checks: Map<CheckId, CheckStatus>;
   result?: VerdictView;
   error?: { kind: 'offline' | 'server' | 'rejected'; reason?: string; retryAfterSec?: number };
 };
 
+export type PhotoProblem = 'type' | 'size' | 'read';
+
 export type FlowAction =
   | { type: 'take'; slot: Slot; file: File }
-  | { type: 'use'; sha256: string; size: number; mime: string }
+  /** "Use this photo": the hash of `file` in `slot` (ignored if the screen has moved on to another photo). */
+  | { type: 'use'; slot: Slot; file: File; sha256: string; size: number; mime: string }
+  /** "Use this photo" found a photo the server would refuse, or could not read it. */
+  | { type: 'refuse'; slot: Slot; file: File; why: PhotoProblem }
   | { type: 'retake' }
   | { type: 'continue' }
   | { type: 'key'; k: string }
@@ -37,6 +45,18 @@ export type FlowAction =
   | { type: 'back' };
 
 export const MAX_KG = 500;
+
+/** The camera types the capture boundary takes, as sniffed from the bytes (lib/media/sniff). */
+const CAMERA_TYPES: ReadonlySet<string> = new Set(['image/jpeg', 'image/heic']);
+
+/** Why the server would refuse this photo (415 / 413), or null: never sign a photo it will refuse. */
+export function photoProblem(h: { mime: string; size: number }): 'type' | 'size' | null {
+  if (!CAMERA_TYPES.has(h.mime)) return 'type';
+  return h.size > MAX_PHOTO_BYTES ? 'size' : null;
+}
+
+/** Is `slot` / `file` still the photo on the review screen? */
+const isReviewing = (s: FlowState, slot: Slot, file: File) => s.step === 'review' && s.reviewing === slot && s.photos[slot]?.file === file;
 
 export function initialFlow(plotId: string): FlowState {
   return { step: 'photos', plotId, photos: [{ slot: 0 }, { slot: 1 }, { slot: 2 }], kg: '', checks: new Map() };
@@ -72,18 +92,34 @@ export function reduce(s: FlowState, a: FlowAction): FlowState {
   switch (a.type) {
     case 'take':
       if (s.step !== 'photos') return s;
-      return { ...s, step: 'review', reviewing: a.slot, retakeSlot: undefined, needOne: false, photos: withPhoto(s.photos, a.slot, { slot: a.slot, file: a.file }) };
+      return {
+        ...s,
+        step: 'review',
+        reviewing: a.slot,
+        retakeSlot: undefined,
+        needOne: false,
+        photoError: undefined,
+        photos: withPhoto(s.photos, a.slot, { slot: a.slot, file: a.file }),
+      };
     case 'use': {
-      if (s.step !== 'review' || s.reviewing === undefined) return s;
-      const slot = s.reviewing;
-      const current = s.photos[slot]!;
-      const photos = withPhoto(s.photos, slot, { ...current, sha256: a.sha256, size: a.size, mime: a.mime });
-      const next = { ...s, photos, reviewing: undefined };
+      if (!isReviewing(s, a.slot, a.file)) return s;
+      const photos = withPhoto(s.photos, a.slot, { slot: a.slot, file: a.file, sha256: a.sha256, size: a.size, mime: a.mime });
+      const next = { ...s, photos, reviewing: undefined, photoError: undefined };
       return { ...next, step: usedPhotos(next).length === 3 ? 'weight' : 'photos' };
     }
+    case 'refuse':
+      if (!isReviewing(s, a.slot, a.file)) return s;
+      return { ...s, photoError: a.why };
     case 'retake':
       if (s.step !== 'review' || s.reviewing === undefined) return s;
-      return { ...s, step: 'photos', retakeSlot: s.reviewing, reviewing: undefined, photos: withPhoto(s.photos, s.reviewing, { slot: s.reviewing }) };
+      return {
+        ...s,
+        step: 'photos',
+        retakeSlot: s.reviewing,
+        reviewing: undefined,
+        photoError: undefined,
+        photos: withPhoto(s.photos, s.reviewing, { slot: s.reviewing }),
+      };
     case 'continue':
       if (s.step !== 'photos') return s;
       return usedPhotos(s).length === 0 ? { ...s, needOne: true } : { ...s, step: 'weight', needOne: false };
@@ -111,7 +147,8 @@ export function reduce(s: FlowState, a: FlowAction): FlowState {
       };
     case 'back':
       if (s.step === 'weight') return { ...s, step: 'photos' };
-      if (s.step === 'review' && s.reviewing !== undefined) return { ...s, step: 'photos', reviewing: undefined, photos: withPhoto(s.photos, s.reviewing, { slot: s.reviewing }) };
+      if (s.step === 'review' && s.reviewing !== undefined)
+        return { ...s, step: 'photos', reviewing: undefined, photoError: undefined, photos: withPhoto(s.photos, s.reviewing, { slot: s.reviewing }) };
       return s;
   }
 }

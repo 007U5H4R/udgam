@@ -87,7 +87,7 @@ describe('photo_uniqueness under concurrency', () => {
     await aRun;
     const a = aEvents.at(-1)!;
     expect(a).toMatchObject({ t: 'verdict', verdict: 'Rejected' });
-    expect(a.t === 'verdict' && a.checks.find((c) => c.id === 'photo_uniqueness')).toEqual({ id: 'photo_uniqueness', status: 'fail', evidence: '1 of 1 photos seen before' });
+    expect(a.t === 'verdict' && a.checks.find((c) => c.id === 'photo_uniqueness')).toEqual({ id: 'photo_uniqueness', status: 'fail', evidence: '1 of 1 photos seen before', hardFail: true });
 
     // What was committed is what was streamed.
     const rows = (await t.client.execute(`SELECT e.seq, e.final_verdict, r.verdict, r.checks FROM harvest_events e JOIN verification_runs r ON r.event_id = e.id ORDER BY e.seq`)).rows;

@@ -74,7 +74,30 @@ describe('getFieldHome', () => {
   });
 });
 
+describe('getFieldHome: the order is this agent\'s own pickings (TASK-11 fix round 1)', () => {
+  it("another agent's later picking on a plot does not move it up, nor give it a last-picked date", async () => {
+    await assign(w.agentId, w.plots.arabica.plotId);
+    await assign(w.agentId, w.plots.robusta.plotId);
+    await seedCapture(t.db, w, { crop: 'arabica', kg: 40 });
+    const other = await seedFpo(t.db);
+    await seedCapture(t.db, { ...w, agentId: other.agentId, device: other.device }, { crop: 'robusta', kg: 30 });
+
+    const home = await getFieldHome(t.db, w.agentId, w.orgId);
+    expect(home.plots.map((p) => p.id)).toEqual([w.plots.arabica.plotId, w.plots.robusta.plotId]);
+    expect(home.plots[1]!.lastPickedAt).toBeNull();
+    const [row] = (await t.client.execute({ sql: 'SELECT server_received_at FROM harvest_events WHERE plot_id = ? AND agent_id = ?', args: [w.plots.arabica.plotId, w.agentId] })).rows;
+    expect(home.plots[0]!.lastPickedAt).toBe(row!.server_received_at); // the server's clock, not the phone's
+  });
+});
+
 describe('recentKgRange', () => {
+  it('leaves Rejected pickings out of the usual range (D6)', async () => {
+    for (const kg of [38.5, 44]) await seedCapture(t.db, w, { crop: 'arabica', kg });
+    await seedCapture(t.db, w, { crop: 'arabica', kg: 51, verdict: 'Needs Review', score: 70 });
+    await seedCapture(t.db, w, { crop: 'arabica', kg: 480, verdict: 'Rejected', score: 10 });
+    expect(await recentKgRange(t.db, w.agentId, w.plots.arabica.plotId)).toEqual({ min: 38.5, max: 51 });
+  });
+
   it('is the min and max of the last 10 accepted pickings on the plot: 38.5, 44, 51 → 38.5–51', async () => {
     for (const kg of [38.5, 44, 51]) await seedCapture(t.db, w, { crop: 'arabica', kg });
     await seedCapture(t.db, w, { crop: 'robusta', kg: 300 }); // another plot: not counted

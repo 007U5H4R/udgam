@@ -67,6 +67,10 @@ test('TC-044 TC-046 TC-080 EVAL-089 /field and every record-flow screen: pill in
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('How many kilos?');
   for (const k of ['4', '2', '.', '5']) await page.locator(`#keypad [data-k="${k}"]`).click();
   await check('s3-kg-weight', page.locator('#send-btn'));
+  // Every key is a primary target of at least 56 px, short screens included (Design.md §17).
+  const keyHeights = await page.locator('#keypad button').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+  expect(keyHeights.length).toBe(12);
+  for (const h of keyHeights) expect(h).toBeGreaterThanOrEqual(56);
 
   await page.locator('#send-btn').click();
   await expect(page.locator('#see-result')).toBeVisible({ timeout: 45_000 });
