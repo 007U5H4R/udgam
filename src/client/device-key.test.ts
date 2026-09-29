@@ -1,9 +1,9 @@
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { jwkThumbprint, sign, verify } from '../lib/crypto';
+import { generateDeviceKey, jwkThumbprint, sign, verify } from '../lib/crypto';
 import { getPref, openUdgam, setPref, STORES } from './db';
-import { clearDevice, exportPublicJwk, getDevice, getOrCreateKeyPair, saveDevice } from './device-key';
+import { clearDevice, exportPublicJwk, getDevice, getOrCreateKeyPair, saveDevice, saveEnrolment } from './device-key';
 
 // TSK-05.4 (technical-plan §9): the phone's P-256 key lives in IndexedDB as a structured-cloned
 // CryptoKey whose private half is not extractable; only the public JWK ever leaves the phone.
@@ -81,6 +81,18 @@ describe('device state', () => {
     await clearDevice();
     expect(await getDevice()).toBeNull();
     expect(await exportPublicJwk(await getOrCreateKeyPair())).not.toEqual(first);
+  });
+
+  it('saveEnrolment stores a freshly enrolled pair and its device together, replacing an older phone identity', async () => {
+    const old = await getOrCreateKeyPair();
+    await saveDevice({ deviceId: 'DV-OLD00000', nextSeq: 7, lastEventHash: 'cd'.repeat(32) });
+    const fresh = await generateDeviceKey();
+    await saveEnrolment(fresh, { deviceId: 'DV-NEW00000', nextSeq: 1, lastEventHash: 'genesis' });
+    expect(await getDevice()).toEqual({ deviceId: 'DV-NEW00000', nextSeq: 1, lastEventHash: 'genesis' });
+    const stored = await getOrCreateKeyPair();
+    expect(await exportPublicJwk(stored)).toEqual(await exportPublicJwk(fresh));
+    expect(await exportPublicJwk(stored)).not.toEqual(await exportPublicJwk(old));
+    expect(stored.privateKey.extractable).toBe(false);
   });
 
   it('stores the device record in the shape the capture page reads ({id:"current", deviceId, nextSeq, lastEventHash})', async () => {

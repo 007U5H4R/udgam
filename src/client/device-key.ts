@@ -41,6 +41,25 @@ export async function saveDevice(state: DeviceState): Promise<void> {
   }
 }
 
+/**
+ * After the server accepted `pair`'s public key: store the pair and the device state in one IndexedDB
+ * transaction, replacing any earlier identity. Enrolment generates the pair in memory first, so a
+ * refused code leaves the phone's current identity untouched.
+ */
+export async function saveEnrolment(pair: CryptoKeyPair, state: DeviceState): Promise<void> {
+  const db = await openUdgam();
+  try {
+    const tx = db.transaction(['keys', 'device'], 'readwrite');
+    await Promise.all([
+      tx.objectStore('keys').put({ id: 'device', privateKey: pair.privateKey, publicKey: pair.publicKey } satisfies KeyRecord),
+      tx.objectStore('device').put({ id: 'current', deviceId: state.deviceId, nextSeq: state.nextSeq, lastEventHash: state.lastEventHash }),
+      tx.done,
+    ]);
+  } finally {
+    db.close();
+  }
+}
+
 /** The enrolled device, or null before enrolment. */
 export async function getDevice(): Promise<DeviceState | null> {
   const db = await openUdgam();

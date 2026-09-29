@@ -4,20 +4,17 @@ import { writeTx, type Db, type Tx } from '../db/client';
 import { enrollmentCodes, user } from '../db/schema';
 import { log as defaultLog } from '../log';
 import { hit } from '../rate-limit';
+import { CODE_ALPHABET, CODE_LENGTH, normaliseCode } from './code-format';
 import { NotFoundError } from './errors';
 
 // Phone enrolment codes (technical-plan §10, TC-021, EVAL-082). An admin issues a 6-character code for
 // one agent; the agent's phone redeems it once, within 24 hours. Only SHA-256(code) is stored, and
 // neither the code nor its hash is ever logged. Limits: 5 attempts per code, 10 per IP per hour.
 
-/** 31 unambiguous symbols: no 0/O, 1/I/L. */
-export const CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
-export const CODE_LENGTH = 6;
+export { CODE_ALPHABET, CODE_LENGTH, normaliseCode };
 export const CODE_TTL_MS = 24 * 3600_000;
 export const CODE_ATTEMPTS = { limit: 5, windowSec: 24 * 3600 } as const;
 export const IP_ATTEMPTS = { limit: 10, windowSec: 3600 } as const;
-
-const CODE_RE = new RegExp(`^[${CODE_ALPHABET}]{${CODE_LENGTH}}$`);
 
 export type RedeemFailure = 'invalid' | 'expired' | 'used' | 'rate_limited';
 export type RedeemResult = { ok: true; agentId: string } | { ok: false; reason: RedeemFailure };
@@ -34,12 +31,6 @@ function randomCode(): string {
     }
   }
   return out;
-}
-
-/** The code as typed, upper-cased and without spaces or dashes, or null when it cannot be a code. */
-export function normaliseCode(input: string): string | null {
-  const c = input.replace(/[\s-]+/g, '').toUpperCase();
-  return CODE_RE.test(c) ? c : null;
 }
 
 /** An agent of the org, or undefined (org-scoped: another org's agent reads as unknown). */
