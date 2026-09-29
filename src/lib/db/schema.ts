@@ -263,3 +263,28 @@ export const verificationRuns = sqliteTable(
     check('verification_runs_verdict_check', sql`${t.verdict} IN ('Verified','Needs Review','Rejected')`),
   ],
 );
+
+/**
+ * Signed Merkle checkpoints over contiguous ledger ranges (§8.2, TKT-15). Append-only (trigger).
+ * `merkle_root` and `prev_checkpoint_hash` are lowercase hex; `signature` is P1363 base64url by the
+ * ledger key `key_id` (RFC 7638 kid) over the checkpoint statement.
+ */
+export const ledgerCheckpoints = sqliteTable(
+  'ledger_checkpoints',
+  {
+    id: integer('id').primaryKey(),
+    fromSeq: integer('from_seq')
+      .notNull()
+      .references(() => ledgerEntries.seq),
+    toSeq: integer('to_seq')
+      .notNull()
+      .unique()
+      .references(() => ledgerEntries.seq),
+    merkleRoot: text('merkle_root').notNull(),
+    prevCheckpointHash: text('prev_checkpoint_hash').notNull(),
+    ts: text('ts').notNull(),
+    keyId: text('key_id').notNull(),
+    signature: text('signature').notNull(),
+  },
+  (t) => [check('ledger_checkpoints_range_check', sql`${t.fromSeq} <= ${t.toSeq}`)],
+);
