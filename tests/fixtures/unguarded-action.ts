@@ -4,7 +4,8 @@
 // reported. Never imported by the app.
 
 import { organisations } from '../../src/lib/db/schema';
-import { getDb } from '../../src/lib/db/client';
+import { createDb, getDb } from '../../src/lib/db/client';
+import type { Role } from '../../src/lib/auth/session';
 import { requireSession } from '../../src/app/_auth/require';
 
 /** No guard at all. */
@@ -33,3 +34,37 @@ export async function guardOnOneBranch(strict: boolean) {
 
 /** An exported arrow action with no guard. */
 export const arrowLeak = async () => getDb().select().from(organisations);
+
+/** Swallows the guard's refusal in a catch that neither returns nor throws, then reads anyway. */
+export async function swallowCatch() {
+  try {
+    await requireSession('admin', { action: true });
+  } catch (err) {
+    console.error(err);
+  }
+  return getDb().select().from(organisations);
+}
+
+/** Calls a helper imported from src/lib/db before the guard. */
+export async function importedDbHelperBefore() {
+  const { db } = createDb('file::memory:');
+  await requireSession('admin', { action: true });
+  return db.select().from(organisations);
+}
+
+async function allOrgs() {
+  return getDb().select().from(organisations);
+}
+
+/** Calls a local function that reads the database before the guard. */
+export async function localDbHelperBefore() {
+  const rows = await allOrgs();
+  await requireSession('admin', { action: true });
+  return rows;
+}
+
+/** The role comes from input, so the guard cannot be checked (or trusted). */
+export async function roleFromInput(role: Role) {
+  await requireSession(role, { action: true });
+  return getDb().select().from(organisations);
+}

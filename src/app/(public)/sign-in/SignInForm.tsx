@@ -7,12 +7,14 @@ import { TextField } from '../../../components/ui/TextField';
 import { signIn, type SignInState } from './actions';
 import s from './sign-in.module.css';
 
-export type SignInLabels = { email: string; password: string; submit: string; working: string; error: string };
+export type SignInLabels = { email: string; password: string; submit: string; working: string; error: string; unavailable: string };
 
 /** One frosted card with the two fields, the inline error under them, and the one primary pill. */
 export function SignInForm({ labels }: { labels: SignInLabels }) {
-  const [state, action, pending] = useActionState<SignInState, FormData>(signIn, { error: false });
-  const invalid = state.error && !pending;
+  const [state, action, pending] = useActionState<SignInState, FormData>(signIn, { error: null });
+  // Only a credential refusal marks the fields invalid; "unavailable" is not about what was typed.
+  const invalid = state.error === 'credentials' && !pending;
+  const message = pending || state.error === null ? '' : state.error === 'credentials' ? labels.error : labels.unavailable;
   return (
     <form action={action} className={s.form} noValidate>
       <GlassCard className={s.card}>
@@ -41,7 +43,7 @@ export function SignInForm({ labels }: { labels: SignInLabels }) {
         />
       </GlassCard>
       <p id="sign-in-error" className={s.error} role="alert">
-        {invalid ? labels.error : ''}
+        {message}
       </p>
       <Pill type="submit" disabled={pending} aria-busy={pending || undefined}>
         {pending ? labels.working : labels.submit}

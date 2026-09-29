@@ -4,7 +4,6 @@ import { DEMO_ACCOUNTS, DEMO_ORGS, seedAccounts } from '../../../scripts/seed-ac
 import { P01_INSIDE, seedTracerWorld, type TracerWorld } from '../../../scripts/tracer-world';
 import { cookieHeader } from '../../../tests/helpers/auth';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
-import { outcome } from '../../../tests/helpers/next';
 import { makeDevice, type TestDevice } from '../../../tests/helpers/verify';
 import { runCapture, type CaptureEvent } from '../capture/pipeline';
 import { jcs, sha256Hex, sign } from '../crypto';
@@ -15,10 +14,8 @@ import { readSession } from './session';
 
 // TSK-04.5 / TC-019 / EVAL-080: seeded demo accounts per role and org, and org-scoped lookups — an ID
 // from another organisation is indistinguishable from an unknown one (404), and the org always comes
-// from the session.
-
-const request = vi.hoisted(() => ({ headers: new Headers() }));
-vi.mock('next/headers', () => ({ headers: async () => request.headers, cookies: async () => ({ get: () => undefined, set: () => undefined }) }));
+// from the session. The same lookups through the Next guard and scopedById (404) are tested in
+// src/app/_auth/require.int.test.ts, so this file stays free of the Next adapter.
 
 let t: TempDb;
 let a: TracerWorld;
@@ -107,21 +104,6 @@ describe('TC-019 cross-org lookups return 404', () => {
     expect((await runInOrg(t.db, b.orgId, runB))?.id).toBe(runB);
     expect(await runInOrg(t.db, a.orgId, runB)).toBeUndefined();
     expect(await runInOrg(t.db, a.orgId, 'VR-NOPE')).toBeUndefined();
-  });
-
-  it("an FPO-A admin reading FPO-B's plot or device through the guard and scopedById → 404, no data", async () => {
-    // FPO A's admin for world A (the tracer world has its own org; the admin joins it here)
-    const { addUser } = await import('../../../tests/helpers/auth');
-    await addUser(t.db, { id: 'U-ADMIN-WA', email: 'admin@world-a.test', password: PASSWORD, role: 'admin', orgId: a.orgId });
-    const { appAuth } = await import('../../app/_auth/auth');
-    const cookie = cookieHeader(await appAuth().api.signInEmail({ body: { email: 'admin@world-a.test', password: PASSWORD }, asResponse: true }));
-    request.headers = new Headers({ cookie });
-    const { requireSession, scopedById } = await import('../../app/_auth/require');
-    const { orgId } = await requireSession('admin');
-    expect(orgId).toBe(a.orgId);
-    expect(scopedById(await plotInOrg(t.db, orgId, a.plotId)).id).toBe(a.plotId);
-    expect(await outcome(async () => scopedById(await plotInOrg(t.db, orgId, b.plotId)))).toEqual({ notFound: true });
-    expect(await outcome(async () => scopedById(await deviceInOrg(t.db, orgId, b.deviceId)))).toEqual({ notFound: true });
   });
 
   it('a buyer lists only its own batches (none exist yet; asserted again with data in TKT-14)', async () => {

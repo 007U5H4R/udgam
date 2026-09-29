@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { addOrg, addUser, cookieHeader } from '../../../tests/helpers/auth';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 import { outcome } from '../../../tests/helpers/next';
+import { makeDevice } from '../../../tests/helpers/verify';
+import { seedTracerWorld } from '../../../scripts/tracer-world';
 import { AuthError } from '../../lib/auth/guards';
+import { deviceInOrg, plotInOrg } from '../../lib/auth/org-scope';
 import type { Role } from '../../lib/auth/session';
 
 // TSK-04.2: the Next adapter — pages redirect, actions and handlers throw AuthError, lookups 404.
@@ -94,5 +97,21 @@ describe('scopedById', () => {
     expect(scopedById({ id: 'x' })).toEqual({ id: 'x' });
     expect(await outcome(() => scopedById(undefined))).toEqual({ notFound: true });
     expect(await outcome(() => scopedById(null))).toEqual({ notFound: true });
+  });
+
+  it("TC-019 / EVAL-080: an FPO admin reading another FPO's plot or device through the guard and scopedById → 404, no data", async () => {
+    const a = await seedTracerWorld(t.db, { publicJwk: (await makeDevice()).publicJwk });
+    const b = await seedTracerWorld(t.db, { publicJwk: (await makeDevice()).publicJwk });
+    await addUser(t.db, { id: 'U-ADMIN-WA', email: 'admin@world-a.test', password: PASSWORD, role: 'admin', orgId: a.orgId });
+    const { appAuth } = await import('./auth');
+    request.headers = new Headers({
+      cookie: cookieHeader(await appAuth().api.signInEmail({ body: { email: 'admin@world-a.test', password: PASSWORD }, asResponse: true })),
+    });
+    const { requireSession, scopedById } = await import('./require');
+    const { orgId } = await requireSession('admin');
+    expect(orgId).toBe(a.orgId);
+    expect(scopedById(await plotInOrg(t.db, orgId, a.plotId)).id).toBe(a.plotId);
+    expect(await outcome(async () => scopedById(await plotInOrg(t.db, orgId, b.plotId)))).toEqual({ notFound: true });
+    expect(await outcome(async () => scopedById(await deviceInOrg(t.db, orgId, b.deviceId)))).toEqual({ notFound: true });
   });
 });

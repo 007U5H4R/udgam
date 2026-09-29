@@ -11,6 +11,7 @@ export const en = {
   'signIn.submit': 'Sign in',
   'signIn.working': 'Signing in…',
   'signIn.error': 'Email or password is not right.',
+  'signIn.unavailable': "Couldn't sign in right now. Try again.",
   'signOut': 'Sign out',
 
   'shell.field.title': 'Home',
