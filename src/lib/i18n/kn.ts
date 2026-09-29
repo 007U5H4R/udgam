@@ -73,6 +73,86 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'home.plotChoice': '{plot} · {farmer}', // REVIEW: native speaker
   'lang.kn': 'ಕನ್ನಡ', // REVIEW: native speaker
   'lang.en': 'English', // REVIEW: native speaker
+  'rec.back': 'ಹಿಂದೆ', // REVIEW: native speaker
+  'rec.photos.eyebrow': '{plot} · ಇಂದು', // REVIEW: native speaker
+  'rec.photos.title': '{count} ವರೆಗೆ ತೆಗೆಯಿರಿ', // REVIEW: native speaker
+  'rec.photos.count': '3 ಫೋಟೋಗಳು', // REVIEW: native speaker
+  'rec.photos.lede': 'ಒಂದು ಫೋಟೋ ಸಾಕು.', // REVIEW: native speaker
+  'rec.photos.more': ' ಕಚೇರಿ ಪರಿಶೀಲಿಸಬೇಕಾದರೆ ಹೆಚ್ಚು ಫೋಟೋಗಳು ಸಹಾಯ ಮಾಡುತ್ತವೆ.', // REVIEW: native speaker
+  'rec.photos.yours': 'ನಿಮ್ಮ ಫೋಟೋಗಳು', // REVIEW: native speaker
+  'rec.photos.counter': '3 ರಲ್ಲಿ {n}', // REVIEW: native speaker
+  'rec.photos.slots': 'ಫೋಟೋ ಸ್ಥಳಗಳು', // REVIEW: native speaker
+  'rec.slot.branch': 'ಕೊಂಬೆ', // REVIEW: native speaker
+  'rec.slot.scale': 'ತಕ್ಕಡಿಯ ಮೇಲಿನ ಬುಟ್ಟಿ', // REVIEW: native speaker
+  'rec.slot.pile': 'ದಿನದ ರಾಶಿ', // REVIEW: native speaker
+  'rec.slot.added': 'ಸೇರಿಸಲಾಗಿದೆ', // REVIEW: native speaker
+  'rec.slot.next': 'ಮುಂದಿನದು', // REVIEW: native speaker
+  'rec.slot.example': 'ಉದಾಹರಣೆ', // REVIEW: native speaker
+  'rec.camera': 'ಕ್ಯಾಮೆರಾ ತೆರೆಯಿರಿ', // REVIEW: native speaker
+  'rec.continue1': '1 ಫೋಟೋದೊಂದಿಗೆ ಮುಂದುವರಿಸಿ', // REVIEW: native speaker
+  'rec.continueN': '{n} ಫೋಟೋಗಳೊಂದಿಗೆ ಮುಂದುವರಿಸಿ', // REVIEW: native speaker
+  'rec.needOne': 'ಕನಿಷ್ಠ 1 ಫೋಟೋ ಬೇಕು.', // REVIEW: native speaker
+  'rec.review.eyebrow': '3 ರಲ್ಲಿ ಫೋಟೋ {n} · {slot}', // REVIEW: native speaker
+  'rec.review.alt': 'ನಿಮ್ಮ ಫೋಟೋ: {slot}', // REVIEW: native speaker
+  'rec.review.title': 'ಫೋಟೋ {clear} ಇದೆಯೇ?', // REVIEW: native speaker
+  'rec.review.clear': 'ಸ್ಪಷ್ಟವಾಗಿ', // REVIEW: native speaker
+  'rec.review.check': 'ಪರಿಶೀಲಿಸಿ:', // REVIEW: native speaker
+  'rec.review.focus': 'ಅದು ಸ್ಪಷ್ಟವಾಗಿದೆ', // REVIEW: native speaker
+  'rec.review.seen': 'ಕಾಫಿ ಹಣ್ಣುಗಳು ಕಾಣುತ್ತಿವೆ', // REVIEW: native speaker
+  'rec.review.dark': 'ಅದು ತುಂಬಾ ಕತ್ತಲಾಗಿಲ್ಲ', // REVIEW: native speaker
+  'rec.review.use': 'ಈ ಫೋಟೋ ಬಳಸಿ', // REVIEW: native speaker
+  'rec.review.again': 'ಮತ್ತೆ ತೆಗೆಯಿರಿ', // REVIEW: native speaker
+  'gps.finding': 'ನಿಮ್ಮ ಸ್ಥಳ ಹುಡುಕಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'gps.weak': 'ಉತ್ತಮ ಸ್ಥಳಕ್ಕಾಗಿ ತೆರೆದ ಆಕಾಶದ ಕೆಳಗೆ ಬನ್ನಿ. ನೀವು ಈಗಲೂ ದಾಖಲಿಸಬಹುದು.', // REVIEW: native speaker
+  'gps.denied': 'ಸ್ಥಳ ಆಫ್ ಆಗಿದೆ. ಅನುಮತಿಸಲು:', // REVIEW: native speaker
+  'gps.step1': 'ವೆಬ್ ವಿಳಾಸದ ಪಕ್ಕದ ಬೀಗದ ಚಿಹ್ನೆ ಒತ್ತಿ.', // REVIEW: native speaker
+  'gps.step2': 'ಸ್ಥಳಕ್ಕೆ ಅನುಮತಿಸಿ ಆರಿಸಿ, ನಂತರ ಈ ಪುಟಕ್ಕೆ ಹಿಂತಿರುಗಿ.', // REVIEW: native speaker
+  'rec.kg.eyebrow1': '{plot} · 1 ಫೋಟೋ', // REVIEW: native speaker
+  'rec.kg.eyebrowN': '{plot} · {n} ಫೋಟೋಗಳು', // REVIEW: native speaker
+  'rec.kg.title': 'ಎಷ್ಟು ಕಿಲೋ?', // REVIEW: native speaker
+  'rec.kg.unit': 'ಕೆಜಿ', // REVIEW: native speaker
+  'rec.kg.hint': 'ನಿಮ್ಮ ಇತ್ತೀಚಿನ ಕೊಯ್ಲುಗಳು: {min}–{max} ಕೆಜಿ', // REVIEW: native speaker
+  'rec.kg.keys': 'ಸಂಖ್ಯೆ ಕೀಲಿಗಳು', // REVIEW: native speaker
+  'rec.kg.decimal': 'ದಶಮಾಂಶ ಬಿಂದು', // REVIEW: native speaker
+  'rec.kg.delete': 'ಅಳಿಸಿ', // REVIEW: native speaker
+  'rec.kg.send': '{kg} ಕೆಜಿ ಕಳುಹಿಸಿ', // REVIEW: native speaker
+  'rec.kg.type': 'ತೂಕ ನಮೂದಿಸಿ', // REVIEW: native speaker
+  'rec.chk.title': 'ನಿಮ್ಮ ಕೊಯ್ಲನ್ನು ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ', // REVIEW: native speaker
+  'rec.chk.sub1': '{kg} ಕೆಜಿ · {plot} · 1 ಫೋಟೋ', // REVIEW: native speaker
+  'rec.chk.subN': '{kg} ಕೆಜಿ · {plot} · {n} ಫೋಟೋಗಳು', // REVIEW: native speaker
+  'rec.chk.bar': 'ಮುಗಿದ ಪರಿಶೀಲನೆಗಳು', // REVIEW: native speaker
+  'rec.chk.progress': '6 ರಲ್ಲಿ {k} ಪರಿಶೀಲನೆಗಳು ಮುಗಿದಿವೆ', // REVIEW: native speaker
+  'rec.chk.done': 'ಮುಗಿದಿದೆ', // REVIEW: native speaker
+  'rec.chk.now': 'ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ', // REVIEW: native speaker
+  'rec.chk.wait': 'ಕಾಯಲಾಗುತ್ತಿದೆ', // REVIEW: native speaker
+  'rec.chk.caption': 'ಇದಕ್ಕೆ ಸಾಮಾನ್ಯವಾಗಿ 30 ಸೆಕೆಂಡುಗಳಿಗಿಂತ ಕಡಿಮೆ ಸಮಯ ಬೇಕು.', // REVIEW: native speaker
+  'rec.chk.announce': '{name}: ಮುಗಿದಿದೆ.', // REVIEW: native speaker
+  'rec.chk.ready': 'ಎಲ್ಲಾ 6 ಪರಿಶೀಲನೆಗಳು ಮುಗಿದಿವೆ. ನಿಮ್ಮ ಫಲಿತಾಂಶ ಸಿದ್ಧವಾಗಿದೆ.', // REVIEW: native speaker
+  'rec.chk.see': 'ಫಲಿತಾಂಶ ನೋಡಿ', // REVIEW: native speaker
+  'grp.seal': 'ನಿಮ್ಮ ಫೋನಿನ ಮುದ್ರೆ', // REVIEW: native speaker
+  'grp.inside': '{plot} ಒಳಗೆ', // REVIEW: native speaker
+  'grp.photos': 'ಫೋಟೋಗಳು ಹೊಸದು', // REVIEW: native speaker
+  'grp.forest': '{plot} ಗಾಗಿ ಅರಣ್ಯ ನಕ್ಷೆ', // REVIEW: native speaker
+  'grp.satellite': 'ಈ ತಿಂಗಳ ಉಪಗ್ರಹ ನೋಟ', // REVIEW: native speaker
+  'grp.harvest': 'ಈ ತೋಟದ ಇಳುವರಿ ಗಾತ್ರ', // REVIEW: native speaker
+  'v.sub': '{plot} ಇಂದ ನಿಮ್ಮ {kg} ದಾಖಲಾಗಿದೆ.', // REVIEW: native speaker
+  'v.subBad': '{plot} ಇಂದ ನಿಮ್ಮ {kg} ಸ್ವೀಕರಿಸಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'v.kg': '{kg} ಕೆಜಿ', // REVIEW: native speaker
+  'v.evidence.ok': 'ಏನನ್ನು ಪರಿಶೀಲಿಸಲಾಯಿತು', // REVIEW: native speaker
+  'v.evidence.check': 'ಏಕೆ, ಮತ್ತು ಮುಂದೇನು', // REVIEW: native speaker
+  'v.evidence.bad': 'ಏಕೆ, ಮತ್ತು ಏನು ಮಾಡಬೇಕು', // REVIEW: native speaker
+  'v.check.title': 'ಕಚೇರಿ ಇದನ್ನು ಪರಿಶೀಲಿಸುತ್ತದೆ', // REVIEW: native speaker
+  'v.check.saved': 'ನಿಮ್ಮ {kg} ಮತ್ತು ಫೋಟೋಗಳು ಉಳಿಸಲಾಗಿವೆ.', // REVIEW: native speaker
+  'v.done': 'ಮುಗಿಯಿತು', // REVIEW: native speaker
+  'rec.saved.offline': 'ಇಲ್ಲಿ ನೆಟ್‌ವರ್ಕ್ ಇಲ್ಲ', // REVIEW: native speaker
+  'rec.saved.server': 'ಕಚೇರಿಯನ್ನು ತಲುಪಲಾಗಲಿಲ್ಲ', // REVIEW: native speaker
+  'rec.saved.body': 'ಏನೂ ಕಳೆದುಹೋಗಿಲ್ಲ: {photos} ಮತ್ತು {kg} ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ.', // REVIEW: native speaker
+  'rec.saved.retry': 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ', // REVIEW: native speaker
+  'rec.saved.later': 'ನಂತರ ಪ್ರಯತ್ನಿಸಿ', // REVIEW: native speaker
+  'rec.photos1': '1 ಫೋಟೋ', // REVIEW: native speaker
+  'rec.photosN': '{n} ಫೋಟೋಗಳು', // REVIEW: native speaker
+  'rec.noDevice': 'ಈ ಫೋನ್ ಇನ್ನೂ ಕೊಯ್ಲುಗಳಿಗೆ ಸಿದ್ಧವಾಗಿಲ್ಲ.', // REVIEW: native speaker
+  'rec.noFix': 'ನಿಮ್ಮ ಸ್ಥಳ ಇನ್ನೂ ಸಿಗಲಿಲ್ಲ. ಸ್ವಲ್ಪ ಕಾಯಿರಿ, ನಂತರ ಮತ್ತೆ ಕಳುಹಿಸಿ.', // REVIEW: native speaker
   'fe.plot.default': 'ತೋಟ', // REVIEW: native speaker
   'fe.location.inside': 'ನೀವು {plot} ಒಳಗೆ {m} ಇದ್ದಿರಿ', // REVIEW: native speaker
   'fe.location.edge': 'ನೀವು {plot} ಹೊರಗೆ {m} ಇದ್ದಿರಿ, GPS ಅನುಮತಿಯ ಒಳಗೆ.', // REVIEW: native speaker

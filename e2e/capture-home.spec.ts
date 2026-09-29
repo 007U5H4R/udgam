@@ -8,6 +8,10 @@ import { expectNoHorizontalScroll, openField, seedCaptureWorld } from './helpers
 // preselected plot (the live GPS fix), the facts line, the one record pill and the last three pickings.
 // Design.md §18 states: "Finding your location…" while there is no fix; "No pickings recorded yet".
 
+// Each test seeds its own world through a tsx child process; under parallel agents that alone can take
+// many seconds, so the budget is wider than Playwright's 30 s default.
+test.describe.configure({ timeout: 120_000 });
+
 test.use({ viewport: { width: 375, height: 812 } });
 
 const P01 = (JSON.parse(readFileSync('evals/fixtures/plots/P01.geojson', 'utf8')) as { geometry: Polygon }).geometry;

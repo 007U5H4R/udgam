@@ -5,6 +5,10 @@ import { openField, seedCaptureWorld } from './helpers/capture';
 // primary pill is 60 px tall, the floating tab bar has Home · Pickings · Help with Home current, and a
 // verdict chip carries its word and its mark for each of the three verdicts (never colour alone).
 
+// Each test seeds its own world through a tsx child process; under parallel agents that alone can take
+// many seconds, so the budget is wider than Playwright's 30 s default.
+test.describe.configure({ timeout: 120_000 });
+
 test('the record pill, the tab bar and the three verdict chips match the frozen components', async ({ page, context }) => {
   const seed = seedCaptureWorld({ events: ['38.5:Rejected', '44:Needs Review', '51:Verified'] });
   await openField(page, context, seed);
