@@ -5,7 +5,7 @@ import { writeTx, type Db } from '../db/client';
 import { ledgerCheckpoints, ledgerEntries } from '../db/schema';
 import { checkpointIfNeeded, type Checkpoint } from './checkpoint';
 import { batchCreatedEntry, closureSeqs } from './closure';
-import { loadLedgerKey } from './keys';
+import { loadLedgerKey, type LedgerKey } from './keys';
 import { merkleTree } from './merkle';
 import { LEDGER_KEY_URL, PROOF_FEED_FORMAT, type FeedCheckpoint, type FeedEntry, type Proof, type ProofFeedV1 } from './proof';
 
@@ -79,10 +79,10 @@ export class FeedNotFound extends Error {
  * checkpoint. If any closure entry is after the last checkpoint, one is created first in a write
  * transaction (S7, EVAL-065); checkpointIfNeeded is idempotent. Throws FeedNotFound for an unknown batch.
  */
-export async function buildFeed(db: Db, batchId: string): Promise<ProofFeedV1> {
+export async function buildFeed(db: Db, batchId: string, opts: { key?: LedgerKey } = {}): Promise<ProofFeedV1> {
   const seqs = await closureSeqs(db, batchId);
   if (seqs.length === 0) throw new FeedNotFound();
-  if (seqs[seqs.length - 1]! > (await lastCheckpointedSeq(db))) await writeTx(db, (tx) => checkpointIfNeeded(tx));
+  if (seqs[seqs.length - 1]! > (await lastCheckpointedSeq(db))) await writeTx(db, (tx) => checkpointIfNeeded(tx, opts));
 
   const rows = await db.select().from(ledgerEntries).where(inArray(ledgerEntries.seq, seqs)).orderBy(asc(ledgerEntries.seq));
   const checkpoints = await coveringCheckpoints(db, seqs);
@@ -102,7 +102,7 @@ export async function buildFeed(db: Db, batchId: string): Promise<ProofFeedV1> {
     format: PROOF_FEED_FORMAT,
     batchId,
     shortHash: batchHash.slice(0, 12),
-    ledgerKey: { kid: (await loadLedgerKey()).kid, url: LEDGER_KEY_URL },
+    ledgerKey: { kid: (opts.key ?? (await loadLedgerKey())).kid, url: LEDGER_KEY_URL },
     checkpoints: checkpoints.map(toFeedCheckpoint),
     entries,
   };
