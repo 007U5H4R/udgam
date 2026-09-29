@@ -207,20 +207,20 @@ describe('registration checks (TKT-07)', () => {
     await createPlotAction(form({ newFarmerName: 'K', crop: 'arabica', geojson: P01 }));
     const [row] = await t.db.select().from(plots);
     const checks = JSON.parse(row!.registrationChecks!) as { forestLoss: { status: string; evidence: string }; ndviHistory: { status: string } };
-    expect(checks.forestLoss).toMatchObject({ status: 'ok', evidence: '0.0% of plot area lost since 2021 (hard fail at 10.0%)' });
+    expect(checks.forestLoss).toMatchObject({ status: 'ok', evidence: '0.0% of plot area lost since 2021 (hard fail at 10.0%) (demo data)' });
     expect(checks.ndviHistory.status).toBe('ok');
     expect(row!.registrationStale).toBe(0);
   });
 
-  it('rerunRegistrationChecksAction re-runs and re-anchors for the admin’s org; another org or a bad ID gets not_found', async () => {
+  it('rerunRegistrationChecksAction re-runs for the admin’s org (an unchanged result is not re-anchored); another org or a bad ID gets not_found', async () => {
     const { createPlotAction, rerunRegistrationChecksAction } = await actions();
     as('admin');
     const r = (await createPlotAction(form({ newFarmerName: 'K', crop: 'arabica', geojson: P01 }))) as { ok: true; plotId: string };
     expect(await rerunRegistrationChecksAction(r.plotId)).toEqual({ ok: true, plotId: r.plotId });
-    expect((await t.db.select().from(ledgerEntries)).map((e) => e.kind)).toEqual(['plot_registered', 'plot_edited', 'plot_edited']);
+    expect((await t.db.select().from(ledgerEntries)).map((e) => e.kind)).toEqual(['plot_registered', 'plot_edited']); // same answers: nothing new to anchor
     as('adminB');
     expect(await rerunRegistrationChecksAction(r.plotId)).toEqual({ ok: false, reason: 'not_found' });
     expect(await rerunRegistrationChecksAction('not-a-plot')).toEqual({ ok: false, reason: 'not_found' });
-    expect(await t.db.select().from(ledgerEntries)).toHaveLength(3);
+    expect(await t.db.select().from(ledgerEntries)).toHaveLength(2);
   });
 });

@@ -1,10 +1,10 @@
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadHarnessInputs } from './context';
 import { loadDataset } from './dataset';
-import { liveAgreement, missingLiveVars, renderAgreement } from './live-agreement';
+import { liveAgreement, missingLiveVars, recordingName, renderAgreement } from './live-agreement';
 import { main, parseArgs } from './run';
 
 // TSK-07.7: `pnpm eval --provider=live` compares live GFW / Sentinel Hub answers for P01–P10 with the
@@ -65,6 +65,15 @@ describe('--provider=live without keys (TSK-07.7)', () => {
   });
 });
 
+describe('recordingName', () => {
+  it('names the files the adapter tests read', () => {
+    expect(recordingName('P01', 'loss')).toBe('gfw-P01.json');
+    expect(recordingName('P01', 'ndvi_history')).toBe('sentinel-P01-history.json');
+    expect(recordingName('P09', 'ndvi_window', true)).toBe('sentinel-P09-window-cloud.json');
+    expect(recordingName('P01', 'ndvi_window')).toBe('sentinel-P01-window.json');
+  });
+});
+
 describe('liveAgreement with recorded answers (no network)', () => {
   const RECORDED = join(__dirname, '..', 'fixtures', 'remote-sensing', 'recorded');
   const body = (f: string) => (JSON.parse(readFileSync(join(RECORDED, f), 'utf8')) as { response: { body: unknown } }).response.body;
@@ -84,10 +93,13 @@ describe('liveAgreement with recorded answers (no network)', () => {
     expect(rows.find((r) => r.plotId === 'P01' && r.kind === 'loss')).toMatchObject({ agree: true, fixture: { status: 'ok' }, live: { status: 'ok' } });
     // the recorded history answer is P01's; the window P10D intervals come from the same monthly body here
     expect(rows.filter((r) => r.kind === 'ndvi_history').every((r) => r.agree)).toBe(true);
-    expect(recorded).toContain(join(dir, 'P01-loss.json'));
-    const rec = JSON.parse(readFileSync(join(dir, 'P01-loss.json'), 'utf8')) as Record<string, unknown>;
+    // written under the names the adapter tests read (gfw.test.ts, sentinel.test.ts), not marked synthetic
+    expect(recorded).toContain(join(dir, 'gfw-P01.json'));
+    const rec = JSON.parse(readFileSync(join(dir, 'gfw-P01.json'), 'utf8')) as Record<string, unknown>;
     expect(rec).toMatchObject({ plotId: 'P01', kind: 'loss', fetchedAt: '2026-12-08T05:30:00.000Z', providerVersion: 'v1.13', response: { status: 200 } });
-    expect(existsSync(join(dir, 'P01-ndvi_history.json'))).toBe(true);
+    expect(rec).not.toHaveProperty('synthetic');
+    expect(existsSync(join(dir, 'sentinel-P01-history.json'))).toBe(true);
+    expect(recorded.map((f) => basename(f)).filter((f) => f.startsWith('sentinel-P01-window'))).toHaveLength(1);
     for (const f of recorded) expect(readFileSync(f, 'utf8')).not.toContain('secret-token-value');
     const md = renderAgreement(rows, { ranAt: '2026-12-08T05:30:00.000Z', commit: 'abc1234' });
     expect(md).toMatch(/\*\*Agreement: \d+\/30\*\*/);

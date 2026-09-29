@@ -74,9 +74,11 @@ test.describe('TKT-06 admin plots', () => {
     // TKT-07: forest loss and the 12-month NDVI history ran for this boundary (fixture provider).
     const checks = detail.getByTestId('registration-checks');
     await expect(checks.getByText('Forest map · Passed')).toBeVisible();
-    await expect(checks.getByText('0.0% of plot area lost since 2021 (hard fail at 10.0%)')).toBeVisible();
+    // CF-11 / EXE12: fixture answers are labelled demo data, and the card names the data source.
+    await expect(checks.getByText('0.0% of plot area lost since 2021 (hard fail at 10.0%) (demo data)', { exact: true })).toBeVisible();
     await expect(checks.getByText('Coffee grown here, 12 months · Passed')).toBeVisible();
-    await expect(checks.getByText(/^Canopy all year: monthly NDVI 0\.62–0\.81 over 11 clear months/)).toBeVisible();
+    await expect(checks.getByText(/^Canopy all year: monthly NDVI 0\.62–0\.81 over 11 clear months .* \(demo data\)$/)).toBeVisible();
+    await expect(detail.getByTestId('registration-source')).toHaveText('Data source: demo data (fixture provider), not real satellite imagery');
     await expect(detail.getByRole('button', { name: 'Check again' })).toHaveCount(0);
     await expect(detail.getByRole('img', { name: new RegExp(`Outline of plot ${plotId}`) })).toBeVisible();
     await screenChecks(page);

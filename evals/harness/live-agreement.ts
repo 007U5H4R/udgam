@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createLiveProvider, plotGeom } from '../../src/lib/remote-sensing';
+import { createLiveProvider, plotGeom, withTimeouts } from '../../src/lib/remote-sensing';
 import type { RsProfile } from '../../src/lib/remote-sensing/fixture';
-import { ProviderError, type NdviHistory, type PlotGeom, type RemoteSensingProvider } from '../../src/lib/remote-sensing/types';
+import { ProviderError, type ForestLoss, type NdviHistory, type NdviWindow, type PlotGeom, type RemoteSensingProvider } from '../../src/lib/remote-sensing/types';
 import { forestLossOutcome } from '../../src/lib/verification/checks/deforestation_overlap';
 import { ndviHistoryOutcome } from '../../src/lib/verification/checks/ndvi_cultivation';
 import { ndviWindowOutcome } from '../../src/lib/verification/checks/ndvi_harvest_window';
@@ -16,9 +16,11 @@ import { RS_DIR } from './fixtures';
 // Hub) about the legitimate fixture plots P01–P10 and compare each answer with the fixture profile, as
 // an agreement table. There is no gate: the fixture plots are synthetic polygons near real places, so
 // disagreement is information for the owner, not a failure. It needs GFW_API_KEY, CDSE_CLIENT_ID and
-// CDSE_CLIENT_SECRET from the environment and is never run in CI. With --record, every raw provider
-// answer is written to evals/fixtures/remote-sensing/recorded/<plot>-<kind>.json with its fetch time and
-// the provider version, to replace the synthetic recordings the adapter tests read.
+// CDSE_CLIENT_SECRET from the environment and is never run in CI. Each call has the app's 8 s timeout.
+// With --record, every raw provider answer (a cloud-blocked window included; a failed call never) is
+// written to evals/fixtures/remote-sensing/recorded/ under the names the adapter tests read —
+// gfw-<plot>.json, sentinel-<plot>-history.json, sentinel-<plot>-window[-cloud].json — with its fetch
+// time and the provider version, replacing the synthetic recordings.
 
 export const LIVE_ENV_VARS = ['GFW_API_KEY', 'CDSE_CLIENT_ID', 'CDSE_CLIENT_SECRET'] as const;
 export const RECORDED_DIR = join(RS_DIR, 'recorded');
@@ -36,24 +38,33 @@ export type Recording = { plotId: string; kind: Kind; fetchedAt: string; provide
 
 const fmt = (x: number | null) => (x === null ? '—' : x.toFixed(2));
 
-function lossSide(r: { lossPct: number }): Side {
-  return { status: forestLossOutcome(r.lossPct, CONFIG).status, summary: `${r.lossPct.toFixed(1)} % loss` };
+function lossSide(r: Pick<ForestLoss, 'lossPct' | 'source'>): Side {
+  return { status: forestLossOutcome(r, CONFIG).status, summary: `${r.lossPct.toFixed(1)} % loss` };
 }
 function historySide(h: NdviHistory): Side {
   const clear = h.months.flatMap((m) => (m.mean === null ? [] : [m.mean]));
   const range = clear.length > 0 ? `${fmt(Math.min(...clear))}–${fmt(Math.max(...clear))}` : '—';
   return { status: ndviHistoryOutcome(h, CONFIG).status, summary: `NDVI ${range} over ${clear.length} clear months` };
 }
-function windowSide(w: { mean: number | null; clearObservations: number }): Side {
+function windowSide(w: NdviWindow): Side {
   return { status: ndviWindowOutcome(w, CONFIG).status, summary: `NDVI ${fmt(w.mean)} over ${w.clearObservations} clear` };
 }
+/** The recording file the adapter tests read for this answer (gfw.test.ts, sentinel.test.ts). */
+export function recordingName(plotId: string, kind: Kind, cloud = false): string {
+  if (kind === 'loss') return `gfw-${plotId}.json`;
+  if (kind === 'ndvi_history') return `sentinel-${plotId}-history.json`;
+  return `sentinel-${plotId}-window${cloud ? '-cloud' : ''}.json`;
+}
+
 const failed = (e: unknown): Side => ({ status: 'unavailable', summary: e instanceof ProviderError ? `provider ${e.kind}${e.status ? ` ${e.status}` : ''}` : `error ${e instanceof Error ? e.constructor.name : typeof e}` });
 
-async function side<T>(call: () => Promise<T>, toSide: (t: T) => Side): Promise<Side> {
+/** The live side of a row, and the answer itself when the provider answered (a failed call has none). */
+async function side<T>(call: () => Promise<T>, toSide: (t: T) => Side): Promise<{ side: Side; answer?: T }> {
   try {
-    return toSide(await call());
+    const answer = await call();
+    return { side: toSide(answer), answer };
   } catch (e) {
-    return failed(e);
+    return { side: failed(e) };
   }
 }
 
@@ -91,7 +102,7 @@ export type LiveAgreementOptions = {
 export async function liveAgreement(o: LiveAgreementOptions): Promise<{ rows: AgreementRow[]; recorded: string[] }> {
   const now = o.now ?? (() => new Date());
   const rec = recordingFetch(o.fetch ?? globalThis.fetch);
-  const live: RemoteSensingProvider = createLiveProvider(
+  const live: RemoteSensingProvider = withTimeouts(createLiveProvider(
     {
       REMOTE_SENSING_PROVIDER: 'live',
       PUBLIC_BASE_URL: o.env.PUBLIC_BASE_URL ?? 'http://localhost:3000',
@@ -100,7 +111,7 @@ export async function liveAgreement(o: LiveAgreementOptions): Promise<{ rows: Ag
       CDSE_CLIENT_SECRET: o.env.CDSE_CLIENT_SECRET,
     },
     { fetch: rec.fetch },
-  );
+  ));
   const endMonth = istMonth(SERVER_RECEIVED_AT);
   const centre = istDate(SERVER_RECEIVED_AT);
   const days = CONFIG.ndviHarvestWindow.windowDays;
@@ -115,16 +126,16 @@ export async function liveAgreement(o: LiveAgreementOptions): Promise<{ rows: Ag
     if (!feature || !profile || !spec) continue;
     const geom: PlotGeom = await plotGeom({ id: plotId, polygon: feature.geometry, areaHa: spec.area_ha });
     const fixtureMonths = profile.ndviHistory.byCalendarMonth.map((m) => ({ month: String(m.month), mean: m.mean, clearFraction: m.clearFraction }));
-    const kinds: [Kind, Side, () => Promise<Side>][] = [
-      ['loss', lossSide(profile.forestLoss), () => side(() => live.forestLoss(geom), lossSide)],
-      ['ndvi_history', historySide({ months: fixtureMonths }), () => side(() => live.ndviHistory(geom, endMonth), historySide)],
-      ['ndvi_window', windowSide(profile.ndviWindow), () => side(() => live.ndviWindow(geom, centre, days), windowSide)],
+    const kinds: [Kind, Side, () => Promise<{ side: Side; answer?: ForestLoss | NdviHistory | NdviWindow }>][] = [
+      ['loss', lossSide({ ...profile.forestLoss, source: 'fixture' }), () => side(() => live.forestLoss(geom), lossSide)],
+      ['ndvi_history', historySide({ months: fixtureMonths, source: 'fixture' }), () => side(() => live.ndviHistory(geom, endMonth), historySide)],
+      ['ndvi_window', windowSide({ ...profile.ndviWindow, source: 'fixture' }), () => side(() => live.ndviWindow(geom, centre, days), windowSide)],
     ];
     for (const [kind, fixture, ask] of kinds) {
-      const liveSide = await ask();
+      const { side: liveSide, answer } = await ask();
       rows.push({ plotId, kind, fixture, live: liveSide, agree: fixture.status === liveSide.status });
       const answers = rec.take();
-      if (o.record && liveSide.status !== 'unavailable' && answers.length > 0) {
+      if (o.record && answer !== undefined && answers.length > 0) {
         const a = answers[answers.length - 1]!;
         const version = kind === 'loss' ? (/\/umd_tree_cover_loss\/(v[0-9][0-9.]*)\//.exec(a.finalUrl)?.[1] ?? CONFIG.deforestation.gfwDatasetVersion) : 'statistics/v1 sentinel-2-l2a';
         const recording: Recording = {
@@ -136,7 +147,8 @@ export async function liveAgreement(o: LiveAgreementOptions): Promise<{ rows: Ag
           response: { status: a.status, url: a.finalUrl, body: a.body },
         };
         mkdirSync(dir, { recursive: true });
-        const file = join(dir, `${plotId}-${kind}.json`);
+        const cloud = kind === 'ndvi_window' && (answer as NdviWindow).mean === null;
+        const file = join(dir, recordingName(plotId, kind, cloud));
         writeFileSync(file, `${JSON.stringify(recording, null, 2)}\n`);
         recorded.push(file);
       }

@@ -101,6 +101,7 @@ describe('GFW response parsing (TC-030)', () => {
       yearsFrom: 2021,
       dataYear: 2025,
       datasetVersion: 'v1.13',
+      source: 'live',
     });
   });
 

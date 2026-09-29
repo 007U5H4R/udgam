@@ -458,8 +458,8 @@ export const rateLimits = sqliteTable(
 /**
  * Remote-sensing answers (technical-plan §4.1, §7, TKT-07). Keyed per plot, provider, kind, month bucket
  * (`static` for forest loss, `YYYY-MM` for NDVI) and geometry hash, so an edited polygon misses (EVAL-044).
- * Only successful answers are stored; `response` is JSON (`{ source, version?, result }`). Not provenance:
- * no anchor.
+ * Only successful, clear-sky answers are stored (remote-sensing/cache.ts); `response` is JSON
+ * (`{ source, result }`; GFW's dataset version is `result.datasetVersion`). Not provenance: no anchor.
  */
 export const remoteSensingCache = sqliteTable(
   'remote_sensing_cache',

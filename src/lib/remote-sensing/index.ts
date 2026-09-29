@@ -37,7 +37,13 @@ export function withTimeouts(provider: RemoteSensingProvider, opts: { timeoutMs?
     const outerSignal = outer?.signal;
     if (outerSignal?.aborted) ctl.abort();
     else outerSignal?.addEventListener('abort', onOuterAbort, { once: true });
-    return Promise.race([call({ signal: ctl.signal }), expired]).finally(() => {
+    let answer: Promise<T>;
+    try {
+      answer = call({ signal: ctl.signal });
+    } catch (err) {
+      answer = Promise.reject(err); // an adapter that throws synchronously still settles here, timer cleared
+    }
+    return Promise.race([answer, expired]).finally(() => {
       clearTimeout(timer);
       outerSignal?.removeEventListener('abort', onOuterAbort);
     });
@@ -52,21 +58,45 @@ export function withTimeouts(provider: RemoteSensingProvider, opts: { timeoutMs?
 }
 
 type RsEnv = Pick<Env, 'REMOTE_SENSING_PROVIDER' | 'GFW_API_KEY' | 'CDSE_CLIENT_ID' | 'CDSE_CLIENT_SECRET' | 'PUBLIC_BASE_URL'>;
+/** What the app's provider choice reads: the provider and keys, plus whether the fixture fallback may apply. */
+export type AppRsEnv = RsEnv & Pick<Env, 'NODE_ENV' | 'E2E' | 'DEMO_MODE'>;
+
+/**
+ * May the fixture provider answer a plot it has no profile for (fail closed, EXE12)? Only for the
+ * Playwright server (E2E=1), a demo (DEMO_MODE=1) or outside production. Otherwise an unknown plot is an
+ * error, and its checks are unavailable (Needs Review) rather than passing on made-up satellite data.
+ */
+export function fixtureFallbackAllowed(e: Pick<Env, 'NODE_ENV' | 'E2E' | 'DEMO_MODE'>): boolean {
+  return e.E2E === '1' || e.DEMO_MODE === '1' || e.NODE_ENV !== 'production';
+}
 
 let fixtureSet: Promise<FixtureSet> | undefined;
-let fixture: FixtureProvider | undefined;
+const fixtures = new Map<boolean, FixtureProvider>();
+
+/** The committed fixture set, read once; a failed read is not remembered, so the next call retries. */
+function appFixtureSet(): Promise<FixtureSet> {
+  fixtureSet ??= loadFixtureSet().catch((err: unknown) => {
+    fixtureSet = undefined;
+    throw err;
+  });
+  return fixtureSet;
+}
 
 /**
  * The app's fixture provider: the committed fixture set (dataset plots by ID and geometry hash, plus
- * the extra fixture geometries), and for any other plot the P01 profile — an honest perennial plot with
- * no loss — so a demo or e2e plot drawn by hand verifies. Fixture mode is visible as `fixture` in
- * /api/health; production runs `live` (M-003).
+ * the extra fixture geometries). Where fixtureFallbackAllowed, any other plot gets the P01 profile — an
+ * honest perennial plot with no loss — so a demo or e2e plot drawn by hand verifies; its evidence says
+ * "(demo data)" (CF-11). Fixture mode is visible as `fixture` in /api/health, and env.ts refuses it in
+ * production outside E2E (EXE12).
  */
-async function appFixture(): Promise<FixtureProvider> {
-  fixtureSet ??= loadFixtureSet();
-  const set = await fixtureSet;
-  fixture ??= createFixtureProvider({ ...set, fallback: set.profiles.P01 });
-  return fixture;
+async function appFixture(withFallback: boolean): Promise<FixtureProvider> {
+  const set = await appFixtureSet();
+  let fx = fixtures.get(withFallback);
+  if (!fx) {
+    fx = createFixtureProvider({ ...set, ...(withFallback ? { fallback: set.profiles.P01 } : {}) });
+    fixtures.set(withFallback, fx);
+  }
+  return fx;
 }
 
 /** A provider whose calls wait for an async-built one (the fixture set is read from disk once). */
@@ -149,17 +179,28 @@ export function providerHealth(e: RsEnv): Promise<ProviderHealth> {
 }
 
 /** technical-plan TSK-07.2: the provider REMOTE_SENSING_PROVIDER names (`fixture` | `live`). */
-export function getRemoteSensing(e: RsEnv): RemoteSensingProvider {
-  if (e.REMOTE_SENSING_PROVIDER === 'fixture') return deferred('fixture', appFixture);
+export function getRemoteSensing(e: AppRsEnv): RemoteSensingProvider {
+  if (e.REMOTE_SENSING_PROVIDER === 'fixture') {
+    const withFallback = fixtureFallbackAllowed(e);
+    return deferred('fixture', () => appFixture(withFallback));
+  }
   return appLive(e);
 }
 
 /** What the capture pipeline and plot registration use: provider → 8 s timeouts → cache. */
-export function appRemoteSensing(db: Db, e: RsEnv, opts: { now?: () => Date } = {}): RemoteSensingProvider {
+export function appRemoteSensing(db: Db, e: AppRsEnv, opts: { now?: () => Date } = {}): RemoteSensingProvider {
   return withCache(withTimeouts(getRemoteSensing(e)), db, opts);
 }
 
+/** Geometry hashes by polygon object: the three satellite checks of one verify share one hash. */
+const hashes = new WeakMap<PlotPolygon, Promise<string>>();
+
 /** The PlotGeom of a plot row: its geometry hash is the cache key. */
 export async function plotGeom(plot: { id: string; polygon: PlotPolygon; areaHa: number }): Promise<PlotGeom> {
-  return { id: plot.id, polygon: plot.polygon, areaHa: plot.areaHa, geometryHash: await geometryHash(plot.polygon) };
+  let hash = hashes.get(plot.polygon);
+  if (!hash) {
+    hash = geometryHash(plot.polygon);
+    hashes.set(plot.polygon, hash);
+  }
+  return { id: plot.id, polygon: plot.polygon, areaHa: plot.areaHa, geometryHash: await hash };
 }

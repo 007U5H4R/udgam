@@ -1,7 +1,7 @@
 import { plotGeom } from '../../remote-sensing';
 import { ProviderError, type NdviWindow } from '../../remote-sensing/types';
 import type { VerifyConfig } from '../config';
-import { evidence, istDate, providerReason } from '../evidence';
+import { evidence, istDate, providerReason, sourced } from '../evidence';
 import type { Check, CheckOutcome } from '../registry';
 
 // ndvi_harvest_window (technical-plan §6.3, TP11): living canopy around the picking? Mean NDVI of the
@@ -11,7 +11,12 @@ import type { Check, CheckOutcome } from '../registry';
 
 const id = 'ndvi_harvest_window' as const;
 
+/** The status for a harvest-window answer; a fixture answer's sentence is labelled demo data (CF-11). */
 export function ndviWindowOutcome(w: NdviWindow, config: VerifyConfig): CheckOutcome {
+  return sourced(windowOutcome(w, config), w.source);
+}
+
+function windowOutcome(w: NdviWindow, config: VerifyConfig): CheckOutcome {
   const c = config.ndviHarvestWindow;
   if (w.mean === null || w.clearObservations === 0) {
     // The provider answered: the sky was not clear. Not a provider failure, so no provider is named.

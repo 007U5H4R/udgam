@@ -15,13 +15,19 @@ export type PlotGeom = { id: string; polygon: PlotPolygon; areaHa: number; geome
  */
 export type CallOptions = { signal?: AbortSignal };
 
+/**
+ * Where an answer came from (CF-11, EXE12): `fixture` answers are demo data, and every evidence sentence
+ * derived from one says so; `live` answers come from GFW / Copernicus Sentinel Hub.
+ */
+export type RsSource = 'fixture' | 'live';
+
 /** `datasetVersion`: the GFW dataset version that answered (the live adapter pins the resolved one). */
-export type ForestLoss = { lossHa: number; lossPct: number; yearsFrom: number; dataYear: number; datasetVersion?: string };
-export type NdviHistory = { months: { month: string; mean: number | null; clearFraction: number }[] };
-export type NdviWindow = { mean: number | null; clearObservations: number };
+export type ForestLoss = { lossHa: number; lossPct: number; yearsFrom: number; dataYear: number; datasetVersion?: string; source: RsSource };
+export type NdviHistory = { months: { month: string; mean: number | null; clearFraction: number }[]; source: RsSource };
+export type NdviWindow = { mean: number | null; clearObservations: number; source: RsSource };
 
 export interface RemoteSensingProvider {
-  name: 'fixture' | 'live';
+  name: RsSource;
   forestLoss(plot: PlotGeom, opts?: CallOptions): Promise<ForestLoss>;
   /** The 12 calendar months ending at `endMonth` (YYYY-MM). */
   ndviHistory(plot: PlotGeom, endMonth: string, opts?: CallOptions): Promise<NdviHistory>;

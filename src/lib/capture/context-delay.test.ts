@@ -8,9 +8,9 @@ const plot = { id: 'P01', polygon: { type: 'Polygon' as const, coordinates: [] }
 function provider(): RemoteSensingProvider {
   return {
     name: 'fixture',
-    forestLoss: vi.fn(async () => ({ lossHa: 0, lossPct: 0, yearsFrom: 2021, dataYear: 2025 })),
-    ndviHistory: vi.fn(async () => ({ months: [] })),
-    ndviWindow: vi.fn(async () => ({ mean: 0.7, clearObservations: 3 })),
+    forestLoss: vi.fn(async () => ({ lossHa: 0, lossPct: 0, yearsFrom: 2021, dataYear: 2025, source: 'fixture' as const })),
+    ndviHistory: vi.fn(async () => ({ months: [], source: 'fixture' as const })),
+    ndviWindow: vi.fn(async () => ({ mean: 0.7, clearObservations: 3, source: 'fixture' as const })),
   };
 }
 

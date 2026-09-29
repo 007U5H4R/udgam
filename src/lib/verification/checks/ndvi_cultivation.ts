@@ -1,7 +1,7 @@
 import { plotGeom } from '../../remote-sensing';
 import { ProviderError, type NdviHistory } from '../../remote-sensing/types';
 import type { VerifyConfig } from '../config';
-import { evidence, istMonth, providerReason } from '../evidence';
+import { evidence, istMonth, providerReason, sourced } from '../evidence';
 import type { Check, CheckOutcome } from '../registry';
 
 // ndvi_cultivation (technical-plan §6.3, TP11): is the plot a year-round canopy? Over the 12 monthly
@@ -16,7 +16,12 @@ const id = 'ndvi_cultivation' as const;
 const r6 = (x: number) => Math.round(x * 1e6) / 1e6;
 const validNdvi = (x: number) => Number.isFinite(x) && x >= -1 && x <= 1;
 
+/** The status for an NDVI history answer; a fixture answer's sentence is labelled demo data (CF-11). */
 export function ndviHistoryOutcome(history: NdviHistory, config: VerifyConfig): CheckOutcome {
+  return sourced(historyOutcome(history, config), history.source);
+}
+
+function historyOutcome(history: NdviHistory, config: VerifyConfig): CheckOutcome {
   const c = config.ndviCultivation;
   if (!Array.isArray(history.months) || history.months.some((m) => m.mean !== null && !validNdvi(m.mean))) return sentinelDown('malformed response');
   const clear = history.months.flatMap((m) => (m.mean === null ? [] : [m.mean]));

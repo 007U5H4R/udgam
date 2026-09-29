@@ -60,6 +60,7 @@ export function createGfwProvider(o: GfwOptions) {
     }
     if (!res.ok) {
       log.warn({ provider: 'gfw', status: res.status }, 'remote_sensing.http_error');
+      await res.body?.cancel().catch(() => undefined); // release the connection now, not at garbage collection
       throw new ProviderError('gfw', res.status);
     }
     return res;
@@ -102,6 +103,7 @@ export function createGfwProvider(o: GfwOptions) {
         yearsFrom: lossFromYear,
         dataYear: Math.max(maxYear, GFW_LAST_DATA_YEAR),
         datasetVersion: resolved,
+        source: 'live',
       };
     },
 

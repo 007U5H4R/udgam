@@ -10,7 +10,7 @@ import { ProviderError, type RemoteSensingProvider } from '../remote-sensing/typ
 import { forestLossOutcome, gfwDown } from '../verification/checks/deforestation_overlap';
 import { ndviHistoryDown, ndviHistoryOutcome } from '../verification/checks/ndvi_cultivation';
 import { CONFIG } from '../verification/config';
-import { istMonth, providerReason } from '../verification/evidence';
+import { evidence, istMonth, providerReason } from '../verification/evidence';
 import type { CheckOutcome } from '../verification/registry';
 import type { CheckStatus } from '../verification/types';
 
@@ -26,6 +26,10 @@ import type { CheckStatus } from '../verification/types';
 // export read each plot's polygon from its latest plot_registered/plot_edited entry, so every such entry
 // must carry the polygon (carry-forward from TKT-06); the proof closure already includes plot_edited.
 // A provider failure never blocks the plot: the check is stored as unavailable and the admin can re-run.
+// Any other error (e.g. a fixture provider with no profile for the plot and no fallback, EXE12) is
+// stored as unavailable too ("Check could not run: <ErrorClass>"), naming the provider so a re-run is
+// offered. A re-run ("Check again") whose results equal the stored ones apart from `ranAt` writes and
+// anchors nothing: the stored text stays the one whose hash is anchored.
 
 export class RegistrationError extends Error {
   constructor(readonly code: 'plot_not_found') {
@@ -84,7 +88,7 @@ async function forestLoss(rs: RemoteSensingProvider, geom: Awaited<ReturnType<ty
   try {
     const r = await rs.forestLoss(geom);
     return {
-      ...pick(forestLossOutcome(r.lossPct, CONFIG)),
+      ...pick(forestLossOutcome(r, CONFIG)),
       id: 'deforestation_overlap',
       lossPct: r.lossPct,
       lossHa: r.lossHa,
@@ -93,9 +97,14 @@ async function forestLoss(rs: RemoteSensingProvider, geom: Awaited<ReturnType<ty
       datasetVersion: r.datasetVersion ?? null,
     };
   } catch (err) {
-    if (!(err instanceof ProviderError)) throw err;
-    return { ...pick(gfwDown(providerReason(err))), id: 'deforestation_overlap', lossPct: null, lossHa: null, yearsFrom: null, dataYear: null, datasetVersion: null };
+    const down = err instanceof ProviderError ? gfwDown(providerReason(err)) : couldNotRun('deforestation_overlap', 'gfw', err);
+    return { ...pick(down), id: 'deforestation_overlap', lossPct: null, lossHa: null, yearsFrom: null, dataYear: null, datasetVersion: null };
   }
+}
+
+/** A check that threw something other than a ProviderError: unavailable, as runCheck records it (§7 rule 4). */
+function couldNotRun(id: RegistrationCheck['id'], provider: 'gfw' | 'sentinel-hub', err: unknown): CheckOutcome {
+  return { id, status: 'unavailable', hardFail: false, evidence: evidence.threw(err instanceof Error ? err.constructor.name : 'unknown'), provider };
 }
 
 async function ndviHistory(rs: RemoteSensingProvider, geom: Awaited<ReturnType<typeof plotGeom>>, endMonth: string): Promise<NdviHistorySummary> {
@@ -111,8 +120,8 @@ async function ndviHistory(rs: RemoteSensingProvider, geom: Awaited<ReturnType<t
       clearMonths: clear.length,
     };
   } catch (err) {
-    if (!(err instanceof ProviderError)) throw err;
-    return { ...pick(ndviHistoryDown(providerReason(err))), id: 'ndvi_cultivation', endMonth, min: null, max: null, clearMonths: null };
+    const down = err instanceof ProviderError ? ndviHistoryDown(providerReason(err)) : couldNotRun('ndvi_cultivation', 'sentinel-hub', err);
+    return { ...pick(down), id: 'ndvi_cultivation', endMonth, min: null, max: null, clearMonths: null };
   }
 }
 
@@ -126,17 +135,21 @@ async function orgPlot(db: Db, orgId: string, plotId: string) {
   return row;
 }
 
+/** The checks without their run time: two runs with equal results compare equal. */
+const results = (c: RegistrationChecks): string => jcs({ ...c, ranAt: '' });
+
 /**
  * Run the registration checks for the plot's current geometry, store them and anchor their hash.
  * Returns null (and writes nothing) when the geometry changed while the providers answered: the
- * newer save runs its own checks.
+ * newer save runs its own checks. When the results equal the stored, fresh ones apart from `ranAt`,
+ * nothing is written or anchored (`anchored: false`, `anchorSeq` the plot's current anchor).
  */
 export async function runRegistrationChecks(
   db: Db,
   orgId: string,
   plotId: string,
   deps: RegistrationDeps = {},
-): Promise<{ forestLoss: ForestLossSummary; ndviHistory: NdviHistorySummary; anchorSeq: number } | null> {
+): Promise<{ forestLoss: ForestLossSummary; ndviHistory: NdviHistorySummary; anchorSeq: number; anchored: boolean } | null> {
   const now = deps.now ?? (() => new Date());
   const row = await orgPlot(db, orgId, plotId);
   if (!row) throw new RegistrationError('plot_not_found');
@@ -151,9 +164,15 @@ export async function runRegistrationChecks(
   const text = jcs(checks);
   const registrationChecksHash = await sha256Hex(text);
 
-  const anchorSeq = await writeTx(db, async (tx) => {
-    const [current] = await tx.select({ geojson: plots.geojson, areaHa: plots.areaHa, crop: plots.crop }).from(plots).where(eq(plots.id, plotId)).limit(1);
+  const written = await writeTx(db, async (tx) => {
+    const [current] = await tx
+      .select({ geojson: plots.geojson, areaHa: plots.areaHa, crop: plots.crop, registrationChecks: plots.registrationChecks, registrationStale: plots.registrationStale, anchorSeq: plots.anchorSeq })
+      .from(plots)
+      .where(eq(plots.id, plotId))
+      .limit(1);
     if (!current || current.geojson !== row.plot.geojson) return null; // edited meanwhile
+    const stored = current.registrationStale === 0 ? parseRegistrationChecks(current.registrationChecks) : null;
+    if (stored !== null && results(stored) === results(checks)) return { anchorSeq: current.anchorSeq, anchored: false }; // nothing changed
     const anchor = await append(tx, 'plot_edited', {
       plotId,
       producerId: row.producerId,
@@ -164,10 +183,10 @@ export async function runRegistrationChecks(
       registrationChecksHash,
     });
     await tx.update(plots).set({ registrationChecks: text, registrationStale: 0, anchorSeq: anchor.seq }).where(eq(plots.id, plotId));
-    return anchor.seq;
+    return { anchorSeq: anchor.seq, anchored: true };
   });
-  if (anchorSeq === null) return null;
-  return { forestLoss: loss, ndviHistory: history, anchorSeq };
+  if (written === null) return null;
+  return { forestLoss: loss, ndviHistory: history, ...written };
 }
 
 /** Stored registration checks (already parsed JSON, e.g. PlotDetail.registrationChecks), or null. */

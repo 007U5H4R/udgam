@@ -101,6 +101,7 @@ describe('Better Auth on the app database', () => {
   it('in production the session cookie is also Secure (and __Secure- prefixed)', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('BETTER_AUTH_SECRET', 'p'.repeat(40));
+    vi.stubEnv('E2E', '1'); // production refuses the fixture provider outside E2E (EXE12)
     await addUser(t.db, { id: 'U-ADMIN-A', email: 'admin@a.test', password: PASSWORD, role: 'admin', orgId: 'ORG-A' });
     const res = await (await newAuth()).api.signInEmail({ body: { email: 'admin@a.test', password: PASSWORD }, asResponse: true });
     const session = res.headers.getSetCookie().find((c) => c.startsWith('__Secure-better-auth.session_token='));

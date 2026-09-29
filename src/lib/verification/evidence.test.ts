@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dur, evidence, istDate, kmh, kOfN, m, pct, xu } from './evidence';
+import { DEMO_DATA_SUFFIX, dur, evidence, istDate, kmh, kOfN, m, pct, sourced, xu } from './evidence';
 import { CHECK_IDS } from './types';
 
 // TC-011 (registry part): every row of technical-plan §6.5 renders, is snapshot-tested, and names the
@@ -62,6 +62,8 @@ const ALL = {
   'yield_plausibility.fail': evidence.yield_plausibility.fail({ ratio: 2.5 }),
   'yield_plausibility.unavailable': evidence.yield_plausibility.unavailable({ crop: 'robusta' }),
   'any.unavailable threw': evidence.threw('TypeError'),
+  // CF-11 / EXE12: a sentence derived from fixture remote-sensing data carries the demo-data suffix.
+  'deforestation_overlap.ok fixture source': sourced({ evidence: evidence.deforestation_overlap.ok({ lossPct: 0 }) }, 'fixture').evidence,
 };
 
 describe('evidence templates (TC-011)', () => {
@@ -108,6 +110,71 @@ describe('evidence templates (TC-011)', () => {
   it('name the device and the revocation date in IST', () => {
     expect(ALL['signature_valid.fail revoked']).toBe('Phone DV-7K2M9Q4D was revoked on 2026-10-01');
     expect(ALL['chain_continuity.flag out_of_order']).toBe('Expected entry 7 after 3f9a1c0b, got entry 9');
+  });
+});
+
+describe('demo data (CF-11, EXE12)', () => {
+  it('a fixture-sourced sentence ends with the literal " (demo data)"; a live one is unchanged', () => {
+    expect(DEMO_DATA_SUFFIX).toBe(' (demo data)');
+    const o = { id: 'deforestation_overlap', evidence: '0.0% of plot area lost since 2021 (hard fail at 10.0%)' };
+    expect(sourced(o, 'fixture')).toEqual({ id: 'deforestation_overlap', evidence: '0.0% of plot area lost since 2021 (hard fail at 10.0%) (demo data)' });
+    expect(sourced(o, 'live')).toEqual(o);
+  });
+});
+
+describe('a shown value never sits on the wrong side of its threshold (spec minor, TC-011)', () => {
+  it.each([
+    ['flag', 9.94, '9.9% of plot area lost since 2021 (hard fail at 10.0%)'],
+    ['flag', 9.96, '9.9% of plot area lost since 2021 (hard fail at 10.0%)'],
+    ['flag', 9.9999, '9.9% of plot area lost since 2021 (hard fail at 10.0%)'],
+    ['fail', 10, '10.0% of plot area lost since 2021 (hard fail at 10.0%)'],
+    ['fail', 10.04, '10.0% of plot area lost since 2021 (hard fail at 10.0%)'],
+    ['flag', 0.04, '0.1% of plot area lost since 2021 (hard fail at 10.0%)'],
+    ['flag', 0.0001, '0.1% of plot area lost since 2021 (hard fail at 10.0%)'],
+    ['ok', 0, '0.0% of plot area lost since 2021 (hard fail at 10.0%)'],
+    ['fail', 140, '140.0% of plot area lost since 2021 (hard fail at 10.0%)'],
+  ] as const)('forest loss %s %s → %s', (status, lossPct, sentence) => {
+    expect(evidence.deforestation_overlap[status]({ lossPct })).toBe(sentence);
+  });
+
+  it.each([
+    ['ok', 0.45, 'NDVI 0.45 (needs ≥ 0.45)'],
+    ['flag', 0.449, 'NDVI 0.44 (needs ≥ 0.45)'],
+    ['flag', 0.4499, 'NDVI 0.44 (needs ≥ 0.45)'],
+    ['flag', 0.3, 'NDVI 0.30 (needs ≥ 0.45)'],
+    ['fail', 0.2999, 'NDVI 0.29 (needs ≥ 0.45, fail below 0.30)'],
+    ['fail', 0.296, 'NDVI 0.29 (needs ≥ 0.45, fail below 0.30)'],
+  ] as const)('harvest window %s %s → …%s', (status, ndvi, tail) => {
+    expect(evidence.ndvi_harvest_window[status]({ ndvi })).toBe(`Living canopy around the picking date: ${tail}`);
+  });
+
+  it('cultivation: a failing lowest month reads below 0.50 and a failing swing above 0.35', () => {
+    expect(evidence.ndvi_cultivation.fail({ min: 0.4996, max: 0.8, clearMonths: 8 })).toBe(
+      'No year-round canopy over 8 clear months: lowest month NDVI 0.49 (needs ≥ 0.50)',
+    );
+    expect(evidence.ndvi_cultivation.fail({ min: 0.5, max: 0.8504, clearMonths: 8 })).toBe(
+      'No year-round canopy over 8 clear months: seasonal swing 0.36 (limit 0.35)',
+    );
+    // exactly on the limits is ok, and the shown range stays within the swing limit
+    expect(evidence.ndvi_cultivation.ok({ min: 0.5, max: 0.85, clearMonths: 6 })).toBe(
+      'Canopy all year: monthly NDVI 0.50–0.85 over 6 clear months (needs ≥ 0.50, swing ≤ 0.35)',
+    );
+    expect(evidence.ndvi_cultivation.ok({ min: 0.5049, max: 0.8549, clearMonths: 6 })).toBe(
+      'Canopy all year: monthly NDVI 0.50–0.85 over 6 clear months (needs ≥ 0.50, swing ≤ 0.35)',
+    );
+  });
+
+  it.each([
+    ['ok', 1.5, '1.50x'],
+    ['ok', 1.4999, '1.50x'],
+    ['flag', 1.5001, '1.51x'],
+    ['flag', 1.504, '1.51x'],
+    ['flag', 2, '2.00x'],
+    ['fail', 2.0001, '2.01x'],
+    ['fail', 2.004, '2.01x'],
+    ['fail', 2.5, '2.50x'],
+  ] as const)('yield ×U %s %s → %s', (status, ratio, shown) => {
+    expect(evidence.yield_plausibility[status]({ ratio })).toBe(`Season total ${shown} the reference upper bound (flag above 1.50x, hard fail above 2.00x)`);
   });
 });
 

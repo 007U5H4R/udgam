@@ -90,6 +90,62 @@ describe('token (client credentials, cached until exp − 60 s)', () => {
     expect(cdse.tokenCalls()).toHaveLength(1);
   });
 
+  it("one caller aborting does not fail the others waiting on the shared token request", async () => {
+    let answerToken!: () => void;
+    const tokenGate = new Promise<void>((r) => (answerToken = r));
+    let tokenSignal: AbortSignal | null | undefined;
+    const calls: string[] = [];
+    const fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push(String(url));
+      if (String(url).includes('/token')) {
+        tokenSignal = init?.signal;
+        await tokenGate;
+        return json(200, { access_token: TOKEN, expires_in: 600 });
+      }
+      return json(200, recorded('sentinel-P01-history.json'));
+    }) as typeof globalThis.fetch;
+    const s = createSentinelProvider({ clientId: CLIENT_ID, clientSecret: SECRET, fetch });
+    const a = new AbortController();
+    const first = s.ndviHistory(PLOT, '2026-12', { signal: a.signal });
+    const second = s.ndviHistory(PLOT, '2026-12', { signal: new AbortController().signal });
+    await new Promise((r) => setImmediate(r));
+    a.abort(); // caller A gives up (its 8 s timeout, the 10 s cap or a 5 s health probe)
+    await expect(first).rejects.toEqual(new ProviderError('sentinel-hub', 'timeout'));
+    expect(tokenSignal?.aborted).toBe(false); // the shared request is not tied to A's signal
+    answerToken();
+    expect((await second).months).toHaveLength(12); // caller B still gets its answer
+    expect(calls.filter((u) => u.includes('/token'))).toHaveLength(1);
+  });
+
+  it('the shared token request has its own timeout (cfg-1 providers.timeoutMs)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      let tokenSignal: AbortSignal | null | undefined;
+      const fetch = ((url: string | URL | Request, init?: RequestInit) => {
+        tokenSignal = init?.signal;
+        return new Promise<Response>((_, reject) => init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))));
+      }) as typeof globalThis.fetch;
+      const s = createSentinelProvider({ clientId: CLIENT_ID, clientSecret: SECRET, fetch });
+      const p = s.ndviHistory(PLOT, '2026-12').catch((e: unknown) => e);
+      await vi.advanceTimersByTimeAsync(7999);
+      expect(tokenSignal?.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await p).toEqual(new ProviderError('sentinel-hub', 'timeout'));
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('the health probe fetches a fresh token (revoked credentials show at the next probe)', async () => {
+    const cdse = fakeCdse(() => json(200, recorded('sentinel-P01-history.json')));
+    const s = createSentinelProvider({ clientId: CLIENT_ID, clientSecret: SECRET, fetch: cdse.fetch });
+    await s.ndviHistory(PLOT, '2026-12');
+    await s.probe();
+    await s.probe();
+    expect(cdse.tokenCalls()).toHaveLength(3);
+  });
+
   it('a refused token → ProviderError http; a token body without access_token → malformed', async () => {
     const refused = fakeCdse([], () => json(401, { error: 'invalid_client' }));
     await expect(createSentinelProvider({ clientId: CLIENT_ID, clientSecret: SECRET, fetch: refused.fetch }).ndviHistory(PLOT, '2026-12')).rejects.toEqual(new ProviderError('sentinel-hub', 401));
@@ -190,7 +246,8 @@ describe('parsing (TC-031)', () => {
   it('recorded P09 cloud-blocked window → { mean: null, clearObservations: 0 } → ndvi_harvest_window unavailable with the cloud sentence', async () => {
     const cdse = fakeCdse(() => json(200, recorded('sentinel-P09-window-cloud.json')));
     const w = await createSentinelProvider({ clientId: CLIENT_ID, clientSecret: SECRET, fetch: cdse.fetch }).ndviWindow(PLOT, '2026-08-08', 30);
-    expect(w).toEqual({ mean: null, clearObservations: 0 });
+    expect(w).toEqual({ mean: null, clearObservations: 0, source: 'live' });
+    // a live answer: no demo-data suffix (CF-11)
     expect(ndviWindowOutcome(w, CONFIG)).toMatchObject({ status: 'unavailable', evidence: 'Satellite view blocked by cloud for ±30 days' });
   });
 
@@ -198,6 +255,8 @@ describe('parsing (TC-031)', () => {
     ['a non-JSON body', () => new Response('<html>busy</html>', { status: 200 })],
     ['no data array', () => json(200, { status: 'OK' })],
     ['noDataCount above sampleCount', () => json(200, { data: [interval('2026-01-01', { mean: 0.5, sampleCount: 10, noDataCount: 11 })] })],
+    ['a fractional sampleCount', () => json(200, { data: [interval('2026-01-01', { mean: 0.5, sampleCount: 10.5, noDataCount: 0 })] })],
+    ['a fractional noDataCount', () => json(200, { data: [interval('2026-01-01', { mean: 0.5, sampleCount: 10, noDataCount: 2.5 })] })],
     ['an NDVI mean outside [-1, 1]', () => json(200, { data: [interval('2026-01-01', { mean: 7, sampleCount: 10, noDataCount: 0 })] })],
     ['an interval without a start', () => json(200, { data: [{ outputs: {} }] })],
   ])('%s → ProviderError{kind:"malformed"}', async (_what, res) => {

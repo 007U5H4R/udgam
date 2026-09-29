@@ -2,6 +2,9 @@ import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { loadEnv } from './env';
 
+/** Placeholder live-provider keys (not real values). */
+const LIVE_KEYS = { REMOTE_SENSING_PROVIDER: 'live', GFW_API_KEY: 'a', CDSE_CLIENT_ID: 'b', CDSE_CLIENT_SECRET: 'c' } as const;
+
 describe('loadEnv', () => {
   it('returns the documented defaults for an empty source', () => {
     const env = loadEnv({});
@@ -58,8 +61,44 @@ describe('loadEnv', () => {
 
   it('requires BETTER_AUTH_SECRET in production only', () => {
     expect(() => loadEnv({ NODE_ENV: 'production' })).toThrow(/BETTER_AUTH_SECRET/);
-    expect(loadEnv({ NODE_ENV: 'production', BETTER_AUTH_SECRET: 'x'.repeat(32) }).NODE_ENV).toBe('production');
+    expect(loadEnv({ NODE_ENV: 'production', BETTER_AUTH_SECRET: 'x'.repeat(32), ...LIVE_KEYS }).NODE_ENV).toBe('production');
     expect(() => loadEnv({ NODE_ENV: 'development' })).not.toThrow();
+  });
+
+  describe('the fixture provider never runs in production (EXE12, CF-11)', () => {
+    const PROD = { NODE_ENV: 'production', BETTER_AUTH_SECRET: 'x'.repeat(32) } as const;
+    const message = (src: Record<string, string>) => {
+      try {
+        loadEnv(src);
+      } catch (e) {
+        return (e as Error).message;
+      }
+      return '';
+    };
+
+    it('production + fixture refuses to start, naming REMOTE_SENSING_PROVIDER and the rule', () => {
+      expect(message({ ...PROD, REMOTE_SENSING_PROVIDER: 'fixture' })).toBe(
+        'Invalid environment configuration. REMOTE_SENSING_PROVIDER: must be live when NODE_ENV=production (fixture only with E2E=1)',
+      );
+      expect(message({ ...PROD })).toContain('REMOTE_SENSING_PROVIDER: must be live when NODE_ENV=production'); // fixture is the default
+    });
+
+    it('DEMO_MODE=1 is not an exception', () => {
+      expect(message({ ...PROD, REMOTE_SENSING_PROVIDER: 'fixture', DEMO_MODE: '1' })).toContain('REMOTE_SENSING_PROVIDER');
+    });
+
+    it('production + fixture + E2E=1 (the Playwright server) is allowed', () => {
+      expect(loadEnv({ ...PROD, REMOTE_SENSING_PROVIDER: 'fixture', E2E: '1' }).REMOTE_SENSING_PROVIDER).toBe('fixture');
+    });
+
+    it('production + live with its keys is allowed', () => {
+      expect(loadEnv({ ...PROD, ...LIVE_KEYS }).REMOTE_SENSING_PROVIDER).toBe('live');
+    });
+
+    it('development and test run the fixture provider', () => {
+      expect(loadEnv({ NODE_ENV: 'development', REMOTE_SENSING_PROVIDER: 'fixture' }).REMOTE_SENSING_PROVIDER).toBe('fixture');
+      expect(loadEnv({ NODE_ENV: 'test' }).REMOTE_SENSING_PROVIDER).toBe('fixture');
+    });
   });
 
   it('never puts values in error messages', () => {

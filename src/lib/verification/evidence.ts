@@ -39,11 +39,34 @@ export function providerReason(e: { kind: 'timeout' | 'http' | 'malformed'; stat
 /** NDVI, two decimals. */
 const ndvi = (x: number): string => x.toFixed(2);
 
+const roundTo = (x: number, dp: number): number => Math.round(x * 10 ** dp) / 10 ** dp;
+/**
+ * The value to show at `dp` decimals, kept inside [lo, hi]: the range of the status it earned. So a
+ * shown value never sits on the wrong side of its threshold (9.96 % flagged reads 9.9 %, not the
+ * 10.0 % that hard-fails). The status itself is always decided on the unrounded value (S5).
+ */
+const shown = (x: number, dp: number, lo = -Infinity, hi = Infinity): number => Math.min(roundTo(hi, dp), Math.max(roundTo(lo, dp), roundTo(x, dp)));
+/** The smallest step at `dp` decimals (0.1 for percentages, 0.01 for NDVI and ×U). */
+const step = (dp: number): number => 10 ** -dp;
+
+/**
+ * CF-11 / EXE12: every evidence sentence derived from fixture remote-sensing data ends with this, so no
+ * certificate or verdict screen presents fixture results as real satellite evidence.
+ */
+export const DEMO_DATA_SUFFIX = ' (demo data)';
+/** A check outcome built from a remote-sensing answer, labelled with where that answer came from. */
+export function sourced<T extends { evidence: string }>(outcome: T, source: 'fixture' | 'live'): T {
+  return source === 'fixture' ? { ...outcome, evidence: `${outcome.evidence}${DEMO_DATA_SUFFIX}` } : outcome;
+}
+
 const C = CONFIG;
 const gpsLimits = `(good under ${m(C.gpsAccuracy.okBelowM)}, limit ${m(C.gpsAccuracy.flagBelowM)})`;
 const exifGpsLimit = `(limit ${m(C.exifGps.maxDistanceM)})`;
 const lossLine = (p: number) => `${pct(p)} of plot area lost since ${C.deforestation.lossFromYear} (hard fail at ${pct(C.deforestation.hardFailAtPct)})`;
 const harvestLine = (x: number) => `Living canopy around the picking date: NDVI ${ndvi(x)} (needs ≥ ${ndvi(C.ndviHarvestWindow.okMin)}`;
+const D = C.deforestation;
+const H = C.ndviHarvestWindow;
+const Y = C.yield;
 const yieldLine = (r: number) =>
   `Season total ${xu(r)} the reference upper bound (flag above ${xu(C.yield.flagAboveU)}, hard fail above ${xu(C.yield.hardFailAboveU)})`;
 
@@ -117,19 +140,24 @@ export const evidence = {
     fail: (f: { speedKmh: number; distanceM: number; minutes: number } | ClockStood) => movementLine(f),
   },
   deforestation_overlap: {
-    ok: ({ lossPct }: { lossPct: number }) => lossLine(lossPct),
-    flag: ({ lossPct }: { lossPct: number }) => lossLine(lossPct),
-    fail: ({ lossPct }: { lossPct: number }) => lossLine(lossPct),
+    ok: ({ lossPct }: { lossPct: number }) => lossLine(shown(lossPct, 1, -Infinity, D.flagAbovePct)),
+    flag: ({ lossPct }: { lossPct: number }) => lossLine(shown(lossPct, 1, D.flagAbovePct + step(1), D.hardFailAtPct - step(1))),
+    fail: ({ lossPct }: { lossPct: number }) => lossLine(shown(lossPct, 1, D.hardFailAtPct)),
     unavailable: ({ reason }: { reason: string }) => `Forest-loss data unavailable: ${reason}; an admin re-run will retry`,
   },
   ndvi_cultivation: {
-    ok: ({ min, max, clearMonths }: NdviMonths) =>
-      `Canopy all year: monthly NDVI ${ndvi(min)}–${ndvi(max)} over ${clearMonths} clear months (needs ≥ ${ndvi(C.ndviCultivation.canopyMin)}, swing ≤ ${ndvi(C.ndviCultivation.maxSeasonalSwing)})`,
+    ok: ({ min, max, clearMonths }: NdviMonths): string => {
+      const lo = shown(min, 2, C.ndviCultivation.canopyMin);
+      const hi = shown(max, 2, lo, lo + C.ndviCultivation.maxSeasonalSwing); // the shown range never exceeds the swing limit
+      return `Canopy all year: monthly NDVI ${ndvi(lo)}–${ndvi(hi)} over ${clearMonths} clear months (needs ≥ ${ndvi(C.ndviCultivation.canopyMin)}, swing ≤ ${ndvi(C.ndviCultivation.maxSeasonalSwing)})`;
+    },
     fail: ({ min, max, clearMonths }: NdviMonths): string => {
+      // Which limit failed is decided on the unrounded values, as the check decides (ndvi_cultivation r6).
+      const c = C.ndviCultivation;
+      const swing = Math.round((max - min) * 1e6) / 1e6;
       const parts: string[] = [];
-      if (min < C.ndviCultivation.canopyMin) parts.push(`lowest month NDVI ${ndvi(min)} (needs ≥ ${ndvi(C.ndviCultivation.canopyMin)})`);
-      const swing = Math.round((max - min) * 100) / 100;
-      if (swing > C.ndviCultivation.maxSeasonalSwing) parts.push(`seasonal swing ${ndvi(swing)} (limit ${ndvi(C.ndviCultivation.maxSeasonalSwing)})`);
+      if (min < c.canopyMin) parts.push(`lowest month NDVI ${ndvi(shown(min, 2, -Infinity, c.canopyMin - step(2)))} (needs ≥ ${ndvi(c.canopyMin)})`);
+      if (swing > c.maxSeasonalSwing) parts.push(`seasonal swing ${ndvi(shown(swing, 2, c.maxSeasonalSwing + step(2)))} (limit ${ndvi(c.maxSeasonalSwing)})`);
       return `No year-round canopy over ${clearMonths} clear months: ${parts.join('; ')}`;
     },
     unavailable: (f: { reason: 'few_clear_months'; clearMonths: number } | ProviderDown): string =>
@@ -138,18 +166,18 @@ export const evidence = {
         : `Satellite NDVI data unavailable: ${f.detail}; an admin re-run will retry`,
   },
   ndvi_harvest_window: {
-    ok: ({ ndvi: x }: { ndvi: number }) => `${harvestLine(x)})`,
-    flag: ({ ndvi: x }: { ndvi: number }) => `${harvestLine(x)})`,
-    fail: ({ ndvi: x }: { ndvi: number }) => `${harvestLine(x)}, fail below ${ndvi(C.ndviHarvestWindow.failBelow)})`,
+    ok: ({ ndvi: x }: { ndvi: number }) => `${harvestLine(shown(x, 2, H.okMin))})`,
+    flag: ({ ndvi: x }: { ndvi: number }) => `${harvestLine(shown(x, 2, H.failBelow, H.okMin - step(2)))})`,
+    fail: ({ ndvi: x }: { ndvi: number }) => `${harvestLine(shown(x, 2, -Infinity, H.failBelow - step(2)))}, fail below ${ndvi(H.failBelow)})`,
     unavailable: (f: { reason: 'cloud' } | ProviderDown): string =>
       f.reason === 'cloud'
         ? `Satellite view blocked by cloud for ±${C.ndviHarvestWindow.windowDays} days`
         : `Satellite NDVI data unavailable: ${f.detail}; an admin re-run will retry`,
   },
   yield_plausibility: {
-    ok: ({ ratio }: { ratio: number }) => yieldLine(ratio),
-    flag: ({ ratio }: { ratio: number }) => yieldLine(ratio),
-    fail: ({ ratio }: { ratio: number }) => yieldLine(ratio),
+    ok: ({ ratio }: { ratio: number }) => yieldLine(shown(ratio, 2, -Infinity, Y.flagAboveU)),
+    flag: ({ ratio }: { ratio: number }) => yieldLine(shown(ratio, 2, Y.flagAboveU + step(2), Y.hardFailAboveU)),
+    fail: ({ ratio }: { ratio: number }) => yieldLine(shown(ratio, 2, Y.hardFailAboveU + step(2))),
     unavailable: ({ crop }: { crop: string }) => `No yield reference for ${crop}`,
   },
   /** Any check · unavailable because it threw (§7 rule 4, EVAL-018). */

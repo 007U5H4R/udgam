@@ -7,6 +7,9 @@ afterEach(() => {
   vi.resetModules();
 });
 
+/** A production environment: an auth secret and the live provider (EXE12), placeholder values only. */
+const PRODUCTION = { NODE_ENV: 'production', BETTER_AUTH_SECRET: 'x'.repeat(32), REMOTE_SENSING_PROVIDER: 'live', GFW_API_KEY: 'k', CDSE_CLIENT_ID: 'i', CDSE_CLIENT_SECRET: 's' };
+
 // Heavy by design: each case re-imports the seed script, which loads Better Auth (and its password hashing) cold.
 const BUDGET = 60_000;
 
@@ -18,7 +21,7 @@ const load = async (vars: Record<string, string>) => {
 
 describe('seedPassword', () => {
   it('uses SEED_PASSWORD when set', async () => {
-    const { seedPassword } = await load({ NODE_ENV: 'production', BETTER_AUTH_SECRET: 'x'.repeat(32), SEED_PASSWORD: 'a long seed value' });
+    const { seedPassword } = await load({ ...PRODUCTION, SEED_PASSWORD: 'a long seed value' });
     expect(seedPassword()).toBe('a long seed value');
   }, BUDGET);
 
@@ -30,7 +33,7 @@ describe('seedPassword', () => {
   }, BUDGET);
 
   it('refuses to seed production without SEED_PASSWORD', async () => {
-    const { seedPassword } = await load({ NODE_ENV: 'production', BETTER_AUTH_SECRET: 'x'.repeat(32), SEED_PASSWORD: '' });
+    const { seedPassword } = await load({ ...PRODUCTION, SEED_PASSWORD: '' });
     expect(() => seedPassword()).toThrow(/SEED_PASSWORD is required/);
   }, BUDGET);
 
