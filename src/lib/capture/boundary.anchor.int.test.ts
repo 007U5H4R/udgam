@@ -113,7 +113,9 @@ describe('signed refusals are anchored (TSK-19.4)', () => {
   it('a retry of the same signed payload gets the same rejection without a second anchor (TP7)', async () => {
     const { fd } = await signedForm([TEXT]);
     expect(await run(fd)).toEqual([{ t: 'rejected', reason: 'media_type', status: 415 }]);
-    expect(await run(fd)).toEqual([{ t: 'rejected', reason: 'media_type', status: 415 }]);
+    const [first] = await q('SELECT id FROM harvest_events');
+    // the original refusal, with its event id (owner decision on replay, TKT-09)
+    expect(await run(fd)).toEqual([{ t: 'rejected', reason: 'media_type', status: 415, eventId: first!.id, idempotent: true }]);
     expect(await n('harvest_events')).toBe(1);
     expect(await n('ledger_entries')).toBe(SEED_ENTRIES + 1);
   });

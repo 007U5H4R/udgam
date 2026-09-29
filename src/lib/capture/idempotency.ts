@@ -5,12 +5,13 @@ import type { CheckResult, Verdict } from '../verification/types';
 
 // Idempotent retry by payload hash (technical-plan §3.1 step 3, TP7, EV15; TKT-09).
 //
-// Only an ACCEPTED payload short-circuits: its identical signed bytes get the original event and verdict
-// back, and nothing is written. harvest_events.payload_hash is unique among accepted events only
+// Only an ACCEPTED payload short-circuits (any final verdict): its identical signed bytes get the original
+// event and verdict back, and nothing is written. harvest_events.payload_hash is unique among accepted events only
 // (migration 0012/0013), so a stored boundary refusal — an unverified signature, an unknown key, an
 // un-assigned plot, mismatched bytes — never blocks a later genuine capture of the same payload: a
-// refused payload is simply evaluated again, and the same refusal is anchored only once (unique with its
-// reason). The pipeline looks the hash up after the signature and device-ownership checks and before
+// refused payload is evaluated again (owner decision, TKT-09). Refused again for the SAME reason → the
+// original refusal (its eventId, idempotent:true), no new row or anchor; for a different reason → a new
+// anchored refusal; passing now → processed as a new capture. The pipeline looks the hash up after the signature and device-ownership checks and before
 // revocation, plot assignment and media (so a retry after a later revocation or un-assignment still gets
 // its original verdict), again at the start of the write transaction (the duplicate-resend race), and
 // on a unique violation there (defence in depth: the loser re-reads the winner).
@@ -46,6 +47,18 @@ export async function findPriorOutcome(handle: Db | Tx, payloadHash: string): Pr
     .orderBy(desc(harvestEvents.anchorSeq))
     .limit(1);
   return rejected ? { kind: 'rejected', eventId: rejected.id, reason: rejected.reason ?? 'rejected' } : null;
+}
+
+/**
+ * The event that anchored this exact refusal (payload hash and reason) of the payload, if any: a replay
+ * refused for the same reason answers with it (original eventId, idempotent) and anchors nothing new.
+ */
+export async function findRejection(handle: Db | Tx, payloadHash: string, reason: string): Promise<string | null> {
+  const [row] = await handle
+    .select({ id: harvestEvents.id })
+    .from(harvestEvents)
+    .where(and(eq(harvestEvents.payloadHash, payloadHash), eq(harvestEvents.boundaryStatus, 'rejected'), eq(harvestEvents.boundaryReason, reason)));
+  return row?.id ?? null;
 }
 
 /** The accepted outcome for this hash, if there is one (the only kind that short-circuits). */

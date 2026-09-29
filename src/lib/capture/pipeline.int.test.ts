@@ -188,7 +188,8 @@ describe('boundary rejections are anchored (§3.1 step 2), except garbled payloa
     f.fd.set('photo0', new File([photo('not-a')], 'p0.jpg', { type: 'image/jpeg' }));
     expect(await run(f.fd)).toEqual([{ t: 'rejected', reason: 'media_hash_mismatch', status: 409 }]);
     expect((await t.client.execute('SELECT device_id FROM harvest_events')).rows[0]?.device_id).toBe(world.deviceId);
-    expect(await run(f.fd)).toEqual([{ t: 'rejected', reason: 'media_hash_mismatch', status: 409 }]);
+    const [first] = (await t.client.execute('SELECT id FROM harvest_events')).rows;
+    expect(await run(f.fd)).toEqual([{ t: 'rejected', reason: 'media_hash_mismatch', status: 409, eventId: String(first!.id), idempotent: true }]);
     expect(await count('harvest_events')).toBe(1); // the same refusal is anchored once
     expect(await count('media')).toBe(0);
     // A stored refusal is not sticky: only an accepted payload short-circuits (TP7 as refined, EXE).
