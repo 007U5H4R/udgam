@@ -1,0 +1,993 @@
+{
+  "format": "udgam-proof-feed/1",
+  "batchId": "B-CR3G933K",
+  "shortHash": "05d36abc389a",
+  "ledgerKey": {
+    "kid": "Ts8JTp1662B5l9qdYr7bR9F1OXO6NUiDgFSSfbzDb_c",
+    "url": "/.well-known/udgam-ledger-key"
+  },
+  "checkpoints": [
+    {
+      "id": 1,
+      "fromSeq": 1,
+      "toSeq": 16,
+      "merkleRoot": "cfb2213ad10e7141a84bb36c9ef084d17b7b5e4d14c66274b7f00aac20d66c85",
+      "prevCheckpointHash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "ts": "2026-09-29T18:56:32.386Z",
+      "kid": "Ts8JTp1662B5l9qdYr7bR9F1OXO6NUiDgFSSfbzDb_c",
+      "signature": "Lw3MGl55LimKpujV_cFoio7it-xB58OYngRcFmGwcntp7gnJXaAHBAJ9PdeMvn-79cSuiP0tF19NZiqsnulIRA"
+    }
+  ],
+  "entries": [
+    {
+      "seq": 1,
+      "prevHash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "kind": "plot_registered",
+      "payload": {
+        "areaHa": 1.9999188690047616,
+        "crop": "arabica",
+        "geometryHash": "4b85a39f731b88607cd8fc37b63426c7fb4e5b325ea12d97204f769234c36153",
+        "plotId": "PL-QZE72CD2",
+        "polygon": {
+          "coordinates": [
+            [
+              [
+                75.739986,
+                12.4213057
+              ],
+              [
+                75.7393573,
+                12.4218229
+              ],
+              [
+                75.7385331,
+                12.4216088
+              ],
+              [
+                75.7384847,
+                12.4207742
+              ],
+              [
+                75.7390777,
+                12.4202501
+              ],
+              [
+                75.7397745,
+                12.4205949
+              ],
+              [
+                75.739986,
+                12.4213057
+              ]
+            ]
+          ],
+          "type": "Polygon"
+        },
+        "producerId": "PR-0PDMRFJ3"
+      },
+      "payloadHash": "1381684501f3487c4c682bda98c3ab6467d9fbbc39a3327091864eb8a5e7720d",
+      "ts": "2026-09-29T18:56:32.042Z",
+      "entryHash": "e607e3b657f3f0805eefeeba0662600b90a3c9503efc55b3bccc6415aab3833b",
+      "checkpointId": 1,
+      "leafIndex": 0,
+      "path": [
+        "0efbbdff579f28b37ce417ed5e0c34c82fa6185e20588760162a6b424683c0e4",
+        "8c414feef130c737b3b5726b70f70f4000b33323f8d6df4c2fb4d13bc2cfe871",
+        "5408cccdb82a00fb7e73f7c2c7a10d2668b29a9b9f7b7d14f7a5737d7ac1b480",
+        "bbb709e2d38846625c83bac0a9c8c1eeee189de7d2ae7b17e2e226d0c2144edc"
+      ]
+    },
+    {
+      "seq": 2,
+      "prevHash": "e607e3b657f3f0805eefeeba0662600b90a3c9503efc55b3bccc6415aab3833b",
+      "kind": "plot_edited",
+      "payload": {
+        "areaHa": 1.9999188690047616,
+        "crop": "arabica",
+        "geometryHash": "4b85a39f731b88607cd8fc37b63426c7fb4e5b325ea12d97204f769234c36153",
+        "plotId": "PL-QZE72CD2",
+        "polygon": {
+          "coordinates": [
+            [
+              [
+                75.739986,
+                12.4213057
+              ],
+              [
+                75.7393573,
+                12.4218229
+              ],
+              [
+                75.7385331,
+                12.4216088
+              ],
+              [
+                75.7384847,
+                12.4207742
+              ],
+              [
+                75.7390777,
+                12.4202501
+              ],
+              [
+                75.7397745,
+                12.4205949
+              ],
+              [
+                75.739986,
+                12.4213057
+              ]
+            ]
+          ],
+          "type": "Polygon"
+        },
+        "producerId": "PR-0PDMRFJ3",
+        "registrationChecksHash": "30c9ba473c06a5c434eb0bbe1e5b3aebbf1fa205820aaec898b79a188df04346"
+      },
+      "payloadHash": "bb3b58acc49d6809a9b470217a7768d1a543c7929f18c14afeec8c06e8fb5933",
+      "ts": "2026-09-29T18:56:32.085Z",
+      "entryHash": "e809ed77825e36347b98613de70d651d6d90a62cb4da750450813f163b191b6b",
+      "checkpointId": 1,
+      "leafIndex": 1,
+      "path": [
+        "a10a95d305340faae30c2348a5b6db050960fe3aa6ee5ab1602bbcd2e9f354f5",
+        "8c414feef130c737b3b5726b70f70f4000b33323f8d6df4c2fb4d13bc2cfe871",
+        "5408cccdb82a00fb7e73f7c2c7a10d2668b29a9b9f7b7d14f7a5737d7ac1b480",
+        "bbb709e2d38846625c83bac0a9c8c1eeee189de7d2ae7b17e2e226d0c2144edc"
+      ]
+    },
+    {
+      "seq": 3,
+      "prevHash": "e809ed77825e36347b98613de70d651d6d90a62cb4da750450813f163b191b6b",
+      "kind": "plot_registered",
+      "payload": {
+        "areaHa": 1.999911949698463,
+        "crop": "arabica",
+        "geometryHash": "4e8b1df0e34083ad977620a3f91c24c1b20928ad78b696637bb8b8061f462b8a",
+        "plotId": "PL-ZCPHYB19",
+        "polygon": {
+          "coordinates": [
+            [
+              [
+                75.742386,
+                12.4222057
+              ],
+              [
+                75.7417573,
+                12.4227229
+              ],
+              [
+                75.7409331,
+                12.4225088
+              ],
+              [
+                75.7408847,
+                12.4216742
+              ],
+              [
+                75.7414777,
+                12.4211501
+              ],
+              [
+                75.7421745,
+                12.4214949
+              ],
+              [
+                75.742386,
+                12.4222057
+              ]
+            ]
+          ],
+          "type": "Polygon"
+        },
+        "producerId": "PR-VVEWARBA"
+      },
+      "payloadHash": "c93ab6b3e6fe546e39289a78593a0cfc74ea35aad798dc39d7cdec2e7608020d",
+      "ts": "2026-09-29T18:56:32.097Z",
+      "entryHash": "73ec6b3e6696c10cf60bab2c084499df8a4be02281d526be1b1ef8aa22492033",
+      "checkpointId": 1,
+      "leafIndex": 2,
+      "path": [
+        "7222bbf6c2ec539c3655bf975935ae3c28fc605c593a6f89334449ba0f6410a1",
+        "9aea5de9472e2cc2f159bc3fc46431d7e4d55f51cb72b2218b00cd4d669681b3",
+        "5408cccdb82a00fb7e73f7c2c7a10d2668b29a9b9f7b7d14f7a5737d7ac1b480",
+        "bbb709e2d38846625c83bac0a9c8c1eeee189de7d2ae7b17e2e226d0c2144edc"
+      ]
+    },
+    {
+      "seq": 4,
+      "prevHash": "73ec6b3e6696c10cf60bab2c084499df8a4be02281d526be1b1ef8aa22492033",
+      "kind": "plot_edited",
+      "payload": {
+        "areaHa": 1.999911949698463,
+        "crop": "arabica",
+        "geometryHash": "4e8b1df0e34083ad977620a3f91c24c1b20928ad78b696637bb8b8061f462b8a",
+        "plotId": "PL-ZCPHYB19",
+        "polygon": {
+          "coordinates": [
+            [
+              [
+                75.742386,
+                12.4222057
+              ],
+              [
+                75.7417573,
+                12.4227229
+              ],
+              [
+                75.7409331,
+                12.4225088
+              ],
+              [
+                75.7408847,
+                12.4216742
+              ],
+              [
+                75.7414777,
+                12.4211501
+              ],
+              [
+                75.7421745,
+                12.4214949
+              ],
+              [
+                75.742386,
+                12.4222057
+              ]
+            ]
+          ],
+          "type": "Polygon"
+        },
+        "producerId": "PR-VVEWARBA",
+        "registrationChecksHash": "9646b860ce542cf6e23e694f1afbdc2a2da537c166809627a0a1d5d09c6d6b7c"
+      },
+      "payloadHash": "ee42e02033777ca456adc1c905f350ee77d7afedd3198f0dbb3bddbf3c1a9fd3",
+      "ts": "2026-09-29T18:56:32.112Z",
+      "entryHash": "7bf7cd894297522f8f8595de4f9b0de1cc642d87a33d8bbafc755edc13d7098a",
+      "checkpointId": 1,
+      "leafIndex": 3,
+      "path": [
+        "7a59c9979c1589fad61fe5b81938642b4c8ffa601e79c34a9c0e7468614569bd",
+        "9aea5de9472e2cc2f159bc3fc46431d7e4d55f51cb72b2218b00cd4d669681b3",
+        "5408cccdb82a00fb7e73f7c2c7a10d2668b29a9b9f7b7d14f7a5737d7ac1b480",
+        "bbb709e2d38846625c83bac0a9c8c1eeee189de7d2ae7b17e2e226d0c2144edc"
+      ]
+    },
+    {
+      "seq": 5,
+      "prevHash": "7bf7cd894297522f8f8595de4f9b0de1cc642d87a33d8bbafc755edc13d7098a",
+      "kind": "plot_registered",
+      "payload": {
+        "areaHa": 1.9999050298803192,
+        "crop": "arabica",
+        "geometryHash": "9c8abb02d1941c98e0deb1e332b90d78c3c40c3f7502249f49586f419c1435e3",
+        "plotId": "PL-G7JGKSD0",
+        "polygon": {
+          "coordinates": [
+            [
+              [
+                75.744786,
+                12.4231057
+              ],
+              [
+                75.7441573,
+                12.4236229
+              ],
+              [
+                75.7433331,
+                12.4234088
+              ],
+              [
+                75.7432847,
+                12.4225742
+              ],
+              [
+                75.7438777,
+                12.4220501
+              ],
+              [
+                75.7445745,
+                12.4223949
+              ],
+              [
+                75.744786,
+                12.4231057
+              ]
+            ]
+          ],
+          "type": "Polygon"
+        },
+        "producerId": "PR-YQZGQHEX"
+      },
+      "payloadHash": "2fbf3e004f5d3ef43b55a8499eaa685382b6335e74e9ecfd9d18cc0c23d90fc3",
+      "ts": "2026-09-29T18:56:32.120Z",
+      "entryHash": "7b17705df75a257c1ac99c7436be8f59caab418f6deac4839b16d27a0b7cdf6a",
+      "checkpointId": 1,
+      "leafIndex": 4,
+      "path": [
+        "f058b665224a363877248b87f0b8eed78098891823729e9982f122a420fb56e4",
+        "9aa4fc50d1b1aa56e71415995006a553a4b8fe20bef1120552284249be8fa5d8",
+        "4bbbd8e43e840551847d71acc6fa4a3e797499cdacf9969e1825bee687e97ad9",
+        "bbb709e2d38846625c83bac0a9c8c1eeee189de7d2ae7b17e2e226d0c2144edc"
+      ]
+    },
+    {
+      "seq": 6,
+      "prevHash": "7b17705df75a257c1ac99c7436be8f59caab418f6deac4839b16d27a0b7cdf6a",
+      "kind": "plot_edited",
+      "payload": {
+        "areaHa": 1.9999050298803192,
+        "crop": "arabica",
+        "geometryHash": "9c8abb02d1941c98e0deb1e332b90d78c3c40c3f7502249f49586f419c1435e3",
+        "plotId": "PL-G7JGKSD0",
+        "polygon": {
+          "coordinates": [
+            [
+              [
+                75.744786,
+                12.4231057
+              ],
+              [
+                75.7441573,
+                12.4236229
+              ],
+              [
+                75.7433331,
+                12.4234088
+              ],
+              [
+                75.7432847,
+                12.4225742
+              ],
+              [
+                75.7438777,
+                12.4220501
+              ],
+              [
+                75.7445745,
+                12.4223949
+              ],
+              [
+                75.744786,
+                12.4231057
+              ]
+            ]
+          ],
+          "type": "Polygon"
+        },
+        "producerId": "PR-YQZGQHEX",
+        "registrationChecksHash": "12d308766e3e5fb63acacdb77c6da54eedca3721ecb1a8239a4d7e16435d6c10"
+      },
+      "payloadHash": "f3a68faa27cfec68e74b8a395dfe25c380723d757647fc28e676d1ff8a6402e8",
+      "ts": "2026-09-29T18:56:32.158Z",
+      "entryHash": "eb79f89330eb492162f4fdc3631a32edf20174b5609143dd77d43a6edf2984e1",
+      "checkpointId": 1,
+      "leafIndex": 5,
+      "path": [
+        "e7c7b4e6117c01041d80001f65e87e777accdec724d754ac4bc69cb3ecc8af61",
+        "9aa4fc50d1b1aa56e71415995006a553a4b8fe20bef1120552284249be8fa5d8",
+        "4bbbd8e43e840551847d71acc6fa4a3e797499cdacf9969e1825bee687e97ad9",
+        "bbb709e2d38846625c83bac0a9c8c1eeee189de7d2ae7b17e2e226d0c2144edc"
+      ]
+    },
+    {
+      "seq": 7,
+      "prevHash": "eb79f89330eb492162f4fdc3631a32edf20174b5609143dd77d43a6edf2984e1",
+      "kind": "device_enrolled",
+      "payload": {
+        "agentId": "USR-B45AF2K4",
+        "deviceId": "DV-4CWDNJ0N",
+        "thumbprint": "UzLkuPf6pC8pVpGLHcV6MPtozvRhR5kzbL6ghaMrKj0"
+      },
+      "payloadHash": "94acfa4419afb50fc82db93d6741efd3ee809dd2edf6bb9facff61d98f4facbf",
+      "ts": "2026-09-29T18:56:32.227Z",
+      "entryHash": "21d9f84a13a2e42c4cdae635720460530ebe4f8fcb4127292b6d1bff47fb8500",
+      "checkpointId": 1,
+      "leafIndex": 6,
+      "path": [
+        "d81054730dca62c26a982b956a88725a0d0a25695445b44772edc44d8dc7b1d4",
+        "6a4ad20b4ceba6df5decb12a385907c8a8e83fd68ab5383620c94e2205d178b5",
+        "4bbbd8e43e840551847d71acc6fa4a3e797499cdacf9969e1825bee687e97ad9",
+        "bbb709e2d38846625c83bac0a9c8c1eeee189de7d2ae7b17e2e226d0c2144edc"
+      ]
+    },
+    {
+      "seq": 8,
+      "prevHash": "21d9f84a13a2e42c4cdae635720460530ebe4f8fcb4127292b6d1bff47fb8500",
+      "kind": "harvest_event",
+      "payload": {
+        "boundaryStatus": "accepted",
+        "capture": {
+          "capturedAt": "2026-09-02T04:30:00.000Z",
+          "cherryKg": 38,
+          "deviceId": "DV-4CWDNJ0N",
+          "gps": {
+            "accuracyM": 8,
+            "lat": 12.4211,
+            "lng": 75.7392
+          },
+          "media": [
+            {
+              "mime": "image/jpeg",
+              "sha256": "0e05c000a000708300c00708ee0a70a00b0c05040000706009002100b000a28f",
+              "size": 180000
+            },
+            {
+              "mime": "image/jpeg",
+              "sha256": "f1111414f5110cc116d1811b1111ba70116f313f119011611114ea116141b161",
+              "size": 180001
+            },
+            {
+              "mime": "image/jpeg",
+              "sha256": "2292282228a2a2b26222722224b206dba2fb22482222212212c7870612242b62",
+              "size": 180002
+            }
+          ],
+          "plotId": "PL-QZE72CD2",
+          "prevEventHash": "genesis",
+          "seq": 1,
+          "v": 1
+        },
+        "deviceId": "DV-4CWDNJ0N",
+        "eventId": "HE-ZHCT0K3KHGNV",
+        "payloadHash": "6a62cd9900f4d4db2fcf94377f5f030e750d21b41d9dd5ff57829422a8d901fa",
+        "plotId": "PL-QZE72CD2",
+        "seq": 1,
+        "serverReceivedAt": "2026-09-02T04:30:40.000Z",
+        "signature": "iEqhTI9GAEew3Txh8KpjxnkdtW_DX3ZYCEfZUWnTzGoPp_zLKqChfQF1ajQzT9bkXOJCIVZznnZu-vgGZXUmpg"
+      },
+      "payloadHash": "1b1a91a47a7808bc60212cc2a31a754b062026c91828227a33fd227415993ef6",
+      "ts": "2026-09-29T18:56:32.232Z",
+      "entryHash": "4db15588d595ffd300eb345b353ea4e581d6ee6206177ceb9ba94c9db700a4e0",
+      "checkpointId": 1,
+      "leafIndex": 7,
+      "path": [
+        "f4bfad59c50660774b78105db36e596aab4c7ac8c7746a1a9742298dcc42feba",
+        "6a4ad20b4ceba6df5decb12a385907c8a8e83fd68ab5383620c94e2205d178b5",
+        "4bbbd8e43e840551847d71acc6fa4a3e797499cdacf9969e1825bee687e97ad9",
+        "bbb709e2d38846625c83bac0a9c8c1eeee189de7d2ae7b17e2e226d0c2144edc"
+      ]
+    },
+    {
+      "seq": 9,
+      "prevHash": "4db15588d595ffd300eb345b353ea4e581d6ee6206177ceb9ba94c9db700a4e0",
+      "kind": "verification_run",
+      "payload": {
+        "capReasons": [],
+        "checks": [
+          {
+            "evidence": "Signed by enrolled phone DV-4CWDNJ0N",
+            "hardFail": false,
+            "id": "signature_valid",
+            "status": "ok"
+          },
+          {
+            "evidence": "Entry follows the previous entry from this phone",
+            "hardFail": false,
+            "id": "chain_continuity",
+            "status": "ok"
+          },
+          {
+            "evidence": "3 of 3 photos are new",
+            "hardFail": false,
+            "id": "photo_uniqueness",
+            "status": "ok"
+          },
+          {
+            "evidence": "Inside the plot, 42 m from the edge",
+            "hardFail": false,
+            "id": "geofence",
+            "status": "ok"
+          },
+          {
+            "evidence": "GPS accuracy 8 m (good under 30 m, limit 100 m)",
+            "hardFail": false,
+            "id": "gps_accuracy",
+            "status": "ok"
+          },
+          {
+            "evidence": "Photo location 10 m from phone location (limit 50 m)",
+            "hardFail": false,
+            "id": "exif_gps_agreement",
+            "status": "ok"
+          },
+          {
+            "evidence": "Photo time 2 min from capture time (limit 10 min); phone clock 0 min from server (limit 24 h)",
+            "hardFail": false,
+            "id": "exif_time_agreement",
+            "status": "ok"
+          },
+          {
+            "evidence": "First entry from this phone",
+            "hardFail": false,
+            "id": "movement_plausibility",
+            "status": "ok"
+          },
+          {
+            "evidence": "0.0% of plot area lost since 2021 (hard fail at 10.0%) (demo data)",
+            "hardFail": false,
+            "id": "deforestation_overlap",
+            "provider": "gfw",
+            "status": "ok"
+          },
+          {
+            "evidence": "Canopy all year: monthly NDVI 0.62–0.81 over 11 clear months (needs ≥ 0.50, swing ≤ 0.35) (demo data)",
+            "hardFail": false,
+            "id": "ndvi_cultivation",
+            "provider": "sentinel-hub",
+            "status": "ok"
+          },
+          {
+            "evidence": "Living canopy around the picking date: NDVI 0.71 (needs ≥ 0.45) (demo data)",
+            "hardFail": false,
+            "id": "ndvi_harvest_window",
+            "provider": "sentinel-hub",
+            "status": "ok"
+          },
+          {
+            "evidence": "Season total 0.30x the reference upper bound (flag above 1.50x, hard fail above 2.00x)",
+            "hardFail": false,
+            "id": "yield_plausibility",
+            "status": "ok"
+          }
+        ],
+        "config": {
+          "hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "version": "cfg-1"
+        },
+        "createdAt": "2026-09-02T04:30:40.000Z",
+        "eventId": "HE-ZHCT0K3KHGNV",
+        "runId": "VR-C74ZP78C9V8T",
+        "runNo": 1,
+        "score": 92,
+        "unavailableProviders": [],
+        "verdict": "Verified"
+      },
+      "payloadHash": "246b196e926502809482ca73deb09a13d6fe313e125a4747e2500d5e9185aa82",
+      "ts": "2026-09-29T18:56:32.234Z",
+      "entryHash": "53fa49593dbb810ec902b5fcf5eba285e1df45aea11758ca2e2a223b227d8652",
+      "checkpointId": 1,
+      "leafIndex": 8,
+      "path": [
+        "31350983cbdfecaf5d6d5afd606e4128080fd82e6eecaa062541220f2995d258",
+        "323912b7aa6f8d4ba215ce4258995e11c9d2e7f4327d9aef3e40309418ae2451",
+        "a45f359ffda0ba9a6c3ceba7c7b11aee9b0d3d0d872e508fe505b682adb87433",
+        "c40c6be7a0cd51713d74e90e0e7ee472785ad4e0be06f88f6b15261ebcd617d9"
+      ]
+    },
+    {
+      "seq": 10,
+      "prevHash": "53fa49593dbb810ec902b5fcf5eba285e1df45aea11758ca2e2a223b227d8652",
+      "kind": "harvest_event",
+      "payload": {
+        "boundaryStatus": "accepted",
+        "capture": {
+          "capturedAt": "2026-09-04T04:30:00.000Z",
+          "cherryKg": 41.5,
+          "deviceId": "DV-4CWDNJ0N",
+          "gps": {
+            "accuracyM": 8,
+            "lat": 12.422,
+            "lng": 75.7416
+          },
+          "media": [
+            {
+              "mime": "image/jpeg",
+              "sha256": "9008083a01ef0100fd0da8c0000600c007702d0e0430029d06c803000f0ac100",
+              "size": 180000
+            },
+            {
+              "mime": "image/jpeg",
+              "sha256": "1711411112f11a1b5aa116d1d4e1171597141771acb1e1d11463a8eb012c4117",
+              "size": 180001
+            },
+            {
+              "mime": "image/jpeg",
+              "sha256": "956a8282228e02202202d2822262227722222270d2b32122d62024b22c22922d",
+              "size": 180002
+            }
+          ],
+          "plotId": "PL-ZCPHYB19",
+          "prevEventHash": "6a62cd9900f4d4db2fcf94377f5f030e750d21b41d9dd5ff57829422a8d901fa",
+          "seq": 2,
+          "v": 1
+        },
+        "deviceId": "DV-4CWDNJ0N",
+        "eventId": "HE-S1WRFD1JDDER",
+        "payloadHash": "03b382259ae44d77cbeb5a9a4772b4b18092f297187017fabbfdeaac22a8ce57",
+        "plotId": "PL-ZCPHYB19",
+        "seq": 2,
+        "serverReceivedAt": "2026-09-04T04:30:40.000Z",
+        "signature": "2oTARMJ6b6n9OP9d9pD4Imu7FKVv0ODiZbx_tw79z35uFEtnkMEi1eh8pjcw1XQmpL6sksDBe0_E4kvTqf8eDQ"
+      },
+      "payloadHash": "27060190ac6aea8d1832cc1dac12990ef58b075861a19b331befbb143d13dac9",
+      "ts": "2026-09-29T18:56:32.244Z",
+      "entryHash": "ea2ff3248bf96c7a9fddaa8060d21858b8c984fdedadf3ef05efa50a451f0b4d",
+      "checkpointId": 1,
+      "leafIndex": 9,
+      "path": [
+        "5d8f0ad3ac10610215b7f3a704077d4e76909b05ae9541f19ec3fb860aad17a1",
+        "323912b7aa6f8d4ba215ce4258995e11c9d2e7f4327d9aef3e40309418ae2451",
+        "a45f359ffda0ba9a6c3ceba7c7b11aee9b0d3d0d872e508fe505b682adb87433",
+        "c40c6be7a0cd51713d74e90e0e7ee472785ad4e0be06f88f6b15261ebcd617d9"
+      ]
+    },
+    {
+      "seq": 11,
+      "prevHash": "ea2ff3248bf96c7a9fddaa8060d21858b8c984fdedadf3ef05efa50a451f0b4d",
+      "kind": "verification_run",
+      "payload": {
+        "capReasons": [],
+        "checks": [
+          {
+            "evidence": "Signed by enrolled phone DV-4CWDNJ0N",
+            "hardFail": false,
+            "id": "signature_valid",
+            "status": "ok"
+          },
+          {
+            "evidence": "Entry follows the previous entry from this phone",
+            "hardFail": false,
+            "id": "chain_continuity",
+            "status": "ok"
+          },
+          {
+            "evidence": "3 of 3 photos are new",
+            "hardFail": false,
+            "id": "photo_uniqueness",
+            "status": "ok"
+          },
+          {
+            "evidence": "Inside the plot, 42 m from the edge",
+            "hardFail": false,
+            "id": "geofence",
+            "status": "ok"
+          },
+          {
+            "evidence": "GPS accuracy 8 m (good under 30 m, limit 100 m)",
+            "hardFail": false,
+            "id": "gps_accuracy",
+            "status": "ok"
+          },
+          {
+            "evidence": "Photo location 10 m from phone location (limit 50 m)",
+            "hardFail": false,
+            "id": "exif_gps_agreement",
+            "status": "ok"
+          },
+          {
+            "evidence": "Photo time 2 min from capture time (limit 10 min); phone clock 0 min from server (limit 24 h)",
+            "hardFail": false,
+            "id": "exif_time_agreement",
+            "status": "ok"
+          },
+          {
+            "evidence": "First entry from this phone",
+            "hardFail": false,
+            "id": "movement_plausibility",
+            "status": "ok"
+          },
+          {
+            "evidence": "0.0% of plot area lost since 2021 (hard fail at 10.0%) (demo data)",
+            "hardFail": false,
+            "id": "deforestation_overlap",
+            "provider": "gfw",
+            "status": "ok"
+          },
+          {
+            "evidence": "Canopy all year: monthly NDVI 0.62–0.81 over 11 clear months (needs ≥ 0.50, swing ≤ 0.35) (demo data)",
+            "hardFail": false,
+            "id": "ndvi_cultivation",
+            "provider": "sentinel-hub",
+            "status": "ok"
+          },
+          {
+            "evidence": "Living canopy around the picking date: NDVI 0.71 (needs ≥ 0.45) (demo data)",
+            "hardFail": false,
+            "id": "ndvi_harvest_window",
+            "provider": "sentinel-hub",
+            "status": "ok"
+          },
+          {
+            "evidence": "Season total 0.30x the reference upper bound (flag above 1.50x, hard fail above 2.00x)",
+            "hardFail": false,
+            "id": "yield_plausibility",
+            "status": "ok"
+          }
+        ],
+        "config": {
+          "hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "version": "cfg-1"
+        },
+        "createdAt": "2026-09-04T04:30:40.000Z",
+        "eventId": "HE-S1WRFD1JDDER",
+        "runId": "VR-D5YKQH9K6B87",
+        "runNo": 1,
+        "score": 92,
+        "unavailableProviders": [],
+        "verdict": "Verified"
+      },
+      "payloadHash": "b503d650b8b6a8121de7d869a4f21ec23d73fc900069ded2575c5d1456a93908",
+      "ts": "2026-09-29T18:56:32.251Z",
+      "entryHash": "b2945c06326e2a7e481670e355ca3cc5bb9f549b10c2b66e9e3d023fe6ed192b",
+      "checkpointId": 1,
+      "leafIndex": 10,
+      "path": [
+        "407d836d88b18b467cd1a3e00bde9d8bbe5d24aa30ddcd7474b2f32f92ffcd9e",
+        "68bb5a2924808ae2d348aeaa430b2578ac7ccb7fbc9abaeb9e79315a24ac9b57",
+        "a45f359ffda0ba9a6c3ceba7c7b11aee9b0d3d0d872e508fe505b682adb87433",
+        "c40c6be7a0cd51713d74e90e0e7ee472785ad4e0be06f88f6b15261ebcd617d9"
+      ]
+    },
+    {
+      "seq": 12,
+      "prevHash": "b2945c06326e2a7e481670e355ca3cc5bb9f549b10c2b66e9e3d023fe6ed192b",
+      "kind": "harvest_event",
+      "payload": {
+        "boundaryStatus": "accepted",
+        "capture": {
+          "capturedAt": "2026-09-06T04:30:00.000Z",
+          "cherryKg": 45,
+          "deviceId": "DV-4CWDNJ0N",
+          "gps": {
+            "accuracyM": 8,
+            "lat": 12.4229,
+            "lng": 75.744
+          },
+          "media": [
+            {
+              "mime": "image/jpeg",
+              "sha256": "00000a00a2090000ef4800047090030b0300b51070006d010000f4bf030e8e00",
+              "size": 180000
+            },
+            {
+              "mime": "image/jpeg",
+              "sha256": "51c91d90111b15d611861141011f1e1191111141161111e1111115111131113d",
+              "size": 180001
+            },
+            {
+              "mime": "image/jpeg",
+              "sha256": "09242212db7222c20222262265222922ac5b2a04b72db54ad2d2d22f22232222",
+              "size": 180002
+            }
+          ],
+          "plotId": "PL-G7JGKSD0",
+          "prevEventHash": "03b382259ae44d77cbeb5a9a4772b4b18092f297187017fabbfdeaac22a8ce57",
+          "seq": 3,
+          "v": 1
+        },
+        "deviceId": "DV-4CWDNJ0N",
+        "eventId": "HE-MNF7W6ZYKA30",
+        "payloadHash": "3f6a3b832fcdc5d7b5b79509d859b0c7d1d31bcd8fbaee73e3d5ced54ec1bb54",
+        "plotId": "PL-G7JGKSD0",
+        "seq": 3,
+        "serverReceivedAt": "2026-09-06T04:30:40.000Z",
+        "signature": "fkU8RdT3Ny1ZPICOry6Vl9JzWEQ9qgKYtog0dRH2s7wH-BRAkJledmROoP5UfFQMdKot_QPXzMNV-zLxuK1Ucw"
+      },
+      "payloadHash": "1657f7b43f86ad658d9eb6be641eb774c4d20d34bf953b695587318219afe730",
+      "ts": "2026-09-29T18:56:32.259Z",
+      "entryHash": "ec99a9f3071f688375c62c39b522db38db398baa2b798cde03455b1068d032f8",
+      "checkpointId": 1,
+      "leafIndex": 11,
+      "path": [
+        "fc5c8a572175010451e3350d60a6ec4808885830fd3660dcf55eec914f9992ac",
+        "68bb5a2924808ae2d348aeaa430b2578ac7ccb7fbc9abaeb9e79315a24ac9b57",
+        "a45f359ffda0ba9a6c3ceba7c7b11aee9b0d3d0d872e508fe505b682adb87433",
+        "c40c6be7a0cd51713d74e90e0e7ee472785ad4e0be06f88f6b15261ebcd617d9"
+      ]
+    },
+    {
+      "seq": 13,
+      "prevHash": "ec99a9f3071f688375c62c39b522db38db398baa2b798cde03455b1068d032f8",
+      "kind": "verification_run",
+      "payload": {
+        "capReasons": [],
+        "checks": [
+          {
+            "evidence": "Signed by enrolled phone DV-4CWDNJ0N",
+            "hardFail": false,
+            "id": "signature_valid",
+            "status": "ok"
+          },
+          {
+            "evidence": "Entry follows the previous entry from this phone",
+            "hardFail": false,
+            "id": "chain_continuity",
+            "status": "ok"
+          },
+          {
+            "evidence": "3 of 3 photos are new",
+            "hardFail": false,
+            "id": "photo_uniqueness",
+            "status": "ok"
+          },
+          {
+            "evidence": "Inside the plot, 42 m from the edge",
+            "hardFail": false,
+            "id": "geofence",
+            "status": "ok"
+          },
+          {
+            "evidence": "GPS accuracy 8 m (good under 30 m, limit 100 m)",
+            "hardFail": false,
+            "id": "gps_accuracy",
+            "status": "ok"
+          },
+          {
+            "evidence": "Photo location 10 m from phone location (limit 50 m)",
+            "hardFail": false,
+            "id": "exif_gps_agreement",
+            "status": "ok"
+          },
+          {
+            "evidence": "Photo time 2 min from capture time (limit 10 min); phone clock 0 min from server (limit 24 h)",
+            "hardFail": false,
+            "id": "exif_time_agreement",
+            "status": "ok"
+          },
+          {
+            "evidence": "First entry from this phone",
+            "hardFail": false,
+            "id": "movement_plausibility",
+            "status": "ok"
+          },
+          {
+            "evidence": "0.0% of plot area lost since 2021 (hard fail at 10.0%) (demo data)",
+            "hardFail": false,
+            "id": "deforestation_overlap",
+            "provider": "gfw",
+            "status": "ok"
+          },
+          {
+            "evidence": "Canopy all year: monthly NDVI 0.62–0.81 over 11 clear months (needs ≥ 0.50, swing ≤ 0.35) (demo data)",
+            "hardFail": false,
+            "id": "ndvi_cultivation",
+            "provider": "sentinel-hub",
+            "status": "ok"
+          },
+          {
+            "evidence": "Living canopy around the picking date: NDVI 0.71 (needs ≥ 0.45) (demo data)",
+            "hardFail": false,
+            "id": "ndvi_harvest_window",
+            "provider": "sentinel-hub",
+            "status": "ok"
+          },
+          {
+            "evidence": "Season total 0.30x the reference upper bound (flag above 1.50x, hard fail above 2.00x)",
+            "hardFail": false,
+            "id": "yield_plausibility",
+            "status": "ok"
+          }
+        ],
+        "config": {
+          "hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "version": "cfg-1"
+        },
+        "createdAt": "2026-09-06T04:30:40.000Z",
+        "eventId": "HE-MNF7W6ZYKA30",
+        "runId": "VR-1WCWWK4901YW",
+        "runNo": 1,
+        "score": 92,
+        "unavailableProviders": [],
+        "verdict": "Verified"
+      },
+      "payloadHash": "4b7c54127b07bd6fd8c4c6a3f32fe114f9a109380f91a6b5242ff0d05f188ed9",
+      "ts": "2026-09-29T18:56:32.260Z",
+      "entryHash": "35e291c3df7cc5a57918aeea57b0ce1ebb92b834fad1877942a702f9869629de",
+      "checkpointId": 1,
+      "leafIndex": 12,
+      "path": [
+        "4dc1e56c683375387bb12b9180adc21e8f0b9a2a5bae6f5174b45d7760ce4398",
+        "780f154ccf671d7f4c2d0f49255af2e2156942673d69ae3c49fa38f4becab809",
+        "4fa4c1b2435567cb2a21600348ebbf87e86f24b14935a80f2b2e9b781f50dda2",
+        "c40c6be7a0cd51713d74e90e0e7ee472785ad4e0be06f88f6b15261ebcd617d9"
+      ]
+    },
+    {
+      "seq": 14,
+      "prevHash": "35e291c3df7cc5a57918aeea57b0ce1ebb92b834fad1877942a702f9869629de",
+      "kind": "attestation",
+      "payload": {
+        "attestationId": "AT-EZKBWB92",
+        "fileHash": "56c2ac043c28d3543275a6f50b593a6beb0b6888ed8159ac02e3e7f4a32ccb26",
+        "issuer": "INDOCERT",
+        "plotId": "PL-QZE72CD2",
+        "type": "organic",
+        "v": 1,
+        "validFrom": "2026-01-01",
+        "validTo": "2027-12-31"
+      },
+      "payloadHash": "cd1ac212ae1359728936db2de0eb015cca21a1312d36480a694e2c427a8e8fe1",
+      "ts": "2026-09-29T18:56:32.274Z",
+      "entryHash": "ccac13b92180cfc5db2838b5f8798e00c8389cbd228bae92425820af016a1407",
+      "checkpointId": 1,
+      "leafIndex": 13,
+      "path": [
+        "9a01aceddcb2a53d5622cead8faf975d658d745fe34f3a47e2911efec4eff11b",
+        "780f154ccf671d7f4c2d0f49255af2e2156942673d69ae3c49fa38f4becab809",
+        "4fa4c1b2435567cb2a21600348ebbf87e86f24b14935a80f2b2e9b781f50dda2",
+        "c40c6be7a0cd51713d74e90e0e7ee472785ad4e0be06f88f6b15261ebcd617d9"
+      ]
+    },
+    {
+      "seq": 15,
+      "prevHash": "ccac13b92180cfc5db2838b5f8798e00c8389cbd228bae92425820af016a1407",
+      "kind": "batch_created",
+      "payload": {
+        "adminId": "USR-P447NH1E",
+        "batchId": "B-CR3G933K",
+        "crop": "arabica",
+        "events": [
+          {
+            "eventId": "HE-MNF7W6ZYKA30",
+            "payloadHash": "3f6a3b832fcdc5d7b5b79509d859b0c7d1d31bcd8fbaee73e3d5ced54ec1bb54"
+          },
+          {
+            "eventId": "HE-S1WRFD1JDDER",
+            "payloadHash": "03b382259ae44d77cbeb5a9a4772b4b18092f297187017fabbfdeaac22a8ce57"
+          },
+          {
+            "eventId": "HE-ZHCT0K3KHGNV",
+            "payloadHash": "6a62cd9900f4d4db2fcf94377f5f030e750d21b41d9dd5ff57829422a8d901fa"
+          }
+        ],
+        "integrityScore": 92,
+        "kid": "Eve9zA1xmbAllYZrLLskr91rkC3QFWyKjw_LVoU9Mq0",
+        "orgId": "ORG-0H3TE0Z3",
+        "publicJwk": {
+          "crv": "P-256",
+          "kty": "EC",
+          "x": "6OhbsW_l0s8JSEz0bJjMjq7p7EfwHjge17sZIB0S9Vw",
+          "y": "LElXpOynx7T_TDHyT_GEPySmPKLa9qupxDFr1gzBNFw"
+        },
+        "quantityKg": 124.5,
+        "signature": "xeSsy6ycZVwxsCKE9NyHmC97I0TqE2HxLQeXjTBTxMc1GJh9Brii7y7jkKzW7eMWjV0_W72VDqwtyZMI8WLWCg",
+        "ts": "2026-09-29T18:56:32.317Z",
+        "v": 1
+      },
+      "payloadHash": "3b87b02742b0c81a2b7ddb4b7d360e22640bc0905a021ccdccf574c62321f695",
+      "ts": "2026-09-29T18:56:32.318Z",
+      "entryHash": "05d36abc389a4594ad751b64f8571df5f2f293d3c01c3c0d392b32cf1db16adc",
+      "checkpointId": 1,
+      "leafIndex": 14,
+      "path": [
+        "b24c4c6bdb7ba21672a482d95aa2df8c26498b7fb3ccf384e0d2708716f75514",
+        "065215a3296b760d7dde1f8c36d712c9748dc1b97d5b8cfc6d257d896d457900",
+        "4fa4c1b2435567cb2a21600348ebbf87e86f24b14935a80f2b2e9b781f50dda2",
+        "c40c6be7a0cd51713d74e90e0e7ee472785ad4e0be06f88f6b15261ebcd617d9"
+      ]
+    },
+    {
+      "seq": 16,
+      "prevHash": "05d36abc389a4594ad751b64f8571df5f2f293d3c01c3c0d392b32cf1db16adc",
+      "kind": "custody_transfer",
+      "payload": {
+        "adminId": "USR-P447NH1E",
+        "batchId": "B-CR3G933K",
+        "fromOrg": "ORG-0H3TE0Z3",
+        "kid": "Eve9zA1xmbAllYZrLLskr91rkC3QFWyKjw_LVoU9Mq0",
+        "publicJwk": {
+          "crv": "P-256",
+          "kty": "EC",
+          "x": "6OhbsW_l0s8JSEz0bJjMjq7p7EfwHjge17sZIB0S9Vw",
+          "y": "LElXpOynx7T_TDHyT_GEPySmPKLa9qupxDFr1gzBNFw"
+        },
+        "signature": "O0Bf23LMc5xhp2VPd79vHW2JlVczC--6EtfkAtl0q32Q73oWlveTUtyhAeuI1cAqI_GrxYHAgaGofZhbHzlfzQ",
+        "toOrg": "ORG-1H3Q2PVQ",
+        "ts": "2026-09-29T18:56:32.325Z",
+        "v": 1
+      },
+      "payloadHash": "4fedcb1d20cfee2ace0ba3b9fd9c269f4fb5b5f34ddd46695e60dc77cd0e7d49",
+      "ts": "2026-09-29T18:56:32.338Z",
+      "entryHash": "f7a3ed8f7ab79709dd4c5dddc1a744d114f09f954da3a3dca809d4ea76130580",
+      "checkpointId": 1,
+      "leafIndex": 15,
+      "path": [
+        "bcb8db17fdbb7939d425d1896eb05a4a430346792a281b97dd90245994202633",
+        "065215a3296b760d7dde1f8c36d712c9748dc1b97d5b8cfc6d257d896d457900",
+        "4fa4c1b2435567cb2a21600348ebbf87e86f24b14935a80f2b2e9b781f50dda2",
+        "c40c6be7a0cd51713d74e90e0e7ee472785ad4e0be06f88f6b15261ebcd617d9"
+      ]
+    }
+  ]
+}
