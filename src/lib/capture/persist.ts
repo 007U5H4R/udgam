@@ -3,6 +3,7 @@ import type { Tx } from '../db/client';
 import { devices, harvestEvents, media, verificationRuns } from '../db/schema';
 import { newId } from '../ids';
 import { append as ledgerAppend } from '../ledger/hashchain';
+import type { ExifFacts } from '../media/exif';
 import type { CapturePayloadV1, VerifyResult } from '../verification/types';
 import type { BoundaryDevice } from './boundary';
 
@@ -12,7 +13,7 @@ import type { BoundaryDevice } from './boundary';
 
 export type AppendFn = typeof ledgerAppend;
 
-export type StoredMedia = { sha256: string; size: number; mime: string; path: string };
+export type StoredMedia = { sha256: string; size: number; mime: string; path: string; exif: ExifFacts };
 
 export type AcceptedCapture = {
   payload: CapturePayloadV1;
@@ -62,8 +63,8 @@ export async function persistAccepted(tx: Tx, c: AcceptedCapture, append: Append
     anchorSeq: eventAnchor.seq,
   });
   for (const m of c.media) {
-    // exif and thumb_path arrive with TKT-08 / TKT-10
-    await tx.insert(media).values({ id: newId('ME-', 12), eventId, path: m.path, sha256: m.sha256, size: m.size, mime: m.mime });
+    // thumb_path arrives with TKT-10
+    await tx.insert(media).values({ id: newId('ME-', 12), eventId, path: m.path, sha256: m.sha256, size: m.size, mime: m.mime, exif: JSON.stringify(m.exif) });
   }
 
   const r = c.result;
