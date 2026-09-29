@@ -2,7 +2,7 @@ import type { Anchor } from '../../src/lib/ledger/types';
 import { generateKeyPair, jcs, jwkThumbprint, publicMembers, sha256Hex, sign } from '../../src/lib/crypto';
 import { persistAccepted, persistRejected } from '../../src/lib/capture/persist';
 import { writeTx, type Db, type Tx } from '../../src/lib/db/client';
-import { devices, farmers, organisations, plots } from '../../src/lib/db/schema';
+import { devices, farmers, organisations, plots, user } from '../../src/lib/db/schema';
 import { newId } from '../../src/lib/ids';
 import { append } from '../../src/lib/ledger/hashchain';
 import type { CapturePayloadV1, VerifyResult } from '../../src/lib/verification/types';
@@ -99,6 +99,8 @@ export async function seedBatchWorld(db: Db, o: BatchWorldOptions): Promise<Batc
       await tx.insert(plots).values({ id: plotId, farmerId, crop: 'arabica', geojson: JSON.stringify(P01_POLYGON), areaHa: P01_AREA_HA, anchorSeq: a.seq, createdAt: ts(), updatedAt: ts() });
     }
     for (const d of devs) {
+      // Each phone's agent is a real user of the FPO (devices.agent_id → user, migration 0006).
+      await tx.insert(user).values({ id: d.agentId, name: 'Test agent', email: `${d.agentId.toLowerCase()}@batch-world.test`, emailVerified: true, role: 'agent', orgId });
       const a = await append(tx, 'device_enrolled', { deviceId: d.id, agentId: d.agentId, kid: d.kid, publicJwk: d.publicJwk, enrolledAt: ts() });
       await tx.insert(devices).values({ id: d.id, agentId: d.agentId, publicKeyJwk: JSON.stringify(d.publicJwk), keyThumbprint: d.kid, enrolledAt: ts(), anchorSeq: a.seq });
     }
