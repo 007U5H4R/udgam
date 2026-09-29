@@ -1,4 +1,5 @@
 import { AuthError, authErrorResponse } from '../../../lib/auth/guards';
+import { clientIp } from '../../../lib/client-ip';
 import { getDbReady } from '../../../lib/db/client';
 import { ENROL_STATUS, enrolDevice } from '../../../lib/enrolment/enrol';
 import { requireSession, type Guarded } from '../../_auth/require';
@@ -7,18 +8,6 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const HEADERS = { 'Cache-Control': 'no-store' };
-
-/**
- * The client address for the per-IP limit (10 per hour, §10): the LAST X-Forwarded-For hop, the one the
- * reverse proxy sets or appends. Earlier hops and X-Real-IP are client-controlled and never trusted.
- * Deployment assumption (TKT-27, documented in .env.example): the app port is never published and
- * Caddy, with `trusted_proxies` unset, overwrites X-Forwarded-For with the connecting address. Without
- * the header (the app reached directly) every client shares one bucket.
- */
-function clientIp(req: Request): string {
-  const hops = req.headers.get('x-forwarded-for')?.split(',') ?? [];
-  return hops.at(-1)?.trim() || 'unknown';
-}
 
 /**
  * POST /api/enrol (technical-plan §3.2, TSK-05.3): `{ code, publicJwk }` from a signed-in agent's
@@ -45,7 +34,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const db = await getDbReady();
-  const r = await enrolDevice(db, { code, publicJwk, ip: clientIp(req), sessionAgentId: agent.userId });
+  const r = await enrolDevice(db, { code, publicJwk, ip: clientIp(req.headers), sessionAgentId: agent.userId });
   if (!r.ok) return Response.json({ error: r.reason }, { status: ENROL_STATUS[r.reason], headers: HEADERS });
   return Response.json({ deviceId: r.deviceId }, { headers: HEADERS });
 }

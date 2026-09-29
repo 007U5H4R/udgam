@@ -10,8 +10,9 @@ import { verify } from '../verification/verify';
 import type { CapturePayloadV1, CheckId, CheckResult, CheckStatus, Submission, Verdict } from '../verification/types';
 import { authenticate, checkBoundary, STATUS, type BoundaryDevice, type BoundaryReason } from './boundary';
 import { buildContext } from './context';
-import { parseCaptureForm, type FormReason } from './parse';
+import { claimedDeviceId, parseCaptureForm, type FormReason } from './parse';
 import { persistAccepted, persistRejected, type AppendFn, type StoredMedia } from './persist';
+import { consume, DEVICE_LIMIT, deviceKey } from './rate-limit';
 
 // The capture pipeline (technical-plan §3.1). Emits NDJSON-able events: a `check` line as each check
 // finishes, then exactly one terminal line — `verdict` (only after COMMIT), `rejected` (boundary 4xx,
@@ -33,6 +34,8 @@ export type CaptureEvent =
       status: number;
       /** The payload field a schema refusal names (TSK-19.2). */
       field?: string;
+      /** Seconds until a rate-limited phone may try again (429, TSK-19.3). */
+      retryAfterSec?: number;
     }
   | { t: 'error'; retryable: boolean };
 
@@ -211,6 +214,13 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
   // Another agent's phone: an authorisation refusal, not a verdict on the payload. Not anchored, so it can
   // neither answer with the owner's recorded result nor block the owner's own upload of the same payload.
   const notOwned = (): CaptureEvent => refuse({ reason: 'device_not_owned', status: 403 });
+
+  // Rate limit on the phone the payload claims, before anything about it is verified (TSK-19.3).
+  const claimed = claimedDeviceId(form.get('payload'));
+  if (claimed) {
+    const rl = await consume(db, deviceKey(claimed), DEVICE_LIMIT.limit, DEVICE_LIMIT.windowSec, now());
+    if (!rl.ok) return refuse({ reason: 'rate_limited', status: 429, retryAfterSec: rl.retryAfterSec });
+  }
 
   // 1. the form, cheapest check first: count → sizes → magic bytes → schema (TSK-19.2)
   const parsed = await parseCaptureForm(form);
