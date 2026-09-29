@@ -20,7 +20,8 @@ test-results/
 *.db-*
 *.sqlite
 data/
-media/
+/media/
+# (anchored: src/lib/media/ is source code; uploads live under DATA_DIR/media)
 
 # foundry
 cache/
