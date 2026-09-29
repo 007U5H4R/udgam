@@ -42,6 +42,39 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  {
+    // TC-073 / TSK-18.1: the clean-room proof checker imports nothing outside its folder except node: built-ins.
+    files: ["evals/scorers/independent-verifier/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^(?!\\.{1,2}/|node:)",
+              message: "The clean-room checker may import only relative files in its folder and node: built-ins.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["evals/scorers/independent-verifier/**/*.test.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^(?!\\.{1,2}/|node:|vitest$)",
+              message: "Clean-room checker tests may import only relative files, node: built-ins and vitest.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;
