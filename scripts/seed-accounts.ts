@@ -1,0 +1,80 @@
+// Seeds the demo organisations and one account per role and org (technical-plan TSK-04.5):
+// two FPOs (Hosahalli FPO, and a second FPO for cross-org tests), two buyers, and `agent@` + `admin@`
+// per FPO and `buyer@` per buyer. Idempotent: re-running keeps IDs and resets the passwords.
+//
+// Passwords come from SEED_PASSWORD. Outside production a demo default stands in; in production a
+// missing SEED_PASSWORD stops the seed. The password is never printed.
+//
+// Usage: [DATA_DIR=.e2e-data] [SEED_PASSWORD=…] pnpm exec tsx scripts/seed-accounts.ts
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { hashPassword } from 'better-auth/crypto';
+import { env } from '../src/lib/config/env';
+import { writeTx, type Db } from '../src/lib/db/client';
+import { account, organisations, user } from '../src/lib/db/schema';
+import type { Role } from '../src/lib/auth/session';
+
+/** Demo-only default for dev and test databases. Never used when NODE_ENV=production. */
+export const DEV_SEED_PASSWORD = 'kodagu-coffee-demo';
+
+type Org = { id: string; type: 'fpo' | 'buyer'; name: string };
+export type DemoAccount = { id: string; email: string; name: string; role: Role; orgId: string };
+
+export const DEMO_ORGS = {
+  fpoA: { id: 'ORG-HOSAHALLI', type: 'fpo', name: 'Hosahalli FPO' },
+  fpoB: { id: 'ORG-FPO-TEST', type: 'fpo', name: 'Second FPO (tests)' },
+  buyerA: { id: 'ORG-BUYER-A', type: 'buyer', name: 'Demo Buyer A' },
+  buyerB: { id: 'ORG-BUYER-B', type: 'buyer', name: 'Demo Buyer B' },
+} as const satisfies Record<string, Org>;
+
+export const DEMO_ACCOUNTS = {
+  agentA: { id: 'USR-HOSAHALLI-AGENT', email: 'agent@hosahalli.udgam.test', name: 'Hosahalli field agent', role: 'agent', orgId: DEMO_ORGS.fpoA.id },
+  adminA: { id: 'USR-HOSAHALLI-ADMIN', email: 'admin@hosahalli.udgam.test', name: 'Hosahalli FPO admin', role: 'admin', orgId: DEMO_ORGS.fpoA.id },
+  agentB: { id: 'USR-FPOTEST-AGENT', email: 'agent@fpo-test.udgam.test', name: 'Second FPO field agent', role: 'agent', orgId: DEMO_ORGS.fpoB.id },
+  adminB: { id: 'USR-FPOTEST-ADMIN', email: 'admin@fpo-test.udgam.test', name: 'Second FPO admin', role: 'admin', orgId: DEMO_ORGS.fpoB.id },
+  buyerA: { id: 'USR-BUYER-A', email: 'buyer@buyer-a.udgam.test', name: 'Buyer A', role: 'buyer', orgId: DEMO_ORGS.buyerA.id },
+  buyerB: { id: 'USR-BUYER-B', email: 'buyer@buyer-b.udgam.test', name: 'Buyer B', role: 'buyer', orgId: DEMO_ORGS.buyerB.id },
+} as const satisfies Record<string, DemoAccount>;
+
+/** SEED_PASSWORD, or the demo default outside production. */
+export function seedPassword(): string {
+  if (env.SEED_PASSWORD) return env.SEED_PASSWORD;
+  if (env.NODE_ENV === 'production') throw new Error('SEED_PASSWORD is required when NODE_ENV=production');
+  return DEV_SEED_PASSWORD;
+}
+
+/** Write the demo organisations and accounts. Safe to re-run (and to run concurrently). */
+export async function seedAccounts(db: Db, password: string, now = new Date()): Promise<DemoAccount[]> {
+  const accounts: DemoAccount[] = Object.values(DEMO_ACCOUNTS);
+  const hashes = await Promise.all(accounts.map(() => hashPassword(password)));
+  await writeTx(db, async (tx) => {
+    for (const o of Object.values(DEMO_ORGS)) await tx.insert(organisations).values(o).onConflictDoNothing();
+    for (const [i, a] of accounts.entries()) {
+      await tx
+        .insert(user)
+        .values({ id: a.id, name: a.name, email: a.email, emailVerified: true, role: a.role, orgId: a.orgId, createdAt: now, updatedAt: now })
+        .onConflictDoUpdate({ target: user.id, set: { name: a.name, email: a.email, role: a.role, orgId: a.orgId, updatedAt: now } });
+      await tx
+        .insert(account)
+        .values({ id: `${a.id}-credential`, accountId: a.id, providerId: 'credential', userId: a.id, password: hashes[i]!, createdAt: now, updatedAt: now })
+        .onConflictDoUpdate({ target: account.id, set: { password: hashes[i]!, updatedAt: now } });
+    }
+  });
+  return accounts;
+}
+
+async function main(): Promise<void> {
+  const { closeDb, getDbReady } = await import('../src/lib/db/client');
+  const { runMigrations } = await import('../src/lib/db/migrate');
+  const password = seedPassword();
+  const db = await getDbReady();
+  try {
+    await runMigrations(db);
+    const accounts = await seedAccounts(db, password);
+    console.log(JSON.stringify({ seeded: 'accounts', accounts: accounts.map(({ email, role, orgId }) => ({ email, role, orgId })), password: env.SEED_PASSWORD ? 'password from SEED_PASSWORD' : 'password from SEED_PASSWORD (unset: the dev/test demo default)' }));
+  } finally {
+    closeDb();
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) await main();

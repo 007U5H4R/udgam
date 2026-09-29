@@ -32,6 +32,9 @@ const base = z.object({
   // Test-only surfaces (/__test__/*) exist only when E2E=1 (technical-plan §1). Set by the Playwright
   // webServer; never set in production, so it is not listed in .env.example.
   E2E: z.enum(['0', '1']).default('0'),
+  // Password for the seeded demo accounts (scripts/seed-accounts.ts, TKT-04). A seed-time input only,
+  // so not in .env.example (§17 pins that list); outside production the seed has a demo default.
+  SEED_PASSWORD: z.string().min(8).optional(),
 });
 
 const VARIABLE_NAMES = Object.keys(base.shape);

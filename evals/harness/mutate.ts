@@ -30,6 +30,40 @@ export class UnknownMutationOp extends Error {
   }
 }
 
+/** A mutation parameter the op does not take, or a value outside the op's allowed set (§7.3). */
+export class InvalidMutationParam extends TypeError {
+  constructor(
+    readonly op: string,
+    readonly param: string,
+    detail: string,
+  ) {
+    super(`mutation ${op}: ${detail}`);
+    this.name = 'InvalidMutationParam';
+  }
+}
+
+/**
+ * The parameters each op takes (evaluation-plan §7.3). Any other key is a dataset typo that would
+ * silently change a case's meaning, so it throws. `note` is free text and allowed on every op.
+ */
+const OP_PARAMS: Record<string, readonly string[]> = {
+  gps_place: ['where', 'distance_m'],
+  gps_accuracy: ['accuracy_m'],
+  exif_gps: ['mode', 'distance_m'],
+  exif_time: ['mode', 'offset_min'],
+  client_clock: ['offset_from_server_min'],
+  prev_event: ['distance_km', 'minutes_before', 'none'],
+  reuse_media: ['from_case', 'which', 'transform'],
+  chain: ['seq_delta', 'prev_hash'],
+  season_cumulative: ['ratio_after_event', 'ratio_before_event'],
+  photos: ['count'],
+  provider_fault: ['provider', 'mode', 'cache'],
+  check_throws: ['check', 'error'],
+  device: ['id', 'state'],
+  tamper_after_sign: ['field'],
+  proof_tamper: ['target', 'field', 'variants'],
+};
+
 export type ThrowCheck = { check: CheckId; error: string };
 
 export type BuiltCase = {
@@ -90,17 +124,29 @@ function defaults(): Omit<Draft, 'plot' | 'device'> {
 
 const num = (m: Mutation, k: string): number => {
   const v = m[k];
-  if (typeof v !== 'number' || !Number.isFinite(v)) throw new TypeError(`mutation ${m.op}: ${k} must be a number`);
+  if (typeof v !== 'number' || !Number.isFinite(v)) throw new InvalidMutationParam(m.op, k, `${k} must be a number, got ${JSON.stringify(v)}`);
   return v;
 };
 const oneOf = <T extends string>(m: Mutation, k: string, allowed: readonly T[]): T => {
   const v = m[k];
-  if (typeof v !== 'string' || !(allowed as readonly string[]).includes(v)) throw new TypeError(`mutation ${m.op}: ${k} must be one of ${allowed.join(', ')}`);
+  if (typeof v !== 'string' || !(allowed as readonly string[]).includes(v)) {
+    throw new InvalidMutationParam(m.op, k, `${k} must be one of ${allowed.join(', ')}, got ${JSON.stringify(v)}`);
+  }
   return v as T;
 };
 
+/** Refuse keys the op does not take (after the op itself is known). */
+function checkParams(m: Mutation): void {
+  const allowed = OP_PARAMS[m.op];
+  if (!allowed) throw new UnknownMutationOp(m.op);
+  for (const k of Object.keys(m)) {
+    if (k !== 'op' && k !== 'note' && !allowed.includes(k)) throw new InvalidMutationParam(m.op, k, `unknown parameter ${k} (takes ${allowed.join(', ')})`);
+  }
+}
+
 /** Apply one mutation's intent to a draft (pure: returns a new draft). */
 function apply(d: Draft, m: Mutation): Draft {
+  checkParams(m);
   switch (m.op) {
     case 'gps_place': {
       const where = oneOf(m, 'where', ['inside_centroid', 'inside_near_edge', 'outside_edge', 'outside_notch'] as const);
@@ -119,11 +165,12 @@ function apply(d: Draft, m: Mutation): Draft {
     case 'client_clock':
       return { ...d, clientClockOffsetMin: num(m, 'offset_from_server_min') };
     case 'prev_event':
+      if (m.none !== undefined && m.none !== true) throw new InvalidMutationParam(m.op, 'none', `none must be true when given, got ${JSON.stringify(m.none)}`);
       return { ...d, prevEvent: m.none === true ? null : { distanceKm: num(m, 'distance_km'), minutesBefore: num(m, 'minutes_before') } };
     case 'reuse_media': {
-      if (typeof m.from_case !== 'string') throw new TypeError('mutation reuse_media: from_case must be a case id');
+      if (typeof m.from_case !== 'string') throw new InvalidMutationParam(m.op, 'from_case', 'from_case must be a case id');
       const which = oneOf(m, 'which', ['all', 'one'] as const);
-      if (m.transform !== undefined && m.transform !== 're-encode') throw new TypeError('mutation reuse_media: transform must be re-encode');
+      if (m.transform !== undefined) oneOf(m, 'transform', ['re-encode'] as const);
       return { ...d, reuse: { fromCase: m.from_case, which, reEncode: m.transform === 're-encode' } };
     }
     case 'chain':
@@ -135,28 +182,31 @@ function apply(d: Draft, m: Mutation): Draft {
       };
     case 'photos': {
       const count = num(m, 'count');
-      if (!Number.isInteger(count) || count < 1 || count > 3) throw new TypeError('mutation photos: count must be 1–3');
+      if (!Number.isInteger(count) || count < 1 || count > 3) throw new InvalidMutationParam(m.op, 'count', `count must be 1–3, got ${count}`);
       return { ...d, photos: count };
     }
     case 'provider_fault': {
       const provider = oneOf<ProviderName>(m, 'provider', ['gfw', 'sentinel-hub']);
       const mode = oneOf<FaultMode>(m, 'mode', ['timeout', 'http_500', 'malformed']);
+      // §7.3: the only cache value is `empty` (a cold cache); anything else is a typo, not "warm".
+      if (m.cache !== undefined) oneOf(m, 'cache', ['empty'] as const);
       const fault: ProviderFault = { provider, mode, cacheEmpty: m.cache === 'empty' };
       return { ...d, faults: [...d.faults.filter((f) => f.provider !== provider), fault] };
     }
     case 'check_throws': {
       const check = oneOf<CheckId>(m, 'check', CHECK_IDS);
-      if (typeof m.error !== 'string' || !/^[A-Za-z_$][\w$]*$/.test(m.error)) throw new TypeError('mutation check_throws: error must be an error class name');
+      if (typeof m.error !== 'string' || !/^[A-Za-z_$][\w$]*$/.test(m.error)) throw new InvalidMutationParam(m.op, 'error', 'error must be an error class name');
       return { ...d, throwCheck: { check, error: m.error } };
     }
     case 'device': {
+      if (m.id !== undefined && typeof m.id !== 'string') throw new InvalidMutationParam(m.op, 'id', 'id must be a device id');
       if (typeof m.id === 'string') d = { ...d, device: m.id };
       if (m.state === undefined) return d;
       const state = oneOf(m, 'state', ['enrolled', 'revoked', 'unknown', 'never_enrolled'] as const);
       return { ...d, deviceState: state === 'never_enrolled' ? 'unknown' : state };
     }
     case 'tamper_after_sign':
-      if (typeof m.field !== 'string') throw new TypeError('mutation tamper_after_sign: field must be a payload path');
+      if (typeof m.field !== 'string') throw new InvalidMutationParam(m.op, 'field', 'field must be a payload path');
       return { ...d, tamper: [...d.tamper, m.field] };
     case 'proof_tamper':
       throw new Error('proof_tamper belongs to the harness-proof suite (TKT-15/18), not to verifier cases');

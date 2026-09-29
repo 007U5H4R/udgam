@@ -1,12 +1,12 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONFIG, CONFIG_HASH } from '../../src/lib/verification/config';
 import { REGISTRY, type Check } from '../../src/lib/verification/registry';
 import { CHECK_IDS, type CheckId, type VerifyResult } from '../../src/lib/verification/types';
 import { verifyWith } from '../../src/lib/verification/verify';
 import { assertCase, type CaseResult } from '../scorers/case-assertions';
-import { criticalConditions, type FiredCondition } from '../scorers/critical-conditions';
+import { criticalConditions, type FiredCondition, type RunFacts } from '../scorers/critical-conditions';
 import { detectionRate, type Detection } from '../scorers/detection-rate';
 import { falsePositiveRate, type FalsePositives } from '../scorers/false-positive-rate';
 import { HARNESS_SUITES, inScope, integrity, type Integrity } from '../scorers/harness-integrity';
@@ -17,14 +17,21 @@ import { mulberry32 } from './fixtures';
 import { buildCase as realBuildCase, type BuiltCase } from './mutate';
 import { provenance, REPO_ROOT, type Provenance } from './provenance';
 import { renderReportFromResults } from './report';
-import { REPORTS_DIR, RESULTS_DIR, reportPathFor, writeResults, type Out } from './results';
+import { isFileStem, REPORTS_DIR, RESULTS_DIR, reportPathFor, writeReport, writeResults, type Out } from './results';
 
 // The evaluation harness runner (technical-plan §13, §22 TSK-03.6; evaluation-plan §4.7, §12).
 // `pnpm eval`: load + validate the dataset → for every harness case, in a seeded shuffled order,
 // build (Submission, VerifyContext) → the REAL verify() → case-assertions → scorers → provenance →
 // write the results file → render the report from that file. Offline: fetch is stubbed for the run.
 // Every in-scope case appears in the results: a check the registry lacks → not_yet_implemented
-// (a failure); a setup throw → errored; nothing is skipped (EVAL-092, CF-12).
+// (a failure); a setup throw → errored; a case that does not settle within its limit (30 s, or the
+// case's own max_latency_ms) → errored with a timeout; nothing is skipped (EVAL-092, CF-12).
+// Earlier results files fail closed: a baseline or formal run that exists but cannot be read, parsed
+// or lacks its config hash is an integrity problem (S7, CF-12), and for baseline-v1 also CF-13.
+// Files are never overwritten: results and reports take the next free -rN.
+//
+// Exit codes: 0 = every gate passes; 1 = the run completed and a gate failed or a critical condition
+// fired; 2 = bad usage (an invalid flag) or a harness crash (the run did not complete).
 
 export type ConfigMode = 'full' | 'ledger-only';
 export type ProviderMode = 'fixture' | 'live';
@@ -79,7 +86,17 @@ export type RunOptions = {
   buildCase?: (c: EvalCase, inputs: HarnessInputs, keys: DeviceKeys) => Promise<BuiltCase>;
   resultsDir?: string;
   reportsDir?: string;
+  /** Per-case watchdog when the case sets no max_latency_ms of its own (default CASE_TIMEOUT_MS). */
+  caseTimeoutMs?: number;
 };
+
+/** A case that has not settled after this long is recorded as errored (reason: timeout). */
+export const CASE_TIMEOUT_MS = 30_000;
+
+/** The case's own limit (expected.max_latency_ms) if it has one, else `fallback`. */
+export function caseLimitMs(c: EvalCase, fallback: number = CASE_TIMEOUT_MS): number {
+  return c.expected.max_latency_ms ?? fallback;
+}
 
 const LEDGER_ONLY: CheckId[] = ['signature_valid'];
 const S1_POOLED_MIN = 0.95;
@@ -152,6 +169,33 @@ const verifierSuite: SuiteRunner = async (c, env) => {
   const notes = [...built.notes, ...(missingChecks.length > 0 ? [`needs ${missingChecks.join(', ')}, not in the registry yet`] : [])];
   return { outcome, missingChecks, result, assertions: a.assertions, detected: c.case_class === 'attack' ? (a.detected ?? false) : null, error: null, notes };
 };
+
+type SuiteBody = Awaited<ReturnType<SuiteRunner>>;
+
+/** Run one case under a watchdog: if it does not settle within `ms`, it is errored with a timeout. */
+async function withWatchdog(body: Promise<SuiteBody>, ms: number): Promise<SuiteBody> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<SuiteBody>((resolve) => {
+    timer = setTimeout(
+      () =>
+        resolve({
+          outcome: 'errored',
+          missingChecks: [],
+          result: null,
+          assertions: [],
+          detected: null,
+          error: { class: 'CaseTimeout', message: `timeout: the case did not settle within ${ms} ms` },
+          notes: [],
+        }),
+      ms,
+    );
+  });
+  try {
+    return await Promise.race([body, timedOut]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 const notBuilt =
   (why: string): SuiteRunner =>
@@ -263,6 +307,8 @@ function gatesOf(results: CaseResult[], suites: Suite[], detection: Detection, f
 function categoryGatesOf(results: CaseResult[]): Gate[] {
   const critical = results.filter((r) => r.suite === 'harness-verifier' && r.datasetStatus === 'active' && r.priority === 'critical' && r.caseClass !== 'attack' && r.caseClass !== 'known_limitation');
   const f = rate(critical.filter((r) => r.outcome === 'passed').length, critical.length);
+  // Named by ID on purpose: the dataset's `reliability` category also holds EVAL-067–069, which are
+  // integration-suite cases the harness does not run; evaluation-plan §6 names these four as its part.
   const reliability = results.filter((r) => ['EVAL-015', 'EVAL-016', 'EVAL-017', 'EVAL-018'].includes(r.id));
   const rel = rate(reliability.filter((r) => r.outcome === 'passed').length, reliability.length);
   return [
@@ -299,21 +345,62 @@ function pairsOf(results: CaseResult[]): Pair[] {
   return pairs.sort((a, b) => a.ids[0].localeCompare(b.ids[0]));
 }
 
-function readJson(path: string): ResultsFile | null {
+type Read = { state: 'absent' } | { state: 'ok'; data: ResultsFile } | { state: 'bad'; problem: string };
+
+/**
+ * Read an earlier results file. Only a missing file is "absent". A file that exists but cannot be read,
+ * is not JSON, or lacks `provenance.config.hash` (or the fields `need` names) is `bad`: the caller
+ * must surface it, never treat it as absent (fail closed).
+ */
+function readResultsFile(path: string, need: ('timestampUtc' | 'cases' | 'gates')[]): Read {
+  const rel = relative(REPO_ROOT, path);
+  const file = rel.startsWith('..') ? path : rel;
+  let text: string;
   try {
-    return JSON.parse(readFileSync(path, 'utf8')) as ResultsFile;
+    text = readFileSync(path, 'utf8');
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') return { state: 'absent' };
+    return { state: 'bad', problem: `results file ${file} exists but cannot be read (${code ?? errorOf(e).message})` };
+  }
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    return { state: 'bad', problem: `results file ${file} is not valid JSON (${errorOf(e).message})` };
+  }
+  const r = (data ?? {}) as { provenance?: { timestampUtc?: unknown; config?: { hash?: unknown } }; cases?: unknown; gates?: unknown };
+  const missing = [
+    typeof r.provenance?.config?.hash === 'string' ? null : 'provenance.config.hash',
+    need.includes('timestampUtc') && typeof r.provenance?.timestampUtc !== 'string' ? 'provenance.timestampUtc' : null,
+    need.includes('cases') && !Array.isArray(r.cases) ? 'cases' : null,
+    need.includes('gates') && !Array.isArray(r.gates) ? 'gates' : null,
+  ].filter((x): x is string => x !== null);
+  if (missing.length > 0) return { state: 'bad', problem: `results file ${file} lacks ${missing.join(', ')}` };
+  return { state: 'ok', data: data as ResultsFile };
+}
+
+/** Whether decisions.md names `hash` (an EV/TP decision authorising a config change). Unreadable → no. */
+function decisionsName(hash: string): boolean {
+  try {
+    return readFileSync(join(REPO_ROOT, 'decisions.md'), 'utf8').includes(hash);
   } catch {
-    return null;
+    return false; // no decisions file: nothing authorises a drift (fails closed)
   }
 }
 
-function comparisonOf(results: CaseResult[], resultsDir: string): Comparison {
+type PriorRuns = { comparison: Comparison; configDrift: RunFacts['configDrift']; problems: string[] };
+
+/** Compare with the latest formal run and the newest baseline, and check config drift against baseline-v1. */
+function priorRunsOf(results: CaseResult[], resultsDir: string): PriorRuns {
+  const problems: string[] = [];
   const formal = existsSync(resultsDir) ? readdirSync(resultsDir).filter((f) => /^eval-run-.*\.json$/.test(f)) : [];
   let previous: { file: string; data: ResultsFile } | null = null;
-  for (const f of formal) {
-    const data = readJson(join(resultsDir, f));
-    if (!data?.provenance?.timestampUtc) continue;
-    if (!previous || data.provenance.timestampUtc > previous.data.provenance.timestampUtc) previous = { file: f, data };
+  for (const f of formal.sort()) {
+    const read = readResultsFile(join(resultsDir, f), ['timestampUtc', 'cases']);
+    if (read.state === 'bad') problems.push(read.problem);
+    if (read.state !== 'ok') continue;
+    if (!previous || read.data.provenance.timestampUtc > previous.data.provenance.timestampUtc) previous = { file: f, data: read.data };
   }
   const regressions: string[] = [];
   const improvements: string[] = [];
@@ -325,35 +412,40 @@ function comparisonOf(results: CaseResult[], resultsDir: string): Comparison {
       if (was !== undefined && was !== 'passed' && r.outcome === 'passed') improvements.push(r.id);
     }
   }
+
+  // baseline-v1 freezes cfg-1 (EV13): CF-13 fires on an unauthorised drift, or when it cannot be checked.
+  const v1 = readResultsFile(join(resultsDir, 'baseline-v1.json'), ['gates']);
+  let configDrift: RunFacts['configDrift'];
+  if (v1.state === 'bad') {
+    problems.push(v1.problem);
+    configDrift = { error: v1.problem };
+  } else if (v1.state === 'ok') {
+    configDrift = { baselineHash: v1.data.provenance.config.hash, currentHash: CONFIG_HASH, authorised: decisionsName(CONFIG_HASH) };
+  }
+
+  // The newest baseline that exists is the comparison point; an unreadable one is a problem, never a
+  // silent fall-back to an older baseline.
   let baseline: Comparison['baseline'] = null;
   for (const [name, file] of [
     ['baseline-v1', 'baseline-v1.json'],
     ['baseline-v0 (ledger only)', 'baseline-v0-ledger-only.json'],
   ] as const) {
-    const data = readJson(join(resultsDir, file));
-    if (data?.gates) {
-      baseline = { name, file, gates: data.gates.map((g) => ({ id: g.id, display: g.display })) };
-      break;
-    }
+    const read = file === 'baseline-v1.json' ? v1 : readResultsFile(join(resultsDir, file), ['gates']);
+    if (read.state === 'absent') continue;
+    if (read.state === 'ok') baseline = { name, file, gates: read.data.gates.map((g) => ({ id: g.id, display: g.display })) };
+    else if (file !== 'baseline-v1.json') problems.push(read.problem); // v1's problem is already recorded
+    break;
   }
   return {
-    previous: previous ? { file: previous.file, timestampUtc: previous.data.provenance.timestampUtc } : null,
-    regressions: regressions.sort(),
-    improvements: improvements.sort(),
-    baseline,
+    comparison: {
+      previous: previous ? { file: previous.file, timestampUtc: previous.data.provenance.timestampUtc } : null,
+      regressions: regressions.sort(),
+      improvements: improvements.sort(),
+      baseline,
+    },
+    configDrift,
+    problems,
   };
-}
-
-function configDriftOf(resultsDir: string) {
-  const v1 = readJson(join(resultsDir, 'baseline-v1.json'));
-  if (!v1?.provenance?.config?.hash) return undefined;
-  let decisions = '';
-  try {
-    decisions = readFileSync(join(REPO_ROOT, 'decisions.md'), 'utf8');
-  } catch {
-    // no decisions file: nothing authorises a drift
-  }
-  return { baselineHash: v1.provenance.config.hash, currentHash: CONFIG_HASH, authorised: decisions.includes(CONFIG_HASH) };
 }
 
 function shuffled<T>(xs: T[], seed: number): T[] {
@@ -401,7 +493,7 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
       const started = performance.now();
       const run = SUITES[c.suite as keyof typeof SUITES];
       const body = run
-        ? await run(c, env)
+        ? await withWatchdog(run(c, env), caseLimitMs(c, opts.caseTimeoutMs))
         : { outcome: 'errored' as const, missingChecks: [], result: null, assertions: [], detected: null, error: { class: 'Error', message: `no runner for suite ${c.suite}` }, notes: [] };
       cases.push({ ...metaOf(c), ...body, durationMs: Math.round((performance.now() - started) * 100) / 100 });
     }
@@ -416,9 +508,14 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
     integ.ok = false;
     integ.problems.push(`${networkCalls.length} network call(s) attempted during the run`);
   }
+  const prior = priorRunsOf(cases, resultsDir);
+  if (prior.problems.length > 0) {
+    integ.ok = false;
+    integ.problems.push(...prior.problems);
+  }
   const detection = detectionRate(cases);
   const fp = falsePositiveRate(cases);
-  const cfs = criticalConditions(cases, { integrity: integ, configDrift: configDriftOf(resultsDir) }).fired;
+  const cfs = criticalConditions(cases, { integrity: integ, configDrift: prior.configDrift }).fired;
   const gates = gatesOf(cases, suites, detection, fp, integ, cfs);
   const pass = gates.every((g) => g.pass);
   const blockers = [...gates.filter((g) => !g.pass).map((g) => `${g.id} ${g.name}: ${g.display} (target ${g.target})`), ...cfs.map((f) => `${f.id}: ${f.reason}`)];
@@ -458,7 +555,7 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
       .filter((r) => r.caseClass === 'known_limitation')
       .map((r) => ({ id: r.id, scenario: r.scenario, outcome: r.outcome, verdict: r.result?.verdict ?? null, behavior: r.expected.behavior ?? null })),
     pairs: pairsOf(cases),
-    comparison: comparisonOf(cases, resultsDir),
+    comparison: prior.comparison,
     cases,
     runtime: { networkCalls, executionOrder: order.map((c) => c.id) },
   };
@@ -469,10 +566,9 @@ export async function runHarness(opts: RunOptions = {}): Promise<{ results: Resu
   const results = await evaluate(opts);
   const out = opts.out ?? 'local';
   const resultsPath = writeResults(results, { out, dir: opts.resultsDir ?? RESULTS_DIR, name: opts.name });
-  const reportPath = reportPathFor(resultsPath, { out, reportsDir: opts.reportsDir ?? REPORTS_DIR, reportName: opts.reportName });
-  mkdirSync(dirname(reportPath), { recursive: true });
+  const wanted = reportPathFor(resultsPath, { out, reportsDir: opts.reportsDir ?? REPORTS_DIR, reportName: opts.reportName });
   const fromDisk = JSON.parse(readFileSync(resultsPath, 'utf8')) as ResultsFile;
-  writeFileSync(reportPath, renderReportFromResults(fromDisk, resultsPath));
+  const reportPath = writeReport(wanted, renderReportFromResults(fromDisk, resultsPath));
   return { results, resultsPath, reportPath, exitCode: results.summary.exitCode };
 }
 
@@ -508,9 +604,11 @@ export function parseArgs(argv: string[]): Required<Pick<RunOptions, 'config' | 
         o.out = value;
         break;
       case 'name':
+        if (!isFileStem(value)) throw new Error(`--name must be a plain file stem (letters, digits, . _ -), got "${value}"`);
         o.name = value;
         break;
       case 'report-name':
+        if (!isFileStem(value)) throw new Error(`--report-name must be a plain file stem (letters, digits, . _ -), got "${value}"`);
         o.reportName = value;
         break;
       default:
@@ -532,20 +630,29 @@ function summaryLines(r: ResultsFile, resultsPath: string, reportPath: string): 
   ];
 }
 
-async function main(argv: string[]): Promise<number> {
+type Runner = (o: RunOptions) => Promise<{ results: ResultsFile; resultsPath: string; reportPath: string; exitCode: 0 | 1 }>;
+
+/** The CLI: 0 pass, 1 gate failure, 2 bad usage or harness crash (see the header). */
+export async function main(argv: string[], run: Runner = runHarness, io: Pick<Console, 'log' | 'error'> = console): Promise<0 | 1 | 2> {
   let args: ReturnType<typeof parseArgs>;
   try {
     args = parseArgs(argv);
   } catch (e) {
-    console.error((e as Error).message);
+    io.error((e as Error).message);
     return 2;
   }
   if (args.provider === 'live') {
-    console.error('--provider=live arrives with TKT-07 (TSK-07.7); pnpm eval runs on the fixture provider.');
+    io.error('--provider=live arrives with TKT-07 (TSK-07.7); pnpm eval runs on the fixture provider.');
     return 2;
   }
-  const r = await runHarness(args);
-  for (const line of summaryLines(r.results, r.resultsPath, r.reportPath)) console.log(line);
+  let r: Awaited<ReturnType<Runner>>;
+  try {
+    r = await run(args);
+  } catch (e) {
+    io.error(`pnpm eval crashed (exit 2, not a gate result): ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`);
+    return 2;
+  }
+  for (const line of summaryLines(r.results, r.resultsPath, r.reportPath)) io.log(line);
   return r.exitCode;
 }
 
@@ -556,7 +663,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     },
     (e: unknown) => {
       console.error(e instanceof Error ? (e.stack ?? e.message) : String(e));
-      process.exitCode = 1;
+      process.exitCode = 2;
     },
   );
 }

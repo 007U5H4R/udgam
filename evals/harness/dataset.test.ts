@@ -62,4 +62,19 @@ describe('loadDataset (TC-017)', () => {
     });
     expect(() => loadDataset(path)).toThrow(/EVAL-999/);
   });
+
+  it('rejects a harness-verifier case with neither verdict nor acceptable_verdicts (it would assert nothing)', () => {
+    const path = tempCopy((raw) => {
+      const c = raw.cases.find((x) => x.id === 'EVAL-022') as unknown as { expected: Record<string, unknown> };
+      delete c.expected.verdict;
+      delete c.expected.acceptable_verdicts;
+    });
+    expect(() => loadDataset(path)).toThrow(/\/cases\/\d+\/expected needs verdict or acceptable_verdicts \(EVAL-022, harness-verifier\)/);
+  });
+
+  it('every harness-verifier case in the committed dataset names a verdict or acceptable verdicts', () => {
+    const ds = loadDataset();
+    const hv = ds.cases.filter((c) => c.suite === 'harness-verifier');
+    expect(hv.filter((c) => !c.expected.verdict && !c.expected.acceptable_verdicts).map((c) => c.id)).toEqual([]);
+  });
 });

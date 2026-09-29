@@ -99,7 +99,8 @@ describe('migrations', () => {
   it('apply idempotently from the working-directory path used at boot', async () => {
     await expect(runMigrations(t.db)).resolves.toBeUndefined();
     const triggers = await t.client.execute(`SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name`);
-    expect(triggers.rows.map((r) => r.name)).toEqual(['ledger_no_delete', 'ledger_no_update', 'runs_set_final_verdict']);
+    // Later tickets add their own triggers; these are TKT-02's.
+    expect(triggers.rows.map((r) => r.name)).toEqual(expect.arrayContaining(['ledger_no_delete', 'ledger_no_update', 'runs_set_final_verdict']));
   });
 });
 

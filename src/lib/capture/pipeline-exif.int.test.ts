@@ -59,7 +59,9 @@ async function form(o: FormOpts) {
 
 async function run(fd: FormData) {
   const events: CaptureEvent[] = [];
-  await runCapture(fd, { db: t.db, media: localMediaStore(t.dir), now: () => new Date('2026-09-20T04:47:00.000Z') }, (e) => events.push(e));
+  // The session agent owns the seeded device (TKT-04: a device must belong to the signed-in agent).
+  const deps = { db: t.db, media: localMediaStore(t.dir), agentId: world.agentId, now: () => new Date('2026-09-20T04:47:00.000Z') };
+  await runCapture(fd, deps, (e) => events.push(e));
   return events;
 }
 

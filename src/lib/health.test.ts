@@ -36,6 +36,26 @@ describe('health (TC-001 core)', () => {
     expect(r.body.ledger?.keyPresent).toBe(false);
   });
 
+  it('names a configuration fault as config:error with db:unchecked, not as a database fault (QA-P1-1)', async () => {
+    let pinged = false;
+    const r = await health({
+      ...base,
+      config: 'error',
+      ping: async () => {
+        pinged = true;
+      },
+    });
+    expect(r.status).toBe(503);
+    expect(r.body).toMatchObject({ config: 'error', db: 'unchecked' });
+    expect(pinged).toBe(false);
+  });
+
+  it('reports config:ok when the route says so', async () => {
+    const r = await health({ ...base, config: 'ok', ping: async () => {} });
+    expect(r.status).toBe(200);
+    expect(r.body.config).toBe('ok');
+  });
+
   it('carries no environment value in the body', async () => {
     const canary = 'canary-'.repeat(4); // low-entropy on purpose: not scan bait
     process.env.UDGAM_HEALTH_CANARY = canary;

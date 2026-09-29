@@ -2,16 +2,18 @@ import { and, asc, desc, eq, gte } from 'drizzle-orm';
 import { jcs, sha256Hex } from '../crypto';
 import type { Db } from '../db/client';
 import { ledgerEntries } from '../db/schema';
+import { maybeCheckpoint } from './checkpoint';
 import type { Anchor, ChainCheck, EntryHeader, LedgerKind, Tx } from './types';
 
-// Hash-chain ledger adapter (technical-plan §8.1, S7). Checkpoints arrive with TKT-15 via onAppended.
+// Hash-chain ledger adapter (technical-plan §8.1, S7). The onAppended hook seals every 100th entry
+// under a signed Merkle checkpoint in the same transaction (§8.2, TKT-15).
 
 export const GENESIS_PREV = '0'.repeat(64);
 
 type OnAppended = (tx: Tx, seq: number) => Promise<void>;
-let onAppended: OnAppended | undefined;
+let onAppended: OnAppended | undefined = maybeCheckpoint;
 
-/** Register the hook that runs inside the append's transaction after each entry (TKT-15 checkpoints). */
+/** Replace the hook that runs inside the append's transaction after each entry (default: checkpoints). */
 export function setOnAppended(hook: OnAppended | undefined): void {
   onAppended = hook;
 }

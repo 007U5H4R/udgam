@@ -33,6 +33,12 @@ export type CaptureEvent =
 export type CaptureDeps = {
   db: Db;
   media: MediaStore;
+  /**
+   * The signed-in agent, from the session (never from the payload). The signing device must be enrolled
+   * to this agent (technical-plan §10); checked before the idempotent replay, so another account's resend
+   * of someone's payload learns nothing.
+   */
+  agentId: string;
   now?: () => Date;
   /** Ledger append; injectable so tests can fail it inside the transaction (TC-010, EVAL-067). */
   append?: AppendFn;
@@ -189,6 +195,9 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
 
   // 2. boundary (canonical bytes, schema, device, signature, revocation, media sizes and hashes)
   const b = await checkBoundary(form_, { findDevice: (id) => findDevice(db, id) });
+  // Another agent's phone: an authorisation refusal, not a verdict on the payload. Not anchored, so it can
+  // neither answer with the owner's recorded result nor block the owner's own upload of the same payload.
+  if (b.device && b.device.agentId !== deps.agentId) return { t: 'rejected', reason: 'device_not_owned', status: 403 };
   if (!b.ok) return reject(form_, b.reason, b.status, b.device ?? null, serverReceivedAt);
   const { payload, payloadHash, device } = b;
 

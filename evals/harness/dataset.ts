@@ -7,8 +7,9 @@ import type { CheckId, CheckStatus, Verdict } from '../../src/lib/verification/t
 
 // Dataset loader and validator (technical-plan §22 TSK-03.1, TC-017). The dataset is validated
 // against evals/eval-dataset.schema.json (JSON Schema 2020-12) with ajv, then for the rules a schema
-// cannot express: unique case IDs and references (base_case, reuse_media.from_case,
-// context.seen_media_from) that point at existing cases.
+// cannot express: unique case IDs, references (base_case, reuse_media.from_case,
+// context.seen_media_from) that point at existing cases, and a verdict expectation on every
+// harness-verifier case (a case that asserts nothing would pass silently).
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const EVALS_DIR = resolve(HERE, '..');
@@ -129,6 +130,12 @@ function referenceProblems(cases: EvalCase[]): string[] {
       if (m.op === 'reuse_media') ref(m.from_case, `/cases/${i}/input/mutations/${j}/from_case`);
     });
     (c.input?.context?.seen_media_from ?? []).forEach((id, j) => ref(id, `/cases/${i}/input/context/seen_media_from/${j}`));
+  });
+  // The harness scores a verifier case by its verdict first; without one the case could assert nothing.
+  cases.forEach((c, i) => {
+    if (c.suite === 'harness-verifier' && !c.expected?.verdict && !c.expected?.acceptable_verdicts) {
+      problems.push(`/cases/${i}/expected needs verdict or acceptable_verdicts (${c.id}, harness-verifier)`);
+    }
   });
   // A base_case cycle would make case construction recurse forever.
   const byId = new Map(cases.map((c) => [c.id, c]));

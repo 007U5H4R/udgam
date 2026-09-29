@@ -79,6 +79,11 @@ describe('criticalConditions', () => {
     expect(criticalConditions([], { configDrift: { baselineHash: 'aaa', currentHash: 'bbb', authorised: true } }).fired).toEqual([]);
   });
 
+  it('CF-13 fails closed: a baseline-v1 that cannot be checked fires it with the reason', () => {
+    const r = criticalConditions([], { configDrift: { error: 'baseline-v1.json is not valid JSON (Unexpected token)' } });
+    expect(r.fired).toEqual([{ id: 'CF-13', caseIds: [], reason: 'baseline-v1 cannot be checked for config drift: baseline-v1.json is not valid JSON (Unexpected token)' }]);
+  });
+
   it('other CFs fire from a failed case’s critical_conditions', () => {
     const r = criticalConditions([
       caseResult({ id: 'EVAL-060', suite: 'harness-proof', caseClass: null, outcome: 'failed', criticalConditions: ['CF-04'], result: null }),

@@ -14,6 +14,8 @@ export type TracerKey = {
   producerId: string;
   publicJwk: JsonWebKey;
   testOnlyPrivateJwk: JsonWebKey;
+  agentEmail: string;
+  testOnlyAgentPassword: string;
 };
 
 /** Seed a fresh tracer world (new random IDs) and return its test key file, then delete the file. */
