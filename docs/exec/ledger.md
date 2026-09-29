@@ -45,13 +45,13 @@ Branch `build/stage7` (from `main` @ `b397c08`). Protocol: technical-plan.md §2
 | TASK-7 (TKT-06) | 06.1–06.6 | done | 82976cf…becd162 (merge 6164c32), 19484dc (fix round 1, merge 1a58451) | TC-026, 027, 028 (edit half), 029, EVAL-005/026 PASS; EVAL-044 edit path PASS (cache half → TKT-07) | scratchpad qa/P4 | EXE8 |
 | TASK-9 (TKT-08) | 08.1–08.6 | done | 9300814…c5abee6, merge 2fb9927 | TC-035–037 PASS; scenario 1 11/11; EVAL-034/055/056 measured misses (EXE6) | eval local run | dataset 0.3.0 (EVAL-110–113) |
 | TASK-16 (TKT-15) | 15.1–15.8 | done | 641de72…99f4042 (merge b617732, migrations renumbered 0003/0004), 68efd3b (fix round 1) | TC-001 (ledger), TC-061–064, EVAL-058–063, 065 PASS | doc-only sufficiency YES ×3 | EXE9 |
-| TASK-19 (TKT-18) | 18.1–18.x + follow-up | review | ea70ec3…3633fd3 (follow-up merge c67b234) | TC-073, EVAL-058–063 PASS (clean-room checker); unit testTimeout 20 s, int hookTimeout 60 s | both reviews PASS | `--milestone=M1` scoping, EVAL-103 reported separately; awaits QA P5 |
-| TASK-15 (TKT-14) | 14.1–14.x | review | e9c5bde…46d15a0 (merge 4121cb1) | TC-019 (batch part), TC-059, TC-060, EVAL-077, EVAL-080 PASS | both reviews PASS (quality reviewer's gate re-run was denied; the orchestrator re-ran gates at merge) | INSERT OR REPLACE/DELETE guards; awaits QA P5 |
-| TASK-20 (TKT-19) | 19.1–19.x | doing | 759a3b5…190858a (merged; fix round 1 running) | TC-074, TC-075, TC-076, EVAL-081, 083, 085 PASS at merge | spec PASS; quality FAIL → fix round 1 | SQLITE_BUSY root cause fixed (shared DB handle via globalThis); FK-by-trigger; fix round covers CSP tile host, device bucket key, throttle atomicity, sign-in refusal, bundle scan scope, capture cap, AVIF refusal |
-| TASK-8 (TKT-07) | 07.1–07.x | doing | 0699ef8…643882e (merge 7a495b3); fix round 1 queued | TC-030–034, EVAL-015, 016, 017, 044 (cache half), 106 PASS at merge | spec PASS; quality FAIL → fix round 1 queued | fixture fallback outside production only, lossPct hard-fail edge cases, cache robustness, "Check again" anchoring, evidence rounding |
-| TASK-14 (TKT-13) | 13.1–13.x | review | 7480552…5121983 | TC-058, EVAL-079 PASS | both reviews PASS; follow-up (minors/nits) queued | CI green on 5121983 |
-| TASK-10 (TKT-09) | 09.1–09.x | doing | — (implementer running) | TC-038–042 pending | — | |
-| TASK-11 (TKT-10) | 10.1–10.x | doing | — (implementer running) | TC-043–049 pending | — | |
+| TASK-19 (TKT-18) | 18.1–18.8 + follow-up | done | ea70ec3…3633fd3 (follow-up merge c67b234) | TC-073 PASS (brief part PARTIAL, QA-P5-3), TC-006, EVAL-058–063, 066 PASS; EVAL-103 reported out of M1 scope | both reviews PASS; QA P5 | EXE15 |
+| TASK-15 (TKT-14) | 14.1–14.x | done | e9c5bde…46d15a0 (merge 4121cb1) | TC-019 (batch part), TC-059, TC-060, EVAL-077, EVAL-080 PASS | both reviews PASS; QA P5 | EXE16; the organic line is missing on batch detail (QA-P5-2) → follow-up |
+| TASK-20 (TKT-19) | 19.1–19.x + fix rounds 1–2 | done | 759a3b5…190858a; d7876dd (merge a340255); 1923903, e884db8 (merge cd7830b) | TC-074, TC-075, TC-076, EVAL-081, 083, 085 PASS | spec PASS; quality FAIL ×2 → PASS in round 2 (r3); QA P5 | EXE17; Stage 10 inputs R1–R4 |
+| TASK-8 (TKT-07) | 07.1–07.x + fix round 1 | done | 0699ef8…643882e (merge 7a495b3); 3cf4120 (merge 80fb421) | TC-030–034, EVAL-015, 016, 017, 044, 106–108 PASS | spec PASS; quality FAIL → PASS (r2); QA P5 | EXE12, EXE18 |
+| TASK-14 (TKT-13) | 13.1–13.x + follow-up | done | 7480552…5121983; aed1789 (merge 009b96b) | TC-057, TC-058 (plot page; batch detail QA-P5-2), EVAL-079 PASS | both reviews PASS; QA P5 | EXE19 |
+| TASK-10 (TKT-09) | 09.1–09.7 + fix round 1 | done | d4ee5e9…4d31e8b (merge 90e8bef, migrations → 0014/0015); f607ba6, 1df1c05, 7291cec (merge 3a65b11) | TC-038–042, TC-011, TC-040, EVAL-012, 030–032, 035, 045–050, 068, 114–121 PASS; EXE11 guarantees (i)–(iii) PASS | spec + quality FAIL → both PASS (r2); QA P5 | EXE11, EXE20; EVAL-049 unreachable (owner) |
+| TASK-11 (TKT-10) | 10.1–10.14 + fix round 1 + t1 fix | done | dfd0150…f417f54 (merge 1f53b52); 9412b60 (e2e integration); 4a99748, c7011d9 (merge a93d66c); 2bc4d48 (EV9 t1) | TC-043–049, TC-080/081, EVAL-086, 089 PASS; EVAL-070 marks per EV9 | spec + quality FAIL → quality PASS (r2), spec PASS (r3); QA P5 | EXE12 farmer lines; D5 'when' line → owner |
 
 ## Decisions and parked items
 - EXE1 (owner gate waiver), EXE2 (TKT-01 toolchain), EXE3 (TKT-02 foundations: `writeTx`, boundary statuses, test route, `E2E_PORT`), EXE4 (harness semantics), EXE5 (auth under Next 16 and Better Auth; `device_not_owned` not anchored), EXE6 (location/time checks; lone time-flag misses), EXE7 (enrolment and device state), EXE8 (plot geometry), EXE9 (proof feed hardening) are in `decisions.md`.
@@ -153,3 +153,66 @@ Branch `build/stage7` (from `main` @ `b397c08`). Protocol: technical-plan.md §2
   - QA-P4-5 (info): the S2 FAIL reflects not-yet-built checks.
 - **Test infrastructure:** under the load of parallel agents, some heavy tests exceeded the default 5 s timeout. Root cause: child-process suites plus the default timeout. The fix is queued in the TKT-18 follow-up. QA ran with no timeouts.
 - **Open:** GitHub Actions still has no runners.
+
+---
+
+## Gate P5 — TKT-07 (TASK-8), TKT-09 (TASK-10), TKT-10 (TASK-11), TKT-13 (TASK-14), TKT-14 (TASK-15), TKT-18 (TASK-19), TKT-19 (TASK-20) · PASS · 2026-09-29
+- **Head:** QA ran at c26bf36; the one P1 finding was fixed in 2bc4d48 (EV9 t1) and re-checked there. CI is green on 2bc4d48 (all 6 jobs; `main` now requires `audit` and `bundle-secrets`).
+- **Gates at c26bf36:**
+  - typecheck and lint pass;
+  - `pnpm test` 1670/1670 (155 files) and `pnpm test:int` 477/477 (63 files);
+  - `eval:validate`: dataset 0.6.0, 122 cases;
+  - full e2e 319 passed, 1 failed, 4 skipped. The failure was one phone test that set a photo before hydration under load; it passed 14/14 serially (QA-P5-7).
+  - Orchestrator runs on the merged heads: a93d66c e2e 320 passed, 0 failed; cd7830b 316 passed, 0 failed.
+- **`pnpm eval` (M1): PASS.**
+  - S1 97.7 % (42/43), lowest scenario 91.7 %, S2 0/14, S6-lib 7/7, S7 yes, CF 0.
+  - Scenarios: 1 → 11/11, 2 → 11/12, 3 → 10/10, 4 → 10/10.
+  - Delta from P4: S1 up from the P4 measure, scenario 4 from 0/6 to 10/10, and EVAL-034 now passes (EXE10).
+- **Owner-held eval cases (not build defects; decide before baseline-v1):**
+  - **EVAL-055, EVAL-056:** scenario-6 lone-flag stretch misses, reported, no tuning.
+  - **EVAL-122:** a 23 h EXIF gap is a lone flag → Verified under the EV7 rule. My EXE10 brief copied EVAL-034's verdict expectation. Keep it as a reported miss, or have it accept Verified?
+  - **EVAL-116:** its expected substring "fail over 7 days" is now worded "fail over 24 h" (EXE10); the verdict is correct. Authorise the substring change?
+  - **EVAL-049:** unreachable as one picking (3,000 kg on 2 ha > the 500 kg capture limit). Options: a plot of ≤ 0.35 ha, or several pickings in the harness.
+  - **EVAL-103:** M2, out of M1 scope.
+- **Owner decisions verified by QA:**
+  - EXE10–EXE14;
+  - EXE11's three guarantees each have a named passing test;
+  - EXE12 refuses the fixture provider in production (including with `DEMO_MODE=1`) and labels fixture evidence "(demo data)" on the server and farmer screens;
+  - EXE15–EXE21 are recorded.
+- **Owner acknowledgements asked:**
+  - EXE20's X-Y-X replay narrowing;
+  - D5's "when" line on Needs a check (a real response time, or amend D5);
+  - QA-P5-3 (below).
+- **QA findings:**
+  - QA-P5-1 (P1): the EVAL-070 end mark fired before the card was visible, because the orchestrator's fix brief moved it. **Fixed** in 2bc4d48 and re-reviewed PASS.
+  - QA-P5-2 (P2): TC-058's organic line "Certified by … — certificate on record" is missing on `/admin/batches/[id]` and `/buyer/batches/[id]` → P5 follow-up task.
+  - QA-P5-3 (P2, process): TC-073 requires the clean-room checker's brief to contain only `docs/proof-feed.md`. `briefs/TASK-19.md` also cited plan sections and the reference verifier. The mitigations are three doc-only sufficiency reviews (YES) and the import-isolation test. **Owner:** accept it, or have the checker rebuilt from the doc alone (candidate for Stage 9).
+  - QA-P5-4 (P3): under EXE12 the server stays up and returns 500 on every route instead of exiting. It fails closed, but Docker sees no crash → TKT-28 (production configuration).
+  - QA-P5-5 (P3): at 24 h 1 min the evidence reads "Photo time 24 h … (fail over 24 h)", a value on the wrong side of the cited limit (EXE18's rounding rule) → P5 follow-up.
+  - QA-P5-6 (docs): TC-034, TC-076 and EVAL-116's substring lag EXE18, EXE17 and EXE10. The TC wording is updated with this gate; EVAL-116 is an owner item.
+  - QA-P5-7: the capture e2e helpers can set a file before hydration → P5 follow-up.
+  - QA-P5-8 (Stage 8 visuals):
+    - the weight keypad and Send pill aren't anchored to the bottom as in the mockup;
+    - the "No network here" sheet lacks its backdrop, icon and bold text;
+    - the Home place line shows the farmer label;
+    - "150 m" and "(demo data)" wrap;
+    - the Not accepted halo (known).
+- **Ledger notes:**
+  - Two offline pickings signed with the same seq → the second is Needs Review (§9); TKT-11's queue handles it.
+  - A plot geometry edit during an in-flight capture is not re-read.
+  - CI does not run `pnpm test:tz`.
+  - Per-instance state (throttles, capture slots, dev secret) assumes one app instance (TKT-27 runs one).
+  - Browser-exposed tile keys (PRE-1).
+  - Stage 10 inputs R1–R4 (EXE17).
+  - The ledger key uses `link()`: check hard links on the Oracle A1 volume (TKT-27).
+- **Deferred to a P5 follow-up task** (after P6 merges):
+  - QA-P5-2, QA-P5-5, QA-P5-7;
+  - TKT-09 re-review N1 (a test for the accepted-count re-read) and nits;
+  - TKT-10 nits (a no-break space in "(demo data)", log `onSaved` errors, t1 via `useLayoutEffect`);
+  - TKT-07 re-review nits.
+
+  `sharp.cache(false)` rides with TKT-12.
+- **Orchestration notes:**
+  - A container restart at about 15:00 UTC stopped all agents; they resumed from their transcripts, and no work was lost.
+  - Semantic merge fixes are named in their merge commits (EXE21).
+  - `/g1.txt` remains (the root-level `rm` is refused by the session's safety check).

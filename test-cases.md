@@ -335,7 +335,7 @@ Not given a TC because an EVAL case already specifies them completely: S3 latenc
 ### TC-034 · Registration runs forest loss and 12-month NDVI and anchors them
 - **Links:** M-001 · TKT-07 · TASK-8 · F2
 - **Type/Pri/Auto:** integration · P0 · A
-- **Expected:** saving a plot stores `registration_checks` with the loss %, the NDVI history summary and their evidence, and anchors `plot_registered` carrying the results' hash; a provider failure at registration saves the plot with the check marked unavailable and a re-run control.
+- **Expected:** saving a plot stores `registration_checks` with the loss %, the NDVI history summary and their evidence, and anchors them in a `plot_edited` entry that carries the current geometry (including `polygon`) plus `registrationChecksHash` (amended by EXE18); a provider failure at registration saves the plot with the check marked unavailable and a re-run control.
 - **Status:** Not run · **Finding:** —
 
 ### TC-035 · EXIF extraction from real photo fixtures
@@ -590,7 +590,7 @@ Not given a TC because an EVAL case already specifies them completely: S3 latenc
 ### TC-076 · Security headers and CSP
 - **Links:** M-001 · TKT-19 · TASK-20 · technical-plan §16
 - **Type/Pri/Auto:** integration · P1 · A
-- **Expected:** responses carry the CSP (`default-src 'self'`; tile hosts only on `/admin/plots*`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and a `Permissions-Policy` limiting camera and geolocation to self; no page violates its CSP during e2e (console check).
+- **Expected:** responses carry the CSP (`default-src 'self'`; nonce + `'strict-dynamic'` scripts; `object-src 'none'`; tile hosts only on `/admin*` pages (amended by EXE17)), `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and a `Permissions-Policy` limiting camera and geolocation to self; no page violates its CSP during e2e (console check).
 - **Status:** Not run · **Finding:** —
 
 ### TC-077 · Seed builds the Kodagu demo state from nothing, repeatably
