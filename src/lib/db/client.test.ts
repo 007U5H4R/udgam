@@ -1,3 +1,4 @@
+import { createClient } from '@libsql/client';
 import { sql } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
@@ -20,6 +21,48 @@ describe('createDb', () => {
       expect((await t.client.execute('PRAGMA foreign_keys')).rows[0]?.foreign_keys).toBe(1);
     } finally {
       await tx.rollback();
+    }
+  });
+});
+
+describe('writeTx (technical-plan §4.3)', () => {
+  it('runs concurrent writers one at a time, in call order, each in its own transaction', async () => {
+    t = await tempDb();
+    const { writeTx } = await import('./client');
+    await t.client.execute('CREATE TABLE w (i INTEGER)');
+    const events: string[] = [];
+    await Promise.all(
+      [0, 1, 2, 3, 4].map((i) =>
+        writeTx(t!.db, async (tx) => {
+          events.push(`start ${i}`);
+          await tx.run(sql`INSERT INTO w (i) VALUES (${i})`);
+          await new Promise((r) => setTimeout(r, 5));
+          events.push(`end ${i}`);
+        }),
+      ),
+    );
+    expect(events).toEqual([0, 1, 2, 3, 4].flatMap((i) => [`start ${i}`, `end ${i}`]));
+    expect((await t.client.execute('SELECT COUNT(*) AS n FROM w')).rows[0]?.n).toBe(5);
+  });
+
+  it('holds the write lock from the start (BEGIN IMMEDIATE) and rolls back on a throw without blocking the queue', async () => {
+    t = await tempDb();
+    const { writeTx } = await import('./client');
+    await t.client.execute('CREATE TABLE w (i INTEGER)');
+    // A second libSQL client on the same file cannot take the write lock while the transaction is open,
+    // even before the transaction has written anything.
+    const other = createClient({ url: t.url, timeout: 1 });
+    try {
+      const failing = writeTx(t.db, async () => {
+        await expect(other.execute('BEGIN IMMEDIATE')).rejects.toThrow(/locked|busy/i);
+        throw new Error('boom');
+      });
+      const next = writeTx(t.db, (tx) => tx.run(sql`INSERT INTO w (i) VALUES (1)`));
+      await expect(failing).rejects.toThrow('boom');
+      await next;
+      expect((await t.client.execute('SELECT COUNT(*) AS n FROM w')).rows[0]?.n).toBe(1);
+    } finally {
+      other.close();
     }
   });
 });

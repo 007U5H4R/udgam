@@ -7,6 +7,29 @@ import * as schema from './schema';
 
 export type Db = LibSQLDatabase<typeof schema>;
 
+/** A write-transaction handle (`writeTx(db, tx => …)`). */
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+
+const writeQueues = new WeakMap<Db, Promise<unknown>>();
+
+/**
+ * Run `fn` in a write transaction (BEGIN IMMEDIATE, technical-plan §4.3). Every write goes through here.
+ *
+ * libSQL's file driver is synchronous: a connection that finds the write lock taken busy-waits for up
+ * to the 5 s busy timeout *on the event loop*, so the in-process holder can never finish and the
+ * waiter fails with SQLITE_BUSY. Writers in this process therefore queue on an in-process FIFO first;
+ * BEGIN IMMEDIATE and the busy timeout still serialise against other processes (seed scripts, CLI).
+ */
+export function writeTx<T>(db: Db, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  const previous = writeQueues.get(db) ?? Promise.resolve();
+  const run = previous.then(() => db.transaction(fn, { behavior: 'immediate' }));
+  writeQueues.set(
+    db,
+    run.catch(() => undefined),
+  );
+  return run;
+}
+
 export interface DbHandle {
   db: Db;
   client: Client;
