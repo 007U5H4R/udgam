@@ -11,9 +11,27 @@ export type Db = LibSQLDatabase<typeof schema>;
 /** A write-transaction handle (`writeTx(db, tx => …)`). */
 export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
-const writeQueues = new WeakMap<Db, Promise<unknown>>();
-/** Set while a writeTx body runs, across its awaits (re-entrancy guard). */
-const insideWriteTx = new AsyncLocalStorage<true>();
+/**
+ * Process-wide state, kept on globalThis rather than in this module (TKT-19, root cause of the SQLITE_BUSY
+ * seen under parallel e2e load): `next start` bundles this file into two Turbopack runtimes — route
+ * handlers and pages/Server Actions — each with its own module cache, so the module is instantiated
+ * twice in one process. Module-level state gave each instance its own libSQL client and its own write
+ * queue, so a route handler's write transaction and a Server Action's could overlap, and the second
+ * BEGIN IMMEDIATE busy-waited on the very event loop the first needed to finish (see writeTx).
+ */
+type ProcessState = {
+  singleton: DbHandle | undefined;
+  writeQueues: WeakMap<Db, Promise<unknown>>;
+  /** Set while a writeTx body runs, across its awaits (re-entrancy guard). */
+  insideWriteTx: AsyncLocalStorage<true>;
+};
+const STATE_KEY = Symbol.for('udgam.db.process-state');
+const state: ProcessState = ((globalThis as Record<symbol, unknown>)[STATE_KEY] as ProcessState | undefined) ??
+  ((globalThis as Record<symbol, unknown>)[STATE_KEY] = {
+    singleton: undefined,
+    writeQueues: new WeakMap(),
+    insideWriteTx: new AsyncLocalStorage<true>(),
+  } satisfies ProcessState) as ProcessState;
 
 /**
  * Run `fn` in a write transaction (BEGIN IMMEDIATE, technical-plan §4.3). Every write goes through here.
@@ -25,12 +43,12 @@ const insideWriteTx = new AsyncLocalStorage<true>();
  */
 export function writeTx<T>(db: Db, fn: (tx: Tx) => Promise<T>): Promise<T> {
   // A writeTx inside a writeTx body would wait behind itself and stall every later write for good.
-  if (insideWriteTx.getStore()) {
+  if (state.insideWriteTx.getStore()) {
     return Promise.reject(new Error('nested writeTx: use the enclosing transaction handle instead'));
   }
-  const previous = writeQueues.get(db) ?? Promise.resolve();
-  const run = previous.then(() => insideWriteTx.run(true, () => db.transaction(fn, { behavior: 'immediate' })));
-  writeQueues.set(
+  const previous = state.writeQueues.get(db) ?? Promise.resolve();
+  const run = previous.then(() => state.insideWriteTx.run(true, () => db.transaction(fn, { behavior: 'immediate' })));
+  state.writeQueues.set(
     db,
     run.catch(() => undefined),
   );
@@ -58,10 +76,8 @@ export function createDb(url: string): DbHandle {
   return { db: drizzle(client, { schema }), client, ready };
 }
 
-let singleton: DbHandle | undefined;
-
 function handle(): DbHandle {
-  if (!singleton) {
+  if (!state.singleton) {
     mkdirSync(env.DATA_DIR, { recursive: true });
     const h = createDb(env.DATABASE_URL);
     // Callers of the sync getDb() never see `ready`, so a failed pragma is logged here (class only,
@@ -69,13 +85,14 @@ function handle(): DbHandle {
     h.ready.catch((err: unknown) => {
       log.error({ errClass: err instanceof Error ? err.constructor.name : 'unknown' }, 'db.pragma_failed');
     });
-    singleton = h;
+    state.singleton = h;
   }
-  return singleton;
+  return state.singleton;
 }
 
 /**
- * Process-wide database from env.DATABASE_URL; creates DATA_DIR on first use. Synchronous, so the
+ * Process-wide database from env.DATABASE_URL (one per process, however many times this module is
+ * bundled); creates DATA_DIR on first use. Synchronous, so the
  * pragmas may still be in flight on the first call: await `getDbReady()` on paths that need them.
  */
 export function getDb(): Db {
@@ -96,6 +113,6 @@ export function getDbClient(): Client {
 
 /** Close the singleton (shutdown, tests). A later getDb() opens a fresh one. No-op if never opened. */
 export function closeDb(): void {
-  singleton?.client.close();
-  singleton = undefined;
+  state.singleton?.client.close();
+  state.singleton = undefined;
 }
