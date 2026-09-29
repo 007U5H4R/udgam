@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { area } from '@turf/turf';
 import type { Polygon, Position } from '../../src/lib/geo/types';
 import type { RsProfile } from '../../src/lib/remote-sensing/fixture';
+import { buildProfile, GEOMETRY_PROFILES } from '../fixtures/remote-sensing/profiles';
 import { EVALS_DIR, loadDataset, type Dataset, type PlotSpec } from './dataset';
 
 // Plot and remote-sensing fixtures (technical-plan §13, §22 TSK-03.2; evaluation-plan §7.2). The
@@ -14,6 +15,8 @@ import { EVALS_DIR, loadDataset, type Dataset, type PlotSpec } from './dataset';
 
 export const PLOTS_DIR = join(EVALS_DIR, 'fixtures', 'plots');
 export const RS_DIR = join(EVALS_DIR, 'fixtures', 'remote-sensing');
+/** Profiles for fixture geometries that are not dataset plots (e.g. P01-edited-18pct, TC-028). */
+export const RS_GEOMETRY_DIR = join(RS_DIR, 'geometry');
 const GENERATOR = 'evals/harness/fixtures.ts';
 
 /** Mean-earth-radius metres per degree of latitude (R = 6 371 008.8 m, turf's default). */
@@ -212,44 +215,19 @@ export type NdviWindowProfile = PlotSpec['remote_sensing']['ndvi_harvest_window'
 
 export type { RsProfile };
 
-// Values follow technical-plan TSK-07.1 (perennial 0.62–0.81 over 11 clear months; cleared then
-// planted dips to 0.21; annual crop 0.28–0.74; living canopy 0.71 over 4; bare 0.22 over 3; cloud 0).
-// Monthly NDVI means by calendar month, Jan–Dec; null = no clear observation (monsoon July).
-const HISTORY: Record<NdviHistoryProfile, (number | null)[]> = {
-  perennial_canopy: [0.7, 0.66, 0.62, 0.64, 0.69, 0.76, null, 0.81, 0.8, 0.78, 0.75, 0.72],
-  cleared_then_planted: [0.21, 0.24, 0.26, 0.3, 0.35, 0.41, null, 0.48, 0.52, 0.55, 0.57, 0.58],
-  annual_crop: [0.45, 0.34, 0.28, 0.29, 0.38, 0.55, null, 0.7, 0.74, 0.66, 0.52, 0.47],
-};
-const CLEAR_FRACTION = [0.95, 0.97, 0.98, 0.96, 0.9, 0.72, 0, 0.64, 0.8, 0.88, 0.93, 0.96];
-const WINDOW: Record<NdviWindowProfile, { mean: number | null; clearObservations: number }> = {
-  living_canopy: { mean: 0.71, clearObservations: 4 },
-  bare: { mean: 0.22, clearObservations: 3 },
-  cloud_blocked: { mean: null, clearObservations: 0 },
-};
-const LOSS_FROM_YEAR = 2021;
-const LOSS_DATA_YEAR = 2025;
-
-/** The remote-sensing profile of one dataset plot, from its `remote_sensing` block. */
+/** The remote-sensing profile of one dataset plot, from its `remote_sensing` block (numbers: profiles.ts). */
 export function remoteSensingProfile(ds: Dataset, plotId: string): RsProfile {
   const spec = ds.fixtures.plots.find((p) => p.id === plotId);
   if (!spec) throw new Error(`no plot ${plotId} in the dataset fixtures`);
   const rs = spec.remote_sensing;
-  const pct = rs.deforestation_loss_pct_inside;
-  return {
+  return buildProfile({
     plotId,
-    forestLoss: {
-      lossPct: pct,
-      lossHa: Math.round(((pct * spec.area_ha) / 100) * 10_000) / 10_000,
-      yearsFrom: LOSS_FROM_YEAR,
-      dataYear: LOSS_DATA_YEAR,
-      lossAdjacentOutside: rs.loss_adjacent_outside ?? false,
-    },
-    ndviHistory: {
-      profile: rs.ndvi_history,
-      byCalendarMonth: HISTORY[rs.ndvi_history].map((mean, i) => ({ month: i + 1, mean, clearFraction: mean === null ? 0 : CLEAR_FRACTION[i]! })),
-    },
-    ndviWindow: { profile: rs.ndvi_harvest_window, ...WINDOW[rs.ndvi_harvest_window] },
-  };
+    areaHa: spec.area_ha,
+    lossPct: rs.deforestation_loss_pct_inside,
+    history: rs.ndvi_history,
+    window: rs.ndvi_harvest_window,
+    lossAdjacentOutside: rs.loss_adjacent_outside ?? false,
+  });
 }
 
 export type GeneratedProfile = { profile: RsProfile; text: string };
@@ -258,6 +236,20 @@ export function generateRemoteSensingFixtures(ds: Dataset): GeneratedProfile[] {
   return ds.fixtures.plots.map((p) => {
     const profile = remoteSensingProfile(ds, p.id);
     const file = { ...profile, generator: GENERATOR, source: 'synthetic profile from evals/eval-dataset.json fixtures.plots[].remote_sensing' };
+    return { profile, text: `${JSON.stringify(file, null, 2)}\n` };
+  });
+}
+
+/** Profiles for non-dataset fixture geometries (profiles.ts GEOMETRY_PROFILES), matched by geometry hash. */
+export function generateGeometryProfiles(): GeneratedProfile[] {
+  return GEOMETRY_PROFILES.map((spec) => {
+    const profile = buildProfile(spec);
+    const file = {
+      ...profile,
+      geometryFile: `geometry/${spec.plotId}.geojson`,
+      generator: GENERATOR,
+      source: 'synthetic profile from evals/fixtures/remote-sensing/profiles.ts GEOMETRY_PROFILES',
+    };
     return { profile, text: `${JSON.stringify(file, null, 2)}\n` };
   });
 }
@@ -272,6 +264,8 @@ function main(argv: string[]): number {
   mkdirSync(RS_DIR, { recursive: true });
   for (const p of generatePlotFixtures(ds)) writeFileSync(join(PLOTS_DIR, `${p.feature.properties.id}.geojson`), p.text);
   for (const r of generateRemoteSensingFixtures(ds)) writeFileSync(join(RS_DIR, `${r.profile.plotId}.json`), r.text);
+  mkdirSync(RS_GEOMETRY_DIR, { recursive: true });
+  for (const r of generateGeometryProfiles()) writeFileSync(join(RS_GEOMETRY_DIR, `${r.profile.plotId}.json`), r.text);
   console.log(`wrote ${ds.fixtures.plots.length} plot and ${ds.fixtures.plots.length} remote-sensing fixtures`);
   return 0;
 }

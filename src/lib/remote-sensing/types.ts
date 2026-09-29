@@ -1,9 +1,13 @@
 import type { PlotPolygon } from '../geo/types';
 
-// The remote-sensing provider contract (technical-plan §7). TKT-02 needs only the interface, for
-// VerifyContext; TKT-07 owns the rest of this folder (fixture and live adapters, cache, timeouts).
+// The remote-sensing provider contract (technical-plan §7). The fixture adapter is the default; the
+// live adapters (GFW, Copernicus Sentinel Hub), the cache and the per-call timeout wrap the same interface.
 
-export type PlotGeom = { id: string; polygon: PlotPolygon; areaHa: number };
+/**
+ * The plot a provider is asked about. `geometryHash` is SHA-256 of the canonical polygon
+ * (geo/area.ts geometryHash): the cache key, so an edited polygon misses (EVAL-044).
+ */
+export type PlotGeom = { id: string; polygon: PlotPolygon; areaHa: number; geometryHash: string };
 
 /** Per-call options. `signal` carries the caller's timeout (TKT-07 wraps every call in AbortSignal.timeout). */
 export type CallOptions = { signal?: AbortSignal };

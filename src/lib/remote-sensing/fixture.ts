@@ -1,9 +1,13 @@
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { geometryHash } from '../geo/area';
+import type { PlotPolygon } from '../geo/types';
 import { ProviderError, type CallOptions, type PlotGeom, type ProviderName, type RemoteSensingProvider } from './types';
 
-// The fixture remote-sensing adapter (technical-plan §7): the default provider, offline and keyless.
-// It answers from per-plot profiles (evals/fixtures/remote-sensing/<plotId>.json, generated from the
-// dataset by evals/harness/fixtures.ts). Fault injection comes only from the constructor option — the
-// harness passes a case's `provider_fault` mutations — never from env.
+// The fixture remote-sensing adapter (technical-plan §7, TSK-07.1): the default provider, offline and
+// keyless. It answers from per-plot profiles (evals/fixtures/remote-sensing/<plotId>.json, generated
+// from the dataset by evals/harness/fixtures.ts). Fault injection and delays come only from the
+// constructor option — the harness passes a case's `provider_fault` mutations — never from env.
 
 /** What the fixture provider answers for one plot. */
 export type RsProfile = {
@@ -19,8 +23,19 @@ export type RsProfile = {
 
 export type FaultMode = 'timeout' | 'http_500' | 'malformed';
 export type ProviderFault = { provider: ProviderName; mode: FaultMode; cacheEmpty?: boolean };
+export type FixtureCall = 'forestLoss' | 'ndviHistory' | 'ndviWindow';
 
-export type FixtureProviderOptions = { profiles: Record<string, RsProfile>; faults?: ProviderFault[] };
+export type FixtureProviderOptions = {
+  /** Profiles by plot ID (the harness: dataset plot IDs). */
+  profiles: Record<string, RsProfile>;
+  faults?: ProviderFault[];
+  /** Answer each call kind only after this many ms (the remote-phase cap test); the caller's signal still aborts. */
+  delayMs?: Partial<Record<FixtureCall, number>>;
+  /** Profiles by geometry hash, for plots registered in the app with a fixture geometry (TC-028). */
+  byGeometryHash?: Record<string, RsProfile>;
+  /** The answer for any other plot. Without it an unknown plot is an error (the check becomes unavailable). */
+  fallback?: RsProfile;
+};
 
 /** 'YYYY-MM' of the month `back` months before `endMonth`. */
 function monthBefore(endMonth: string, back: number): { key: string; calendarMonth: number } {
@@ -32,49 +47,53 @@ function monthBefore(endMonth: string, back: number): { key: string; calendarMon
   return { key: `${year}-${String(month).padStart(2, '0')}`, calendarMonth: month };
 }
 
+const PROVIDER_OF: Record<FixtureCall, ProviderName> = { forestLoss: 'gfw', ndviHistory: 'sentinel-hub', ndviWindow: 'sentinel-hub' };
+
 export class FixtureProvider implements RemoteSensingProvider {
   readonly name = 'fixture' as const;
   readonly faults: readonly ProviderFault[];
   private readonly profiles: Record<string, RsProfile>;
+  private readonly byGeometryHash: Record<string, RsProfile>;
+  private readonly fallback: RsProfile | undefined;
+  private readonly delayMs: Partial<Record<FixtureCall, number>>;
 
   constructor(opts: FixtureProviderOptions) {
     this.profiles = opts.profiles;
     this.faults = opts.faults ?? [];
+    this.byGeometryHash = opts.byGeometryHash ?? {};
+    this.fallback = opts.fallback;
+    this.delayMs = opts.delayMs ?? {};
   }
 
-  private profile(plotId: string): RsProfile {
-    const p = this.profiles[plotId];
-    if (!p) throw new Error(`no remote-sensing fixture profile for plot ${plotId}`);
+  private profile(plot: PlotGeom): RsProfile {
+    const p = (Object.hasOwn(this.profiles, plot.id) ? this.profiles[plot.id] : undefined) ??
+      (Object.hasOwn(this.byGeometryHash, plot.geometryHash) ? this.byGeometryHash[plot.geometryHash] : undefined) ??
+      this.fallback;
+    if (!p) throw new Error(`no remote-sensing fixture profile for plot ${plot.id}`);
     return p;
   }
 
-  /** Apply an injected fault for `provider`, if any: reject, or (timeout) wait for the caller's signal. */
-  private async answer<T>(provider: ProviderName, opts: CallOptions | undefined, body: () => T): Promise<T> {
+  /** Apply an injected fault or delay for this call, if any; otherwise answer. */
+  private async answer<T>(call: FixtureCall, opts: CallOptions | undefined, body: () => T): Promise<T> {
+    const provider = PROVIDER_OF[call];
     const fault = this.faults.find((f) => f.provider === provider);
     if (fault?.mode === 'http_500') throw new ProviderError(provider, 500);
     if (fault?.mode === 'malformed') throw new ProviderError(provider, 'malformed');
-    if (fault?.mode === 'timeout') {
-      // Never answers on its own; honours the caller's AbortSignal (TKT-07's 8 s AbortSignal.timeout).
-      return new Promise<T>((_, reject) => {
-        const signal = opts?.signal;
-        if (!signal) return;
-        if (signal.aborted) return reject(new ProviderError(provider, 'timeout'));
-        signal.addEventListener('abort', () => reject(new ProviderError(provider, 'timeout')), { once: true });
-      });
-    }
+    const delay = fault?.mode === 'timeout' ? Infinity : (this.delayMs[call] ?? 0);
+    if (delay > 0) await waitOrAbort(provider, delay, opts?.signal);
     return body();
   }
 
   forestLoss(plot: PlotGeom, opts?: CallOptions) {
-    return this.answer('gfw', opts, () => {
-      const { lossHa, lossPct, yearsFrom, dataYear } = this.profile(plot.id).forestLoss;
+    return this.answer('forestLoss', opts, () => {
+      const { lossHa, lossPct, yearsFrom, dataYear } = this.profile(plot).forestLoss;
       return { lossHa, lossPct, yearsFrom, dataYear };
     });
   }
 
   ndviHistory(plot: PlotGeom, endMonth: string, opts?: CallOptions) {
-    return this.answer('sentinel-hub', opts, () => {
-      const byMonth = this.profile(plot.id).ndviHistory.byCalendarMonth;
+    return this.answer('ndviHistory', opts, () => {
+      const byMonth = this.profile(plot).ndviHistory.byCalendarMonth;
       const months = Array.from({ length: 12 }, (_, i) => {
         const { key, calendarMonth } = monthBefore(endMonth, 11 - i);
         const m = byMonth.find((x) => x.month === calendarMonth);
@@ -85,9 +104,67 @@ export class FixtureProvider implements RemoteSensingProvider {
   }
 
   ndviWindow(plot: PlotGeom, _centreDate: string, _days: number, opts?: CallOptions) {
-    return this.answer('sentinel-hub', opts, () => {
-      const { mean, clearObservations } = this.profile(plot.id).ndviWindow;
+    return this.answer('ndviWindow', opts, () => {
+      const { mean, clearObservations } = this.profile(plot).ndviWindow;
       return { mean, clearObservations };
     });
   }
+}
+
+/**
+ * Wait `ms` (Infinity = never answer on its own), rejecting with a timeout ProviderError as soon as the
+ * caller's signal aborts — the 8 s per-call timeout or the 10 s remote-phase cap.
+ */
+function waitOrAbort(provider: ProviderName, ms: number, signal: AbortSignal | undefined): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) return reject(new ProviderError(provider, 'timeout'));
+    const timer = Number.isFinite(ms) ? setTimeout(done, ms) : undefined;
+    function onAbort() {
+      clearTimeout(timer);
+      reject(new ProviderError(provider, 'timeout'));
+    }
+    function done() {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+/** technical-plan TSK-07.1: the fixture adapter. */
+export function createFixtureProvider(opts: FixtureProviderOptions): FixtureProvider {
+  return new FixtureProvider(opts);
+}
+
+export type FixtureSet = Required<Pick<FixtureProviderOptions, 'profiles' | 'byGeometryHash'>>;
+
+const readJson = <T>(path: string): T => JSON.parse(readFileSync(path, 'utf8')) as T;
+const profileOf = ({ plotId, forestLoss, ndviHistory, ndviWindow }: RsProfile): RsProfile => ({ plotId, forestLoss, ndviHistory, ndviWindow });
+type GeoDoc = { type: 'FeatureCollection'; features: { geometry: PlotPolygon }[] } | { type: 'Feature'; geometry: PlotPolygon } | PlotPolygon;
+const geometryOf = (doc: GeoDoc): PlotPolygon =>
+  doc.type === 'FeatureCollection' ? doc.features[0]!.geometry : doc.type === 'Feature' ? doc.geometry : doc;
+
+/**
+ * The committed fixture set under `root` (default `<cwd>/evals/fixtures`): every
+ * `remote-sensing/<plotId>.json` by plot ID and, through `plots/<plotId>.geojson`, by geometry hash;
+ * plus `remote-sensing/geometry/*.json`, profiles for non-dataset geometries named by `geometryFile`.
+ */
+export async function loadFixtureSet(root: string = join(process.cwd(), 'evals', 'fixtures')): Promise<FixtureSet> {
+  const rsDir = join(root, 'remote-sensing');
+  const profiles: Record<string, RsProfile> = {};
+  const byGeometryHash: Record<string, RsProfile> = {};
+  for (const file of readdirSync(rsDir).filter((f) => f.endsWith('.json')).sort()) {
+    const p = profileOf(readJson<RsProfile>(join(rsDir, file)));
+    profiles[p.plotId] = p;
+    const plotFile = join(root, 'plots', `${p.plotId}.geojson`);
+    if (existsSync(plotFile)) byGeometryHash[await geometryHash(geometryOf(readJson<GeoDoc>(plotFile)))] = p;
+  }
+  const geomDir = join(rsDir, 'geometry');
+  if (existsSync(geomDir)) {
+    for (const file of readdirSync(geomDir).filter((f) => f.endsWith('.json')).sort()) {
+      const doc = readJson<RsProfile & { geometryFile: string }>(join(geomDir, file));
+      byGeometryHash[await geometryHash(geometryOf(readJson<GeoDoc>(join(root, doc.geometryFile))))] = profileOf(doc);
+    }
+  }
+  return { profiles, byGeometryHash };
 }
