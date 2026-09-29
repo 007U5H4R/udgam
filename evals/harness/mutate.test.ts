@@ -269,7 +269,7 @@ describe('provider_fault', () => {
   it('gfw http_500 with an empty cache is handed to the fixture provider (EVAL-017)', async () => {
     const b = await build('EVAL-017');
     expect(b.providerFaults).toEqual([{ provider: 'gfw', mode: 'http_500', cacheEmpty: true }]);
-    const plot = { id: b.context.plot.id, polygon: b.context.plot.polygon, areaHa: b.context.plot.areaHa };
+    const plot = { id: b.context.plot.id, polygon: b.context.plot.polygon, areaHa: b.context.plot.areaHa, geometryHash: 'not-used-by-the-fixture' };
     await expect(b.context.remoteSensing.forestLoss(plot)).rejects.toEqual(new ProviderError('gfw', 500));
     await expect(b.context.remoteSensing.ndviWindow(plot, '2026-12-08', 30)).resolves.toEqual({ mean: 0.71, clearObservations: 4 });
   });

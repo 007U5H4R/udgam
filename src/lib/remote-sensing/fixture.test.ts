@@ -1,9 +1,12 @@
-import { describe, expect, it } from 'vitest';
-import { FixtureProvider, type RsProfile } from './fixture';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createFixtureProvider, FixtureProvider, loadFixtureSet, type RsProfile } from './fixture';
 import { ProviderError, type PlotGeom } from './types';
 
-// TSK-03.3: the fixture remote-sensing provider answers from per-plot profiles; faults come only from
-// the constructor (never env). Profiles here are literal copies of evals/fixtures/remote-sensing/*.json.
+// TSK-03.3 / TSK-07.1: the fixture remote-sensing provider answers from per-plot profiles; faults and
+// delays come only from the constructor (never env). Expected numbers are the literal profile values of
+// technical-plan TSK-07.1 (perennial 0.62–0.81 over 11 clear months, cleared_then_planted dips to 0.21,
+// annual_crop 0.28–0.74, living canopy 0.71 over 4, cloud_blocked null over 0, bare 0.22 over 3).
 
 const SQUARE: PlotGeom['polygon'] = {
   type: 'Polygon',
@@ -17,7 +20,7 @@ const SQUARE: PlotGeom['polygon'] = {
     ],
   ],
 };
-const geom = (id: string, areaHa: number): PlotGeom => ({ id, polygon: SQUARE, areaHa });
+const geom = (id: string, areaHa: number, geometryHash = 'h-' + id): PlotGeom => ({ id, polygon: SQUARE, areaHa, geometryHash });
 
 const PERENNIAL = [0.7, 0.66, 0.62, 0.64, 0.69, 0.76, null, 0.81, 0.8, 0.78, 0.75, 0.72];
 const profile = (plotId: string, lossPct: number, areaHa: number, window: RsProfile['ndviWindow']): RsProfile => ({
@@ -35,6 +38,10 @@ const PROFILES: Record<string, RsProfile> = {
   X02: profile('X02', 10.5, 1, LIVING),
   P09: profile('P09', 0, 1.8, { profile: 'cloud_blocked', mean: null, clearObservations: 0 }),
 };
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('FixtureProvider', () => {
   const rs = new FixtureProvider({ profiles: PROFILES });
@@ -68,6 +75,49 @@ describe('FixtureProvider', () => {
   it('an unknown plot rejects', async () => {
     await expect(rs.forestLoss(geom('P77', 1))).rejects.toThrow(/P77/);
   });
+
+  it('matches a plot by geometry hash when its ID is not a fixture plot, then falls back', async () => {
+    const byHash = createFixtureProvider({ profiles: PROFILES, byGeometryHash: { 'hash-x02': PROFILES.X02! } });
+    expect((await byHash.forestLoss(geom('PL-ABCDEFGH', 1, 'hash-x02'))).lossPct).toBe(10.5);
+    await expect(byHash.forestLoss(geom('PL-ABCDEFGH', 1, 'other'))).rejects.toThrow(/PL-ABCDEFGH/);
+    const withFallback = createFixtureProvider({ profiles: PROFILES, fallback: PROFILES.P09! });
+    expect(await withFallback.ndviWindow(geom('PL-ABCDEFGH', 1, 'other'), '2026-12-08', 30)).toEqual({ mean: null, clearObservations: 0 });
+  });
+
+  it('a profile named like an Object.prototype member is not found by accident', async () => {
+    await expect(rs.forestLoss(geom('constructor', 1))).rejects.toThrow(/constructor/);
+  });
+});
+
+describe('committed fixture set (TSK-07.1 profiles from the dataset)', () => {
+  const ROOT = join(__dirname, '..', '..', '..', 'evals', 'fixtures');
+
+  it('P01, X01, X05, X06 and P09 answer the TSK-07.1 numbers', async () => {
+    const set = await loadFixtureSet(ROOT);
+    const rs = createFixtureProvider(set);
+    const nums = async (id: string, areaHa: number) => {
+      const loss = await rs.forestLoss(geom(id, areaHa));
+      const { months } = await rs.ndviHistory(geom(id, areaHa), '2026-12');
+      const clear = months.flatMap((m) => (m.mean === null ? [] : [m.mean]));
+      const window = await rs.ndviWindow(geom(id, areaHa), '2026-12-08', 30);
+      return { lossPct: loss.lossPct, lossHa: loss.lossHa, min: Math.min(...clear), max: Math.max(...clear), clearMonths: clear.length, window };
+    };
+    expect(await nums('P01', 2)).toEqual({ lossPct: 0, lossHa: 0, min: 0.62, max: 0.81, clearMonths: 11, window: { mean: 0.71, clearObservations: 4 } });
+    expect(await nums('X01', 2)).toEqual({ lossPct: 25, lossHa: 0.5, min: 0.21, max: 0.58, clearMonths: 11, window: { mean: 0.71, clearObservations: 4 } });
+    expect(await nums('X05', 1.2)).toEqual({ lossPct: 0, lossHa: 0, min: 0.28, max: 0.74, clearMonths: 11, window: { mean: 0.71, clearObservations: 4 } });
+    expect(await nums('X06', 2)).toEqual({ lossPct: 40, lossHa: 0.8, min: 0.21, max: 0.58, clearMonths: 11, window: { mean: 0.22, clearObservations: 3 } });
+    expect(await nums('P09', 1.8)).toEqual({ lossPct: 0, lossHa: 0, min: 0.62, max: 0.81, clearMonths: 11, window: { mean: null, clearObservations: 0 } });
+  });
+
+  it('indexes dataset plots and the P01-edited-18pct geometry by geometry hash', async () => {
+    const { geometryHash } = await import('../geo/area');
+    const { readFileSync } = await import('node:fs');
+    const set = await loadFixtureSet(ROOT);
+    const p01 = (JSON.parse(readFileSync(join(ROOT, 'plots', 'P01.geojson'), 'utf8')) as { geometry: PlotGeom['polygon'] }).geometry;
+    const edited = (JSON.parse(readFileSync(join(ROOT, 'geometry', 'P01-edited-18pct.geojson'), 'utf8')) as { features: { geometry: PlotGeom['polygon'] }[] }).features[0]!.geometry;
+    expect(set.byGeometryHash[await geometryHash(p01)]?.plotId).toBe('P01');
+    expect(set.byGeometryHash[await geometryHash(edited)]?.forestLoss).toMatchObject({ lossPct: 18 });
+  });
 });
 
 describe('FixtureProvider fault injection', () => {
@@ -78,6 +128,7 @@ describe('FixtureProvider fault injection', () => {
     expect(err).toMatchObject({ provider: 'gfw', kind: 'http', status: 500 });
     expect(err).toEqual(new ProviderError('gfw', 500));
     expect(await rs.ndviWindow(geom('P01', 2), '2026-12-08', 30)).toEqual({ mean: 0.71, clearObservations: 4 });
+    expect((await rs.ndviHistory(geom('P01', 2), '2026-12')).months).toHaveLength(12);
   });
 
   it('malformed on sentinel-hub rejects both NDVI calls with kind malformed', async () => {
@@ -105,8 +156,35 @@ describe('FixtureProvider fault injection', () => {
     await expect(rs.forestLoss(geom('P01', 2), { signal: AbortSignal.abort() })).rejects.toMatchObject({ kind: 'timeout' });
   });
 
+  it('a gfw timeout leaves sentinel-hub answering', async () => {
+    const rs = createFixtureProvider({ profiles: PROFILES, faults: [{ provider: 'gfw', mode: 'timeout' }] });
+    expect(await rs.ndviWindow(geom('P01', 2), '2026-12-08', 30)).toEqual({ mean: 0.71, clearObservations: 4 });
+  });
+
   it('exposes the injected faults (cacheEmpty is recorded for the cache wrapper)', () => {
     const faults = [{ provider: 'gfw', mode: 'http_500', cacheEmpty: true }] as const;
     expect(new FixtureProvider({ profiles: PROFILES, faults: [...faults] }).faults).toEqual(faults);
+  });
+});
+
+describe('FixtureProvider delayMs', () => {
+  it('answers ndviWindow only after its delay; other calls are immediate', async () => {
+    vi.useFakeTimers();
+    const rs = createFixtureProvider({ profiles: PROFILES, delayMs: { ndviWindow: 12_000 } });
+    let answer: unknown;
+    void rs.ndviWindow(geom('P01', 2), '2026-12-08', 30).then((a) => (answer = a));
+    expect(await rs.forestLoss(geom('P01', 2))).toMatchObject({ lossPct: 0 });
+    await vi.advanceTimersByTimeAsync(11_999);
+    expect(answer).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(answer).toEqual({ mean: 0.71, clearObservations: 4 });
+  });
+
+  it('a delayed call rejects with timeout when the caller aborts first', async () => {
+    const rs = createFixtureProvider({ profiles: PROFILES, delayMs: { forestLoss: 60_000 } });
+    const ctl = new AbortController();
+    const p = rs.forestLoss(geom('P01', 2), { signal: ctl.signal });
+    ctl.abort();
+    await expect(p).rejects.toEqual(new ProviderError('gfw', 'timeout'));
   });
 });

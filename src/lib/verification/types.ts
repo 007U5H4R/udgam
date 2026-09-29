@@ -74,7 +74,12 @@ export type VerifyContext = {
   agentPriorAcceptedEvents: number;
   /** This device's last accepted event. */
   previousEvent: { lat: number; lng: number; capturedAt: string } | null;
-  plot: { id: string; crop: 'arabica' | 'robusta'; polygon: PlotPolygon; areaHa: number };
+  /**
+   * `historyEndMonth` (TKT-07): the month (YYYY-MM) the plot's registration checks read its 12-month NDVI
+   * history to — the NDVI-history cache bucket (§7) — so a capture reuses that answer. Absent (never
+   * registered, or the harness): the capture month in IST.
+   */
+  plot: { id: string; crop: 'arabica' | 'robusta'; polygon: PlotPolygon; areaHa: number; historyEndMonth?: string };
   /** The subset of this submission's hashes already in `media` for accepted events. */
   seenMediaHashes: Set<string>;
   /** TP6 */

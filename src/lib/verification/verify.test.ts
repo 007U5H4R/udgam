@@ -30,6 +30,9 @@ describe('registry', () => {
       ['exif_gps_agreement', 'local'],
       ['exif_time_agreement', 'local'],
       ['movement_plausibility', 'local'],
+      ['deforestation_overlap', 'remote'],
+      ['ndvi_cultivation', 'remote'],
+      ['ndvi_harvest_window', 'remote'],
     ]);
   });
 });
@@ -275,7 +278,7 @@ describe('remote phase', () => {
     expect(res.checks.find((c) => c.id === 'ndvi_harvest_window')).toMatchObject({
       status: 'unavailable',
       provider: 'sentinel-hub',
-      evidence: 'Check could not run: RemotePhaseTimeout',
+      evidence: 'Satellite NDVI data unavailable: no answer within 0.05 s; an admin re-run will retry',
     });
     expect(res.unavailableProviders).toEqual(['sentinel-hub']);
     expect(res.verdict).toBe('Needs Review');

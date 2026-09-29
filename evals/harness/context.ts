@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { generateKeyPair } from '../../src/lib/crypto';
 import { FixtureProvider, type ProviderFault, type RsProfile } from '../../src/lib/remote-sensing/fixture';
+import { withTimeouts } from '../../src/lib/remote-sensing';
 import type { RemoteSensingProvider } from '../../src/lib/remote-sensing/types';
 import type { VerifyContext } from '../../src/lib/verification/types';
 import type { Dataset } from './dataset';
@@ -10,7 +11,7 @@ import { PLOTS_DIR, RS_DIR, type PlotFeature } from './fixtures';
 // The harness world every case is built in (technical-plan §13; evaluation-plan §7.2): committed plot
 // and remote-sensing fixtures, the dataset devices with per-run keys, the placeholder yield reference
 // and a fixed server receipt time. Nothing here is shared mutable state: each case gets its own
-// context and its own provider (TKT-07 extends buildRemoteSensing with the cache wrapper).
+// context and its own provider.
 
 /** Fixed server receipt time for every case: 8 Dec 2026, 11:00 IST, in the Kodagu harvest. */
 export const SERVER_RECEIVED_AT = '2026-12-08T05:30:00.000Z';
@@ -63,7 +64,20 @@ export async function generateDeviceKeys(dataset: Dataset): Promise<DeviceKeys> 
   return keys;
 }
 
-/** A case's own remote-sensing provider: the fixture adapter with the case's injected faults. */
+/**
+ * The harness's per-call provider deadline. A `timeout` fault never answers, so the case only learns
+ * of it at the deadline; waiting cfg-1's real 8 s (or the 10 s phase cap) per such case would add no
+ * information and slow every run, so the harness's clock is compressed. The verdict, statuses and
+ * unavailableProviders are those of a real timeout; the 8 s / 10 s timing itself is TC-032 (fake
+ * timers). cfg-1 is unchanged.
+ */
+export const HARNESS_PROVIDER_TIMEOUT_MS = 25;
+
+/**
+ * A case's own remote-sensing provider: the fixture adapter with the case's injected faults
+ * (`provider_fault` mutations), each call bounded by the (compressed) per-call timeout. No cache: every
+ * case starts from an empty one (EVAL-017 `cache: empty`), so results never depend on case order.
+ */
 export function buildRemoteSensing(profiles: Record<string, RsProfile>, faults: ProviderFault[]): RemoteSensingProvider {
-  return new FixtureProvider({ profiles, faults });
+  return withTimeouts(new FixtureProvider({ profiles, faults }), { timeoutMs: HARNESS_PROVIDER_TIMEOUT_MS });
 }

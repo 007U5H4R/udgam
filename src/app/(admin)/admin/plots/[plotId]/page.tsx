@@ -6,17 +6,19 @@ import { userName } from '../../../../../lib/enrolment/phones';
 import { formatHa } from '../../../../../lib/geo/area';
 import { tileLayerConfig } from '../../../../../lib/geo/tiles';
 import { getPlot, listPlots } from '../../../../../lib/plots/plots';
+import { toRegistrationChecks } from '../../../../../lib/plots/registration';
 import { istDate } from '../../../../../lib/verification/evidence';
 import { requireSession, scopedById } from '../../../../_auth/require';
 import { CROP_TEXT, STATUS_TEXT } from '../copy';
 import { EditBoundary } from '../EditBoundary';
 import { Icon, StatusMark } from '../marks';
 import { adminName, loadList, PlotsScreen } from '../PlotsScreen';
+import { RegistrationCard } from '../RegistrationCard';
 import { forcedState } from '../state';
 import s from '../plots.module.css';
 
-// /admin/plots/[plotId] (TKT-06): one plot's outline (PlotSvg), area in hectares, registration status
-// and the boundary editor. Another org's plot ID is a 404, like an unknown one (TC-019). The tile key
+// /admin/plots/[plotId] (TKT-06): one plot's outline (PlotSvg), area in hectares, registration status,
+// the registration checks with "Check again" (TKT-07) and the boundary editor. Another org's plot ID is a 404, like an unknown one (TC-019). The tile key
 // is read on the server and handed only to this admin page's editor (TP19).
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Plot · Udgam' };
@@ -74,6 +76,7 @@ export default async function PlotPage({
             </figcaption>
           </figure>
         </GlassCard>
+        <RegistrationCard plotId={plot.id} checks={toRegistrationChecks(plot.registrationChecks)} stale={plot.registrationStale} />
         <GlassCard as="section" className={[s.sectionCard, s.wide].join(' ')} aria-labelledby="edit-h">
           <h3 className={s.secH} id="edit-h">
             Boundary

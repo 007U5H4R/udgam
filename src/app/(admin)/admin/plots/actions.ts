@@ -6,6 +6,7 @@ import { getDbReady } from '../../../../lib/db/client';
 import { parsePlotFile, type PlotGeomError } from '../../../../lib/geo/parse';
 import type { PlotPolygon } from '../../../../lib/geo/types';
 import { CROPS, editPlot, PlotsError, registerPlot, type RegisterPlotInput } from '../../../../lib/plots/plots';
+import { RegistrationError, runRegistrationChecks } from '../../../../lib/plots/registration';
 import { requireSession } from '../../../_auth/require';
 
 // Plot register, edit and upload Server Actions (TSK-06.4). Each one guards first (a layout never
@@ -135,4 +136,22 @@ export async function uploadPlotFileAction(form: FormData): Promise<PlotActionRe
   const input = newPlotInput(form, parsed.geometry);
   if (!input) return fail('invalid_input');
   return register(orgId, input);
+}
+
+/**
+ * Run a plot's registration checks again for its current boundary (TKT-07): forest loss and the NDVI
+ * history. A provider that failed is asked again; answers already on record come from the cache.
+ */
+export async function rerunRegistrationChecksAction(plotId: string): Promise<PlotActionResult> {
+  const { orgId } = await requireSession('admin', { action: true });
+  if (!PLOT_ID.safeParse(plotId).success) return fail('not_found');
+  const db = await getDbReady();
+  try {
+    await runRegistrationChecks(db, orgId, plotId);
+  } catch (err) {
+    if (err instanceof RegistrationError) return fail('not_found');
+    throw err;
+  }
+  revalidatePath('/admin/plots');
+  return { ok: true, plotId };
 }

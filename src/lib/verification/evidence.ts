@@ -1,4 +1,5 @@
 import { CONFIG } from './config';
+import type { CheckId } from './types';
 
 // Evidence sentences (technical-plan §6.5, TP3 — resolves GAP-8). English; every sentence names the
 // measured value and, where one applies, the threshold (HR1). Units per evaluation-plan §7.4. The
@@ -27,6 +28,14 @@ export function dur(min: number): string {
 }
 /** Calendar date in IST (UTC+05:30) by explicit offset, never the host zone. */
 export const istDate = (iso: string): string => new Date(Date.parse(iso) + IST_OFFSET_MS).toISOString().slice(0, 10);
+/** Calendar month in IST, `YYYY-MM`. */
+export const istMonth = (iso: string): string => istDate(iso).slice(0, 7);
+/** Why a remote-sensing provider gave nothing usable, in evidence words: "timeout", "HTTP 503", … */
+export function providerReason(e: { kind: 'timeout' | 'http' | 'malformed'; status?: number }): string {
+  if (e.kind === 'timeout') return 'timeout';
+  if (e.kind === 'malformed') return 'malformed response';
+  return e.status ? `HTTP ${e.status}` : 'no response';
+}
 /** NDVI, two decimals. */
 const ndvi = (x: number): string => x.toFixed(2);
 
@@ -145,4 +154,12 @@ export const evidence = {
   },
   /** Any check · unavailable because it threw (§7 rule 4, EVAL-018). */
   threw: (errorClass: string) => `Check could not run: ${errorClass}`,
+  /** A remote check still waiting at the remote-phase cap (§7): its provider's own unavailable sentence. */
+  noAnswer: (id: CheckId, capMs: number): string => {
+    const detail = `no answer within ${capMs / 1000} s`;
+    if (id === 'deforestation_overlap') return evidence.deforestation_overlap.unavailable({ reason: detail });
+    if (id === 'ndvi_cultivation') return evidence.ndvi_cultivation.unavailable({ reason: 'provider', detail });
+    if (id === 'ndvi_harvest_window') return evidence.ndvi_harvest_window.unavailable({ reason: 'provider', detail });
+    return `Check could not run: ${detail}`;
+  },
 };

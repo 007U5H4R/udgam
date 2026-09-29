@@ -1,0 +1,44 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "X10",
+    "role": "adversarial",
+    "area_ha": 1.5,
+    "shape": "convex",
+    "anchor": {
+      "place": "Kushalnagar, Kodagu",
+      "lat": 12.458,
+      "lng": 75.96
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 3766139350
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.9598035,
+          12.4572013
+        ],
+        [
+          75.9608214,
+          12.4581776
+        ],
+        [
+          75.9601965,
+          12.4587987
+        ],
+        [
+          75.9591786,
+          12.4578224
+        ],
+        [
+          75.9598035,
+          12.4572013
+        ]
+      ]
+    ]
+  }
+}

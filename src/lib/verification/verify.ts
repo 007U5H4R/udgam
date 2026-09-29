@@ -11,22 +11,28 @@ function errorClass(err: unknown): string {
   return typeof err;
 }
 
-function unavailable(check: Check, config: VerifyConfig, cls: string): CheckResult {
+function unavailable(check: Check, config: VerifyConfig, sentence: string): CheckResult {
   return {
     id: check.id,
     status: 'unavailable',
     score: 0,
     weight: config.weights[check.id],
     hardFail: false,
-    evidence: evidence.threw(cls),
+    evidence: sentence,
     ...(check.provider ? { provider: check.provider } : {}),
   };
 }
 
 /** Run one check. A throw becomes `unavailable` with "Check could not run: <ErrorClass>" (§7 rule 4). */
-export async function runCheck(check: Check, sub: Submission, ctx: VerifyContext, config: VerifyConfig): Promise<CheckResult> {
+export async function runCheck(
+  check: Check,
+  sub: Submission,
+  ctx: VerifyContext,
+  config: VerifyConfig,
+  opts?: { signal?: AbortSignal },
+): Promise<CheckResult> {
   try {
-    const out = await check.run(sub, ctx, config);
+    const out = await check.run(sub, ctx, config, opts);
     return {
       ...out,
       id: check.id,
@@ -34,7 +40,7 @@ export async function runCheck(check: Check, sub: Submission, ctx: VerifyContext
       score: out.status === 'unavailable' ? 0 : config.statusScore[out.status],
     };
   } catch (err) {
-    return unavailable(check, config, errorClass(err));
+    return unavailable(check, config, evidence.threw(errorClass(err)));
   }
 }
 
@@ -50,7 +56,7 @@ function notify(opts: VerifyOptions | undefined, r: CheckResult): void {
  * verify() over an explicit registry and config. Used by verify() and by tests/harness fault
  * injection (EVAL-018 `check_throws`). Local checks run concurrently, then remote checks with
  * Promise.allSettled under the remote phase cap (TP12); anything still running at the cap is
- * unavailable. Never throws.
+ * unavailable ("no answer within 10 s") and its provider calls are aborted. Never throws.
  */
 export async function verifyWith(
   registry: readonly Check[],
@@ -72,19 +78,23 @@ export async function verifyWith(
 
   const remote = active.filter((c) => c.kind === 'remote');
   if (remote.length > 0) {
+    // Every remote check gets the phase's signal and hands it to its provider calls: at the cap the
+    // in-flight requests are aborted, not left running (S3 budget, TP12).
+    const phase = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const cap = new Promise<void>((resolve) => {
       timer = setTimeout(resolve, config.providers.remotePhaseCapMs);
     });
     const all = Promise.allSettled(
       remote.map(async (c) => {
-        const r = await runCheck(c, sub, ctx, config);
+        const r = await runCheck(c, sub, ctx, config, { signal: phase.signal });
         if (!results.has(c)) finish(c, r);
       }),
     );
     await Promise.race([all, cap]);
     clearTimeout(timer);
-    for (const c of remote) if (!results.has(c)) finish(c, unavailable(c, config, 'RemotePhaseTimeout'));
+    for (const c of remote) if (!results.has(c)) finish(c, unavailable(c, config, evidence.noAnswer(c.id, config.providers.remotePhaseCapMs)));
+    phase.abort();
   }
 
   const checks = active.map((c) => results.get(c)!);

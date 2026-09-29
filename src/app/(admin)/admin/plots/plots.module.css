@@ -406,6 +406,24 @@
 .editorWrap {
   margin-top: 14px;
 }
+/* Registration checks (TKT-07): the check lines and their evidence, then "Check again". */
+.regList {
+  display: grid;
+  gap: 12px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.regList .note {
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+.rerun {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  margin-top: 14px;
+}
 
 /* ── Forms (admin.html .decide label / textarea recipe) ── */
 .form {

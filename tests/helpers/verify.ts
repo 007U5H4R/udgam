@@ -1,5 +1,7 @@
 import { generateKeyPair, jcs, sha256Hex, sign } from '../../src/lib/crypto';
 import type { Polygon } from '../../src/lib/geo/types';
+import { buildProfile } from '../../evals/fixtures/remote-sensing/profiles';
+import { createFixtureProvider } from '../../src/lib/remote-sensing/fixture';
 import type { RemoteSensingProvider } from '../../src/lib/remote-sensing/types';
 import type { CapturePayloadV1, Submission, VerifyContext } from '../../src/lib/verification/types';
 
@@ -32,6 +34,15 @@ export const noRemoteSensing: RemoteSensingProvider = {
   ndviHistory: () => Promise.reject(new Error('remote sensing not used in this test')),
   ndviWindow: () => Promise.reject(new Error('remote sensing not used in this test')),
 };
+
+/**
+ * The default for makeContext (TKT-07): an honest plot's satellite answers (no forest loss, perennial
+ * canopy, living canopy around the picking), so a test about other checks is not capped by remote ones.
+ */
+export const honestRemoteSensing: RemoteSensingProvider = createFixtureProvider({
+  profiles: {},
+  fallback: buildProfile({ plotId: 'PL-TEST', areaHa: 2, lossPct: 0, history: 'perennial_canopy', window: 'living_canopy' }),
+});
 
 export type TestDevice = { id: string; pair: CryptoKeyPair; publicJwk: JsonWebKey };
 
@@ -89,7 +100,7 @@ export function makeContext(device: TestDevice, over: Partial<VerifyContext> = {
     seenMediaHashes: new Set(),
     seasonCherryKgBefore: 0,
     yieldReference: { maxKgHa: 783, cherryToCleanRatio: 1 / 6, source: 'placeholder' },
-    remoteSensing: noRemoteSensing,
+    remoteSensing: honestRemoteSensing,
     ...over,
   };
 }

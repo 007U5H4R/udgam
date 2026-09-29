@@ -1,7 +1,7 @@
 {
   "$schema": "./eval-dataset.schema.json",
-  "dataset_version": "0.3.0",
-  "status": "Stage 3 seed. Representative cases only; Stage 7 extends to about 40 legitimate and at least 10 attack cases per scenario 1-4, appending new IDs after the last one used here. IDs are never renumbered or reused. 0.2.0 (Stage 6, TP23): added Milestone 2 cases EVAL-093 to EVAL-105; EVAL-054 and EVAL-068 activated by TP5 and TP7. 0.3.0 (Stage 7, TKT-08): added scenario 1 attack cases EVAL-110 to EVAL-113 (scenario 1 to 11 active S1 cases).",
+  "dataset_version": "0.4.0",
+  "status": "Stage 3 seed. Representative cases only; Stage 7 extends to about 40 legitimate and at least 10 attack cases per scenario 1-4, appending new IDs after the last one used here. IDs are never renumbered or reused. 0.2.0 (Stage 6, TP23): added Milestone 2 cases EVAL-093 to EVAL-105; EVAL-054 and EVAL-068 activated by TP5 and TP7. 0.3.0 (Stage 7, TKT-08): added scenario 1 attack cases EVAL-110 to EVAL-113 (scenario 1 to 11 active S1 cases). 0.4.0 (Stage 7, TKT-07): added plot-laundering fixtures X08 to X10 and scenario 3 attack cases EVAL-106 to EVAL-108 (scenario 3 to 10 active S1 cases).",
   "plan": "evaluation-plan.md (project root, authoritative)",
   "conventions": {
     "evidence_matching": "Scorer lowercases both the evidence sentence and each expected substring and strips all whitespace before a substring test, so '182 m' matches '182m' and '182 M'.",
@@ -33,7 +33,10 @@
       { "id": "X04", "role": "adversarial", "area_ha": 1.5, "shape": "convex", "remote_sensing": { "deforestation_loss_pct_inside": 3.0, "ndvi_history": "perennial_canopy", "ndvi_harvest_window": "living_canopy" }, "notes": "Small clearing; data identical to E01." },
       { "id": "X05", "role": "adversarial", "area_ha": 1.2, "shape": "convex", "remote_sensing": { "deforestation_loss_pct_inside": 0, "ndvi_history": "annual_crop", "ndvi_harvest_window": "living_canopy" }, "notes": "GFW shows no loss, but the NDVI history is not perennial canopy." },
       { "id": "X06", "role": "adversarial", "area_ha": 2.0, "shape": "convex", "remote_sensing": { "deforestation_loss_pct_inside": 40.0, "ndvi_history": "cleared_then_planted", "ndvi_harvest_window": "bare" } },
-      { "id": "X07", "role": "adversarial", "area_ha": 1.5, "shape": "convex", "remote_sensing": { "deforestation_loss_pct_inside": 0, "ndvi_history": "perennial_canopy", "ndvi_harvest_window": "bare" }, "notes": "Registered clean; the canopy was removed after registration." }
+      { "id": "X07", "role": "adversarial", "area_ha": 1.5, "shape": "convex", "remote_sensing": { "deforestation_loss_pct_inside": 0, "ndvi_history": "perennial_canopy", "ndvi_harvest_window": "bare" }, "notes": "Registered clean; the canopy was removed after registration." },
+      { "id": "X08", "role": "adversarial", "area_ha": 2.0, "shape": "convex", "remote_sensing": { "deforestation_loss_pct_inside": 10.0, "ndvi_history": "perennial_canopy", "ndvi_harvest_window": "living_canopy" }, "notes": "Exactly at the 10 % hard-fail threshold (S5): the boundary is inclusive." },
+      { "id": "X09", "role": "adversarial", "area_ha": 5.5, "shape": "convex", "remote_sensing": { "deforestation_loss_pct_inside": 0.4, "ndvi_history": "perennial_canopy", "ndvi_harvest_window": "living_canopy" }, "notes": "Large plot with a small clearing: 0.022 ha is 0.4 % of its area, far below 10 %, but any loss inside the polygon flags." },
+      { "id": "X10", "role": "adversarial", "area_ha": 1.5, "shape": "convex", "remote_sensing": { "deforestation_loss_pct_inside": 0, "ndvi_history": "cleared_then_planted", "ndvi_harvest_window": "living_canopy" }, "notes": "GFW shows no loss (cleared before 2021 or under its canopy threshold), but the NDVI history dips to bare ground and regrows." }
     ],
     "devices": [
       { "id": "D-A1", "agent": "agent-A", "state": "enrolled" },
@@ -1330,6 +1333,41 @@
       "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["geofence"], "check_status": { "geofence": "fail", "exif_gps_agreement": "flag" }, "evidence_substrings": { "geofence": ["55 m", "allowance 5 m"] } },
       "failure_conditions": ["Verified", "Absent EXIF GPS excuses a location outside the plot"],
       "tags": ["small-plot", "exif"]
+    },
+    {
+      "id": "EVAL-106",
+      "title": "Plot laundering: exactly 10.0 % loss, on the hard-fail threshold",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 3, "gates": ["S1"], "critical_conditions": ["CF-01"],
+      "priority": "critical", "automated": true, "milestone": "M1", "status": "active",
+      "input": { "plot": "X08", "device": "D-A1", "base_case": "EVAL-001" },
+      "expected": { "verdict": "Rejected", "catching_checks": ["deforestation_overlap"], "hard_fail_checks": ["deforestation_overlap"], "evidence_substrings": { "deforestation_overlap": ["10.0%"] } },
+      "failure_conditions": ["Any verdict other than Rejected", "Threshold applied as strictly greater than 10 %"],
+      "tags": ["hard-fail", "boundary"]
+    },
+    {
+      "id": "EVAL-107",
+      "title": "Plot laundering: a small clearing on a 5.5 ha plot is 0.4 % of its area",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 3, "gates": ["S1"],
+      "priority": "critical", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "X09", "device": "D-A1", "base_case": "EVAL-001" },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["deforestation_overlap"], "check_status": { "deforestation_overlap": "flag" }, "evidence_substrings": { "deforestation_overlap": ["0.4%"] } },
+      "failure_conditions": ["Verified", "Loss rounded or diluted to 0 on a large plot"],
+      "tags": ["single-signal", "large-plot"]
+    },
+    {
+      "id": "EVAL-108",
+      "title": "Plot laundering missed by GFW: no loss, but the NDVI history shows clearing and replanting",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 3, "gates": ["S1"],
+      "priority": "critical", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "X10", "device": "D-A1", "base_case": "EVAL-001" },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["ndvi_cultivation"], "check_status": { "deforestation_overlap": "ok", "ndvi_cultivation": "fail" } },
+      "failure_conditions": ["Verified"],
+      "tags": ["single-signal"]
     }
   ]
 }

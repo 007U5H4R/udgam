@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,9 +15,10 @@ import { rate, type Rate } from '../scorers/wilson';
 import { fixtureFiles, generateDeviceKeys, loadHarnessInputs, type DeviceKeys, type HarnessInputs } from './context';
 import { loadDataset, type EvalCase, type Suite } from './dataset';
 import { mulberry32 } from './fixtures';
+import { liveAgreement, missingLiveVars, renderAgreement } from './live-agreement';
 import { buildCase as realBuildCase, type BuiltCase } from './mutate';
 import { runProofSuite, type ProofCaseResult, type ProofSuiteOptions } from './suites/proof';
-import { provenance, REPO_ROOT, type Provenance } from './provenance';
+import { gitFacts, provenance, REPO_ROOT, type Provenance } from './provenance';
 import { renderReportFromResults } from './report';
 import { isFileStem, REPORTS_DIR, RESULTS_DIR, reportPathFor, writeReport, writeResults, type Out } from './results';
 
@@ -34,6 +35,9 @@ import { isFileStem, REPORTS_DIR, RESULTS_DIR, reportPathFor, writeReport, write
 //
 // Exit codes: 0 = every gate passes; 1 = the run completed and a gate failed or a critical condition
 // fired; 2 = bad usage (an invalid flag) or a harness crash (the run did not complete).
+// `--provider=live` (TSK-07.7) runs no gate: it compares live GFW / Sentinel Hub answers for P01–P10
+// with the fixtures in an agreement report (live-agreement.ts; `--record` saves the answers). It needs
+// GFW_API_KEY, CDSE_CLIENT_ID and CDSE_CLIENT_SECRET and exits 2 naming the missing ones; never in CI.
 
 export type ConfigMode = 'full' | 'ledger-only';
 export type ProviderMode = 'fixture' | 'live';
@@ -670,11 +674,13 @@ export async function runHarness(opts: RunOptions = {}): Promise<{ results: Resu
 
 // ── CLI ───────────────────────────────────────────────────────────────────────────────────────────
 
-export function parseArgs(argv: string[]): Required<Pick<RunOptions, 'config' | 'provider' | 'suites' | 'out' | 'milestone'>> & Pick<RunOptions, 'seed' | 'name' | 'reportName'> {
-  const o = { config: 'full' as ConfigMode, provider: 'fixture' as ProviderMode, suites: [...HARNESS_SUITES] as Suite[], out: 'local' as Out, milestone: DEFAULT_MILESTONE } as ReturnType<typeof parseArgs>;
+export function parseArgs(
+  argv: string[],
+): Required<Pick<RunOptions, 'config' | 'provider' | 'suites' | 'out' | 'milestone'>> & Pick<RunOptions, 'seed' | 'name' | 'reportName'> & { record: boolean } {
+  const o = { config: 'full' as ConfigMode, provider: 'fixture' as ProviderMode, suites: [...HARNESS_SUITES] as Suite[], out: 'local' as Out, milestone: DEFAULT_MILESTONE, record: false } as ReturnType<typeof parseArgs>;
   for (const arg of argv) {
     const m = /^--([a-z-]+)=(.*)$/.exec(arg);
-    const [flag, value] = m ? [m[1], m[2]!] : [arg, ''];
+    const [flag, value] = m ? [m[1], m[2]!] : arg === '--record' ? ['record', ''] : [arg, ''];
     switch (flag) {
       case 'config':
         if (value !== 'full' && value !== 'ledger-only') throw new Error(`--config must be full or ledger-only, got ${value}`);
@@ -707,6 +713,10 @@ export function parseArgs(argv: string[]): Required<Pick<RunOptions, 'config' | 
         if (!isFileStem(value)) throw new Error(`--name must be a plain file stem (letters, digits, . _ -), got "${value}"`);
         o.name = value;
         break;
+      case 'record':
+        if (m) throw new Error('--record takes no value');
+        o.record = true;
+        break;
       case 'report-name':
         if (!isFileStem(value)) throw new Error(`--report-name must be a plain file stem (letters, digits, . _ -), got "${value}"`);
         o.reportName = value;
@@ -733,8 +743,28 @@ function summaryLines(r: ResultsFile, resultsPath: string, reportPath: string): 
 
 type Runner = (o: RunOptions) => Promise<{ results: ResultsFile; resultsPath: string; reportPath: string; exitCode: 0 | 1 }>;
 
+export type LiveRun = { reportPath: string; agreed: number; total: number; recorded: string[] };
+type LiveRunner = (o: { record: boolean; env: Record<string, string | undefined> }) => Promise<LiveRun>;
+
+/** `--provider=live`: the agreement report under evals/results/local (not committed), never a gate. */
+export async function runLiveAgreement(o: { record: boolean; env: Record<string, string | undefined> }): Promise<LiveRun> {
+  const inputs = loadHarnessInputs(loadDataset());
+  const { rows, recorded } = await liveAgreement({ inputs, env: o.env, record: o.record });
+  const ranAt = new Date().toISOString();
+  const dir = join(RESULTS_DIR, 'local');
+  mkdirSync(dir, { recursive: true });
+  const reportPath = join(dir, `live-agreement-${ranAt.replace(/[:.]/g, '-')}.md`);
+  writeFileSync(reportPath, renderAgreement(rows, { ranAt, commit: gitFacts().shortSha }));
+  return { reportPath, agreed: rows.filter((r) => r.agree).length, total: rows.length, recorded };
+}
+
 /** The CLI: 0 pass, 1 gate failure, 2 bad usage or harness crash (see the header). */
-export async function main(argv: string[], run: Runner = runHarness, io: Pick<Console, 'log' | 'error'> = console): Promise<0 | 1 | 2> {
+export async function main(
+  argv: string[],
+  run: Runner = runHarness,
+  io: Pick<Console, 'log' | 'error'> = console,
+  deps: { env?: Record<string, string | undefined>; live?: LiveRunner } = {},
+): Promise<0 | 1 | 2> {
   let args: ReturnType<typeof parseArgs>;
   try {
     args = parseArgs(argv);
@@ -742,9 +772,27 @@ export async function main(argv: string[], run: Runner = runHarness, io: Pick<Co
     io.error((e as Error).message);
     return 2;
   }
-  if (args.provider === 'live') {
-    io.error('--provider=live arrives with TKT-07 (TSK-07.7); pnpm eval runs on the fixture provider.');
+  if (args.record && args.provider !== 'live') {
+    io.error('--record needs --provider=live (it saves live provider answers as recorded fixtures).');
     return 2;
+  }
+  if (args.provider === 'live') {
+    const env = deps.env ?? process.env;
+    const missing = missingLiveVars(env);
+    if (missing.length > 0) {
+      io.error(`--provider=live needs ${missing.join(', ')} in the environment; nothing was run. The fixture provider needs no keys (pnpm eval). Never run live in CI.`);
+      return 2;
+    }
+    try {
+      const r = await (deps.live ?? runLiveAgreement)({ record: args.record, env });
+      io.log(`pnpm eval --provider=live — agreement ${r.agreed}/${r.total} (no gate)`);
+      if (r.recorded.length > 0) io.log(`recorded ${r.recorded.length} provider answers under evals/fixtures/remote-sensing/recorded`);
+      io.log(`report:  ${relative(process.cwd(), r.reportPath)}`);
+      return 0;
+    } catch (e) {
+      io.error(`pnpm eval --provider=live crashed (exit 2): ${e instanceof Error ? e.message : String(e)}`);
+      return 2;
+    }
   }
   let r: Awaited<ReturnType<Runner>>;
   try {
