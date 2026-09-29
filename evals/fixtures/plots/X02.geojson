@@ -1,0 +1,44 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "X02",
+    "role": "adversarial",
+    "area_ha": 1,
+    "shape": "convex",
+    "anchor": {
+      "place": "Mudigere, Chikkamagaluru",
+      "lat": 13.1353,
+      "lng": 75.6405
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 3900507397
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.6407359,
+          13.1346699
+        ],
+        [
+          75.6409783,
+          13.1357826
+        ],
+        [
+          75.6402641,
+          13.1359301
+        ],
+        [
+          75.6400217,
+          13.1348174
+        ],
+        [
+          75.6407359,
+          13.1346699
+        ]
+      ]
+    ]
+  }
+}

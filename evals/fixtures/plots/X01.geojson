@@ -1,0 +1,44 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "X01",
+    "role": "adversarial",
+    "area_ha": 2,
+    "shape": "convex",
+    "anchor": {
+      "place": "Chikkamagaluru",
+      "lat": 13.3161,
+      "lng": 75.772
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 3850174540
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.7716719,
+          13.3152068
+        ],
+        [
+          75.7729689,
+          13.3162044
+        ],
+        [
+          75.7723281,
+          13.3169932
+        ],
+        [
+          75.7710311,
+          13.3159956
+        ],
+        [
+          75.7716719,
+          13.3152068
+        ]
+      ]
+    ]
+  }
+}

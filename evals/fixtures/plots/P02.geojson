@@ -1,0 +1,56 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "P02",
+    "role": "legitimate",
+    "area_ha": 0.6,
+    "shape": "irregular",
+    "anchor": {
+      "place": "Suntikoppa, Kodagu",
+      "lat": 12.4563,
+      "lng": 75.8251
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 2447783757
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.8248476,
+          12.4566869
+        ],
+        [
+          75.8246705,
+          12.45624
+        ],
+        [
+          75.8249182,
+          12.4560617
+        ],
+        [
+          75.8251212,
+          12.4558236
+        ],
+        [
+          75.8255122,
+          12.4560889
+        ],
+        [
+          75.8254272,
+          12.4564845
+        ],
+        [
+          75.825292,
+          12.4567377
+        ],
+        [
+          75.8248476,
+          12.4566869
+        ]
+      ]
+    ]
+  }
+}
