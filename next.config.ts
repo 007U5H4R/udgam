@@ -16,6 +16,11 @@ const nextConfig: NextConfig = {
   // exifr probes for fs/zlib with a dynamic require that a bundle cannot satisfy ("Couldn't load fs");
   // loaded natively on the server it finds them (TKT-08, media/exif.ts).
   serverExternalPackages: ["exifr"],
+  // Plot uploads go through Server Actions and are capped at 2 MB by the action itself (TKT-06), so the
+  // framework's 1 MB default must not refuse them first; 3 MB leaves room for the form's other fields.
+  experimental: {
+    serverActions: { bodySizeLimit: "3mb" },
+  },
   env: {
     UDGAM_COMMIT: gitCommit(),
   },

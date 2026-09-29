@@ -1,0 +1,31 @@
+/* Ported from .design/exploration/final/admin.html ".plot-map svg", ".m-contour", ".m-contour-in",
+   ".m-glow", ".m-line" (the fill and glow filter are per-instance defs in PlotSvg.tsx). */
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: hidden;
+}
+.contour {
+  fill: none;
+  stroke: rgba(185, 245, 210, 0.1);
+  stroke-width: 1.2;
+}
+.contourIn {
+  fill: none;
+  stroke: rgba(185, 245, 210, 0.2);
+  stroke-width: 1.2;
+}
+.glow {
+  fill: none;
+  stroke: #7fe3c1;
+  stroke-width: 9;
+  stroke-linejoin: round;
+  opacity: 0.55;
+}
+.line {
+  fill: none;
+  stroke: #b9f5d2;
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+}
