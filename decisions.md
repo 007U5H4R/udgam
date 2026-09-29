@@ -516,3 +516,11 @@
   - An invalid environment reads as `config:"error"`, not a database fault (QA-P1-1).
 - **`pnpm eval` never touches `./data`.** It isolates `DATA_DIR`/`LEDGER_KEY_PATH` in a temp directory.
 - **Doc sufficiency.** Three rounds of review by a clean-room reviewer who read only the doc and vectors all concluded SUFFICIENT: YES (`scratchpad` report `TASK-16-doc-sufficiency.md`, summarised in the ledger).
+
+## TP30 · The GitHub repo stays public — accepted (supersedes DISC16's private-repo clause)
+**Context.** DISC16 chose a private proprietary repo. On 2026-09-29 `007U5H4R/udgam` was found to be public already (created 2026-09-28), and the owner confirmed it should stay public. A scan of all 113 commits on every branch found no secrets; the only key material is the test-only vectors in `evals/fixtures/crypto-vectors.json`, plus a planted canary string used by the secret-scan test.
+**Decision.** The repo stays public. Consequences:
+- Commit author emails, the vendored `.claude/workflow/` files (including the owner's personal global rules and vault path) and the full planning record (PRDs, grant strategy, cost model) are public.
+- There is no LICENSE, so the code is visible but all rights are reserved. Choosing an open licence is a separate owner decision.
+- Nothing about secrets changes: they come only from env or `.secrets/`; gitleaks runs in CI (TKT-01); the pre-commit habit of scanning stays.
+**Rejected.** Switching back to private (the owner chose public).

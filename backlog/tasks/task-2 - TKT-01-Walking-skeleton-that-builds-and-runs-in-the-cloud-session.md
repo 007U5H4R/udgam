@@ -1,10 +1,10 @@
 ---
 id: TASK-2
 title: 'TKT-01: Walking skeleton that builds and runs in the cloud session'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-29 02:23'
-updated_date: '2026-09-29 03:06'
+updated_date: '2026-09-29 03:51'
 labels:
   - P0
   - 'sp:3'
@@ -47,3 +47,9 @@ Source: tickets.md § TKT-01 · Plan: technical-plan.md § TKT-01
 - [ ] #2 Linked TC- and EVAL- cases automated (or manual with evidence) and passing; no regression in the latest pnpm eval run
 - [ ] #3 pnpm typecheck && pnpm lint && pnpm test green in CI on the ticket's last commit; UI matches frozen Design.md (four states, 375/768/1440, a11y); no secrets committed; commits carry the TASK id
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-09-29: Stage 7 started in cloud session https://claude.ai/code/session_01HGo9cNkjpsmZsaQ31tkm9J (env udgam, branch build/stage7, Opus 5.5 High).
+<!-- SECTION:NOTES:END -->
