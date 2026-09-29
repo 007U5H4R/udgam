@@ -12,7 +12,7 @@ import { forcedViewState } from '../../../../../lib/batches/view-state';
 import { getDbReady } from '../../../../../lib/db/client';
 import { t } from '../../../../../lib/i18n';
 import { requireSession } from '../../../../_auth/require';
-import { cropLabel } from '../BatchList';
+import { cropLabel } from '../../../../../components/buyer/labels';
 
 // /admin/batches/new (TSK-14.5): the batch builder, a single list column (TP17) with the one primary
 // pill at the bottom. `?state=loading|empty|error` forces a state for e2e (§11).

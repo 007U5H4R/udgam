@@ -395,3 +395,6 @@
     animation: none;
   }
 }
+.headActions + .note {
+  margin-top: 10px;
+}

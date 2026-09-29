@@ -156,3 +156,79 @@ test.describe('admin batches (TSK-14.5, TC-059, TC-060)', () => {
     }
   });
 });
+
+test.describe('buyer list and detail (TSK-14.6, TC-060, EVAL-080)', () => {
+  test('buyer A sees its batch with score, quantity, plots, custody chain and certificate link', async ({ page }) => {
+    test.setTimeout(90_000);
+    const seeded = seedBatches('ORG-BUYER-A');
+    const { batchId, shortHash } = seeded.batch!;
+    await signIn(page, DEMO_ACCOUNTS.buyerA.email, SEED_PASSWORD);
+    await expect(page).toHaveURL(/\/buyer$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Batches' })).toBeVisible();
+    const row = page.locator(`[data-batch-id="${batchId}"]`);
+    await expect(row).toContainText('128.5 kg');
+    await expect(row).toContainText('Arabica · 1 plot · score 84');
+    await expect(row).toContainText('From Hosahalli FPO');
+    await checkSurface(page);
+
+    await row.click();
+    await expect(page).toHaveURL(new RegExp(`/buyer/batches/${batchId}$`));
+    await expect(page.getByRole('heading', { level: 2, name: batchId })).toBeVisible();
+    await expect(page.getByText('Score 84 of 100')).toBeVisible();
+    await expect(page.getByText('128.5 kg of arabica cherry · 3 pickings · 1 plot')).toBeVisible();
+    const plots = page.getByRole('region', { name: 'Plots and producers' });
+    await expect(plots).toContainText(`producer ${seeded.producerIds[0]}`);
+    await expect(page.getByTestId('custody-chain')).toContainText('Hosahalli FPO → Demo Buyer A');
+    await expect(page.locator('body')).not.toContainText('Test farmer'); // producer IDs only (EV16)
+    const certificate = page.getByTestId('certificate-link');
+    await expect(certificate).toHaveText('Open the certificate');
+    await expect(certificate).toHaveAttribute('href', `/verify/${batchId}?h=${shortHash}`);
+    // The certificate page itself arrives with TKT-16; its data is the proof feed, served for this h.
+    const feed = await page.request.get(`/api/verify/${batchId}?h=${shortHash}`);
+    expect(feed.status()).toBe(200);
+    expect((await feed.json()).shortHash).toBe(shortHash);
+    await checkSurface(page);
+  });
+
+  test("buyer B does not see buyer A's batch, and opening it is a 404 (EVAL-080, TC-019)", async ({ page }) => {
+    const seeded = seedBatches('ORG-BUYER-A');
+    await signIn(page, DEMO_ACCOUNTS.buyerB.email, SEED_PASSWORD);
+    await expect(page.locator(`[data-batch-id="${seeded.batch!.batchId}"]`)).toHaveCount(0);
+    const res = await page.goto(`/buyer/batches/${seeded.batch!.batchId}`);
+    expect(res?.status()).toBe(404);
+    await expect(page.locator('body')).not.toContainText(seeded.batch!.batchId);
+  });
+
+  test('/buyer in all four states (TC-080, TC-081)', async ({ page }) => {
+    test.setTimeout(90_000);
+    await signIn(page, DEMO_ACCOUNTS.buyerB.email, SEED_PASSWORD);
+    await page.goto('/buyer?state=empty');
+    await expect(page.locator('[data-state="empty"]')).toContainText('No batches have been transferred to you yet.');
+    await checkSurface(page);
+
+    await page.goto('/buyer?state=loading');
+    await expect(page.getByRole('status')).toContainText('Loading the batches…');
+    await checkSurface(page);
+
+    await page.goto('/buyer?state=error');
+    const alert = page.locator('[data-state="error"]');
+    await expect(alert).toContainText("Couldn't load the batches.");
+    await expect(alert.getByRole('link', { name: 'Try again' })).toBeVisible();
+    await checkSurface(page);
+
+    seedBatches('ORG-BUYER-A');
+    await page.getByRole('button', { name: 'Sign out' }).click();
+    await signIn(page, DEMO_ACCOUNTS.buyerA.email, SEED_PASSWORD);
+    await expect(page.getByRole('list', { name: 'Batches transferred to you' })).toBeVisible();
+    if (isDesktop(page)) await expect(page.getByText('Choose a batch to see its plots, custody and certificate.')).toBeVisible();
+    await checkSurface(page);
+  });
+
+  test('admins and agents cannot open the buyer screens (TC-018)', async ({ page }) => {
+    await signIn(page, DEMO_ACCOUNTS.adminA.email, SEED_PASSWORD);
+    for (const path of ['/buyer', '/buyer/batches/B-00000000']) {
+      await page.goto(path);
+      await expect(page, path).toHaveURL(/\/admin$/);
+    }
+  });
+});

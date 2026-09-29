@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { BatchRow } from '../../../../components/buyer/BatchRow';
 import { ListLoading, StateCard } from '../../../../components/buyer/BatchStates';
+import { cropLabel, pickingsLabel } from '../../../../components/buyer/labels';
 import screen from '../../../../components/buyer/BatchScreen.module.css';
 import pill from '../../../../components/ui/Pill.module.css';
 import { formatKg, formatScore } from '../../../../lib/batches/format';
@@ -10,9 +11,6 @@ import { t } from '../../../../lib/i18n';
 
 // The list column of /admin/batches and /admin/batches/[batchId] (admin.html queue grammar): heading,
 // the "New batch" pill, and the org's batches with status, crop, kilograms, score and pickings.
-
-export const pickingsLabel = (n: number) => (n === 1 ? t('batches.pickings.one') : t('batches.pickings.many', { n }));
-export const cropLabel = (crop: 'arabica' | 'robusta') => t(crop === 'arabica' ? 'crop.arabica' : 'crop.robusta');
 
 export function BatchList({
   orgName,

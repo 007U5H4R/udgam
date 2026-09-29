@@ -10,7 +10,8 @@ import { getOrgBatch, listBuyerOrgs, listOrgBatches } from '../../../../../lib/b
 import { getDbReady } from '../../../../../lib/db/client';
 import { t } from '../../../../../lib/i18n';
 import { requireSession, scopedById } from '../../../../_auth/require';
-import { BatchList, cropLabel, pickingsLabel } from '../BatchList';
+import { BatchList } from '../BatchList';
+import { cropLabel, pickingsLabel } from '../../../../../components/buyer/labels';
 
 // /admin/batches/[batchId] (TSK-14.5, TC-060): members, totals, the certificate link and — while the
 // batch is open — the signed transfer; once transferred, the custody line instead. Another org's batch

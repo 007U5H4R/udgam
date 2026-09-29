@@ -92,6 +92,9 @@ export const en = {
   'buyer.detail.producers': 'Plots and producers',
   'buyer.detail.producer': '{plot} · producer {producer}',
   'buyer.pick': 'Choose a batch to see its plots, custody and certificate.',
+  'buyer.empty.body': 'When an organisation transfers a batch to you, it appears here with its certificate.',
+  'buyer.detail.eyebrow': '{org} · Batch',
+  'buyer.detail.from': 'From {org} · transferred {when}',
 } as const;
 
 export type MessageKey = keyof typeof en;

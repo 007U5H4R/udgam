@@ -74,7 +74,7 @@ describe('TC-018 route-group layouts guard on the server', () => {
 
   it('the (admin) and (buyer) shells guard themselves too (a page never trusts its layout alone)', async () => {
     const { default: AdminPage } = await import('./(admin)/admin/page');
-    const { default: BuyerPage } = await import('./(buyer)/buyer/page');
+    const { default: BuyerPage } = await import('./(buyer)/buyer/(list)/page');
     as('buyer');
     expect(await outcome(() => AdminPage())).toEqual({ redirect: '/buyer' });
     as('admin');
