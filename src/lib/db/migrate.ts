@@ -14,10 +14,20 @@ export async function runMigrations(db: Db, migrationsFolder: string = MIGRATION
   await migrate(db, { migrationsFolder });
 }
 
-/** Boot hook (src/instrumentation.ts): migrate the process-wide database before serving requests. */
+/**
+ * Boot hook (src/instrumentation.ts): migrate the process-wide database before serving requests, then
+ * refresh the reference data the verifier reads (the TP6 yield reference, TKT-09; idempotent).
+ */
 export async function migrateAtBoot(): Promise<void> {
   const { getDbReady } = await import('./client');
-  await runMigrations(await getDbReady());
+  await prepareDatabase(await getDbReady());
+}
+
+/** Migrate, then seed the reference data (idempotent). */
+export async function prepareDatabase(db: Db, migrationsFolder: string = MIGRATIONS_DIR): Promise<void> {
+  await runMigrations(db, migrationsFolder);
+  const { seedYieldReference } = await import('./seed/yield-reference');
+  await seedYieldReference(db);
 }
 
 // `pnpm db:migrate` (tsx src/lib/db/migrate.ts)
