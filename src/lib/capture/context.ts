@@ -3,6 +3,7 @@ import { env } from '../config/env';
 import type { Db } from '../db/client';
 import { harvestEvents, media, type plots } from '../db/schema';
 import type { PlotPolygon } from '../geo/types';
+import { parseRegistrationChecks } from '../plots/registration';
 import { appRemoteSensing } from '../remote-sensing';
 import type { RemoteSensingProvider } from '../remote-sensing/types';
 import type { CapturePayloadV1, VerifyContext } from '../verification/types';
@@ -22,6 +23,12 @@ const YIELD_PLACEHOLDER = {
   arabica: { maxKgHa: 783, cherryToCleanRatio: 1 / 6, source: 'placeholder until TKT-09' },
   robusta: { maxKgHa: 1494, cherryToCleanRatio: 1 / 6, source: 'placeholder until TKT-09' },
 } as const;
+
+/** The month the plot's registration read its NDVI history to (the cache bucket), if they are current. */
+function historyEndMonth(plot: PlotRow): { historyEndMonth?: string } {
+  const reg = plot.registrationStale === 0 ? parseRegistrationChecks(plot.registrationChecks) : null;
+  return reg ? { historyEndMonth: reg.ndviHistory.endMonth } : {};
+}
 
 export async function buildContext(
   db: Db,
@@ -55,7 +62,7 @@ export async function buildContext(
       previous && previous.lat !== null && previous.lng !== null && previous.capturedAt !== null
         ? { lat: previous.lat, lng: previous.lng, capturedAt: previous.capturedAt }
         : null,
-    plot: { id: plot.id, crop: plot.crop, polygon: JSON.parse(plot.geojson) as PlotPolygon, areaHa: plot.areaHa },
+    plot: { id: plot.id, crop: plot.crop, polygon: JSON.parse(plot.geojson) as PlotPolygon, areaHa: plot.areaHa, ...historyEndMonth(plot) },
     seenMediaHashes: new Set(seenRows.map((r) => r.sha256)),
     seasonCherryKgBefore: 0, // TP6 season window arrives with TKT-09
     yieldReference: YIELD_PLACEHOLDER[plot.crop],

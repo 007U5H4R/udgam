@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { PlotPolygon, Polygon } from '../geo/types';
-import { createLiveProvider, getRemoteSensing, plotGeom } from './index';
+import { createLiveProvider, createProviderHealth, getRemoteSensing, plotGeom, providerHealth } from './index';
 
 // TSK-07.2: getRemoteSensing(env) picks the provider REMOTE_SENSING_PROVIDER names. In fixture mode the
 // app answers from the committed fixture set: a dataset plot's geometry by its geometry hash, the
@@ -98,5 +98,25 @@ describe('createLiveProvider (live mode)', () => {
     const fetch = (async (url: string | URL | Request) =>
       String(url).includes('/token') ? Response.json({ access_token: 'tok', expires_in: 600 }) : new Response('{}', { status: 403 })) as typeof globalThis.fetch;
     expect(await createLiveProvider(LIVE_ENV, { fetch }).probe()).toEqual({ gfw: 'error', sentinelHub: 'ok' });
+  });
+});
+
+describe('provider health (TC-001, §15)', () => {
+  it('fixture mode reports fixture for both providers without probing', async () => {
+    expect(await providerHealth({ REMOTE_SENSING_PROVIDER: 'fixture', PUBLIC_BASE_URL: 'http://localhost:3000' })).toEqual({ gfw: 'fixture', sentinelHub: 'fixture' });
+  });
+
+  it('live mode probes at most once per 60 s and reuses the answer in between', async () => {
+    let t = 1_000_000;
+    let probes = 0;
+    const answers = [{ gfw: 'ok', sentinelHub: 'ok' }, { gfw: 'error', sentinelHub: 'ok' }] as const;
+    const health = createProviderHealth(async () => answers[probes++]!, { now: () => t });
+    expect(await health()).toEqual({ gfw: 'ok', sentinelHub: 'ok' });
+    t += 59_999;
+    expect(await health()).toEqual({ gfw: 'ok', sentinelHub: 'ok' });
+    expect(probes).toBe(1);
+    t += 1;
+    expect(await health()).toEqual({ gfw: 'error', sentinelHub: 'ok' });
+    expect(probes).toBe(2);
   });
 });

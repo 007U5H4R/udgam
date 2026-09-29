@@ -108,4 +108,33 @@ describe('GET /api/health (TC-001)', () => {
     expect(body.db).toBe('ok');
     expect(body.ledger.keyPresent).toBe(false);
   });
+
+  it('live mode reports each provider’s probe (GFW dataset GET, CDSE token), cached for 60 s, with no key in the body (TKT-07)', async () => {
+    const gfwKey = 'gfw-canary-'.repeat(2);
+    const cdseSecret = 'cdse-canary-'.repeat(2);
+    vi.stubEnv('REMOTE_SENSING_PROVIDER', 'live');
+    vi.stubEnv('GFW_API_KEY', gfwKey);
+    vi.stubEnv('CDSE_CLIENT_ID', 'cdse-client');
+    vi.stubEnv('CDSE_CLIENT_SECRET', cdseSecret);
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', async (url: string | URL | Request) => {
+      urls.push(String(url));
+      return String(url).includes('/token') ? Response.json({ access_token: 'tok', expires_in: 600 }) : new Response('{}', { status: 403 });
+    });
+    try {
+      const { GET } = await import('./route');
+      const res = await GET();
+      const text = await res.text();
+      expect(JSON.parse(text)).toMatchObject({ db: 'ok', providers: { gfw: 'error', sentinelHub: 'ok' } });
+      expect(text).not.toContain(gfwKey);
+      expect(text).not.toContain(cdseSecret);
+      await GET();
+      expect(urls).toEqual([
+        'https://data-api.globalforestwatch.org/dataset/umd_tree_cover_loss',
+        'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token',
+      ]); // the second request reused the probe
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

@@ -7,7 +7,8 @@ import { stubTiles } from './helpers/stubs';
 import { query } from './helpers/tracer';
 
 // TKT-06 admin plot screens: the list (farmer, producer ID, crop, area, registration status) and its
-// four states, the new-plot form (upload path), the detail (area in ha, "Registration checks pending"),
+// four states, the new-plot form (upload path), the detail (area in ha, the registration checks that
+// run right after a save — TKT-07, TC-034 — "Registration checks on record"),
 // with TC-080 (no horizontal scroll) and TC-081 (axe) on /admin/plots*. Each Playwright project is one
 // viewport (320, 375, 768, 1440).
 
@@ -61,7 +62,7 @@ test.describe('TKT-06 admin plots', () => {
     await signIn(page, DEMO_ACCOUNTS.adminA.email, SEED_PASSWORD);
   });
 
-  test('new plot by upload: the detail shows the area in ha and "Registration checks pending"; the list row has farmer, producer ID, crop, area and status (TC-026, TC-027)', async ({ page }) => {
+  test('new plot by upload: the detail shows the area in ha and its registration checks on record; the list row has farmer, producer ID, crop, area and status (TC-026, TC-027, TC-034)', async ({ page }) => {
     // Upload, two pages and two axe scans; the shared e2e database's list grows every run.
     test.slow();
     const farmer = uniqueName('Kaveri');
@@ -69,7 +70,14 @@ test.describe('TKT-06 admin plots', () => {
     const detail = page.getByRole('region', { name: 'Plot detail' });
     await expect(detail.getByRole('heading', { level: 2, name: plotId })).toBeVisible();
     await expect(detail.locator('#plot-area')).toHaveText(/^Area \d+\.\d{2} ha$/);
-    await expect(detail.getByText('Registration checks pending').first()).toBeVisible();
+    await expect(detail.getByText('Registration checks on record').first()).toBeVisible();
+    // TKT-07: forest loss and the 12-month NDVI history ran for this boundary (fixture provider).
+    const checks = detail.getByTestId('registration-checks');
+    await expect(checks.getByText('Forest map · Passed')).toBeVisible();
+    await expect(checks.getByText('0.0% of plot area lost since 2021 (hard fail at 10.0%)')).toBeVisible();
+    await expect(checks.getByText('Coffee grown here, 12 months · Passed')).toBeVisible();
+    await expect(checks.getByText(/^Canopy all year: monthly NDVI 0\.62–0\.81 over 11 clear months/)).toBeVisible();
+    await expect(detail.getByRole('button', { name: 'Check again' })).toHaveCount(0);
     await expect(detail.getByRole('img', { name: new RegExp(`Outline of plot ${plotId}`) })).toBeVisible();
     await screenChecks(page);
     await noSeriousAxeViolations(page);
@@ -79,7 +87,7 @@ test.describe('TKT-06 admin plots', () => {
     await expect(row).toBeVisible();
     await expect(row).toContainText(/PR-[0-9A-Z]{8} · Robusta/);
     await expect(row).toContainText(/\d+\.\d{2} ha/);
-    await expect(row).toContainText('Registration checks pending');
+    await expect(row).toContainText('Registration checks on record');
     await screenChecks(page);
     await noSeriousAxeViolations(page);
   });
@@ -181,9 +189,13 @@ test.describe('TKT-06 admin plots', () => {
     await editor.getByRole('button', { name: 'Save boundary' }).click();
     const detail = page.getByRole('region', { name: 'Plot detail' });
     await expect(detail.locator('#plot-area')).toHaveText(`Area ${liveArea}`);
-    await expect(detail.getByText('Boundary changed · checks pending').first()).toBeVisible();
-    const kinds = await query<{ kind: string }>("SELECT kind FROM ledger_entries WHERE json_extract(payload, '$.plotId') = ? ORDER BY seq", [plotId]);
-    expect(kinds.map((k) => k.kind)).toEqual(['plot_registered', 'plot_edited']);
+    // The edit is anchored, then the registration checks re-run for the new boundary right after the
+    // save (TKT-07, TC-028): registered, its checks, the edit, the checks again.
+    await expect(detail.getByText(/boundary changed/)).toBeVisible();
+    await expect(detail.getByText('Registration checks on record').first()).toBeVisible();
+    const kinds = async () =>
+      (await query<{ kind: string }>("SELECT kind FROM ledger_entries WHERE json_extract(payload, '$.plotId') = ? ORDER BY seq", [plotId])).map((k) => k.kind);
+    await expect.poll(kinds).toEqual(['plot_registered', 'plot_edited', 'plot_edited', 'plot_edited']);
   });
 
   test('TC-029: a crossing boundary is shown inline and cannot be saved', async ({ page }) => {

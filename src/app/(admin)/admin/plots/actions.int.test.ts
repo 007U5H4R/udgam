@@ -75,6 +75,7 @@ describe('guards', () => {
       await expect(a.createPlotAction(form({ newFarmerName: 'X', crop: 'arabica', geojson: P01 }))).rejects.toMatchObject({ status });
       await expect(a.updatePlotGeometryAction('PL-00000000', P01)).rejects.toMatchObject({ status });
       await expect(a.uploadPlotFileAction(form({ newFarmerName: 'X', crop: 'arabica', file: new File([P01], 'p.geojson') }))).rejects.toMatchObject({ status });
+      await expect(a.rerunRegistrationChecksAction('PL-00000000')).rejects.toMatchObject({ status });
     }
     expect(await t.db.select().from(ledgerEntries)).toEqual([]);
   });
@@ -159,8 +160,13 @@ describe('updatePlotGeometryAction', () => {
     expect(await updatePlotGeometryAction(r.plotId, moved)).toEqual({ ok: false, reason: 'not_found' });
     as('admin');
     expect(await updatePlotGeometryAction(r.plotId, moved)).toEqual({ ok: true, plotId: r.plotId });
-    expect((await t.db.select().from(ledgerEntries)).map((e) => e.kind)).toEqual(['plot_registered', 'plot_edited']);
-    expect((await t.db.select().from(plots))[0]!.registrationStale).toBe(1);
+    // registered, its registration checks, the edit, and the checks re-run for the new boundary (TKT-07)
+    expect((await t.db.select().from(ledgerEntries)).map((e) => e.kind)).toEqual(['plot_registered', 'plot_edited', 'plot_edited', 'plot_edited']);
+    const [row] = await t.db.select().from(plots);
+    expect(row!.registrationStale).toBe(0);
+    expect((JSON.parse(row!.registrationChecks!) as { geometryHash: string }).geometryHash).toBe(
+      (JSON.parse((await t.db.select().from(ledgerEntries))[2]!.payload) as { geometryHash: string }).geometryHash,
+    );
     expect(await updatePlotGeometryAction(r.plotId, fixture('geometry/bowtie.geojson'))).toEqual({ ok: false, reason: 'self_intersection' });
   });
 });
@@ -190,6 +196,31 @@ describe('uploadPlotFileAction', () => {
     const r = (await createPlotAction(form({ newFarmerName: 'K', crop: 'arabica', geojson: P01 }))) as { ok: true; plotId: string };
     const file = new File([fixture('geometry/valid-multipolygon.geojson')], 'two-parts.geojson');
     expect(await uploadPlotFileAction(form({ plotId: r.plotId, file }))).toEqual({ ok: true, plotId: r.plotId });
-    expect((await t.db.select().from(ledgerEntries)).map((e) => e.kind)).toEqual(['plot_registered', 'plot_edited']);
+    expect((await t.db.select().from(ledgerEntries)).map((e) => e.kind)).toEqual(['plot_registered', 'plot_edited', 'plot_edited', 'plot_edited']);
+  });
+});
+
+describe('registration checks (TKT-07)', () => {
+  it('a new plot gets its forest-loss and NDVI checks on record right after the save', async () => {
+    const { createPlotAction } = await actions();
+    as('admin');
+    await createPlotAction(form({ newFarmerName: 'K', crop: 'arabica', geojson: P01 }));
+    const [row] = await t.db.select().from(plots);
+    const checks = JSON.parse(row!.registrationChecks!) as { forestLoss: { status: string; evidence: string }; ndviHistory: { status: string } };
+    expect(checks.forestLoss).toMatchObject({ status: 'ok', evidence: '0.0% of plot area lost since 2021 (hard fail at 10.0%)' });
+    expect(checks.ndviHistory.status).toBe('ok');
+    expect(row!.registrationStale).toBe(0);
+  });
+
+  it('rerunRegistrationChecksAction re-runs and re-anchors for the admin’s org; another org or a bad ID gets not_found', async () => {
+    const { createPlotAction, rerunRegistrationChecksAction } = await actions();
+    as('admin');
+    const r = (await createPlotAction(form({ newFarmerName: 'K', crop: 'arabica', geojson: P01 }))) as { ok: true; plotId: string };
+    expect(await rerunRegistrationChecksAction(r.plotId)).toEqual({ ok: true, plotId: r.plotId });
+    expect((await t.db.select().from(ledgerEntries)).map((e) => e.kind)).toEqual(['plot_registered', 'plot_edited', 'plot_edited']);
+    as('adminB');
+    expect(await rerunRegistrationChecksAction(r.plotId)).toEqual({ ok: false, reason: 'not_found' });
+    expect(await rerunRegistrationChecksAction('not-a-plot')).toEqual({ ok: false, reason: 'not_found' });
+    expect(await t.db.select().from(ledgerEntries)).toHaveLength(3);
   });
 });

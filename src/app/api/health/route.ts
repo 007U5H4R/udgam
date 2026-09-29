@@ -5,6 +5,7 @@ import { getDbReady } from '../../../lib/db/client';
 import { health, type HealthBody, type LedgerHealth } from '../../../lib/health';
 import { ledgerHealth, ledgerKeyPresent } from '../../../lib/ledger/health';
 import { log } from '../../../lib/log';
+import { providerHealth } from '../../../lib/remote-sensing';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,8 +18,8 @@ export async function GET(): Promise<Response> {
   let providers: HealthBody['providers'] = { gfw: 'unprobed', sentinelHub: 'unprobed' };
   let config: 'ok' | 'error' = 'ok';
   try {
-    if (env.REMOTE_SENSING_PROVIDER === 'fixture') providers = { gfw: 'fixture', sentinelHub: 'fixture' };
-    // else: real probes arrive with TKT-07
+    // fixture mode: `fixture`; live: a GFW dataset GET and a CDSE token fetch, probed at most every 60 s (§15)
+    providers = await providerHealth(env);
   } catch (err) {
     config = 'error';
     log.error({ errClass: errClass(err) }, 'health.config_invalid');

@@ -41,6 +41,9 @@ beforeEach(async () => {
   t = await tempDb();
   await addOrg(t.db, 'ORG-A', 'fpo');
   await addOrg(t.db, 'ORG-B', 'fpo');
+  // These tests are about the save and its anchor alone; the registration checks the default hook
+  // runs after the commit (TKT-07) are covered in registration.int.test.ts.
+  setOnPlotGeometrySaved(async () => undefined);
 });
 afterEach(async () => {
   setOnAppended(maybeCheckpoint);

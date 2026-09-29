@@ -123,6 +123,31 @@ let liveProvider: LiveProvider | undefined;
 const appLive = (e: RsEnv): LiveProvider => (liveProvider ??= createLiveProvider(e));
 
 
+export type ProviderHealth = { gfw: 'ok' | 'error' | 'fixture'; sentinelHub: 'ok' | 'error' | 'fixture' };
+
+/**
+ * The /api/health provider block (§15): `fixture` in fixture mode; in live mode a probe (a GFW dataset
+ * GET and a CDSE token fetch) run at most once per `ttlMs` (60 s), its answer reused in between.
+ */
+export function createProviderHealth(probe: () => Promise<{ gfw: 'ok' | 'error'; sentinelHub: 'ok' | 'error' }>, opts: { now?: () => number; ttlMs?: number } = {}) {
+  const now = opts.now ?? Date.now;
+  const ttlMs = opts.ttlMs ?? 60_000;
+  let last: { at: number; value: Promise<ProviderHealth> } | undefined;
+  return (): Promise<ProviderHealth> => {
+    if (!last || now() - last.at >= ttlMs) last = { at: now(), value: probe() };
+    return last.value;
+  };
+}
+
+let appHealth: (() => Promise<ProviderHealth>) | undefined;
+
+/** The app's provider health: fixture, or the cached 60 s live probe. Never throws for a provider fault. */
+export function providerHealth(e: RsEnv): Promise<ProviderHealth> {
+  if (e.REMOTE_SENSING_PROVIDER === 'fixture') return Promise.resolve({ gfw: 'fixture', sentinelHub: 'fixture' });
+  appHealth ??= createProviderHealth(() => appLive(e).probe());
+  return appHealth();
+}
+
 /** technical-plan TSK-07.2: the provider REMOTE_SENSING_PROVIDER names (`fixture` | `live`). */
 export function getRemoteSensing(e: RsEnv): RemoteSensingProvider {
   if (e.REMOTE_SENSING_PROVIDER === 'fixture') return deferred('fixture', appFixture);

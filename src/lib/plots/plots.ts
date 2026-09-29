@@ -8,11 +8,13 @@ import { newId } from '../ids';
 import { append } from '../ledger/hashchain';
 import { log } from '../log';
 import { createFarmer } from './farmers';
+import { runRegistrationChecks } from './registration';
 
 // Plot registration and edits (TSK-06.3, F1/F2, §8.1). Every save writes the plot row and its ledger
 // entry in one write transaction: `plot_registered` on create, `plot_edited` on edit. An edit is a new
-// anchored fact, never a mutation of the old entry, and marks the registration checks stale until
-// TKT-07 re-runs them (EVAL-044). The area is always computed here from the geometry.
+// anchored fact, never a mutation of the old entry, and marks the registration checks stale until they
+// re-run for the new geometry right after the commit (TKT-07, EVAL-044). The area is always computed
+// here from the geometry.
 //
 // Ledger payloads are public-safe (EV16): IDs, hashes, numbers, the polygon (the certificate and the
 // EUDR export draw it from the feed, docs/proof-feed.md §9) and the producer ID, never the farmer's
@@ -36,24 +38,29 @@ export class PlotsError extends Error {
   }
 }
 
-type GeometryHook = (plotId: string, geometry: PlotPolygon) => Promise<void>;
-
-let onGeometrySaved: GeometryHook | undefined;
+type GeometryHook = (plotId: string, geometry: PlotPolygon, ctx: { db: Db; orgId: string }) => Promise<void>;
 
 /**
- * Replace the hook that runs after a plot's geometry is committed (register or edit). A no-op here;
- * TKT-07 installs the registration checks (forest loss, NDVI history), which run outside the write
- * transaction so no provider call ever holds the SQLite write lock (TP12).
+ * The default hook (TKT-07, F2): run the registration checks — forest loss and the 12-month NDVI
+ * history — for the saved geometry. They run after the commit and outside any write transaction, so
+ * no provider call ever holds the SQLite write lock (TP12); their result and its anchor are written in
+ * a transaction of their own (plots/registration.ts).
  */
+const registrationChecksHook: GeometryHook = async (plotId, _geometry, { db, orgId }) => {
+  await runRegistrationChecks(db, orgId, plotId);
+};
+
+let onGeometrySaved: GeometryHook = registrationChecksHook;
+
+/** Replace the hook that runs after a plot's geometry is committed (register or edit); undefined restores the default. */
 export function setOnPlotGeometrySaved(hook: GeometryHook | undefined): void {
-  onGeometrySaved = hook;
+  onGeometrySaved = hook ?? registrationChecksHook;
 }
 
 /** Run the geometry hook; the plot is already saved, so a failure is logged and the checks stay pending. */
-export async function onPlotGeometrySaved(plotId: string, geometry: PlotPolygon): Promise<void> {
-  if (!onGeometrySaved) return;
+export async function onPlotGeometrySaved(plotId: string, geometry: PlotPolygon, ctx: { db: Db; orgId: string }): Promise<void> {
   try {
-    await onGeometrySaved(plotId, geometry);
+    await onGeometrySaved(plotId, geometry, ctx);
   } catch (err) {
     log.warn({ plotId, errClass: err instanceof Error ? err.constructor.name : 'unknown' }, 'plots.geometry_hook_failed');
   }
@@ -118,7 +125,7 @@ export async function registerPlot(
     });
     return anchor.seq;
   });
-  await onPlotGeometrySaved(plotId, geometry);
+  await onPlotGeometrySaved(plotId, geometry, { db, orgId });
   return { plotId, anchorSeq };
 }
 
@@ -161,7 +168,7 @@ export async function editPlot(
       .where(eq(plots.id, plotId));
     return { anchorSeq: anchor.seq };
   });
-  if (!result.unchanged) await onPlotGeometrySaved(plotId, geometry);
+  if (!result.unchanged) await onPlotGeometrySaved(plotId, geometry, { db, orgId });
   return result;
 }
 
