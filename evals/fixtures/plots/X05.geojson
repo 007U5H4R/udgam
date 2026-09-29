@@ -1,0 +1,44 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "X05",
+    "role": "adversarial",
+    "area_ha": 1.2,
+    "shape": "convex",
+    "anchor": {
+      "place": "Koppa, Chikkamagaluru",
+      "lat": 13.531,
+      "lng": 75.358
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 3783064064
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.3573953,
+          13.5305593
+        ],
+        [
+          75.3586724,
+          13.5306646
+        ],
+        [
+          75.3586047,
+          13.5314407
+        ],
+        [
+          75.3573276,
+          13.5313354
+        ],
+        [
+          75.3573953,
+          13.5305593
+        ]
+      ]
+    ]
+  }
+}

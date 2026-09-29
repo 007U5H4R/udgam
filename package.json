@@ -17,8 +17,8 @@
     "test:int": "vitest run --project integration",
     "test:e2e": "playwright test",
     "verify": "pnpm typecheck && pnpm lint && pnpm test",
-    "eval": "node -e \"console.error('pnpm eval: harness not built yet (TKT-03)');process.exit(1)\"",
-    "eval:validate": "node -e \"console.log('::warning::dataset validation arrives with TKT-03')\"",
+    "eval": "tsx evals/harness/run.ts",
+    "eval:validate": "tsx evals/harness/dataset.ts --validate",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/lib/db/migrate.ts"
   },

@@ -1,0 +1,82 @@
+{
+  "plotId": "P10",
+  "forestLoss": {
+    "lossPct": 0,
+    "lossHa": 0,
+    "yearsFrom": 2021,
+    "dataYear": 2025,
+    "lossAdjacentOutside": false
+  },
+  "ndviHistory": {
+    "profile": "perennial_canopy",
+    "byCalendarMonth": [
+      {
+        "month": 1,
+        "mean": 0.7,
+        "clearFraction": 0.95
+      },
+      {
+        "month": 2,
+        "mean": 0.66,
+        "clearFraction": 0.97
+      },
+      {
+        "month": 3,
+        "mean": 0.62,
+        "clearFraction": 0.98
+      },
+      {
+        "month": 4,
+        "mean": 0.64,
+        "clearFraction": 0.96
+      },
+      {
+        "month": 5,
+        "mean": 0.69,
+        "clearFraction": 0.9
+      },
+      {
+        "month": 6,
+        "mean": 0.76,
+        "clearFraction": 0.72
+      },
+      {
+        "month": 7,
+        "mean": null,
+        "clearFraction": 0
+      },
+      {
+        "month": 8,
+        "mean": 0.81,
+        "clearFraction": 0.64
+      },
+      {
+        "month": 9,
+        "mean": 0.8,
+        "clearFraction": 0.8
+      },
+      {
+        "month": 10,
+        "mean": 0.78,
+        "clearFraction": 0.88
+      },
+      {
+        "month": 11,
+        "mean": 0.75,
+        "clearFraction": 0.93
+      },
+      {
+        "month": 12,
+        "mean": 0.72,
+        "clearFraction": 0.96
+      }
+    ]
+  },
+  "ndviWindow": {
+    "profile": "living_canopy",
+    "mean": 0.71,
+    "clearObservations": 4
+  },
+  "generator": "evals/harness/fixtures.ts",
+  "source": "synthetic profile from evals/eval-dataset.json fixtures.plots[].remote_sensing"
+}

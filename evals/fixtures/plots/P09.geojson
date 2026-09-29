@@ -1,0 +1,44 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "P09",
+    "role": "legitimate",
+    "area_ha": 1.8,
+    "shape": "convex",
+    "anchor": {
+      "place": "Bhagamandala, Kodagu",
+      "lat": 12.3869,
+      "lng": 75.5335
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 2263229948
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.5336154,
+          12.3860072
+        ],
+        [
+          75.5342711,
+          12.3873925
+        ],
+        [
+          75.5333846,
+          12.3877928
+        ],
+        [
+          75.5327289,
+          12.3864075
+        ],
+        [
+          75.5336154,
+          12.3860072
+        ]
+      ]
+    ]
+  }
+}

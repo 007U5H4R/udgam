@@ -1,0 +1,4874 @@
+{
+  "schema": "udgam-eval-results/1",
+  "provenance": {
+    "harness": {
+      "name": "udgam-eval-harness",
+      "version": "0.1.0"
+    },
+    "appVersion": "0.1.0",
+    "git": {
+      "commit": "7c93ac4e9a6e04666516ae93b7e5476dbd95b500",
+      "shortSha": "7c93ac4",
+      "branch": "worktree-agent-a68237f3186d3b0e2",
+      "dirty": false
+    },
+    "environment": "local",
+    "dataset": {
+      "path": "evals/eval-dataset.json",
+      "version": "0.2.0",
+      "sha256": "1a0d7dce5988cd8e803db7caf66753a36995e22f17229834657df529991d5e1a"
+    },
+    "fixtures": {
+      "version": "generated-v1",
+      "sha256": "d78f12d2c5851ca516a7fdf95fb0484bb722dfe8cbe6457cf65dde5f5f2d3019",
+      "files": 36
+    },
+    "config": {
+      "version": "cfg-1",
+      "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906",
+      "mode": "ledger-only",
+      "enabledChecks": [
+        "signature_valid"
+      ],
+      "object": {
+        "version": "cfg-1",
+        "statusScore": {
+          "ok": 1,
+          "flag": 0.5,
+          "fail": 0
+        },
+        "weights": {
+          "signature_valid": 1,
+          "chain_continuity": 1,
+          "photo_uniqueness": 1,
+          "geofence": 1,
+          "gps_accuracy": 1,
+          "exif_gps_agreement": 1,
+          "exif_time_agreement": 1,
+          "movement_plausibility": 1,
+          "deforestation_overlap": 1,
+          "ndvi_cultivation": 1,
+          "ndvi_harvest_window": 1,
+          "yield_plausibility": 1
+        },
+        "verdict": {
+          "verifiedMin": 80,
+          "reviewMin": 50
+        },
+        "caps": {
+          "anyFail": true,
+          "flagCaps": [
+            "deforestation_overlap",
+            "yield_plausibility"
+          ],
+          "anyUnavailable": true
+        },
+        "geofence": {
+          "maxBufferM": 25
+        },
+        "gpsAccuracy": {
+          "okBelowM": 30,
+          "flagBelowM": 100
+        },
+        "exifGps": {
+          "maxDistanceM": 50
+        },
+        "exifTime": {
+          "maxExifClientMin": 10,
+          "maxClientServerMin": 1440,
+          "failAfterMin": 10080
+        },
+        "movement": {
+          "maxKmh": 120
+        },
+        "deforestation": {
+          "flagAbovePct": 0,
+          "hardFailAtPct": 10,
+          "lossFromYear": 2021,
+          "canopyDensityPct": 10,
+          "gfwDatasetVersion": "v1.13"
+        },
+        "ndviCultivation": {
+          "minClearMonths": 6,
+          "canopyMin": 0.5,
+          "maxSeasonalSwing": 0.35
+        },
+        "ndviHarvestWindow": {
+          "windowDays": 30,
+          "okMin": 0.45,
+          "failBelow": 0.3
+        },
+        "yield": {
+          "flagAboveU": 1.5,
+          "hardFailAboveU": 2
+        },
+        "providers": {
+          "timeoutMs": 8000,
+          "remotePhaseCapMs": 10000
+        }
+      }
+    },
+    "registry": {
+      "checks": [
+        "signature_valid",
+        "photo_uniqueness",
+        "geofence"
+      ],
+      "missing": []
+    },
+    "provider": "fixture",
+    "yieldReference": {
+      "version": "placeholder-U (technical-plan TSK-03.4)",
+      "source": "placeholder",
+      "placeholder": true,
+      "row": {
+        "maxKgHa": 1000,
+        "cherryToCleanRatio": 0.2
+      }
+    },
+    "ledger": "hashchain",
+    "node": "v22.22.2",
+    "os": {
+      "platform": "linux",
+      "arch": "x64"
+    },
+    "suites": [
+      "harness-verifier",
+      "harness-proof"
+    ],
+    "seed": 20260929,
+    "timestampUtc": "2026-09-29T05:59:58.817Z",
+    "durationMs": 396
+  },
+  "summary": {
+    "overall": "FAIL",
+    "exitCode": 1,
+    "recommendation": "Do not release: 5 blocker(s); 8 case(s) wait on checks or suites not built yet.",
+    "blockers": [
+      "S1 Detection, scenarios 1–4 (pooled): 0.0 % (0/26) (target ≥ 95.0 %)",
+      "S1-floor Detection, lowest scenario (EV5): 0.0 % (target ≥ 90.0 % each)",
+      "S6-lib Proof suite (library side): 0.0 % (0/8) (target 100.0 %)",
+      "CF Critical failures: 1 (target 0)",
+      "CF-01: an attack covered by a hard-fail rule was not Rejected with hardFail on that check"
+    ]
+  },
+  "totals": {
+    "ok": true,
+    "active": 60,
+    "passed": 3,
+    "failed": 57,
+    "notYetImplemented": 8,
+    "errored": 0,
+    "skipped": 0,
+    "problems": []
+  },
+  "gates": [
+    {
+      "id": "S1",
+      "name": "Detection, scenarios 1–4 (pooled)",
+      "value": 0,
+      "display": "0.0 % (0/26)",
+      "target": "≥ 95.0 %",
+      "pass": false,
+      "detail": "26 undetected"
+    },
+    {
+      "id": "S1-floor",
+      "name": "Detection, lowest scenario (EV5)",
+      "value": 0,
+      "display": "0.0 %",
+      "target": "≥ 90.0 % each",
+      "pass": false,
+      "detail": "scenario 1: 0.0 % (0/7); scenario 2: 0.0 % (0/6); scenario 3: 0.0 % (0/7); scenario 4: 0.0 % (0/6)"
+    },
+    {
+      "id": "S2",
+      "name": "False positives, legitimate set",
+      "value": 0,
+      "display": "0.0 % (0/14)",
+      "target": "≤ 5.0 %",
+      "pass": true,
+      "detail": "none"
+    },
+    {
+      "id": "S6-lib",
+      "name": "Proof suite (library side)",
+      "value": 0,
+      "display": "0.0 % (0/8)",
+      "target": "100.0 %",
+      "pass": false,
+      "detail": "8 not yet implemented"
+    },
+    {
+      "id": "S7",
+      "name": "Harness integrity (one command, nothing skipped)",
+      "value": true,
+      "display": "Yes",
+      "target": "Yes",
+      "pass": true,
+      "detail": "60 cases, 0 skipped"
+    },
+    {
+      "id": "CF",
+      "name": "Critical failures",
+      "value": 1,
+      "display": "1",
+      "target": "0",
+      "pass": false,
+      "detail": "CF-01"
+    }
+  ],
+  "categoryGates": [
+    {
+      "id": "Functional",
+      "name": "Critical non-attack cases pass every assertion",
+      "value": 0,
+      "display": "0.0 % (0/9)",
+      "target": "100.0 %",
+      "pass": false,
+      "detail": "evaluation-plan §6"
+    },
+    {
+      "id": "Reliability",
+      "name": "EVAL-015 to EVAL-018 (harness part)",
+      "value": 0,
+      "display": "0.0 % (0/4)",
+      "target": "100.0 %",
+      "pass": false,
+      "detail": "evaluation-plan §6"
+    }
+  ],
+  "detection": {
+    "pooled": {
+      "k": 0,
+      "n": 26,
+      "rate": 0,
+      "wilson95": {
+        "lower": 0,
+        "upper": 0.1287289218592153
+      }
+    },
+    "perScenario": {
+      "1": {
+        "k": 0,
+        "n": 7,
+        "rate": 0,
+        "wilson95": {
+          "lower": 0,
+          "upper": 0.35433043506668743
+        }
+      },
+      "2": {
+        "k": 0,
+        "n": 6,
+        "rate": 0,
+        "wilson95": {
+          "lower": 0,
+          "upper": 0.3903342879021653
+        }
+      },
+      "3": {
+        "k": 0,
+        "n": 7,
+        "rate": 0,
+        "wilson95": {
+          "lower": 0,
+          "upper": 0.35433043506668743
+        }
+      },
+      "4": {
+        "k": 0,
+        "n": 6,
+        "rate": 0,
+        "wilson95": {
+          "lower": 0,
+          "upper": 0.3903342879021653
+        }
+      }
+    },
+    "otherScenarios": {
+      "5": {
+        "k": 0,
+        "n": 0,
+        "rate": null,
+        "wilson95": {
+          "lower": 0,
+          "upper": 1
+        }
+      },
+      "6": {
+        "k": 0,
+        "n": 3,
+        "rate": 0,
+        "wilson95": {
+          "lower": 0,
+          "upper": 0.5614970317550454
+        }
+      }
+    },
+    "undetected": [
+      {
+        "id": "EVAL-022",
+        "scenario": 1,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-023",
+        "scenario": 1,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-024",
+        "scenario": 1,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-025",
+        "scenario": 1,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-026",
+        "scenario": 1,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-027",
+        "scenario": 1,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-028",
+        "scenario": 1,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-030",
+        "scenario": 2,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-031",
+        "scenario": 2,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-B1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-032",
+        "scenario": 2,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-033",
+        "scenario": 2,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-034",
+        "scenario": 2,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-035",
+        "scenario": 2,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-037",
+        "scenario": 3,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-038",
+        "scenario": 3,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-039",
+        "scenario": 3,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-040",
+        "scenario": 3,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-041",
+        "scenario": 3,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-042",
+        "scenario": 3,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-043",
+        "scenario": 3,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-045",
+        "scenario": 4,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-046",
+        "scenario": 4,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-047",
+        "scenario": 4,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-048",
+        "scenario": 4,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-049",
+        "scenario": 4,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      },
+      {
+        "id": "EVAL-050",
+        "scenario": 4,
+        "outcome": "failed",
+        "verdict": "Verified",
+        "missingChecks": [],
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ]
+      }
+    ]
+  },
+  "falsePositives": {
+    "k": 0,
+    "n": 14,
+    "rate": 0,
+    "wilson95": {
+      "lower": 0,
+      "upper": 0.2153108027376358
+    },
+    "fps": [],
+    "honestReviewLoad": {
+      "k": 0,
+      "n": 21,
+      "rate": 0,
+      "wilson95": {
+        "lower": 0,
+        "upper": 0.154639018924847
+      }
+    }
+  },
+  "criticalConditions": [
+    {
+      "id": "CF-01",
+      "caseIds": [
+        "EVAL-030",
+        "EVAL-031",
+        "EVAL-032",
+        "EVAL-037",
+        "EVAL-038",
+        "EVAL-042",
+        "EVAL-045",
+        "EVAL-046",
+        "EVAL-049",
+        "EVAL-050"
+      ],
+      "reason": "an attack covered by a hard-fail rule was not Rejected with hardFail on that check"
+    }
+  ],
+  "knownLimitations": [
+    {
+      "id": "EVAL-029",
+      "scenario": 1,
+      "outcome": "passed",
+      "verdict": "Verified",
+      "behavior": "Recorded, not scored. A PWA cannot tell a system-level mock location from a real fix (risk R7); hardware attestation is the roadmap work package. The report lists this case and its verdict under Known limitations."
+    },
+    {
+      "id": "EVAL-036",
+      "scenario": 2,
+      "outcome": "passed",
+      "verdict": "Verified",
+      "behavior": "Recorded, not scored. photo_uniqueness compares SHA-256, so any re-encode evades it. A perceptual near-duplicate check is a candidate for Stage 6 (open question Q5)."
+    }
+  ],
+  "pairs": [
+    {
+      "ids": [
+        "EVAL-005",
+        "EVAL-026"
+      ],
+      "cases": [
+        {
+          "id": "EVAL-005",
+          "caseClass": "legitimate",
+          "outcome": "failed",
+          "verdict": "Verified",
+          "score": 100,
+          "checks": {
+            "signature_valid": "ok"
+          }
+        },
+        {
+          "id": "EVAL-026",
+          "caseClass": "attack",
+          "outcome": "failed",
+          "verdict": "Verified",
+          "score": 100,
+          "checks": {
+            "signature_valid": "ok"
+          }
+        }
+      ]
+    },
+    {
+      "ids": [
+        "EVAL-019",
+        "EVAL-040"
+      ],
+      "cases": [
+        {
+          "id": "EVAL-019",
+          "caseClass": "legitimate_edge",
+          "outcome": "failed",
+          "verdict": "Verified",
+          "score": 100,
+          "checks": {
+            "signature_valid": "ok"
+          }
+        },
+        {
+          "id": "EVAL-040",
+          "caseClass": "attack",
+          "outcome": "failed",
+          "verdict": "Verified",
+          "score": 100,
+          "checks": {
+            "signature_valid": "ok"
+          }
+        }
+      ]
+    }
+  ],
+  "comparison": {
+    "previous": null,
+    "regressions": [],
+    "improvements": [],
+    "baseline": null
+  },
+  "cases": [
+    {
+      "id": "EVAL-001",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate",
+      "scenario": null,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-02"
+      ],
+      "pair": null,
+      "tags": [
+        "happy-path",
+        "base-case"
+      ],
+      "expected": {
+        "verdict": "Verified",
+        "check_status": {
+          "signature_valid": "ok",
+          "chain_continuity": "ok",
+          "photo_uniqueness": "ok",
+          "geofence": "ok",
+          "gps_accuracy": "ok",
+          "exif_gps_agreement": "ok",
+          "exif_time_agreement": "ok",
+          "movement_plausibility": "ok",
+          "deforestation_overlap": "ok",
+          "ndvi_cultivation": "ok",
+          "ndvi_harvest_window": "ok",
+          "yield_plausibility": "ok"
+        },
+        "behavior": "Every check ok; seq 1 with the genesis previous hash is continuous."
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": true,
+          "detail": "Verified = Verified"
+        },
+        {
+          "name": "check_status.signature_valid",
+          "pass": true,
+          "detail": "ok = ok"
+        },
+        {
+          "name": "check_status.chain_continuity",
+          "pass": false,
+          "detail": "chain_continuity is not in the result (expected ok)"
+        },
+        {
+          "name": "check_status.photo_uniqueness",
+          "pass": false,
+          "detail": "photo_uniqueness is not in the result (expected ok)"
+        },
+        {
+          "name": "check_status.geofence",
+          "pass": false,
+          "detail": "geofence is not in the result (expected ok)"
+        },
+        {
+          "name": "check_status.gps_accuracy",
+          "pass": false,
+          "detail": "gps_accuracy is not in the result (expected ok)"
+        },
+        {
+          "name": "check_status.exif_gps_agreement",
+          "pass": false,
+          "detail": "exif_gps_agreement is not in the result (expected ok)"
+        },
+        {
+          "name": "check_status.exif_time_agreement",
+          "pass": false,
+          "detail": "exif_time_agreement is not in the result (expected ok)"
+        },
+        {
+          "name": "check_status.movement_plausibility",
+          "pass": false,
+          "detail": "movement_plausibility is not in the result (expected ok)"
+        },
+        {
+          "name": "check_status.deforestation_overlap",
+          "pass": false,
+          "detail": "deforestation_overlap is not in the result (expected ok)"
+        },
+        {
+          "name": "check_status.ndvi_cultivation",
+          "pass": false,
+          "detail": "ndvi_cultivation is not in the result (expected ok)"
+        },
+        {
+          "name": "check_status.ndvi_harvest_window",
+          "pass": false,
+          "detail": "ndvi_harvest_window is not in the result (expected ok)"
+        },
+        {
+          "name": "check_status.yield_plausibility",
+          "pass": false,
+          "detail": "yield_plausibility is not in the result (expected ok)"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.86
+    },
+    {
+      "id": "EVAL-002",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate",
+      "scenario": null,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-02"
+      ],
+      "pair": null,
+      "tags": [
+        "happy-path",
+        "base-case"
+      ],
+      "expected": {
+        "verdict": "Verified",
+        "check_status": {
+          "chain_continuity": "ok",
+          "movement_plausibility": "ok"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": true,
+          "detail": "Verified = Verified"
+        },
+        {
+          "name": "check_status.chain_continuity",
+          "pass": false,
+          "detail": "chain_continuity is not in the result (expected ok)"
+        },
+        {
+          "name": "check_status.movement_plausibility",
+          "pass": false,
+          "detail": "movement_plausibility is not in the result (expected ok)"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 3.29
+    },
+    {
+      "id": "EVAL-003",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate",
+      "scenario": null,
+      "priority": "high",
+      "criticalConditions": [
+        "CF-02"
+      ],
+      "pair": null,
+      "tags": [
+        "boundary",
+        "small-plot"
+      ],
+      "expected": {
+        "verdict": "Verified",
+        "check_status": {
+          "geofence": "ok"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": true,
+          "detail": "Verified = Verified"
+        },
+        {
+          "name": "check_status.geofence",
+          "pass": false,
+          "detail": "geofence is not in the result (expected ok)"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 13
+    },
+    {
+      "id": "EVAL-004",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate",
+      "scenario": null,
+      "priority": "high",
+      "criticalConditions": [
+        "CF-02"
+      ],
+      "pair": null,
+      "tags": [
+        "max-photos"
+      ],
+      "expected": {
+        "verdict": "Verified"
+      },
+      "faultInjected": false,
+      "outcome": "passed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": true,
+          "detail": "Verified = Verified"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 2.09
+    },
+    {
+      "id": "EVAL-005",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate",
+      "scenario": null,
+      "priority": "high",
+      "criticalConditions": [
+        "CF-02"
+      ],
+      "pair": "EVAL-026",
+      "tags": [
+        "geometry",
+        "concave"
+      ],
+      "expected": {
+        "verdict": "Verified",
+        "check_status": {
+          "geofence": "ok"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": true,
+          "detail": "Verified = Verified"
+        },
+        {
+          "name": "check_status.geofence",
+          "pass": false,
+          "detail": "geofence is not in the result (expected ok)"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 3.82
+    },
+    {
+      "id": "EVAL-006",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate",
+      "scenario": null,
+      "priority": "high",
+      "criticalConditions": [
+        "CF-02"
+      ],
+      "pair": null,
+      "tags": [
+        "geometry",
+        "deforestation"
+      ],
+      "expected": {
+        "verdict": "Verified",
+        "check_status": {
+          "deforestation_overlap": "ok"
+        },
+        "evidence_substrings": {
+          "deforestation_overlap": [
+            "0.0%"
+          ]
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": true,
+          "detail": "Verified = Verified"
+        },
+        {
+          "name": "check_status.deforestation_overlap",
+          "pass": false,
+          "detail": "deforestation_overlap is not in the result (expected ok)"
+        },
+        {
+          "name": "evidence.deforestation_overlap: \"0.0%\"",
+          "pass": false,
+          "detail": "deforestation_overlap is not in the result"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.93
+    },
+    {
+      "id": "EVAL-007",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate",
+      "scenario": null,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-02"
+      ],
+      "pair": null,
+      "tags": [
+        "false-positive-probe",
+        "exif"
+      ],
+      "expected": {
+        "verdict": "Verified",
+        "check_status": {
+          "exif_gps_agreement": "flag"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": true,
+          "detail": "Verified = Verified"
+        },
+        {
+          "name": "check_status.exif_gps_agreement",
+          "pass": false,
+          "detail": "exif_gps_agreement is not in the result (expected flag)"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.89
+    },
+    {
+      "id": "EVAL-008",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate",
+      "scenario": null,
+      "priority": "high",
+      "criticalConditions": [
+        "CF-02"
+      ],
+      "pair": null,
+      "tags": [
+        "boundary",
+        "small-plot"
+      ],
+      "expected": {
+        "verdict": "Verified",
+        "check_status": {
+          "geofence": "ok"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": true,
+          "detail": "Verified = Verified"
+        },
+        {
+          "name": "check_status.geofence",
+          "pass": false,
+          "detail": "geofence is not in the result (expected ok)"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 2.17
+    },
+    {
+      "id": "EVAL-009",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate",
+      "scenario": null,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-02"
+      ],
+      "pair": null,
+      "tags": [
+        "boundary",
+        "false-positive-probe"
+      ],
+      "expected": {
+        "verdict": "Verified",
+        "check_status": {
+          "geofence": "flag"
+        },
+        "evidence_substrings": {
+          "geofence": [
+            "12 m",
+            "20 m"
+          ]
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": true,
+          "detail": "Verified = Verified"
+        },
+        {
+          "name": "check_status.geofence",
+          "pass": false,
+          "detail": "geofence is not in the result (expected flag)"
+        },
+        {
+          "name": "evidence.geofence: \"12 m\"",
+          "pass": false,
+          "detail": "geofence is not in the result"
+        },
+        {
+          "name": "evidence.geofence: \"20 m\"",
+          "pass": false,
+          "detail": "geofence is not in the result"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 2.23
+    },
+    {
+      "id": "EVAL-010",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate",
+      "scenario": null,
+      "priority": "high",
+      "criticalConditions": [
+        "CF-02"
+      ],
+      "pair": null,
+      "tags": [
+        "boundary"
+      ],
+      "expected": {
+        "verdict": "Verified",
+        "check_status": {
+          "gps_accuracy": "ok"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": true,
+          "detail": "Verified = Verified"
+        },
+        {
+          "name": "check_status.gps_accuracy",
+          "pass": false,
+          "detail": "gps_accuracy is not in the result (expected ok)"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.18
+    },
+    {
+      "id": "EVAL-011",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate",
+      "scenario": null,
+      "priority": "high",
+      "criticalConditions": [
+        "CF-02"
+      ],
+      "pair": null,
+      "tags": [
+        "boundary"
+      ],
+      "expected": {
+        "verdict": "Verified",
+        "check_status": {
+          "exif_time_agreement": "ok"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": true,
+          "detail": "Verified = Verified"
+        },
+        {
+          "name": "check_status.exif_time_agreement",
+          "pass": false,
+          "detail": "exif_time_agreement is not in the result (expected ok)"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 3.2
+    },
+    {
+      "id": "EVAL-012",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate",
+      "scenario": null,
+      "priority": "high",
+      "criticalConditions": [
+        "CF-02"
+      ],
+      "pair": null,
+      "tags": [
+        "boundary",
+        "yield"
+      ],
+      "expected": {
+        "verdict": "Verified",
+        "check_status": {
+          "yield_plausibility": "ok"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": true,
+          "detail": "Verified = Verified"
+        },
+        {
+          "name": "check_status.yield_plausibility",
+          "pass": false,
+          "detail": "yield_plausibility is not in the result (expected ok)"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 2.16
+    },
+    {
+      "id": "EVAL-013",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate",
+      "scenario": null,
+      "priority": "high",
+      "criticalConditions": [
+        "CF-02"
+      ],
+      "pair": null,
+      "tags": [
+        "movement"
+      ],
+      "expected": {
+        "verdict": "Verified",
+        "check_status": {
+          "movement_plausibility": "ok"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": true,
+          "detail": "Verified = Verified"
+        },
+        {
+          "name": "check_status.movement_plausibility",
+          "pass": false,
+          "detail": "movement_plausibility is not in the result (expected ok)"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [
+        "gps_place inside_near_edge 40 m is deeper than P02 allows on its edge ray; placed 37 m inside instead"
+      ],
+      "durationMs": 76.24
+    },
+    {
+      "id": "EVAL-014",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate",
+      "scenario": null,
+      "priority": "high",
+      "criticalConditions": [
+        "CF-02"
+      ],
+      "pair": null,
+      "tags": [
+        "boundary",
+        "exif",
+        "min-photos"
+      ],
+      "expected": {
+        "verdict": "Verified",
+        "check_status": {
+          "exif_gps_agreement": "ok"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": true,
+          "detail": "Verified = Verified"
+        },
+        {
+          "name": "check_status.exif_gps_agreement",
+          "pass": false,
+          "detail": "exif_gps_agreement is not in the result (expected ok)"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.3
+    },
+    {
+      "id": "EVAL-015",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate_edge",
+      "scenario": null,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-02",
+        "CF-03"
+      ],
+      "pair": null,
+      "tags": [
+        "degraded-evidence",
+        "monsoon"
+      ],
+      "expected": {
+        "verdict": "Needs Review",
+        "check_status": {
+          "ndvi_harvest_window": "unavailable"
+        },
+        "behavior": "Score excludes the unavailable check; verdict capped at Needs Review (S6)."
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ≠ Needs Review"
+        },
+        {
+          "name": "check_status.ndvi_harvest_window",
+          "pass": false,
+          "detail": "ndvi_harvest_window is not in the result (expected unavailable)"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.9
+    },
+    {
+      "id": "EVAL-016",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate_edge",
+      "scenario": null,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-02",
+        "CF-03"
+      ],
+      "pair": null,
+      "tags": [
+        "provider-failure"
+      ],
+      "expected": {
+        "verdict": "Needs Review",
+        "check_status": {
+          "ndvi_harvest_window": "unavailable"
+        },
+        "behavior": "unavailableProviders lists sentinel-hub; the result says an admin re-run can retry it."
+      },
+      "faultInjected": true,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ≠ Needs Review"
+        },
+        {
+          "name": "check_status.ndvi_harvest_window",
+          "pass": false,
+          "detail": "ndvi_harvest_window is not in the result (expected unavailable)"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.66
+    },
+    {
+      "id": "EVAL-017",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate_edge",
+      "scenario": null,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-02",
+        "CF-03"
+      ],
+      "pair": null,
+      "tags": [
+        "provider-failure"
+      ],
+      "expected": {
+        "verdict": "Needs Review",
+        "check_status": {
+          "deforestation_overlap": "unavailable"
+        }
+      },
+      "faultInjected": true,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ≠ Needs Review"
+        },
+        {
+          "name": "check_status.deforestation_overlap",
+          "pass": false,
+          "detail": "deforestation_overlap is not in the result (expected unavailable)"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.67
+    },
+    {
+      "id": "EVAL-018",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate_edge",
+      "scenario": null,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-03"
+      ],
+      "pair": null,
+      "tags": [
+        "fault-injection"
+      ],
+      "expected": {
+        "verdict": "Needs Review",
+        "check_status": {
+          "movement_plausibility": "unavailable"
+        },
+        "evidence_substrings": {
+          "movement_plausibility": [
+            "TypeError"
+          ]
+        }
+      },
+      "faultInjected": true,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ≠ Needs Review"
+        },
+        {
+          "name": "check_status.movement_plausibility",
+          "pass": false,
+          "detail": "movement_plausibility is not in the result (expected unavailable)"
+        },
+        {
+          "name": "evidence.movement_plausibility: \"TypeError\"",
+          "pass": false,
+          "detail": "movement_plausibility is not in the result"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.81
+    },
+    {
+      "id": "EVAL-019",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate_edge",
+      "scenario": null,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-02"
+      ],
+      "pair": "EVAL-040",
+      "tags": [
+        "shade-coffee",
+        "r-and-d-finding"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Verified"
+        ],
+        "check_status": {
+          "deforestation_overlap": "flag"
+        },
+        "evidence_substrings": {
+          "deforestation_overlap": [
+            "3.0%"
+          ]
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": true,
+          "detail": "Verified ∈ {Needs Review, Verified}"
+        },
+        {
+          "name": "check_status.deforestation_overlap",
+          "pass": false,
+          "detail": "deforestation_overlap is not in the result (expected flag)"
+        },
+        {
+          "name": "evidence.deforestation_overlap: \"3.0%\"",
+          "pass": false,
+          "detail": "deforestation_overlap is not in the result"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.95
+    },
+    {
+      "id": "EVAL-020",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate_edge",
+      "scenario": null,
+      "priority": "high",
+      "criticalConditions": [
+        "CF-02"
+      ],
+      "pair": null,
+      "tags": [
+        "degraded-evidence"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review"
+        ],
+        "check_status": {
+          "gps_accuracy": "fail"
+        },
+        "evidence_substrings": {
+          "gps_accuracy": [
+            "150 m"
+          ]
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review}"
+        },
+        {
+          "name": "check_status.gps_accuracy",
+          "pass": false,
+          "detail": "gps_accuracy is not in the result (expected fail)"
+        },
+        {
+          "name": "evidence.gps_accuracy: \"150 m\"",
+          "pass": false,
+          "detail": "gps_accuracy is not in the result"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.3
+    },
+    {
+      "id": "EVAL-021",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "legitimate_edge",
+      "scenario": null,
+      "priority": "medium",
+      "criticalConditions": [
+        "CF-02"
+      ],
+      "pair": null,
+      "tags": [
+        "re-enrolment"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Verified",
+          "Needs Review"
+        ],
+        "check_status": {
+          "chain_continuity": "flag"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A3",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": true,
+          "detail": "Verified ∈ {Verified, Needs Review}"
+        },
+        {
+          "name": "check_status.chain_continuity",
+          "pass": false,
+          "detail": "chain_continuity is not in the result (expected flag)"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.27
+    },
+    {
+      "id": "EVAL-022",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 1,
+      "priority": "critical",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "single-signal"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "geofence"
+        ],
+        "check_status": {
+          "geofence": "fail"
+        },
+        "evidence_substrings": {
+          "geofence": [
+            "2400 m"
+          ]
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.geofence",
+          "pass": false,
+          "detail": "geofence is not in the result (expected fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of geofence flagged or failed (geofence: absent)"
+        },
+        {
+          "name": "evidence.geofence: \"2400 m\"",
+          "pass": false,
+          "detail": "geofence is not in the result"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 2.57
+    },
+    {
+      "id": "EVAL-023",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 1,
+      "priority": "critical",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "single-signal",
+        "exif"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "exif_gps_agreement"
+        ],
+        "check_status": {
+          "exif_gps_agreement": "fail"
+        },
+        "evidence_substrings": {
+          "exif_gps_agreement": [
+            "3200 m"
+          ]
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.exif_gps_agreement",
+          "pass": false,
+          "detail": "exif_gps_agreement is not in the result (expected fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of exif_gps_agreement flagged or failed (exif_gps_agreement: absent)"
+        },
+        {
+          "name": "evidence.exif_gps_agreement: \"3200 m\"",
+          "pass": false,
+          "detail": "exif_gps_agreement is not in the result"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.89
+    },
+    {
+      "id": "EVAL-024",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 1,
+      "priority": "critical",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "movement"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "movement_plausibility"
+        ],
+        "check_status": {
+          "movement_plausibility": "fail"
+        },
+        "evidence_substrings": {
+          "movement_plausibility": [
+            "338 km/h"
+          ]
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.movement_plausibility",
+          "pass": false,
+          "detail": "movement_plausibility is not in the result (expected fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of movement_plausibility flagged or failed (movement_plausibility: absent)"
+        },
+        {
+          "name": "evidence.movement_plausibility: \"338 km/h\"",
+          "pass": false,
+          "detail": "movement_plausibility is not in the result"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 3.74
+    },
+    {
+      "id": "EVAL-025",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 1,
+      "priority": "high",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "boundary",
+        "small-plot"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "geofence"
+        ],
+        "check_status": {
+          "geofence": "fail"
+        },
+        "evidence_substrings": {
+          "geofence": [
+            "30 m",
+            "8 m"
+          ]
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.geofence",
+          "pass": false,
+          "detail": "geofence is not in the result (expected fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of geofence flagged or failed (geofence: absent)"
+        },
+        {
+          "name": "evidence.geofence: \"30 m\"",
+          "pass": false,
+          "detail": "geofence is not in the result"
+        },
+        {
+          "name": "evidence.geofence: \"8 m\"",
+          "pass": false,
+          "detail": "geofence is not in the result"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 3.15
+    },
+    {
+      "id": "EVAL-026",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 1,
+      "priority": "high",
+      "criticalConditions": [],
+      "pair": "EVAL-005",
+      "tags": [
+        "geometry",
+        "concave"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "geofence"
+        ],
+        "check_status": {
+          "geofence": "fail"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.geofence",
+          "pass": false,
+          "detail": "geofence is not in the result (expected fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of geofence flagged or failed (geofence: absent)"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.79
+    },
+    {
+      "id": "EVAL-027",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 1,
+      "priority": "high",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "boundary",
+        "evasion"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "geofence",
+          "gps_accuracy"
+        ],
+        "check_status": {
+          "geofence": "fail",
+          "gps_accuracy": "flag"
+        },
+        "evidence_substrings": {
+          "geofence": [
+            "26 m",
+            "25 m"
+          ]
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.geofence",
+          "pass": false,
+          "detail": "geofence is not in the result (expected fail)"
+        },
+        {
+          "name": "check_status.gps_accuracy",
+          "pass": false,
+          "detail": "gps_accuracy is not in the result (expected flag)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of geofence, gps_accuracy flagged or failed (geofence: absent; gps_accuracy: absent)"
+        },
+        {
+          "name": "evidence.geofence: \"26 m\"",
+          "pass": false,
+          "detail": "geofence is not in the result"
+        },
+        {
+          "name": "evidence.geofence: \"25 m\"",
+          "pass": false,
+          "detail": "geofence is not in the result"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.93
+    },
+    {
+      "id": "EVAL-028",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 1,
+      "priority": "critical",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "multi-signal"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "geofence",
+          "movement_plausibility"
+        ],
+        "check_status": {
+          "geofence": "fail",
+          "movement_plausibility": "fail"
+        },
+        "evidence_substrings": {
+          "movement_plausibility": [
+            "150 km/h"
+          ]
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.geofence",
+          "pass": false,
+          "detail": "geofence is not in the result (expected fail)"
+        },
+        {
+          "name": "check_status.movement_plausibility",
+          "pass": false,
+          "detail": "movement_plausibility is not in the result (expected fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of geofence, movement_plausibility flagged or failed (geofence: absent; movement_plausibility: absent)"
+        },
+        {
+          "name": "evidence.movement_plausibility: \"150 km/h\"",
+          "pass": false,
+          "detail": "movement_plausibility is not in the result"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.88
+    },
+    {
+      "id": "EVAL-029",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "known_limitation",
+      "scenario": 1,
+      "priority": "medium",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "known-limitation",
+        "roadmap"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Verified",
+          "Needs Review",
+          "Rejected"
+        ],
+        "behavior": "Recorded, not scored. A PWA cannot tell a system-level mock location from a real fix (risk R7); hardware attestation is the roadmap work package. The report lists this case and its verdict under Known limitations."
+      },
+      "faultInjected": false,
+      "outcome": "passed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": true,
+          "detail": "Verified ∈ {Verified, Needs Review, Rejected}"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.3
+    },
+    {
+      "id": "EVAL-030",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 2,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-01"
+      ],
+      "pair": null,
+      "tags": [
+        "hard-fail"
+      ],
+      "expected": {
+        "verdict": "Rejected",
+        "catching_checks": [
+          "photo_uniqueness"
+        ],
+        "hard_fail_checks": [
+          "photo_uniqueness"
+        ],
+        "check_status": {
+          "photo_uniqueness": "fail"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ≠ Rejected"
+        },
+        {
+          "name": "check_status.photo_uniqueness",
+          "pass": false,
+          "detail": "photo_uniqueness is not in the result (expected fail)"
+        },
+        {
+          "name": "hard_fail.photo_uniqueness",
+          "pass": false,
+          "detail": "photo_uniqueness is not in the result (expected a hard fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of photo_uniqueness flagged or failed (photo_uniqueness: absent)"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 3.44
+    },
+    {
+      "id": "EVAL-031",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 2,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-01"
+      ],
+      "pair": null,
+      "tags": [
+        "hard-fail",
+        "cross-plot"
+      ],
+      "expected": {
+        "verdict": "Rejected",
+        "catching_checks": [
+          "photo_uniqueness"
+        ],
+        "hard_fail_checks": [
+          "photo_uniqueness"
+        ]
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-B1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ≠ Rejected"
+        },
+        {
+          "name": "hard_fail.photo_uniqueness",
+          "pass": false,
+          "detail": "photo_uniqueness is not in the result (expected a hard fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of photo_uniqueness flagged or failed (photo_uniqueness: absent)"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 2.38
+    },
+    {
+      "id": "EVAL-032",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 2,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-01"
+      ],
+      "pair": null,
+      "tags": [
+        "hard-fail"
+      ],
+      "expected": {
+        "verdict": "Rejected",
+        "catching_checks": [
+          "photo_uniqueness"
+        ],
+        "hard_fail_checks": [
+          "photo_uniqueness"
+        ],
+        "evidence_substrings": {
+          "photo_uniqueness": [
+            "1 of 3"
+          ]
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ≠ Rejected"
+        },
+        {
+          "name": "hard_fail.photo_uniqueness",
+          "pass": false,
+          "detail": "photo_uniqueness is not in the result (expected a hard fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of photo_uniqueness flagged or failed (photo_uniqueness: absent)"
+        },
+        {
+          "name": "evidence.photo_uniqueness: \"1 of 3\"",
+          "pass": false,
+          "detail": "photo_uniqueness is not in the result"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 9.72
+    },
+    {
+      "id": "EVAL-033",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 2,
+      "priority": "critical",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "single-signal"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "exif_time_agreement"
+        ],
+        "check_status": {
+          "exif_time_agreement": "fail"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.exif_time_agreement",
+          "pass": false,
+          "detail": "exif_time_agreement is not in the result (expected fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of exif_time_agreement flagged or failed (exif_time_agreement: absent)"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 2.2
+    },
+    {
+      "id": "EVAL-034",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 2,
+      "priority": "high",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "single-signal",
+        "subtle"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "exif_time_agreement"
+        ],
+        "check_status": {
+          "exif_time_agreement": "flag"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.exif_time_agreement",
+          "pass": false,
+          "detail": "exif_time_agreement is not in the result (expected flag)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of exif_time_agreement flagged or failed (exif_time_agreement: absent)"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 2.78
+    },
+    {
+      "id": "EVAL-035",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 2,
+      "priority": "high",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "multi-signal",
+        "chain"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "chain_continuity",
+          "exif_time_agreement"
+        ],
+        "check_status": {
+          "chain_continuity": "flag",
+          "exif_time_agreement": "fail"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.chain_continuity",
+          "pass": false,
+          "detail": "chain_continuity is not in the result (expected flag)"
+        },
+        {
+          "name": "check_status.exif_time_agreement",
+          "pass": false,
+          "detail": "exif_time_agreement is not in the result (expected fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of chain_continuity, exif_time_agreement flagged or failed (chain_continuity: absent; exif_time_agreement: absent)"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 3.57
+    },
+    {
+      "id": "EVAL-036",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "known_limitation",
+      "scenario": 2,
+      "priority": "medium",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "known-limitation"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Verified",
+          "Needs Review",
+          "Rejected"
+        ],
+        "behavior": "Recorded, not scored. photo_uniqueness compares SHA-256, so any re-encode evades it. A perceptual near-duplicate check is a candidate for Stage 6 (open question Q5)."
+      },
+      "faultInjected": false,
+      "outcome": "passed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": true,
+          "detail": "Verified ∈ {Verified, Needs Review, Rejected}"
+        }
+      ],
+      "detected": null,
+      "error": null,
+      "notes": [],
+      "durationMs": 2.44
+    },
+    {
+      "id": "EVAL-037",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 3,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-01"
+      ],
+      "pair": null,
+      "tags": [
+        "hard-fail",
+        "multi-signal"
+      ],
+      "expected": {
+        "verdict": "Rejected",
+        "catching_checks": [
+          "deforestation_overlap",
+          "ndvi_cultivation"
+        ],
+        "hard_fail_checks": [
+          "deforestation_overlap"
+        ],
+        "evidence_substrings": {
+          "deforestation_overlap": [
+            "25.0%",
+            "10.0%"
+          ]
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ≠ Rejected"
+        },
+        {
+          "name": "hard_fail.deforestation_overlap",
+          "pass": false,
+          "detail": "deforestation_overlap is not in the result (expected a hard fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of deforestation_overlap, ndvi_cultivation flagged or failed (deforestation_overlap: absent; ndvi_cultivation: absent)"
+        },
+        {
+          "name": "evidence.deforestation_overlap: \"25.0%\"",
+          "pass": false,
+          "detail": "deforestation_overlap is not in the result"
+        },
+        {
+          "name": "evidence.deforestation_overlap: \"10.0%\"",
+          "pass": false,
+          "detail": "deforestation_overlap is not in the result"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.86
+    },
+    {
+      "id": "EVAL-038",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 3,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-01"
+      ],
+      "pair": null,
+      "tags": [
+        "hard-fail",
+        "boundary"
+      ],
+      "expected": {
+        "verdict": "Rejected",
+        "catching_checks": [
+          "deforestation_overlap"
+        ],
+        "hard_fail_checks": [
+          "deforestation_overlap"
+        ],
+        "evidence_substrings": {
+          "deforestation_overlap": [
+            "10.5%"
+          ]
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ≠ Rejected"
+        },
+        {
+          "name": "hard_fail.deforestation_overlap",
+          "pass": false,
+          "detail": "deforestation_overlap is not in the result (expected a hard fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of deforestation_overlap flagged or failed (deforestation_overlap: absent)"
+        },
+        {
+          "name": "evidence.deforestation_overlap: \"10.5%\"",
+          "pass": false,
+          "detail": "deforestation_overlap is not in the result"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.68
+    },
+    {
+      "id": "EVAL-039",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 3,
+      "priority": "critical",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "boundary",
+        "single-signal"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "deforestation_overlap"
+        ],
+        "check_status": {
+          "deforestation_overlap": "flag"
+        },
+        "evidence_substrings": {
+          "deforestation_overlap": [
+            "9.5%"
+          ]
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.deforestation_overlap",
+          "pass": false,
+          "detail": "deforestation_overlap is not in the result (expected flag)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of deforestation_overlap flagged or failed (deforestation_overlap: absent)"
+        },
+        {
+          "name": "evidence.deforestation_overlap: \"9.5%\"",
+          "pass": false,
+          "detail": "deforestation_overlap is not in the result"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.46
+    },
+    {
+      "id": "EVAL-040",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 3,
+      "priority": "critical",
+      "criticalConditions": [],
+      "pair": "EVAL-019",
+      "tags": [
+        "single-signal",
+        "shade-coffee"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "deforestation_overlap"
+        ],
+        "check_status": {
+          "deforestation_overlap": "flag"
+        },
+        "evidence_substrings": {
+          "deforestation_overlap": [
+            "3.0%"
+          ]
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.deforestation_overlap",
+          "pass": false,
+          "detail": "deforestation_overlap is not in the result (expected flag)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of deforestation_overlap flagged or failed (deforestation_overlap: absent)"
+        },
+        {
+          "name": "evidence.deforestation_overlap: \"3.0%\"",
+          "pass": false,
+          "detail": "deforestation_overlap is not in the result"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 2.07
+    },
+    {
+      "id": "EVAL-041",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 3,
+      "priority": "critical",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "single-signal"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "ndvi_cultivation"
+        ],
+        "check_status": {
+          "deforestation_overlap": "ok",
+          "ndvi_cultivation": "fail"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.deforestation_overlap",
+          "pass": false,
+          "detail": "deforestation_overlap is not in the result (expected ok)"
+        },
+        {
+          "name": "check_status.ndvi_cultivation",
+          "pass": false,
+          "detail": "ndvi_cultivation is not in the result (expected fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of ndvi_cultivation flagged or failed (ndvi_cultivation: absent)"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 2.08
+    },
+    {
+      "id": "EVAL-042",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 3,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-01"
+      ],
+      "pair": null,
+      "tags": [
+        "hard-fail",
+        "multi-signal"
+      ],
+      "expected": {
+        "verdict": "Rejected",
+        "catching_checks": [
+          "deforestation_overlap",
+          "ndvi_cultivation",
+          "ndvi_harvest_window"
+        ],
+        "hard_fail_checks": [
+          "deforestation_overlap"
+        ]
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ≠ Rejected"
+        },
+        {
+          "name": "hard_fail.deforestation_overlap",
+          "pass": false,
+          "detail": "deforestation_overlap is not in the result (expected a hard fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of deforestation_overlap, ndvi_cultivation, ndvi_harvest_window flagged or failed (deforestation_overlap: absent; ndvi_cultivation: absent; ndvi_harvest_window: absent)"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.73
+    },
+    {
+      "id": "EVAL-043",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 3,
+      "priority": "high",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "single-signal"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "ndvi_harvest_window"
+        ],
+        "check_status": {
+          "ndvi_harvest_window": "fail"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.ndvi_harvest_window",
+          "pass": false,
+          "detail": "ndvi_harvest_window is not in the result (expected fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of ndvi_harvest_window flagged or failed (ndvi_harvest_window: absent)"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.77
+    },
+    {
+      "id": "EVAL-045",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 4,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-01"
+      ],
+      "pair": null,
+      "tags": [
+        "hard-fail"
+      ],
+      "expected": {
+        "verdict": "Rejected",
+        "catching_checks": [
+          "yield_plausibility"
+        ],
+        "hard_fail_checks": [
+          "yield_plausibility"
+        ],
+        "evidence_substrings": {
+          "yield_plausibility": [
+            "2.50x"
+          ]
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ≠ Rejected"
+        },
+        {
+          "name": "hard_fail.yield_plausibility",
+          "pass": false,
+          "detail": "yield_plausibility is not in the result (expected a hard fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of yield_plausibility flagged or failed (yield_plausibility: absent)"
+        },
+        {
+          "name": "evidence.yield_plausibility: \"2.50x\"",
+          "pass": false,
+          "detail": "yield_plausibility is not in the result"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.7
+    },
+    {
+      "id": "EVAL-046",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 4,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-01"
+      ],
+      "pair": null,
+      "tags": [
+        "hard-fail",
+        "boundary"
+      ],
+      "expected": {
+        "verdict": "Rejected",
+        "catching_checks": [
+          "yield_plausibility"
+        ],
+        "hard_fail_checks": [
+          "yield_plausibility"
+        ]
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ≠ Rejected"
+        },
+        {
+          "name": "hard_fail.yield_plausibility",
+          "pass": false,
+          "detail": "yield_plausibility is not in the result (expected a hard fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of yield_plausibility flagged or failed (yield_plausibility: absent)"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 53.42
+    },
+    {
+      "id": "EVAL-047",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 4,
+      "priority": "critical",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "boundary",
+        "single-signal"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "yield_plausibility"
+        ],
+        "check_status": {
+          "yield_plausibility": "flag"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.yield_plausibility",
+          "pass": false,
+          "detail": "yield_plausibility is not in the result (expected flag)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of yield_plausibility flagged or failed (yield_plausibility: absent)"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.49
+    },
+    {
+      "id": "EVAL-048",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 4,
+      "priority": "high",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "single-signal",
+        "subtle"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "yield_plausibility"
+        ],
+        "check_status": {
+          "yield_plausibility": "flag"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.yield_plausibility",
+          "pass": false,
+          "detail": "yield_plausibility is not in the result (expected flag)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of yield_plausibility flagged or failed (yield_plausibility: absent)"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 2.58
+    },
+    {
+      "id": "EVAL-049",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 4,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-01"
+      ],
+      "pair": null,
+      "tags": [
+        "hard-fail",
+        "cumulative"
+      ],
+      "expected": {
+        "verdict": "Rejected",
+        "catching_checks": [
+          "yield_plausibility"
+        ],
+        "hard_fail_checks": [
+          "yield_plausibility"
+        ],
+        "behavior": "Uses the season cumulative, not this capture's kg alone."
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ≠ Rejected"
+        },
+        {
+          "name": "hard_fail.yield_plausibility",
+          "pass": false,
+          "detail": "yield_plausibility is not in the result (expected a hard fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of yield_plausibility flagged or failed (yield_plausibility: absent)"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 2.42
+    },
+    {
+      "id": "EVAL-050",
+      "suite": "harness-verifier",
+      "datasetStatus": "active",
+      "caseClass": "attack",
+      "scenario": 4,
+      "priority": "high",
+      "criticalConditions": [
+        "CF-01"
+      ],
+      "pair": null,
+      "tags": [
+        "hard-fail",
+        "small-plot"
+      ],
+      "expected": {
+        "verdict": "Rejected",
+        "catching_checks": [
+          "yield_plausibility"
+        ],
+        "hard_fail_checks": [
+          "yield_plausibility"
+        ]
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ≠ Rejected"
+        },
+        {
+          "name": "hard_fail.yield_plausibility",
+          "pass": false,
+          "detail": "yield_plausibility is not in the result (expected a hard fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of yield_plausibility flagged or failed (yield_plausibility: absent)"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 1.67
+    },
+    {
+      "id": "EVAL-055",
+      "suite": "harness-verifier",
+      "datasetStatus": "stretch",
+      "caseClass": "attack",
+      "scenario": 6,
+      "priority": "medium",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "stretch"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "exif_time_agreement"
+        ],
+        "check_status": {
+          "exif_time_agreement": "flag"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.exif_time_agreement",
+          "pass": false,
+          "detail": "exif_time_agreement is not in the result (expected flag)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of exif_time_agreement flagged or failed (exif_time_agreement: absent)"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 2.1
+    },
+    {
+      "id": "EVAL-056",
+      "suite": "harness-verifier",
+      "datasetStatus": "stretch",
+      "caseClass": "attack",
+      "scenario": 6,
+      "priority": "medium",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "stretch"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "exif_time_agreement"
+        ],
+        "check_status": {
+          "exif_time_agreement": "flag"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.exif_time_agreement",
+          "pass": false,
+          "detail": "exif_time_agreement is not in the result (expected flag)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of exif_time_agreement flagged or failed (exif_time_agreement: absent)"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 2.06
+    },
+    {
+      "id": "EVAL-057",
+      "suite": "harness-verifier",
+      "datasetStatus": "stretch",
+      "caseClass": "attack",
+      "scenario": 6,
+      "priority": "medium",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "stretch"
+      ],
+      "expected": {
+        "acceptable_verdicts": [
+          "Needs Review",
+          "Rejected"
+        ],
+        "catching_checks": [
+          "exif_time_agreement"
+        ],
+        "check_status": {
+          "exif_time_agreement": "fail"
+        }
+      },
+      "faultInjected": false,
+      "outcome": "failed",
+      "missingChecks": [],
+      "result": {
+        "verdict": "Verified",
+        "score": 100,
+        "checks": [
+          {
+            "id": "signature_valid",
+            "status": "ok",
+            "hardFail": false,
+            "evidence": "Signed by enrolled phone D-A1",
+            "weight": 1,
+            "score": 1
+          }
+        ],
+        "unavailableProviders": [],
+        "capReasons": [],
+        "config": {
+          "version": "cfg-1",
+          "hash": "3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906"
+        }
+      },
+      "assertions": [
+        {
+          "name": "verdict",
+          "pass": false,
+          "detail": "Verified ∉ {Needs Review, Rejected}"
+        },
+        {
+          "name": "check_status.exif_time_agreement",
+          "pass": false,
+          "detail": "exif_time_agreement is not in the result (expected fail)"
+        },
+        {
+          "name": "attribution",
+          "pass": false,
+          "detail": "none of exif_time_agreement flagged or failed (exif_time_agreement: absent)"
+        }
+      ],
+      "detected": false,
+      "error": null,
+      "notes": [],
+      "durationMs": 2.68
+    },
+    {
+      "id": "EVAL-058",
+      "suite": "harness-proof",
+      "datasetStatus": "active",
+      "caseClass": null,
+      "scenario": null,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-04"
+      ],
+      "pair": null,
+      "tags": [
+        "positive-control"
+      ],
+      "expected": {
+        "behavior": "Every ledger entry in the batch's provenance closure (evaluation-plan.md §4.6) is present in the feed; verifyProof() and the clean-room checker both return true for 100 % of them; the checkpoint signature verifies against /.well-known/udgam-ledger-key."
+      },
+      "faultInjected": false,
+      "outcome": "not_yet_implemented",
+      "missingChecks": [],
+      "result": null,
+      "assertions": [],
+      "detected": null,
+      "error": null,
+      "notes": [
+        "the harness-proof suite is registered but not built yet (TKT-15/TKT-18)"
+      ],
+      "durationMs": 0.03
+    },
+    {
+      "id": "EVAL-059",
+      "suite": "harness-proof",
+      "datasetStatus": "active",
+      "caseClass": null,
+      "scenario": null,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-04"
+      ],
+      "pair": null,
+      "tags": [
+        "tamper"
+      ],
+      "expected": {
+        "behavior": "Both verifiers return false; the page names the failing step (payload hash) and the entry."
+      },
+      "faultInjected": false,
+      "outcome": "not_yet_implemented",
+      "missingChecks": [],
+      "result": null,
+      "assertions": [],
+      "detected": null,
+      "error": null,
+      "notes": [
+        "the harness-proof suite is registered but not built yet (TKT-15/TKT-18)"
+      ],
+      "durationMs": 0.02
+    },
+    {
+      "id": "EVAL-060",
+      "suite": "harness-proof",
+      "datasetStatus": "active",
+      "caseClass": null,
+      "scenario": null,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-04"
+      ],
+      "pair": null,
+      "tags": [
+        "tamper"
+      ],
+      "expected": {
+        "behavior": "Root mismatch reported at the Merkle-path step."
+      },
+      "faultInjected": false,
+      "outcome": "not_yet_implemented",
+      "missingChecks": [],
+      "result": null,
+      "assertions": [],
+      "detected": null,
+      "error": null,
+      "notes": [
+        "the harness-proof suite is registered but not built yet (TKT-15/TKT-18)"
+      ],
+      "durationMs": 0.02
+    },
+    {
+      "id": "EVAL-061",
+      "suite": "harness-proof",
+      "datasetStatus": "active",
+      "caseClass": null,
+      "scenario": null,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-04"
+      ],
+      "pair": null,
+      "tags": [
+        "tamper"
+      ],
+      "expected": {
+        "behavior": "Signature step fails."
+      },
+      "faultInjected": false,
+      "outcome": "not_yet_implemented",
+      "missingChecks": [],
+      "result": null,
+      "assertions": [],
+      "detected": null,
+      "error": null,
+      "notes": [
+        "the harness-proof suite is registered but not built yet (TKT-15/TKT-18)"
+      ],
+      "durationMs": 0.02
+    },
+    {
+      "id": "EVAL-062",
+      "suite": "harness-proof",
+      "datasetStatus": "active",
+      "caseClass": null,
+      "scenario": null,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-04"
+      ],
+      "pair": null,
+      "tags": [
+        "tamper",
+        "trust-anchor"
+      ],
+      "expected": {
+        "behavior": "Signature does not verify under the key at /.well-known/udgam-ledger-key; the panel shows the key fingerprint it expected."
+      },
+      "faultInjected": false,
+      "outcome": "not_yet_implemented",
+      "missingChecks": [],
+      "result": null,
+      "assertions": [],
+      "detected": null,
+      "error": null,
+      "notes": [
+        "the harness-proof suite is registered but not built yet (TKT-15/TKT-18)"
+      ],
+      "durationMs": 0.03
+    },
+    {
+      "id": "EVAL-063",
+      "suite": "harness-proof",
+      "datasetStatus": "active",
+      "caseClass": null,
+      "scenario": null,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-04"
+      ],
+      "pair": null,
+      "tags": [
+        "tamper"
+      ],
+      "expected": {
+        "behavior": "prev_hash linkage or seq continuity fails for both variants."
+      },
+      "faultInjected": false,
+      "outcome": "not_yet_implemented",
+      "missingChecks": [],
+      "result": null,
+      "assertions": [],
+      "detected": null,
+      "error": null,
+      "notes": [
+        "the harness-proof suite is registered but not built yet (TKT-15/TKT-18)"
+      ],
+      "durationMs": 0.17
+    },
+    {
+      "id": "EVAL-066",
+      "suite": "harness-proof",
+      "datasetStatus": "active",
+      "caseClass": null,
+      "scenario": null,
+      "priority": "critical",
+      "criticalConditions": [],
+      "pair": null,
+      "tags": [
+        "isomorphic"
+      ],
+      "expected": {
+        "behavior": "Byte-identical canonical output and cross-verifying signatures for every vector."
+      },
+      "faultInjected": false,
+      "outcome": "not_yet_implemented",
+      "missingChecks": [],
+      "result": null,
+      "assertions": [],
+      "detected": null,
+      "error": null,
+      "notes": [
+        "the harness-proof suite is registered but not built yet (TKT-15/TKT-18)"
+      ],
+      "durationMs": 0.02
+    },
+    {
+      "id": "EVAL-103",
+      "suite": "harness-proof",
+      "datasetStatus": "active",
+      "caseClass": null,
+      "scenario": null,
+      "priority": "critical",
+      "criticalConditions": [
+        "CF-04"
+      ],
+      "pair": null,
+      "tags": [
+        "evm"
+      ],
+      "expected": {
+        "behavior": "Every intact proof verifies and carries a txHash and blockNumber that match the chain; every tamper variant is rejected, naming the failing step."
+      },
+      "faultInjected": false,
+      "outcome": "not_yet_implemented",
+      "missingChecks": [],
+      "result": null,
+      "assertions": [],
+      "detected": null,
+      "error": null,
+      "notes": [
+        "the harness-proof suite is registered but not built yet (TKT-15/TKT-18)"
+      ],
+      "durationMs": 0.02
+    }
+  ],
+  "runtime": {
+    "networkCalls": [],
+    "executionOrder": [
+      "EVAL-003",
+      "EVAL-024",
+      "EVAL-002",
+      "EVAL-035",
+      "EVAL-063",
+      "EVAL-013",
+      "EVAL-025",
+      "EVAL-048",
+      "EVAL-005",
+      "EVAL-011",
+      "EVAL-062",
+      "EVAL-022",
+      "EVAL-042",
+      "EVAL-031",
+      "EVAL-026",
+      "EVAL-060",
+      "EVAL-038",
+      "EVAL-057",
+      "EVAL-058",
+      "EVAL-018",
+      "EVAL-016",
+      "EVAL-056",
+      "EVAL-028",
+      "EVAL-050",
+      "EVAL-049",
+      "EVAL-046",
+      "EVAL-009",
+      "EVAL-041",
+      "EVAL-006",
+      "EVAL-043",
+      "EVAL-023",
+      "EVAL-040",
+      "EVAL-004",
+      "EVAL-030",
+      "EVAL-066",
+      "EVAL-001",
+      "EVAL-103",
+      "EVAL-055",
+      "EVAL-008",
+      "EVAL-027",
+      "EVAL-059",
+      "EVAL-036",
+      "EVAL-037",
+      "EVAL-039",
+      "EVAL-014",
+      "EVAL-010",
+      "EVAL-021",
+      "EVAL-029",
+      "EVAL-047",
+      "EVAL-032",
+      "EVAL-012",
+      "EVAL-061",
+      "EVAL-007",
+      "EVAL-033",
+      "EVAL-019",
+      "EVAL-034",
+      "EVAL-015",
+      "EVAL-017",
+      "EVAL-045",
+      "EVAL-020"
+    ]
+  }
+}

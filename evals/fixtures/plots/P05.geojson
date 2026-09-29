@@ -1,0 +1,44 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "P05",
+    "role": "legitimate",
+    "area_ha": 3,
+    "shape": "convex",
+    "anchor": {
+      "place": "Siddapura, Kodagu",
+      "lat": 12.3051,
+      "lng": 75.8498
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 2330340424
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.8488762,
+          12.3043686
+        ],
+        [
+          75.8508777,
+          12.3046092
+        ],
+        [
+          75.8507238,
+          12.3058314
+        ],
+        [
+          75.8487223,
+          12.3055908
+        ],
+        [
+          75.8488762,
+          12.3043686
+        ]
+      ]
+    ]
+  }
+}

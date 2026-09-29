@@ -1,0 +1,56 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "P03",
+    "role": "legitimate",
+    "area_ha": 5.5,
+    "shape": "irregular",
+    "anchor": {
+      "place": "Somwarpet, Kodagu",
+      "lat": 12.5968,
+      "lng": 75.8497
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 2431006138
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.8511312,
+          12.5967341
+        ],
+        [
+          75.8504577,
+          12.5977206
+        ],
+        [
+          75.8495869,
+          12.5978353
+        ],
+        [
+          75.8487655,
+          12.597225
+        ],
+        [
+          75.8485524,
+          12.5965846
+        ],
+        [
+          75.8492066,
+          12.595337
+        ],
+        [
+          75.8507703,
+          12.5956655
+        ],
+        [
+          75.8511312,
+          12.5967341
+        ]
+      ]
+    ]
+  }
+}

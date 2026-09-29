@@ -9,7 +9,7 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
-          include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
+          include: ['src/**/*.test.ts', 'tests/**/*.test.ts', 'evals/**/*.test.ts'],
           exclude: [...exclude, '**/*.int.test.ts'],
         },
       },
