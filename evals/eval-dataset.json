@@ -1,7 +1,7 @@
 {
   "$schema": "./eval-dataset.schema.json",
-  "dataset_version": "0.2.0",
-  "status": "Stage 3 seed. Representative cases only; Stage 7 extends to about 40 legitimate and at least 10 attack cases per scenario 1-4, appending new IDs after the last one used here. IDs are never renumbered or reused. 0.2.0 (Stage 6, TP23): added Milestone 2 cases EVAL-093 to EVAL-105; EVAL-054 and EVAL-068 activated by TP5 and TP7.",
+  "dataset_version": "0.3.0",
+  "status": "Stage 3 seed. Representative cases only; Stage 7 extends to about 40 legitimate and at least 10 attack cases per scenario 1-4, appending new IDs after the last one used here. IDs are never renumbered or reused. 0.2.0 (Stage 6, TP23): added Milestone 2 cases EVAL-093 to EVAL-105; EVAL-054 and EVAL-068 activated by TP5 and TP7. 0.3.0 (Stage 7, TKT-08): added scenario 1 attack cases EVAL-110 to EVAL-113 (scenario 1 to 11 active S1 cases).",
   "plan": "evaluation-plan.md (project root, authoritative)",
   "conventions": {
     "evidence_matching": "Scorer lowercases both the evidence sentence and each expected substring and strips all whitespace before a substring test, so '182 m' matches '182m' and '182 M'.",
@@ -1282,6 +1282,54 @@
       "expected": { "behavior": "No horizontal scroll; all four states render; axe reports no serious or critical violations; the screens match the approved addendum." },
       "failure_conditions": ["Any gate fails"],
       "tags": ["design"]
+    },
+    {
+      "id": "EVAL-110",
+      "title": "Capture 100 m outside a plot with a poor 30 m fix and matching camera EXIF",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 1, "gates": ["S1"],
+      "priority": "high", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "P08", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "gps_place", "where": "outside_edge", "distance_m": 100 }, { "op": "gps_accuracy", "accuracy_m": 30 }, { "op": "exif_gps", "mode": "match" } ] },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["geofence", "gps_accuracy"], "check_status": { "geofence": "fail", "gps_accuracy": "flag" }, "evidence_substrings": { "geofence": ["100 m", "allowance 25 m"] } },
+      "failure_conditions": ["Verified", "geofence flag instead of fail (buffer = min(30, 25) = 25 m)"],
+      "tags": ["boundary", "evasion"]
+    },
+    {
+      "id": "EVAL-111",
+      "title": "GPS spoofed inside the plot; camera EXIF GPS 60 m away, just over the 50 m limit",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 1, "gates": ["S1"],
+      "priority": "high", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "P01", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "gps_place", "where": "inside_centroid" }, { "op": "exif_gps", "mode": "offset", "distance_m": 60 } ] },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["exif_gps_agreement"], "check_status": { "exif_gps_agreement": "fail" }, "evidence_substrings": { "exif_gps_agreement": ["60 m"] } },
+      "failure_conditions": ["Verified", "exif_gps_agreement ok or flag at 60 m"],
+      "tags": ["single-signal", "exif", "boundary"]
+    },
+    {
+      "id": "EVAL-112",
+      "title": "Spoofed inside the plot; the previous capture was 21 km away 10 minutes earlier (126 km/h)",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 1, "gates": ["S1"],
+      "priority": "high", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "P06", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "gps_place", "where": "inside_centroid" }, { "op": "prev_event", "distance_km": 21, "minutes_before": 10 } ] },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["movement_plausibility"], "check_status": { "movement_plausibility": "fail" }, "evidence_substrings": { "movement_plausibility": ["126 km/h"] } },
+      "failure_conditions": ["Verified", "movement_plausibility ok just over 120 km/h"],
+      "tags": ["single-signal", "movement", "boundary"]
+    },
+    {
+      "id": "EVAL-113",
+      "title": "Capture 55 m outside a small plot with a 5 m fix; browser stripped the EXIF GPS",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 1, "gates": ["S1"],
+      "priority": "high", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "P02", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "gps_place", "where": "outside_edge", "distance_m": 55 }, { "op": "gps_accuracy", "accuracy_m": 5 }, { "op": "exif_gps", "mode": "absent" } ] },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["geofence"], "check_status": { "geofence": "fail", "exif_gps_agreement": "flag" }, "evidence_substrings": { "geofence": ["55 m", "allowance 5 m"] } },
+      "failure_conditions": ["Verified", "Absent EXIF GPS excuses a location outside the plot"],
+      "tags": ["small-plot", "exif"]
     }
   ]
 }

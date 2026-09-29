@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { loadDataset } from './dataset';
 import { renderReport } from './report';
 import { writeResults } from './results';
 import { evaluate, type ResultsFile } from './run';
@@ -29,7 +30,7 @@ describe('provenance (evaluation-plan §12)', () => {
       appVersion: expect.stringMatching(/^\d+\.\d+\.\d+$/),
       git: { commit: expect.stringMatching(/^[0-9a-f]{40}$/), shortSha: expect.any(String), branch: expect.any(String), dirty: expect.any(Boolean) },
       environment: expect.stringMatching(/^(local|ci)$/),
-      dataset: { version: '0.2.0', sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
+      dataset: { version: loadDataset().version, sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
       fixtures: { version: expect.any(String), sha256: expect.stringMatching(/^[0-9a-f]{64}$/), files: 36 },
       config: { version: 'cfg-1', hash: expect.stringMatching(/^[0-9a-f]{64}$/), mode: 'full', object: expect.any(Object) },
       provider: 'fixture',

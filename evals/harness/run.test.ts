@@ -58,7 +58,7 @@ describe('the harness never hides a case (TC-015, EVAL-092)', () => {
     const run = await evaluate({ seed: 1 });
     const ids = run.cases.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(run.totals.active).toBe(60); // 49 active + 3 stretch harness-verifier, 8 harness-proof (dataset 0.2.0)
+    expect(run.totals.active).toBe(64); // 53 active + 3 stretch harness-verifier, 8 harness-proof (dataset 0.3.0: + EVAL-110–113)
     expect(run.totals.skipped).toBe(0);
     expect(run.totals.ok).toBe(true);
   });
