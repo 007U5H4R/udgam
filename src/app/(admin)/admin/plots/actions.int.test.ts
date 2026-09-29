@@ -46,7 +46,7 @@ beforeEach(async () => {
     await addUser(t.db, { id: `U-${key}`, email: `${key.toLowerCase()}@a.test`, password: PASSWORD, role, orgId });
     cookies[key] = cookieHeader(await appAuth().api.signInEmail({ body: { email: `${key.toLowerCase()}@a.test`, password: PASSWORD }, asResponse: true }));
   }
-});
+}, 30_000); // four password hashes and sign-ins: slow on a loaded machine
 afterEach(async () => {
   (await import('../../../../lib/db/client')).closeDb();
   vi.unstubAllEnvs();

@@ -395,6 +395,16 @@
 }
 .sectionCard {
   padding: 18px 20px 20px;
+  min-width: 0;
+}
+.sectionCard > .note {
+  margin-top: 4px;
+}
+.wide {
+  grid-column: 1 / -1;
+}
+.editorWrap {
+  margin-top: 14px;
 }
 
 /* ── Forms (admin.html .decide label / textarea recipe) ── */

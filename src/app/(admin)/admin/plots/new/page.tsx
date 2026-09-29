@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { getDbReady } from '../../../../../lib/db/client';
+import { tileLayerConfig } from '../../../../../lib/geo/tiles';
 import { listFarmers } from '../../../../../lib/plots/farmers';
 import { listPlots } from '../../../../../lib/plots/plots';
 import { requireSession } from '../../../../_auth/require';
@@ -27,7 +28,7 @@ export default async function NewPlotPage({ searchParams }: { searchParams: Prom
         </div>
         <p className={s.dMeta}>The area is worked out from the boundary. Saving records the plot permanently.</p>
       </header>
-      <NewPlotForm farmers={farmers} />
+      <NewPlotForm farmers={farmers} tiles={tileLayerConfig()} />
     </PlotsScreen>
   );
 }

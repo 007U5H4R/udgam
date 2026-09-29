@@ -3,17 +3,20 @@ import { GlassCard } from '../../../../../components/ui/GlassCard';
 import { PlotSvg } from '../../../../../components/ui/PlotSvg';
 import { getDbReady } from '../../../../../lib/db/client';
 import { formatHa } from '../../../../../lib/geo/area';
+import { tileLayerConfig } from '../../../../../lib/geo/tiles';
 import { getPlot, listPlots } from '../../../../../lib/plots/plots';
 import { istDate } from '../../../../../lib/verification/evidence';
 import { requireSession, scopedById } from '../../../../_auth/require';
 import { CROP_TEXT, STATUS_TEXT } from '../copy';
+import { EditBoundary } from '../EditBoundary';
 import { Icon, StatusMark } from '../marks';
 import { loadList, PlotsScreen } from '../PlotsScreen';
 import { forcedState } from '../state';
 import s from '../plots.module.css';
 
-// /admin/plots/[plotId] (TKT-06): one plot's outline (PlotSvg), area in hectares and registration
-// status. Another org's plot ID is a 404, like an unknown one (TC-019).
+// /admin/plots/[plotId] (TKT-06): one plot's outline (PlotSvg), area in hectares, registration status
+// and the boundary editor. Another org's plot ID is a 404, like an unknown one (TC-019). The tile key
+// is read on the server and handed only to this admin page's editor (TP19).
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Plot · Udgam' };
 
@@ -68,6 +71,15 @@ export default async function PlotPage({
               </p>
             </figcaption>
           </figure>
+        </GlassCard>
+        <GlassCard as="section" className={[s.sectionCard, s.wide].join(' ')} aria-labelledby="edit-h">
+          <h3 className={s.secH} id="edit-h">
+            Boundary
+          </h3>
+          <p className={s.note}>Editing the boundary records a new version; the registration checks run again for it.</p>
+          <div className={s.editorWrap}>
+            <EditBoundary key={plot.anchorSeq} plotId={plot.id} geometry={plot.geometry} tiles={tileLayerConfig()} />
+          </div>
         </GlassCard>
       </div>
     </PlotsScreen>

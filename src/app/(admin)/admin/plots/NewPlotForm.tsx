@@ -1,31 +1,44 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useTransition, type FormEvent } from 'react';
+import { useCallback, useState, useTransition, type FormEvent } from 'react';
+import { PlotEditor, type EditorChange } from '../../../../components/admin/PlotEditor';
 import { GlassCard } from '../../../../components/ui/GlassCard';
 import { Pill } from '../../../../components/ui/Pill';
+import type { TileLayerConfig } from '../../../../lib/geo/tiles';
 import type { FarmerOption } from '../../../../lib/plots/farmers';
-import { uploadPlotFileAction, type PlotActionResult } from './actions';
+import { createPlotAction, uploadPlotFileAction, type PlotActionResult } from './actions';
 import { REASON_TEXT } from './copy';
 import s from './plots.module.css';
 
-// The new-plot form (TKT-06): farmer (existing or new), crop, then the boundary. One primary pill.
+// The new-plot form (TKT-06): farmer (existing or new), crop, then the boundary — drawn on the map or
+// uploaded as a GeoJSON/KML file (a chosen file wins). One primary pill.
 
 const NEW = 'new';
 
-export function NewPlotForm({ farmers }: { farmers: FarmerOption[] }) {
+export function NewPlotForm({ farmers, tiles }: { farmers: FarmerOption[]; tiles: TileLayerConfig | null }) {
   const router = useRouter();
   const [farmer, setFarmer] = useState(farmers.length > 0 ? '' : NEW);
+  const [drawn, setDrawn] = useState<EditorChange>({ geometry: null, error: null });
   const [error, setError] = useState('');
   const [pending, startTransition] = useTransition();
+  const onDrawnChange = useCallback((c: EditorChange) => setDrawn(c), []);
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     if (form.get('farmerId') === NEW) form.delete('farmerId');
+    const file = form.get('file');
+    const hasFile = file instanceof File && file.size > 0;
+    if (!hasFile) {
+      form.delete('file');
+      if (drawn.error) return setError(REASON_TEXT[drawn.error]);
+      if (!drawn.geometry) return setError(REASON_TEXT.no_file);
+      form.set('geojson', JSON.stringify(drawn.geometry));
+    }
     setError('');
     startTransition(async () => {
-      const r: PlotActionResult = await uploadPlotFileAction(form);
+      const r: PlotActionResult = hasFile ? await uploadPlotFileAction(form) : await createPlotAction(form);
       if (r.ok) router.push(`/admin/plots/${r.plotId}`);
       else setError(REASON_TEXT[r.reason]);
     });
@@ -87,8 +100,9 @@ export function NewPlotForm({ farmers }: { farmers: FarmerOption[] }) {
         <h3 className={s.legend} id="boundary-h">
           Boundary
         </h3>
+        <PlotEditor title="Draw the boundary" initial={null} tiles={tiles} reasonText={(r) => REASON_TEXT[r]} onChange={onDrawnChange} />
         <label className={s.label} htmlFor="file">
-          Boundary file <span>(GeoJSON or KML, up to 2 MB)</span>
+          Or upload a boundary file <span>(GeoJSON or KML, up to 2 MB)</span>
         </label>
         <input id="file" name="file" type="file" accept=".geojson,.json,.kml,application/geo+json,application/json,application/vnd.google-earth.kml+xml" className={s.control} />
         <p className={s.note}>One plot per file, in latitude and longitude (WGS84). Holes and crossing lines are refused.</p>

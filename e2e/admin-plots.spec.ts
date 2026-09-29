@@ -4,6 +4,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { DEMO_ACCOUNTS, SEED_PASSWORD, seedAccounts, signIn } from './helpers/auth';
 import { stubTiles } from './helpers/stubs';
+import { query } from './helpers/tracer';
 
 // TKT-06 admin plot screens: the list (farmer, producer ID, crop, area, registration status) and its
 // four states, the new-plot form (upload path), the detail (area in ha, "Registration checks pending"),
@@ -32,7 +33,7 @@ async function uploadPlot(page: Page, farmer: string, file = 'valid-polygon.geoj
   await page.getByLabel('Whose plot is it?').selectOption({ label: 'A new farmer…' });
   await page.getByLabel('New farmer’s name').fill(farmer);
   await page.getByRole('radio', { name: crop }).check();
-  await page.getByLabel(/Boundary file/).setInputFiles(join(GEOMETRY, file));
+  await page.getByLabel(/boundary file/i).setInputFiles(join(GEOMETRY, file));
   await page.getByRole('button', { name: 'Save plot' }).click();
   await expect(page).toHaveURL(/\/admin\/plots\/PL-[0-9A-Z]{8}$/);
   return page.url().split('/').at(-1)!;
@@ -49,7 +50,7 @@ test.describe('TKT-06 admin plots', () => {
     const plotId = await uploadPlot(page, farmer, 'one-placemark.kml', 'Robusta');
     const detail = page.getByRole('region', { name: 'Plot detail' });
     await expect(detail.getByRole('heading', { level: 2, name: plotId })).toBeVisible();
-    await expect(detail.getByText(/^Area \d+\.\d{2} ha$/)).toBeVisible();
+    await expect(detail.locator('#plot-area')).toHaveText(/^Area \d+\.\d{2} ha$/);
     await expect(detail.getByText('Registration checks pending').first()).toBeVisible();
     await expect(detail.getByRole('img', { name: new RegExp(`Outline of plot ${plotId}`) })).toBeVisible();
     await noHorizontalScroll(page);
@@ -69,7 +70,7 @@ test.describe('TKT-06 admin plots', () => {
     await page.goto('/admin/plots/new');
     await page.getByLabel('Whose plot is it?').selectOption({ label: 'A new farmer…' });
     await page.getByLabel('New farmer’s name').fill(uniqueName('Refused'));
-    await page.getByLabel(/Boundary file/).setInputFiles(join(GEOMETRY, 'bowtie.geojson'));
+    await page.getByLabel(/boundary file/i).setInputFiles(join(GEOMETRY, 'bowtie.geojson'));
     await page.getByRole('button', { name: 'Save plot' }).click();
     await expect(page.locator('#plot-error')).toHaveText('The boundary crosses itself. Move the points so the lines do not cross.');
     await expect(page.locator('#plot-error')).toHaveRole('alert');
@@ -112,5 +113,99 @@ test.describe('TKT-06 admin plots', () => {
     const res = await other.goto(`/admin/plots/${plotId}`);
     expect(res?.status()).toBe(404);
     await other.close();
+  });
+
+  test('TC-029: edit a boundary without dragging — select a point, move it with buttons and arrow keys, add and remove points; focus stays visible; the area updates; saving re-anchors (plot_edited)', async ({ page }) => {
+    const tileRequests: string[] = [];
+    page.on('request', (r) => {
+      if (r.url().includes('ibasemaps-api.arcgis.com')) tileRequests.push(r.url());
+    });
+    const plotId = await uploadPlot(page, uniqueName('Edited'));
+    const editor = page.getByRole('region', { name: 'Edit the boundary' });
+    await expect(editor).toBeVisible();
+    // Satellite tiles come from the keyed Esri service (stubbed here), with its attribution.
+    await expect(page.locator('.leaflet-control-attribution')).toContainText('Powered by Esri');
+    await expect.poll(() => tileRequests.length).toBeGreaterThan(0);
+
+    const points = editor.getByRole('list', { name: 'Boundary points' }).getByRole('button');
+    await expect(points).toHaveCount(4);
+    const area = editor.locator('#editor-area');
+    const areaBefore = await area.textContent();
+
+    await points.nth(1).click();
+    await expect(points.nth(1)).toHaveAttribute('aria-pressed', 'true');
+    const labelBefore = await points.nth(1).textContent();
+    await editor.getByRole('button', { name: 'Move north 1 m' }).click();
+    await expect(points.nth(1)).not.toHaveText(labelBefore!);
+    await expect(area).not.toHaveText(areaBefore!);
+
+    // Arrow keys move the focused point; focus is visible on it.
+    await points.nth(1).focus();
+    const beforeKey = await points.nth(1).textContent();
+    await page.keyboard.press('ArrowRight');
+    await expect(points.nth(1)).not.toHaveText(beforeKey!);
+    await expect(points.nth(1)).toBeFocused();
+    const outline = await points.nth(1).evaluate((el) => getComputedStyle(el).outlineStyle);
+    expect(outline).not.toBe('none');
+
+    await editor.getByRole('button', { name: 'Add point' }).click();
+    await expect(points).toHaveCount(5);
+    await expect(points.nth(2)).toHaveAttribute('aria-pressed', 'true');
+    await editor.getByRole('button', { name: 'Remove point' }).click();
+    await expect(points).toHaveCount(4);
+    await expect(editor.locator('#editor-error')).toHaveText('');
+
+    const liveArea = (await area.textContent())!.match(/^Area (\d+\.\d{2} ha) \(/)![1];
+    await noHorizontalScroll(page);
+    await noSeriousAxeViolations(page);
+    await editor.getByRole('button', { name: 'Save boundary' }).click();
+    const detail = page.getByRole('region', { name: 'Plot detail' });
+    await expect(detail.locator('#plot-area')).toHaveText(`Area ${liveArea}`);
+    await expect(detail.getByText('Boundary changed · checks pending').first()).toBeVisible();
+    const kinds = await query<{ kind: string }>("SELECT kind FROM ledger_entries WHERE json_extract(payload, '$.plotId') = ? ORDER BY seq", [plotId]);
+    expect(kinds.map((k) => k.kind)).toEqual(['plot_registered', 'plot_edited']);
+  });
+
+  test('TC-029: a crossing boundary is shown inline and cannot be saved', async ({ page }) => {
+    await uploadPlot(page, uniqueName('Crossed'));
+    const editor = page.getByRole('region', { name: 'Edit the boundary' });
+    const points = editor.getByRole('list', { name: 'Boundary points' }).getByRole('button');
+    // Pull point 1 (the south-west corner) 150 m east, past the south-east corner: the lines cross.
+    await points.nth(0).focus();
+    for (let i = 0; i < 150; i++) await page.keyboard.press('ArrowRight');
+    await expect(editor.locator('#editor-error')).toHaveText('The boundary crosses itself. Move the points so the lines do not cross.');
+    await expect(editor.getByRole('button', { name: 'Save boundary' })).toBeDisabled();
+  });
+
+  test('TC-029: draw a new plot by clicking points on the map, then save it', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'leaflet-draw places points from mouse clicks; the touch projects cover the button path above');
+    await page.goto('/admin/plots/new');
+    await page.getByLabel('Whose plot is it?').selectOption({ label: 'A new farmer…' });
+    await page.getByLabel('New farmer’s name').fill(uniqueName('Drawn'));
+    const editor = page.getByRole('region', { name: 'Draw the boundary' });
+    await editor.getByRole('button', { name: 'Draw on the map' }).click();
+    const map = editor.locator('.leaflet-container');
+    await map.scrollIntoViewIfNeeded();
+    const box = (await map.boundingBox())!;
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    for (const [dx, dy] of [
+      [-60, -40],
+      [60, -40],
+      [70, 40],
+      [-50, 50],
+    ]) {
+      await page.mouse.click(cx + dx!, cy + dy!);
+      // leaflet-draw ignores a click within 50 ms of the last point (its double-click guard).
+      await page.waitForTimeout(250);
+    }
+    await editor.getByRole('button', { name: 'Finish shape' }).click();
+    const points = editor.getByRole('list', { name: 'Boundary points' }).getByRole('button');
+    await expect(points).toHaveCount(4);
+    const liveArea = (await editor.locator('#editor-area').textContent())!.match(/^Area (\d+\.\d{2} ha) \(/)?.[1];
+    expect(liveArea).toBeDefined();
+    await page.getByRole('button', { name: 'Save plot' }).click();
+    await expect(page).toHaveURL(/\/admin\/plots\/PL-[0-9A-Z]{8}$/);
+    await expect(page.locator('#plot-area')).toHaveText(`Area ${liveArea}`);
   });
 });
