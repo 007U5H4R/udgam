@@ -43,6 +43,25 @@ const eslintConfig = defineConfig([
     },
   },
   {
+    // TSK-18.5: the tamper generator is test-only. The app never imports it; the certificate test mode
+    // (src/lib/certificate/test-mode.ts, outside src/app) is the one app-side user.
+    files: ["src/app/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}"],
+    ignores: ["**/*.test.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/lib/ledger/testing", "@/lib/ledger/testing/*", "**/lib/ledger/testing", "**/lib/ledger/testing/*"],
+              message: "src/lib/ledger/testing is test-only; only src/lib/certificate/test-mode.ts may use it.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // TC-073 / TSK-18.1: the clean-room proof checker imports nothing outside its folder except node: built-ins.
     files: ["evals/scorers/independent-verifier/**/*.ts"],
     rules: {

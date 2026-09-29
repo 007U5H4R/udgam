@@ -12,7 +12,7 @@ import { setOnAppended } from '../../src/lib/ledger/hashchain';
 import { loadLedgerKey, publishedKeys } from '../../src/lib/ledger/keys';
 import { verifyFeed } from '../../src/lib/ledger/proof';
 import { seedBatchWorld } from '../../tests/helpers/batch-world';
-import { applyTamper, EXPECTED_STEP, TAMPER_VARIANTS, type TamperVariant } from './tamper';
+import { applyTamper, EXPECTED_STEP, VECTOR_TAMPERS as TAMPER_VARIANTS, type VectorTamper as TamperVariant } from '../../src/lib/ledger/testing/tamper';
 
 // The harness proof suite `harness-proof` (technical-plan TSK-15.8, evaluation-plan §4.6 S6-lib):
 // EVAL-058 (intact batch, coverage), EVAL-059–063 (tampers, first failing step) and EVAL-066 (Node

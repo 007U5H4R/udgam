@@ -22,7 +22,7 @@ const { verifyFeed, checkpointStatementOf, payloadStatement } = await import('..
 const { leafHash, merkleRoot } = await import('../src/lib/ledger/merkle');
 const { bytesToHex, hexToBytes, jcs, sha256Hex } = await import('../src/lib/crypto');
 const { seedBatchWorld } = await import('../tests/helpers/batch-world');
-const { TAMPER_VARIANTS, TAMPER_DESCRIPTIONS, applyTamper } = await import('../evals/harness/tamper');
+const { VECTOR_TAMPERS, TAMPER_DESCRIPTIONS, applyTamper } = await import('../src/lib/ledger/testing/tamper');
 
 const OUT = resolve(fileURLToPath(new URL('../docs/proof-feed.vectors.json', import.meta.url)));
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -84,7 +84,7 @@ try {
   // Each tamper is checked as a verifier receives it: serialised, then parsed.
   const asReceived = (f: unknown) => JSON.parse(JSON.stringify(f)) as unknown;
   const tampers = [];
-  for (const variant of TAMPER_VARIANTS) {
+  for (const variant of VECTOR_TAMPERS) {
     const t = await applyTamper(feed, keys.keys, variant);
     const out = await verifyFeed(asReceived(t.feed), keys.keys);
     if (out.ok || out.step !== t.expectedStep) throw new Error(`tamper ${variant}: expected ${t.expectedStep}, got ${out.ok ? 'ok' : out.step}`);
