@@ -46,6 +46,9 @@ export default defineConfig({
       REMOTE_SENSING_PROVIDER: 'fixture',
       // Enables the test-only surfaces (/__test__/*); they answer 404 without it (technical-plan §1).
       E2E: '1',
+      // TC-045 (TSK-10.10): the fixture NDVI calls answer 2 s late, so the satellite groups visibly tick
+      // after the local ones. Honoured only with E2E=1 (src/lib/capture/context.ts withE2eDelay).
+      E2E_FIXTURE_DELAY_MS: '2000',
       // The production server requires an auth secret; a throwaway value generated per run, never committed.
       BETTER_AUTH_SECRET: randomBytes(32).toString('hex'),
       // Better Auth checks request origins against its base URL: the server's own address on this port.

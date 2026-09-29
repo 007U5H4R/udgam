@@ -16,7 +16,8 @@ export function TabBar({ current, lang = 'en', onHelp }: { current: Tab; lang?: 
         <Ic name="home" />
         {t('tabs.home', {}, lang)}
       </Link>
-      <Link className="tab" href="/field/pickings" aria-current={here('pickings')}>
+      {/* No prefetch until TKT-11 adds /field/pickings and /field/help: a prefetch of a missing route never settles. */}
+      <Link className="tab" href="/field/pickings" prefetch={false} aria-current={here('pickings')}>
         <Ic name="list" />
         {t('tabs.pickings', {}, lang)}
       </Link>
@@ -26,7 +27,7 @@ export function TabBar({ current, lang = 'en', onHelp }: { current: Tab; lang?: 
           {t('tabs.help', {}, lang)}
         </button>
       ) : (
-        <Link className="tab" href="/field/help" aria-current={here('help')}>
+        <Link className="tab" href="/field/help" prefetch={false} aria-current={here('help')}>
           <Ic name="help" />
           {t('tabs.help', {}, lang)}
         </Link>
