@@ -1,3 +1,4 @@
+import { chainContinuity } from './checks/chain_continuity';
 import { deforestationOverlap } from './checks/deforestation_overlap';
 import { exifGpsAgreement } from './checks/exif_gps_agreement';
 import { exifTimeAgreement } from './checks/exif_time_agreement';
@@ -26,10 +27,11 @@ export type Check = {
 /**
  * The check registry, in technical-plan §6.3 order. Checks not built yet are absent (the harness
  * reports their cases `not_yet_implemented`, TKT-03); TKT-07 added the three satellite checks
- * (remote, each naming its provider); TKT-09 adds the rest.
+ * (remote, each naming its provider); TKT-09 added chain_continuity and yield_plausibility: all twelve.
  */
 export const REGISTRY: readonly Check[] = [
   signatureValid,
+  chainContinuity,
   photoUniqueness,
   geofence,
   gpsAccuracy,

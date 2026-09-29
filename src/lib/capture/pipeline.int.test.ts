@@ -124,6 +124,24 @@ describe('runCapture happy path', () => {
     expect((await t.client.execute(`SELECT final_verdict FROM harvest_events WHERE seq = 2`)).rows[0]?.final_verdict).toBe('Rejected');
   });
 
+  it('TP10: a stale entry replayed out of order is flagged by chain_continuity and never rewinds the phone’s chain head', async () => {
+    const first = await form({ photos: [photo('c1')] });
+    await run(first.fd);
+    const h1 = await sha256Hex(first.signed);
+    const second = await form({ photos: [photo('c2')], seq: 2, prevEventHash: h1 });
+    const ok = (await run(second.fd)).at(-1)!;
+    expect(ok.t === 'verdict' && ok.checks.find((c) => c.id === 'chain_continuity')).toMatchObject({ status: 'ok', evidence: 'Entry 2 follows entry 1 from this phone' });
+    const head = { last_seq: 2, last_event_hash: await sha256Hex(second.signed) };
+
+    const stale = await form({ photos: [photo('c3')], seq: 1, prevEventHash: 'genesis' });
+    const flagged = (await run(stale.fd)).at(-1)!;
+    expect(flagged.t === 'verdict' && flagged.checks.find((c) => c.id === 'chain_continuity')).toMatchObject({
+      status: 'flag',
+      evidence: `Expected entry 3 after ${head.last_event_hash.slice(0, 8)}, got entry 1`,
+    });
+    expect((await t.client.execute(`SELECT last_seq, last_event_hash FROM devices WHERE id = '${world.deviceId}'`)).rows[0]).toMatchObject(head);
+  });
+
   it('answers a retried, already-accepted payload with its original verdict and writes nothing', async () => {
     const f = await form();
     const firstEvents = await run(f.fd);
