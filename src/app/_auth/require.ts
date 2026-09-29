@@ -20,7 +20,9 @@ type Mode =
   | { request: Request };
 
 export async function requireSession(role: Role, mode: Mode = { page: true }): Promise<Guarded> {
-  const session = await readSession(appAuth(), 'request' in mode ? mode.request.headers : await headers());
+  // headers() first: during a build it marks the route dynamic before anything reads env or the database.
+  const source = 'request' in mode ? mode.request.headers : await headers();
+  const session = await readSession(appAuth(), source);
   const r = authorize(session, role);
   if (r.ok) return { userId: r.userId, orgId: r.orgId, role: r.role };
   if ('page' in mode) {
@@ -32,7 +34,8 @@ export async function requireSession(role: Role, mode: Mode = { page: true }): P
 
 /** The signed-in user, or null (for the public sign-in page and the role redirect at `/`). */
 export async function currentUser(): Promise<SessionUser | null> {
-  return readSession(appAuth(), await headers());
+  const source = await headers();
+  return readSession(appAuth(), source);
 }
 
 /**
