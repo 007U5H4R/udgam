@@ -2,12 +2,14 @@ import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { P01_INSIDE } from '../scripts/tracer-plot';
+import { jcs, verify } from '../src/lib/crypto';
 import { signIn } from './helpers/auth';
 import { mockGeolocation } from './helpers/stubs';
 import { query, seedTracer, type TracerKey } from './helpers/tracer';
 
-// TC-013 / EVAL-001, EVAL-002: a seeded phone signs a picking on the minimal capture page and sees
-// Verified with evidence; the database then holds the event, its media, its run and two ledger entries.
+// TC-013 / EVAL-001, EVAL-002: a seeded phone signs a picking in the capture app (/field/record, which
+// replaced the TKT-02 tracer page) and sees Verified with evidence; the database then holds the exact
+// signed payload, the event, its media, its run and two ledger entries.
 
 const FIXTURE = readFileSync('evals/fixtures/photos/p01-exif-ok.jpg');
 
@@ -35,14 +37,14 @@ function uniquePhoto(): Buffer {
   return Buffer.concat([photo, randomBytes(16)]);
 }
 
-/** Put the seeded test key (imported non-extractable) and the device state into IndexedDB. */
+/** Put the seeded test key (imported non-extractable) and the genesis device state into IndexedDB. */
 async function injectDevice(page: Page, key: TracerKey): Promise<void> {
   await page.evaluate(async ({ jwk, deviceId }) => {
     const privateKey = await crypto.subtle.importKey('jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open('udgam', 1);
+      const req = indexedDB.open('udgam');
       req.onupgradeneeded = () => {
-        for (const s of ['keys', 'device', 'outbox']) if (!req.result.objectStoreNames.contains(s)) req.result.createObjectStore(s, { keyPath: 'id' });
+        for (const s of ['keys', 'device', 'outbox', 'prefs']) if (!req.result.objectStoreNames.contains(s)) req.result.createObjectStore(s, { keyPath: 'id' });
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
@@ -58,35 +60,43 @@ async function injectDevice(page: Page, key: TracerKey): Promise<void> {
   }, { jwk: key.testOnlyPrivateJwk, deviceId: key.deviceId });
 }
 
-async function capture(page: Page, kg: string) {
-  await page.getByLabel('Photo').setInputFiles({ name: 'p01.jpg', mimeType: 'image/jpeg', buffer: uniquePhoto() });
-  await page.getByLabel('Cherry (kg)').fill(kg);
-  await page.getByRole('button', { name: 'Send' }).click();
+/** One picking through the capture app (TKT-10 replaced the TKT-02 tracer page): photo, kg, Send, verdict. */
+async function capture(page: Page, plotId: string, keys: string[]) {
+  await page.goto(`/field/record?plot=${plotId}`);
+  await page.getByLabel('The branch').setInputFiles({ name: 'p01.jpg', mimeType: 'image/jpeg', buffer: uniquePhoto() });
+  await page.getByRole('button', { name: 'Use this photo' }).click();
+  await page.getByRole('button', { name: 'Continue with 1 photo' }).click();
+  for (const k of keys) await page.locator(`#keypad [data-k="${k}"]`).click();
+  await page.locator('#send-btn').click();
+  await expect(page.locator('#verdict-h')).toBeVisible({ timeout: 45_000 });
 }
+
+test.describe.configure({ timeout: 120_000 });
 
 test('TC-013 EVAL-001 EVAL-002 a seeded phone signs a picking and sees Verified with evidence', async ({ page, context }) => {
   const key = seedTracer();
   await mockGeolocation(context, { lat: P01_INSIDE.lat, lng: P01_INSIDE.lng, accuracy: 8 });
   // /api/capture needs the device's agent signed in (technical-plan §10, TKT-04)
   await signIn(page, key.agentEmail, key.testOnlyAgentPassword);
-  await page.goto(`/field/tracer?plot=${key.plotId}`);
   await injectDevice(page, key);
 
   // EVAL-001: first capture on the device (genesis)
-  await capture(page, '42.5');
-  await expect(page.getByTestId('verdict')).toHaveText('Verified');
+  await capture(page, key.plotId, ['4', '2', '.', '5']);
+  await expect(page.locator('#verdict-h')).toHaveText('Verified');
   const evidence = page.getByTestId('evidence').getByRole('listitem');
-  await expect(evidence).toHaveCount(12); // one row per registered check: all twelve since TKT-09 (chain_continuity, yield_plausibility)
-  await expect(evidence).toContainText([`Signed by enrolled phone ${key.deviceId}`, '1 of 1 photos are new', 'Inside the plot']);
-  const signed = await page.getByTestId('signed-payload').textContent();
+  await expect(evidence).toHaveCount(3);
+  await expect(evidence).toHaveText([/^You were \d+ m inside Plot 1$/, '1 new photo, taken today', 'Sealed by this phone']);
 
-  const events = await query<{ id: string; payload: string; cherry_kg: number; seq: number; final_verdict: string; anchor_seq: number }>(
-    'SELECT id, payload, cherry_kg, seq, final_verdict, anchor_seq FROM harvest_events WHERE device_id = ?',
+  const events = await query<{ id: string; payload: string; signature: string; cherry_kg: number; seq: number; final_verdict: string; anchor_seq: number }>(
+    'SELECT id, payload, signature, cherry_kg, seq, final_verdict, anchor_seq FROM harvest_events WHERE device_id = ?',
     [key.deviceId],
   );
   expect(events).toHaveLength(1);
   const ev = events[0]!;
-  expect(ev.payload).toBe(signed); // the stored payload is the exact signed string
+  // the stored payload is the exact canonical string the phone signed, and the signature verifies over it
+  expect(jcs(JSON.parse(ev.payload))).toBe(ev.payload);
+  expect(JSON.parse(ev.payload)).toMatchObject({ v: 1, plotId: key.plotId, deviceId: key.deviceId, seq: 1, prevEventHash: 'genesis', cherryKg: 42.5 });
+  expect(await verify(key.publicJwk, ev.payload, ev.signature)).toBe(true);
   expect(ev).toMatchObject({ cherry_kg: 42.5, seq: 1, final_verdict: 'Verified' });
   expect(await query('SELECT id FROM media WHERE event_id = ?', [ev.id])).toHaveLength(1);
   const runs = await query<{ verdict: string; anchor_seq: number }>('SELECT verdict, anchor_seq FROM verification_runs WHERE event_id = ?', [ev.id]);
@@ -106,17 +116,14 @@ test('TC-013 EVAL-001 EVAL-002 a seeded phone signs a picking and sees Verified 
   expect(seedEntries).toHaveLength(2);
 
   // EVAL-002: a second picking on the same plot continues the device's chain and is Verified too
-  await capture(page, '30');
-  await expect
-    .poll(async () => (await query('SELECT id FROM harvest_events WHERE device_id = ?', [key.deviceId])).length)
-    .toBe(2);
-  await expect(page.getByTestId('verdict')).toHaveText('Verified');
+  await capture(page, key.plotId, ['3', '0']);
+  await expect(page.locator('#verdict-h')).toHaveText('Verified');
   const both = await query<{ seq: number; prev_event_hash: string; final_verdict: string }>(
     'SELECT seq, prev_event_hash, final_verdict FROM harvest_events WHERE device_id = ? ORDER BY seq',
     [key.deviceId],
   );
   expect(both.map(({ seq, prev_event_hash, final_verdict }) => ({ seq, prev_event_hash, final_verdict }))).toEqual([
     { seq: 1, prev_event_hash: 'genesis', final_verdict: 'Verified' },
-    { seq: 2, prev_event_hash: createHash('sha256').update(signed!, 'utf8').digest('hex'), final_verdict: 'Verified' },
+    { seq: 2, prev_event_hash: createHash('sha256').update(ev.payload, 'utf8').digest('hex'), final_verdict: 'Verified' },
   ]);
 });

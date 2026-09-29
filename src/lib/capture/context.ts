@@ -17,6 +17,24 @@ import type { BoundaryDevice } from './boundary';
 export type PlotRow = typeof plots.$inferSelect;
 
 /**
+ * Test-only (technical-plan §1, TSK-10.10): with `E2E=1` and `E2E_FIXTURE_DELAY_MS=<ms>`, every NDVI
+ * call of `provider` answers that much later, so the e2e can watch the satellite groups tick after the
+ * local ones (TC-045). Without `E2E=1` the variable is ignored and the provider is returned unchanged.
+ */
+export function withE2eDelay(provider: RemoteSensingProvider, vars: Record<string, string | undefined> = process.env): RemoteSensingProvider {
+  if (vars.E2E !== '1') return provider;
+  const ms = Number(vars.E2E_FIXTURE_DELAY_MS);
+  if (!Number.isFinite(ms) || ms <= 0) return provider;
+  const later = <T>(call: () => Promise<T>) => new Promise<void>((r) => setTimeout(r, ms)).then(call);
+  return {
+    name: provider.name,
+    forestLoss: (plot, o) => provider.forestLoss(plot, o),
+    ndviHistory: (plot, endMonth, o) => later(() => provider.ndviHistory(plot, endMonth, o)),
+    ndviWindow: (plot, centreDate, days, o) => later(() => provider.ndviWindow(plot, centreDate, days, o)),
+  };
+}
+
+/**
  * Which of `hashes` a committed, accepted event already carries (photo_uniqueness). Pass the write
  * transaction to re-read it under the write lock (the capture's step 7, TKT-19).
  */
@@ -85,6 +103,6 @@ export async function buildContext(
     seasonCherryKgBefore: seasonKg,
     yieldReference: reference ? { maxKgHa: reference.maxKgHa, cherryToCleanRatio: reference.cherryToCleanRatio, source: reference.source } : null,
     // The provider REMOTE_SENSING_PROVIDER names, with 8 s timeouts and the per-plot cache (§7, TKT-07).
-    remoteSensing: deps.remoteSensing ?? appRemoteSensing(db, env),
+    remoteSensing: withE2eDelay(deps.remoteSensing ?? appRemoteSensing(db, env)),
   };
 }

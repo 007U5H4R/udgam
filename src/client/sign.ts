@@ -16,6 +16,30 @@ export type CaptureDraft = {
 
 const round = (x: number, dp: number) => Math.round(x * 10 ** dp) / 10 ** dp;
 
+/** A draft whose photos were already hashed when accepted (TKT-10): Submit only canonicalises and signs. */
+export type HashedDraft = Omit<CaptureDraft, 'files'> & { media: CapturePayloadV1['media'] };
+
+/** Build payload v1 from pre-computed photo hashes, canonicalise (RFC 8785) and sign. */
+export async function signCapture(
+  draft: HashedDraft,
+  key: CryptoKey,
+  now: () => Date = () => new Date(),
+): Promise<{ payload: CapturePayloadV1; payloadString: string; signature: string }> {
+  const payload: CapturePayloadV1 = {
+    v: 1,
+    plotId: draft.plotId,
+    deviceId: draft.deviceId,
+    seq: draft.seq,
+    prevEventHash: draft.prevEventHash,
+    capturedAt: now().toISOString(),
+    gps: { lat: round(draft.gps.lat, 7), lng: round(draft.gps.lng, 7), accuracyM: round(draft.gps.accuracyM, 1) },
+    cherryKg: draft.cherryKg,
+    media: draft.media,
+  };
+  const payloadString = jcs(payload);
+  return { payload, payloadString, signature: await sign(key, payloadString) };
+}
+
 export async function buildAndSign(
   draft: CaptureDraft,
   key: CryptoKey,
@@ -28,17 +52,7 @@ export async function buildAndSign(
       mime: f.type || 'image/jpeg',
     })),
   );
-  const payload: CapturePayloadV1 = {
-    v: 1,
-    plotId: draft.plotId,
-    deviceId: draft.deviceId,
-    seq: draft.seq,
-    prevEventHash: draft.prevEventHash,
-    capturedAt: now().toISOString(),
-    gps: { lat: round(draft.gps.lat, 7), lng: round(draft.gps.lng, 7), accuracyM: round(draft.gps.accuracyM, 1) },
-    cherryKg: draft.cherryKg,
-    media,
-  };
-  const payloadString = jcs(payload);
-  return { payload, payloadString, signature: await sign(key, payloadString) };
+  const { files: _files, ...rest } = draft;
+  void _files;
+  return signCapture({ ...rest, media }, key, now);
 }

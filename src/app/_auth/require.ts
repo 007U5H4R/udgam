@@ -16,14 +16,18 @@ type Mode =
   | { page: true }
   /** Server Actions: throws AuthError(401|403). */
   | { action: true }
-  /** Route handlers: reads the request's cookies; throws AuthError(401|403) (map with authErrorResponse). */
-  | { request: Request };
+  /**
+   * Route handlers: reads the request's cookies; throws AuthError(401|403) (map with authErrorResponse).
+   * `alsoRoles` lets a handler serve more than one role (the photo thumbnail: agent and admin, TKT-10).
+   */
+  | { request: Request; alsoRoles?: readonly Role[] };
 
 export async function requireSession(role: Role, mode: Mode = { page: true }): Promise<Guarded> {
   // headers() first: during a build it marks the route dynamic before anything reads env or the database.
   const source = 'request' in mode ? mode.request.headers : await headers();
   const session = await readSession(appAuth(), source);
-  const r = authorize(session, role);
+  const also = 'request' in mode ? (mode.alsoRoles ?? []) : [];
+  const r = authorize(session, session && also.includes(session.role) ? session.role : role);
   if (r.ok) return { userId: r.userId, orgId: r.orgId, role: r.role };
   if ('page' in mode) {
     // Signed in on another role's surface: send them to their own home (TC-018: "others redirect").

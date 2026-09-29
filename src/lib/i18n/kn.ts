@@ -32,6 +32,206 @@ export const kn: Partial<Record<MessageKey, string>> = {
 
   'capture.rejected.plot_not_assigned': 'ಈ ತೋಟ ನಿಮಗೆ ನಿಯೋಜಿಸಿಲ್ಲ. ಅದನ್ನು ನಿಮಗೆ ನಿಯೋಜಿಸಲು ಕಚೇರಿಗೆ ಕೇಳಿ, ನಂತರ ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ.', // REVIEW: native speaker
 
+  'verdict.verified': 'ಪರಿಶೀಲಿತ', // REVIEW: native speaker
+  'verdict.needsReview': 'ಪರಿಶೀಲನೆ ಬೇಕು', // REVIEW: native speaker
+  'verdict.rejected': 'ಸ್ವೀಕರಿಸಿಲ್ಲ', // REVIEW: native speaker
+  'tabs.label': 'ಮುಖ್ಯ', // REVIEW: native speaker
+  'tabs.home': 'ಮುಖಪುಟ', // REVIEW: native speaker
+  'tabs.pickings': 'ಕೊಯ್ಲುಗಳು', // REVIEW: native speaker
+  'tabs.help': 'ಸಹಾಯ', // REVIEW: native speaker
+  'home.record': 'ಇಂದಿನ ಕೊಯ್ಲು ದಾಖಲಿಸಿ', // REVIEW: native speaker
+  'home.recent': 'ನಿಮ್ಮ ಇತ್ತೀಚಿನ ಕೊಯ್ಲುಗಳು', // REVIEW: native speaker
+  'home.kg': '{kg} ಕೆಜಿ', // REVIEW: native speaker
+
+  'home.greet.morning': 'ಶುಭೋದಯ', // REVIEW: native speaker
+  'home.greet.afternoon': 'ಶುಭ ಮಧ್ಯಾಹ್ನ', // REVIEW: native speaker
+  'home.greet.evening': 'ಶುಭ ಸಂಜೆ', // REVIEW: native speaker
+  'home.plotName': 'ತೋಟ {n}', // REVIEW: native speaker
+  'home.inside': 'ನೀವು {plot} ಒಳಗೆ ಇದ್ದೀರಿ', // REVIEW: native speaker
+  'home.outside': 'ನೀವು {plot} ಇಂದ {m} ದೂರದಲ್ಲಿದ್ದೀರಿ', // REVIEW: native speaker
+  'home.finding': 'ನಿಮ್ಮ ಸ್ಥಳ ಹುಡುಕಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'home.denied': 'ಸ್ಥಳ ಆಫ್ ಆಗಿದೆ', // REVIEW: native speaker
+  'home.deniedHelp': 'ಬ್ರೌಸರ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ Udgam ಗೆ ಸ್ಥಳ ಅನುಮತಿಸಿ, ನಂತರ ಹಿಂತಿರುಗಿ.', // REVIEW: native speaker
+  'home.facts': '{ha} ಹೆ · {crop} · ಕೊನೆಯ ಕೊಯ್ಲು {date}', // REVIEW: native speaker
+  'home.factsNew': '{ha} ಹೆ · {crop} · ಇನ್ನೂ ಕೊಯ್ಲು ಆಗಿಲ್ಲ', // REVIEW: native speaker
+  'home.changePlot': 'ತೋಟ ಬದಲಿಸಿ', // REVIEW: native speaker
+  'home.choosePlot': 'ಒಂದು ತೋಟ ಆರಿಸಿ', // REVIEW: native speaker
+  'home.close': 'ಮುಚ್ಚಿ', // REVIEW: native speaker
+  'home.you': 'ನೀವು', // REVIEW: native speaker
+  'home.mapLabel': '{plot} ನ ನಕ್ಷೆ. ಬಿಳಿ ಚುಕ್ಕೆ ನೀವು ಇರುವ ಜಾಗ ತೋರಿಸುತ್ತದೆ.', // REVIEW: native speaker
+  'home.mapLabelNoFix': '{plot} ನ ನಕ್ಷೆ.', // REVIEW: native speaker
+  'home.empty': 'ಇನ್ನೂ ಯಾವುದೇ ಕೊಯ್ಲು ದಾಖಲಾಗಿಲ್ಲ', // REVIEW: native speaker
+  'home.noPlots.title': 'ಇನ್ನೂ ನಿಮಗೆ ಯಾವುದೇ ತೋಟ ನಿಯೋಜಿಸಿಲ್ಲ', // REVIEW: native speaker
+  'home.noPlots.body': 'ನಿಮ್ಮ ತೋಟಗಳನ್ನು ನಿಯೋಜಿಸಲು ಕಚೇರಿಗೆ ಕೇಳಿ. ನಿಯೋಜಿಸಿದ ನಂತರ ಅವು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ.', // REVIEW: native speaker
+  'home.error.title': 'ನಿಮ್ಮ ದಾಖಲೆಗಳನ್ನು ತೆರೆಯಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'home.error.body': 'ಉಳಿಸಿದ ಕೊಯ್ಲುಗಳು ಈ ಫೋನಿನಲ್ಲಿ ಸುರಕ್ಷಿತವಾಗಿವೆ.', // REVIEW: native speaker
+  'home.error.retry': 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ', // REVIEW: native speaker
+  'home.loading': 'ನಿಮ್ಮ ತೋಟ ತೆರೆಯಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'home.setUp': 'ಈ ಫೋನ್ ಸಿದ್ಧಪಡಿಸಿ', // REVIEW: native speaker
+  'lang.label': 'ಭಾಷೆ', // REVIEW: native speaker
+  'home.greeting': '{greet} · ', // REVIEW: native speaker
+  'home.plotChoice': '{plot} · {farmer}', // REVIEW: native speaker
+  'lang.kn': 'ಕನ್ನಡ', // REVIEW: native speaker
+  'lang.en': 'English', // REVIEW: native speaker
+  'rec.back': 'ಹಿಂದೆ', // REVIEW: native speaker
+  'rec.photos.eyebrow': '{plot} · ಇಂದು', // REVIEW: native speaker
+  'rec.photos.title': '{count} ವರೆಗೆ ತೆಗೆಯಿರಿ', // REVIEW: native speaker
+  'rec.photos.count': '3 ಫೋಟೋಗಳು', // REVIEW: native speaker
+  'rec.photos.lede': 'ಒಂದು ಫೋಟೋ ಸಾಕು.', // REVIEW: native speaker
+  'rec.photos.more': ' ಕಚೇರಿ ಪರಿಶೀಲಿಸಬೇಕಾದರೆ ಹೆಚ್ಚು ಫೋಟೋಗಳು ಸಹಾಯ ಮಾಡುತ್ತವೆ.', // REVIEW: native speaker
+  'rec.photos.yours': 'ನಿಮ್ಮ ಫೋಟೋಗಳು', // REVIEW: native speaker
+  'rec.photos.counter': '3 ರಲ್ಲಿ {n}', // REVIEW: native speaker
+  'rec.photos.slots': 'ಫೋಟೋ ಸ್ಥಳಗಳು', // REVIEW: native speaker
+  'rec.slot.branch': 'ಕೊಂಬೆ', // REVIEW: native speaker
+  'rec.slot.scale': 'ತಕ್ಕಡಿಯ ಮೇಲಿನ ಬುಟ್ಟಿ', // REVIEW: native speaker
+  'rec.slot.pile': 'ದಿನದ ರಾಶಿ', // REVIEW: native speaker
+  'rec.slot.added': 'ಸೇರಿಸಲಾಗಿದೆ', // REVIEW: native speaker
+  'rec.slot.next': 'ಮುಂದಿನದು', // REVIEW: native speaker
+  'rec.slot.example': 'ಉದಾಹರಣೆ', // REVIEW: native speaker
+  'rec.camera': 'ಕ್ಯಾಮೆರಾ ತೆರೆಯಿರಿ', // REVIEW: native speaker
+  'rec.continue1': '1 ಫೋಟೋದೊಂದಿಗೆ ಮುಂದುವರಿಸಿ', // REVIEW: native speaker
+  'rec.continueN': '{n} ಫೋಟೋಗಳೊಂದಿಗೆ ಮುಂದುವರಿಸಿ', // REVIEW: native speaker
+  'rec.needOne': 'ಕನಿಷ್ಠ 1 ಫೋಟೋ ಬೇಕು.', // REVIEW: native speaker
+  'rec.review.eyebrow': '3 ರಲ್ಲಿ ಫೋಟೋ {n} · {slot}', // REVIEW: native speaker
+  'rec.review.alt': 'ನಿಮ್ಮ ಫೋಟೋ: {slot}', // REVIEW: native speaker
+  'rec.review.title': 'ಫೋಟೋ {clear} ಇದೆಯೇ?', // REVIEW: native speaker
+  'rec.review.clear': 'ಸ್ಪಷ್ಟವಾಗಿ', // REVIEW: native speaker
+  'rec.review.check': 'ಪರಿಶೀಲಿಸಿ:', // REVIEW: native speaker
+  'rec.review.focus': 'ಅದು ಸ್ಪಷ್ಟವಾಗಿದೆ', // REVIEW: native speaker
+  'rec.review.seen': 'ಕಾಫಿ ಹಣ್ಣುಗಳು ಕಾಣುತ್ತಿವೆ', // REVIEW: native speaker
+  'rec.review.dark': 'ಅದು ತುಂಬಾ ಕತ್ತಲಾಗಿಲ್ಲ', // REVIEW: native speaker
+  'rec.review.use': 'ಈ ಫೋಟೋ ಬಳಸಿ', // REVIEW: native speaker
+  'rec.review.again': 'ಮತ್ತೆ ತೆಗೆಯಿರಿ', // REVIEW: native speaker
+  'gps.finding': 'ನಿಮ್ಮ ಸ್ಥಳ ಹುಡುಕಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'gps.weak': 'ಉತ್ತಮ ಸ್ಥಳಕ್ಕಾಗಿ ತೆರೆದ ಆಕಾಶದ ಕೆಳಗೆ ಬನ್ನಿ. ನೀವು ಈಗಲೂ ದಾಖಲಿಸಬಹುದು.', // REVIEW: native speaker
+  'gps.denied': 'ಸ್ಥಳ ಆಫ್ ಆಗಿದೆ. ಅನುಮತಿಸಲು:', // REVIEW: native speaker
+  'gps.step1': 'ವೆಬ್ ವಿಳಾಸದ ಪಕ್ಕದ ಬೀಗದ ಚಿಹ್ನೆ ಒತ್ತಿ.', // REVIEW: native speaker
+  'gps.step2': 'ಸ್ಥಳಕ್ಕೆ ಅನುಮತಿಸಿ ಆರಿಸಿ, ನಂತರ ಈ ಪುಟಕ್ಕೆ ಹಿಂತಿರುಗಿ.', // REVIEW: native speaker
+  'rec.kg.eyebrow1': '{plot} · 1 ಫೋಟೋ', // REVIEW: native speaker
+  'rec.kg.eyebrowN': '{plot} · {n} ಫೋಟೋಗಳು', // REVIEW: native speaker
+  'rec.kg.title': 'ಎಷ್ಟು ಕಿಲೋ?', // REVIEW: native speaker
+  'rec.kg.unit': 'ಕೆಜಿ', // REVIEW: native speaker
+  'rec.kg.hint': 'ನಿಮ್ಮ ಇತ್ತೀಚಿನ ಕೊಯ್ಲುಗಳು: {min}–{max} ಕೆಜಿ', // REVIEW: native speaker
+  'rec.kg.keys': 'ಸಂಖ್ಯೆ ಕೀಲಿಗಳು', // REVIEW: native speaker
+  'rec.kg.decimal': 'ದಶಮಾಂಶ ಬಿಂದು', // REVIEW: native speaker
+  'rec.kg.delete': 'ಅಳಿಸಿ', // REVIEW: native speaker
+  'rec.kg.send': '{kg} ಕೆಜಿ ಕಳುಹಿಸಿ', // REVIEW: native speaker
+  'rec.kg.type': 'ತೂಕ ನಮೂದಿಸಿ', // REVIEW: native speaker
+  'rec.chk.title': 'ನಿಮ್ಮ ಕೊಯ್ಲನ್ನು ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ', // REVIEW: native speaker
+  'rec.chk.sub1': '{kg} ಕೆಜಿ · {plot} · 1 ಫೋಟೋ', // REVIEW: native speaker
+  'rec.chk.subN': '{kg} ಕೆಜಿ · {plot} · {n} ಫೋಟೋಗಳು', // REVIEW: native speaker
+  'rec.chk.bar': 'ಮುಗಿದ ಪರಿಶೀಲನೆಗಳು', // REVIEW: native speaker
+  'rec.chk.progress': '6 ರಲ್ಲಿ {k} ಪರಿಶೀಲನೆಗಳು ಮುಗಿದಿವೆ', // REVIEW: native speaker
+  'rec.chk.done': 'ಮುಗಿದಿದೆ', // REVIEW: native speaker
+  'rec.chk.now': 'ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ', // REVIEW: native speaker
+  'rec.chk.wait': 'ಕಾಯಲಾಗುತ್ತಿದೆ', // REVIEW: native speaker
+  'rec.chk.caption': 'ಇದಕ್ಕೆ ಸಾಮಾನ್ಯವಾಗಿ 30 ಸೆಕೆಂಡುಗಳಿಗಿಂತ ಕಡಿಮೆ ಸಮಯ ಬೇಕು.', // REVIEW: native speaker
+  'rec.chk.announce': '{name}: ಮುಗಿದಿದೆ.', // REVIEW: native speaker
+  'rec.chk.ready': 'ಎಲ್ಲಾ 6 ಪರಿಶೀಲನೆಗಳು ಮುಗಿದಿವೆ. ನಿಮ್ಮ ಫಲಿತಾಂಶ ಸಿದ್ಧವಾಗಿದೆ.', // REVIEW: native speaker
+  'rec.chk.see': 'ಫಲಿತಾಂಶ ನೋಡಿ', // REVIEW: native speaker
+  'grp.seal': 'ನಿಮ್ಮ ಫೋನಿನ ಮುದ್ರೆ', // REVIEW: native speaker
+  'grp.inside': '{plot} ಒಳಗೆ', // REVIEW: native speaker
+  'grp.photos': 'ಫೋಟೋಗಳು ಹೊಸದು', // REVIEW: native speaker
+  'grp.forest': '{plot} ಗಾಗಿ ಅರಣ್ಯ ನಕ್ಷೆ', // REVIEW: native speaker
+  'grp.satellite': 'ಈ ತಿಂಗಳ ಉಪಗ್ರಹ ನೋಟ', // REVIEW: native speaker
+  'grp.harvest': 'ಈ ತೋಟದ ಇಳುವರಿ ಗಾತ್ರ', // REVIEW: native speaker
+  'v.sub': '{plot} ಇಂದ ನಿಮ್ಮ {kg} ದಾಖಲಾಗಿದೆ.', // REVIEW: native speaker
+  'v.subBad': '{plot} ಇಂದ ನಿಮ್ಮ {kg} ಸ್ವೀಕರಿಸಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'v.kg': '{kg} ಕೆಜಿ', // REVIEW: native speaker
+  'v.evidence.ok': 'ಏನನ್ನು ಪರಿಶೀಲಿಸಲಾಯಿತು', // REVIEW: native speaker
+  'v.evidence.check': 'ಏಕೆ, ಮತ್ತು ಮುಂದೇನು', // REVIEW: native speaker
+  'v.evidence.bad': 'ಏಕೆ, ಮತ್ತು ಏನು ಮಾಡಬೇಕು', // REVIEW: native speaker
+  'v.check.title': 'ಕಚೇರಿ ಇದನ್ನು ಪರಿಶೀಲಿಸುತ್ತದೆ', // REVIEW: native speaker
+  'v.check.saved': 'ನಿಮ್ಮ {kg} ಮತ್ತು ಫೋಟೋಗಳು ಉಳಿಸಲಾಗಿವೆ.', // REVIEW: native speaker
+  'v.done': 'ಮುಗಿಯಿತು', // REVIEW: native speaker
+  'rec.saved.offline': 'ಇಲ್ಲಿ ನೆಟ್‌ವರ್ಕ್ ಇಲ್ಲ', // REVIEW: native speaker
+  'rec.saved.server': 'ಕಚೇರಿಯನ್ನು ತಲುಪಲಾಗಲಿಲ್ಲ', // REVIEW: native speaker
+  'rec.saved.body': 'ಏನೂ ಕಳೆದುಹೋಗಿಲ್ಲ: {photos} ಮತ್ತು {kg} ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ.', // REVIEW: native speaker
+  'rec.saved.retry': 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ', // REVIEW: native speaker
+  'rec.saved.later': 'ನಂತರ ಪ್ರಯತ್ನಿಸಿ', // REVIEW: native speaker
+  'rec.photos1': '1 ಫೋಟೋ', // REVIEW: native speaker
+  'rec.photosN': '{n} ಫೋಟೋಗಳು', // REVIEW: native speaker
+  'rec.noDevice': 'ಈ ಫೋನ್ ಇನ್ನೂ ಕೊಯ್ಲುಗಳಿಗೆ ಸಿದ್ಧವಾಗಿಲ್ಲ.', // REVIEW: native speaker
+  'rec.noFix': 'ನಿಮ್ಮ ಸ್ಥಳ ಇನ್ನೂ ಸಿಗಲಿಲ್ಲ. ಸ್ವಲ್ಪ ಕಾಯಿರಿ, ನಂತರ ಮತ್ತೆ ಕಳುಹಿಸಿ.', // REVIEW: native speaker
+  'fe.plot.default': 'ತೋಟ', // REVIEW: native speaker
+  'fe.location.inside': 'ನೀವು {plot} ಒಳಗೆ {m} ಇದ್ದಿರಿ', // REVIEW: native speaker
+  'fe.location.edge': 'ನೀವು {plot} ಹೊರಗೆ {m} ಇದ್ದಿರಿ, GPS ಅನುಮತಿಯ ಒಳಗೆ.', // REVIEW: native speaker
+  'fe.location.outside': 'ನಿಮ್ಮ ಫೋನ್ {plot} ಹೊರಗೆ {m} ಇತ್ತು.', // REVIEW: native speaker
+  'fe.gps.weak': 'GPS ಸಿಗ್ನಲ್ ದುರ್ಬಲವಾಗಿತ್ತು ({m}).', // REVIEW: native speaker
+  'fe.photoGps.none': 'ಫೋಟೋದಲ್ಲಿ ಸ್ಥಳ ಉಳಿಸಿಲ್ಲ.', // REVIEW: native speaker
+  'fe.photoGps.far': 'ಫೋಟೋವನ್ನು ಫೋನ್ ಇದ್ದ ಜಾಗದಿಂದ {m} ದೂರದಲ್ಲಿ ತೆಗೆಯಲಾಗಿದೆ.', // REVIEW: native speaker
+  'fe.photoTime.none': 'ಫೋಟೋದಲ್ಲಿ ಸಮಯ ಉಳಿಸಿಲ್ಲ.', // REVIEW: native speaker
+  'fe.photoTime.far': 'ಫೋಟೋವನ್ನು ಈ ಕೊಯ್ಲಿನ {d} ಮೊದಲು ಅಥವಾ ನಂತರ ತೆಗೆಯಲಾಗಿದೆ.', // REVIEW: native speaker
+  'fe.photoTime.clock': 'ಈ ಫೋನಿನ ಗಡಿಯಾರ {d} ತಪ್ಪಾಗಿದೆ.', // REVIEW: native speaker
+  'fe.move.far': 'ಈ ಕೊಯ್ಲು ನಿಮ್ಮ ಹಿಂದಿನದರಿಂದ {m} ದೂರ, ಕೇವಲ {min} ನಿಮಿಷ ನಂತರ.', // REVIEW: native speaker
+  'fe.move.clock': 'ನಿಮ್ಮ ಹಿಂದಿನ ಕೊಯ್ಲಿನ ನಂತರ ಫೋನಿನ ಸಮಯ ಮುಂದೆ ಹೋಗಿಲ್ಲ.', // REVIEW: native speaker
+  'fe.photos.new': '{n} ಹೊಸ ಫೋಟೋಗಳು', // REVIEW: native speaker
+  'fe.photos.newToday': '{n} ಹೊಸ ಫೋಟೋಗಳು, ಇಂದು ತೆಗೆದವು', // REVIEW: native speaker
+  'fe.photos.new1': '1 ಹೊಸ ಫೋಟೋ', // REVIEW: native speaker
+  'fe.photos.new1Today': '1 ಹೊಸ ಫೋಟೋ, ಇಂದು ತೆಗೆದದ್ದು', // REVIEW: native speaker
+  'fe.photos.used': '{n} ರಲ್ಲಿ {k} ಫೋಟೋಗಳು ಮೊದಲೇ ಬಳಕೆಯಾಗಿವೆ.', // REVIEW: native speaker
+  'fe.seal.ok': 'ಈ ಫೋನಿನಿಂದ ಮುದ್ರೆ ಹಾಕಲಾಗಿದೆ', // REVIEW: native speaker
+  'fe.seal.bad': 'ಈ ಫೋನಿನ ಮುದ್ರೆ ಕೊಯ್ಲಿಗೆ ಹೊಂದಿಕೆಯಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'fe.seal.revoked': 'ಕಚೇರಿ {date} ರಂದು ಈ ಫೋನನ್ನು ಕೊಯ್ಲುಗಳಿಗೆ ನಿಲ್ಲಿಸಿದೆ.', // REVIEW: native speaker
+  'fe.seal.unknown': 'ಈ ಫೋನ್ ಕೊಯ್ಲುಗಳಿಗೆ ಸಿದ್ಧವಾಗಿಲ್ಲ.', // REVIEW: native speaker
+  'fe.chain.order': 'ಈ ಫೋನಿನ ಕೊಯ್ಲುಗಳು ಕ್ರಮ ತಪ್ಪಿ ಬಂದಿವೆ.', // REVIEW: native speaker
+  'fe.chain.newPhone': 'ಇದು ಹೊಸ ಫೋನಿನ ಮೊದಲ ಕೊಯ್ಲು.', // REVIEW: native speaker
+  'fe.forest.none': 'ಅರಣ್ಯ ನಕ್ಷೆ: {year} ರಿಂದ ಯಾವುದೇ ಮರ ಕಡಿದಿಲ್ಲ', // REVIEW: native speaker
+  'fe.forest.loss': 'ಅರಣ್ಯ ನಕ್ಷೆ: {year} ರಿಂದ ತೋಟದ {pct} ತೆರವಾಗಿದೆ.', // REVIEW: native speaker
+  'fe.forest.down': 'ಅರಣ್ಯ ನಕ್ಷೆ ಉತ್ತರಿಸಲಿಲ್ಲ. ಕಚೇರಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸುತ್ತದೆ.', // REVIEW: native speaker
+  'fe.canopy.ok': 'ಉಪಗ್ರಹ: ವರ್ಷವಿಡೀ ತೋಟದಲ್ಲಿ ಮರಗಳು', // REVIEW: native speaker
+  'fe.canopy.none': 'ಉಪಗ್ರಹಕ್ಕೆ ವರ್ಷವಿಡೀ ತೋಟದಲ್ಲಿ ಮರಗಳು ಕಾಣುತ್ತಿಲ್ಲ.', // REVIEW: native speaker
+  'fe.canopy.few': 'ಈ ತೋಟದ ಸ್ಪಷ್ಟ ಉಪಗ್ರಹ ಚಿತ್ರಗಳು ಇನ್ನೂ ಸಾಕಷ್ಟಿಲ್ಲ.', // REVIEW: native speaker
+  'fe.sat.ok': 'ಉಪಗ್ರಹ: ಈ ತಿಂಗಳು ಹಸಿರು ಮರಗಳು', // REVIEW: native speaker
+  'fe.sat.cloud': 'ಈ ತಿಂಗಳ ಉಪಗ್ರಹ ಚಿತ್ರ ಮೋಡದಿಂದ ಕೂಡಿತ್ತು.', // REVIEW: native speaker
+  'fe.sat.down': 'ಉಪಗ್ರಹ ಉತ್ತರಿಸಲಿಲ್ಲ. ಕಚೇರಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸುತ್ತದೆ.', // REVIEW: native speaker
+  'fe.sat.low': 'ಈ ತಿಂಗಳು ಉಪಗ್ರಹಕ್ಕೆ ತೋಟದಲ್ಲಿ ಕಡಿಮೆ ಹಸಿರು ಕಾಣುತ್ತಿದೆ (NDVI {ndvi}).', // REVIEW: native speaker
+  'fe.yield.high': 'ಈ ಹಂಗಾಮಿನ ಒಟ್ಟು ಕೊಯ್ಲು ಈ ತೋಟದ ಸಾಮಾನ್ಯ ಇಳುವರಿಯ {x} ಆಗಿದೆ.', // REVIEW: native speaker
+  'fe.yield.none': 'ಈ ಬೆಳೆಯ ಸಾಮಾನ್ಯ ಇಳುವರಿ ಇನ್ನೂ ದಾಖಲಾಗಿಲ್ಲ.', // REVIEW: native speaker
+  'fe.threw': 'ಒಂದು ಪರಿಶೀಲನೆ ನಡೆಯಲಿಲ್ಲ. ಕಚೇರಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸುತ್ತದೆ.', // REVIEW: native speaker
+  'fe.office': 'ಕಚೇರಿ ಇದನ್ನು ನೋಡುತ್ತದೆ. ನೀವು ಏನೂ ಮಾಡಬೇಕಿಲ್ಲ.', // REVIEW: native speaker
+  'fe.todo.photos': 'ಇಂದಿನ ಕೊಯ್ಲಿನ ಹೊಸ ಫೋಟೋಗಳನ್ನು ತೆಗೆದು ಮತ್ತೆ ದಾಖಲಿಸಿ.', // REVIEW: native speaker
+  'fe.todo.seal': 'ಈ ಫೋನನ್ನು ಮತ್ತೆ ಸಿದ್ಧಪಡಿಸಲು ಕಚೇರಿಗೆ ಕೇಳಿ.', // REVIEW: native speaker
+  'fe.todo.location': '{plot} ಒಳಗೆ ನಿಂತು ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ. ನೀವು ಒಳಗೇ ಇದ್ದರೆ, ಕಚೇರಿಗೆ ತಿಳಿಸಿ.', // REVIEW: native speaker
+  'fe.todo.office': 'ಕಚೇರಿಯೊಂದಿಗೆ ಮಾತನಾಡಿ. ಅವರು ಇದನ್ನು ಮತ್ತೆ ನೋಡಬಹುದು.', // REVIEW: native speaker
+
+  'capture.nothingLost': 'ಏನೂ ಕಳೆದುಹೋಗಿಲ್ಲ: ಈ ಕೊಯ್ಲು ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ.', // REVIEW: native speaker
+  'refusal.plot_not_assigned.happened': 'ಈ ತೋಟ ನಿಮಗೆ ನಿಯೋಜಿಸಿಲ್ಲ.', // REVIEW: native speaker
+  'refusal.plot_not_assigned.todo': 'ಅದನ್ನು ನಿಮಗೆ ನಿಯೋಜಿಸಲು ಕಚೇರಿಗೆ ಕೇಳಿ, ನಂತರ ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ.', // REVIEW: native speaker
+  'refusal.device_revoked.happened': 'ಕಚೇರಿ ಈ ಫೋನನ್ನು ಕೊಯ್ಲುಗಳಿಗೆ ನಿಲ್ಲಿಸಿದೆ.', // REVIEW: native speaker
+  'refusal.device_revoked.todo': 'ಈ ಫೋನನ್ನು ಮತ್ತೆ ಸಿದ್ಧಪಡಿಸಲು ಕಚೇರಿಯಿಂದ ಹೊಸ ಕೋಡ್ ಕೇಳಿ.', // REVIEW: native speaker
+  'refusal.unknown_device.happened': 'ಈ ಫೋನ್ ಕೊಯ್ಲುಗಳಿಗೆ ಸಿದ್ಧವಾಗಿಲ್ಲ.', // REVIEW: native speaker
+  'refusal.unknown_device.todo': 'ಈ ಫೋನನ್ನು ಸಿದ್ಧಪಡಿಸಲು ಕಚೇರಿಯಿಂದ ಕೋಡ್ ಕೇಳಿ.', // REVIEW: native speaker
+  'refusal.device_not_owned.happened': 'ಈ ಫೋನ್ ಬೇರೆಯವರಿಗಾಗಿ ಸಿದ್ಧಪಡಿಸಲಾಗಿದೆ.', // REVIEW: native speaker
+  'refusal.device_not_owned.todo': 'ನಿಮ್ಮ ಸ್ವಂತ ಖಾತೆಯಿಂದ ಸೈನ್ ಇನ್ ಮಾಡಿ, ಅಥವಾ ಈ ಫೋನನ್ನು ನಿಮಗಾಗಿ ಸಿದ್ಧಪಡಿಸಲು ಕಚೇರಿಗೆ ಕೇಳಿ.', // REVIEW: native speaker
+  'refusal.bad_signature.happened': 'ಈ ಫೋನಿನ ಮುದ್ರೆ ಕೊಯ್ಲಿಗೆ ಹೊಂದಿಕೆಯಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'refusal.bad_signature.todo': 'ಈ ಫೋನನ್ನು ಮತ್ತೆ ಸಿದ್ಧಪಡಿಸಲು ಕಚೇರಿಗೆ ಕೇಳಿ.', // REVIEW: native speaker
+  'refusal.media_hash_mismatch.happened': 'ಕಚೇರಿಗೆ ತಲುಪುವ ದಾರಿಯಲ್ಲಿ ಒಂದು ಫೋಟೋ ಬದಲಾಗಿದೆ.', // REVIEW: native speaker
+  'refusal.media_hash_mismatch.todo': 'ಹೊಸ ಫೋಟೋಗಳೊಂದಿಗೆ ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ.', // REVIEW: native speaker
+  'refusal.media_count.happened': 'ಕೊಯ್ಲಿನಲ್ಲಿ ಫೋಟೋಗಳು ಹೆಚ್ಚು ಅಥವಾ ಕಡಿಮೆ ಇದ್ದವು.', // REVIEW: native speaker
+  'refusal.media_count.todo': '1 ರಿಂದ 3 ಫೋಟೋಗಳೊಂದಿಗೆ ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ.', // REVIEW: native speaker
+  'refusal.media_too_large.happened': 'ಒಂದು ಫೋಟೋ ಕಳುಹಿಸಲು ತುಂಬಾ ದೊಡ್ಡದಾಗಿದೆ.', // REVIEW: native speaker
+  'refusal.media_too_large.todo': 'ಫೋಟೋವನ್ನು ಮತ್ತೆ ತೆಗೆದು, ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ.', // REVIEW: native speaker
+  'refusal.media_type.happened': 'ಒಂದು ಫೋಟೋ ಕಚೇರಿ ಓದಬಹುದಾದ ಕ್ಯಾಮೆರಾ ಚಿತ್ರವಲ್ಲ.', // REVIEW: native speaker
+  'refusal.media_type.todo': 'ಕ್ಯಾಮೆರಾ ತೆರೆಯಿರಿ ಬಳಸಿ ಫೋಟೋ ತೆಗೆದು, ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ.', // REVIEW: native speaker
+  'refusal.length_required.happened': 'ಕೊಯ್ಲನ್ನು ಒಂದೇ ಬಾರಿ ಕಳುಹಿಸಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'refusal.length_required.todo': 'ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ.', // REVIEW: native speaker
+  'refusal.body_too_large.happened': 'ಫೋಟೋಗಳು ಒಟ್ಟಿಗೆ ಕಳುಹಿಸಲು ತುಂಬಾ ದೊಡ್ಡದಾಗಿವೆ.', // REVIEW: native speaker
+  'refusal.body_too_large.todo': 'ಕಡಿಮೆ ಫೋಟೋಗಳೊಂದಿಗೆ ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ.', // REVIEW: native speaker
+  'refusal.bad_schema.happened': 'ಕೊಯ್ಲು ಕಚೇರಿಗೆ ಅಪೂರ್ಣವಾಗಿ ತಲುಪಿದೆ.', // REVIEW: native speaker
+  'refusal.bad_schema.todo': 'ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ. ಮತ್ತೆ ಹೀಗಾದರೆ, ಕಚೇರಿಗೆ ತಿಳಿಸಿ.', // REVIEW: native speaker
+  'refusal.non_canonical.happened': 'ಕೊಯ್ಲು ಕಚೇರಿಗೆ ಅಪೂರ್ಣವಾಗಿ ತಲುಪಿದೆ.', // REVIEW: native speaker
+  'refusal.non_canonical.todo': 'ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ. ಮತ್ತೆ ಹೀಗಾದರೆ, ಕಚೇರಿಗೆ ತಿಳಿಸಿ.', // REVIEW: native speaker
+  'refusal.bad_form.happened': 'ಕೊಯ್ಲು ಕಚೇರಿಗೆ ಅಪೂರ್ಣವಾಗಿ ತಲುಪಿದೆ.', // REVIEW: native speaker
+  'refusal.bad_form.todo': 'ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ. ಮತ್ತೆ ಹೀಗಾದರೆ, ಕಚೇರಿಗೆ ತಿಳಿಸಿ.', // REVIEW: native speaker
+  'refusal.rate_limited.happened': 'ಸ್ವಲ್ಪ ಸಮಯದಲ್ಲಿ ಈ ಫೋನಿನಿಂದ ಹಲವು ಕೊಯ್ಲುಗಳನ್ನು ಕಳುಹಿಸಲಾಗಿದೆ.', // REVIEW: native speaker
+  'refusal.rate_limited.todo': '{min} ನಿಮಿಷ ಕಾಯಿರಿ, ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', // REVIEW: native speaker
+  'refusal.rate_limited.todo1': '1 ನಿಮಿಷ ಕಾಯಿರಿ, ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', // REVIEW: native speaker
+  'refusal.unauthenticated.happened': 'ನೀವು ಸೈನ್ ಔಟ್ ಆಗಿದ್ದೀರಿ.', // REVIEW: native speaker
+  'refusal.unauthenticated.todo': 'ಮತ್ತೆ ಸೈನ್ ಇನ್ ಮಾಡಿ, ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', // REVIEW: native speaker
+  'refusal.other.happened': 'ಕಚೇರಿ ಈ ಕೊಯ್ಲನ್ನು ಸ್ವೀಕರಿಸಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'refusal.other.todo': 'ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ. ಮತ್ತೆ ಹೀಗಾದರೆ, ಕಚೇರಿಗೆ ತಿಳಿಸಿ.', // REVIEW: native speaker
+
   'enrol.title': 'ಈ {word} ಸಿದ್ಧಪಡಿಸಿ', // REVIEW: native speaker
   'enrol.titleWord': 'ಫೋನ್', // REVIEW: native speaker
   'enrol.lede': 'ಕಚೇರಿ ಈ ಫೋನ್‌ಗಾಗಿ ಒಂದು ಕೋಡ್ ನೀಡುತ್ತದೆ. ಅದು 24 ಗಂಟೆಗಳೊಳಗೆ ಒಮ್ಮೆ ಮಾತ್ರ ಕೆಲಸ ಮಾಡುತ್ತದೆ.', // REVIEW: native speaker
