@@ -34,6 +34,7 @@ export default async function SignInPage() {
           submit: t('signIn.submit'),
           working: t('signIn.working'),
           error: t('signIn.error'),
+          unavailable: t('signIn.unavailable'),
         }}
       />
     </main>

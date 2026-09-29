@@ -62,9 +62,12 @@ async function capture(o: { key: TestDevice; deviceId: string; plotId?: string; 
   return { fd, signed };
 }
 
+/** The server's receipt clock, pinned just after the captures' capturedAt (exif_time_agreement compares the two). */
+const RECEIVED = new Date('2026-10-14T04:13:30.000Z');
+
 async function run(fd: FormData, agentId: string) {
   const events: CaptureEvent[] = [];
-  await runCapture(fd, { db: t.db, media: localMediaStore(t.dir), agentId }, (e) => events.push(e));
+  await runCapture(fd, { db: t.db, media: localMediaStore(t.dir), agentId, now: () => RECEIVED }, (e) => events.push(e));
   return events;
 }
 

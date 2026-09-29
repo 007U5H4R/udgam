@@ -47,7 +47,7 @@ async function request(tamper = false, cookie: string | null = agentCookie) {
     deviceId: world.deviceId,
     seq: 1,
     prevEventHash: 'genesis',
-    capturedAt: '2026-10-14T04:12:33.120Z',
+    capturedAt: new Date().toISOString(), // the route stamps real server time; the clock gap is checked (TKT-08)
     gps: { ...P01_INSIDE, accuracyM: 8 },
     cherryKg: 42.5,
     media: [{ sha256: await sha256Hex(bytes), size: bytes.length, mime: 'image/jpeg' }],
@@ -75,7 +75,7 @@ describe('POST /api/capture', () => {
     expect(res.headers.get('cache-control')).toBe('no-store');
     expect(res.headers.get('x-accel-buffering')).toBe('no');
     const out = await lines(res);
-    expect(out.map((l) => l.t)).toEqual(['check', 'check', 'check', 'verdict']);
+    expect(out.map((l) => l.t).join()).toMatch(/^(check,)+verdict$/); // one line per registered check
     expect(out.at(-1)).toMatchObject({ verdict: 'Verified' });
   });
 

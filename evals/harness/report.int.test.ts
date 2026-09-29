@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { loadDataset } from './dataset';
 import { renderReport } from './report';
 import { writeResults } from './results';
 import { evaluate, type ResultsFile } from './run';
@@ -29,7 +30,7 @@ describe('provenance (evaluation-plan §12)', () => {
       appVersion: expect.stringMatching(/^\d+\.\d+\.\d+$/),
       git: { commit: expect.stringMatching(/^[0-9a-f]{40}$/), shortSha: expect.any(String), branch: expect.any(String), dirty: expect.any(Boolean) },
       environment: expect.stringMatching(/^(local|ci)$/),
-      dataset: { version: '0.2.0', sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
+      dataset: { version: loadDataset().version, sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
       fixtures: { version: expect.any(String), sha256: expect.stringMatching(/^[0-9a-f]{64}$/), files: 36 },
       config: { version: 'cfg-1', hash: expect.stringMatching(/^[0-9a-f]{64}$/), mode: 'full', object: expect.any(Object) },
       provider: 'fixture',
@@ -90,6 +91,15 @@ describe('the report derives from the results file only (TC-016)', () => {
     expect(md).toContain('EVAL-036');
     expect(md).toMatch(/Wilson/);
     expect(md).toMatch(/10\/10 .*72\.2 %/);
+  });
+
+  it('shows the proof suite with a library column and the clean-room checker column (S6, TKT-15)', () => {
+    const md = renderReport(path);
+    expect(md).toContain('## Proof suite (S6)');
+    expect(md).toContain('| Case | Outcome | Library verifier | Clean-room checker |');
+    expect(md).toMatch(/\| EVAL-058 \| passed \| [^|]*closure entries[^|]* \| not_yet_implemented \|/);
+    expect(md).toMatch(/\| EVAL-063 \| passed \| drop_entry: closure-incomplete; swap_adjacent: merkle-path \| not_yet_implemented \|/);
+    expect(md).toMatch(/\| EVAL-103 \| not_yet_implemented \| — \| — \|/);
   });
 
   it('the CLI prints the same report', () => {

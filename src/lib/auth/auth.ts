@@ -37,12 +37,14 @@ const WRITES = new Set(['insert', 'update', 'delete']);
  * (see writeTx). Routing its writes through the same in-process FIFO keeps the one-writer rule.
  */
 function queuedWrite(db: Db, steps: [PropertyKey, unknown[]][]): unknown {
+  // Started on the first read of `then` and reused, so a thenable probe followed by `await` writes once.
+  let run: Promise<unknown> | undefined;
   return new Proxy(
     {},
     {
       get(_t, prop) {
         if (prop === 'then') {
-          const run = writeTx(db, async (tx) => {
+          run ??= writeTx(db, async (tx) => {
             let q: unknown = tx;
             for (const [method, args] of steps) q = (q as Record<PropertyKey, (...a: unknown[]) => unknown>)[method]!(...args);
             return await q;

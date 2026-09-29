@@ -30,4 +30,14 @@ describe('seedPassword', () => {
     const { seedPassword } = await load({ NODE_ENV: 'production', BETTER_AUTH_SECRET: 'x'.repeat(32), SEED_PASSWORD: '' });
     expect(() => seedPassword()).toThrow(/SEED_PASSWORD is required/);
   });
+
+  it('refuses the demo default when NODE_ENV is not set explicitly (a shell on the production host)', async () => {
+    const { seedPassword } = await load({ NODE_ENV: '', SEED_PASSWORD: '' });
+    expect(() => seedPassword()).toThrow(/SEED_PASSWORD is required/);
+  });
+
+  it('uses SEED_PASSWORD when NODE_ENV is not set', async () => {
+    const { seedPassword } = await load({ NODE_ENV: '', SEED_PASSWORD: 'a long seed value' });
+    expect(seedPassword()).toBe('a long seed value');
+  });
 });

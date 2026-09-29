@@ -51,6 +51,11 @@ describe('loadDataset (TC-017)', () => {
     expect(() => loadDataset(path)).toThrow(/duplicate case id EVAL-001 at \/cases\/\d+\/id/);
   });
 
+  it('scenario 1 (GPS spoofing) has at least ten active S1 attack cases (TKT-08, TSK-08.6)', () => {
+    const s1 = loadDataset().cases.filter((c) => c.scenario === 1 && c.case_class === 'attack' && c.status === 'active' && c.gates.includes('S1'));
+    expect(s1.length).toBeGreaterThanOrEqual(10);
+  });
+
   it('rejects a base_case that does not exist', () => {
     const path = tempCopy((raw) => {
       (raw.cases.find((x) => x.id === 'EVAL-002')!.input as { base_case?: string }).base_case = 'EVAL-999';

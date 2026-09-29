@@ -2,10 +2,11 @@
 // two FPOs (Hosahalli FPO, and a second FPO for cross-org tests), two buyers, and `agent@` + `admin@`
 // per FPO and `buyer@` per buyer. Idempotent: re-running keeps IDs and resets the passwords.
 //
-// Passwords come from SEED_PASSWORD. Outside production a demo default stands in; in production a
-// missing SEED_PASSWORD stops the seed. The password is never printed.
+// Passwords come from SEED_PASSWORD. Only when NODE_ENV is explicitly `development` or `test` does a
+// demo default stand in; otherwise a missing SEED_PASSWORD stops the seed. The password is never printed.
 //
-// Usage: [DATA_DIR=.e2e-data] [SEED_PASSWORD=…] pnpm exec tsx scripts/seed-accounts.ts
+// Usage: NODE_ENV=development [DATA_DIR=.e2e-data] pnpm exec tsx scripts/seed-accounts.ts
+//        SEED_PASSWORD=… pnpm exec tsx scripts/seed-accounts.ts
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { hashPassword } from 'better-auth/crypto';
@@ -14,7 +15,7 @@ import { writeTx, type Db } from '../src/lib/db/client';
 import { account, organisations, user } from '../src/lib/db/schema';
 import type { Role } from '../src/lib/auth/session';
 
-/** Demo-only default for dev and test databases. Never used when NODE_ENV=production. */
+/** Demo-only default for dev and test databases. Used only when NODE_ENV is explicitly development or test. */
 export const DEV_SEED_PASSWORD = 'kodagu-coffee-demo';
 
 type Org = { id: string; type: 'fpo' | 'buyer'; name: string };
@@ -36,11 +37,16 @@ export const DEMO_ACCOUNTS = {
   buyerB: { id: 'USR-BUYER-B', email: 'buyer@buyer-b.udgam.test', name: 'Buyer B', role: 'buyer', orgId: DEMO_ORGS.buyerB.id },
 } as const satisfies Record<string, DemoAccount>;
 
-/** SEED_PASSWORD, or the demo default outside production. */
+/**
+ * SEED_PASSWORD, or the demo default when NODE_ENV is explicitly `development` or `test`. env.ts
+ * defaults an unset NODE_ENV to `development`, so the raw variable is checked too: a shell on the
+ * production host without NODE_ENV must not seed real accounts with the committed default.
+ */
 export function seedPassword(): string {
   if (env.SEED_PASSWORD) return env.SEED_PASSWORD;
-  if (env.NODE_ENV === 'production') throw new Error('SEED_PASSWORD is required when NODE_ENV=production');
-  return DEV_SEED_PASSWORD;
+  const explicit = process.env.NODE_ENV; // not a secret; only whether it was set at all
+  if ((explicit === 'development' || explicit === 'test') && env.NODE_ENV === explicit) return DEV_SEED_PASSWORD;
+  throw new Error('SEED_PASSWORD is required unless NODE_ENV is explicitly development or test');
 }
 
 /** Write the demo organisations and accounts. Safe to re-run (and to run concurrently). */

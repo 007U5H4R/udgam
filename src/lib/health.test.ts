@@ -30,10 +30,22 @@ describe('health (TC-001 core)', () => {
     const r = await health({
       ...base,
       ping: async () => {},
-      ledger: { lastSeq: 3, lastCheckpointAgeSec: 10, keyPresent: false },
+      ledger: { lastSeq: 3, lastCheckpointAgeSec: 10, keyPresent: false, keyMismatch: false },
     });
     expect(r.status).toBe(503);
     expect(r.body.ledger?.keyPresent).toBe(false);
+  });
+
+  it('is 503 when checkpoints carry a kid that is not published (keyMismatch, quality #4)', async () => {
+    const r = await health({
+      ...base,
+      ping: async () => {},
+      ledger: { lastSeq: 3, lastCheckpointAgeSec: 10, keyPresent: true, keyMismatch: true },
+    });
+    expect(r.status).toBe(503);
+    expect(r.body.ledger?.keyMismatch).toBe(true);
+    const ok = await health({ ...base, ping: async () => {}, ledger: { lastSeq: 3, lastCheckpointAgeSec: 10, keyPresent: true, keyMismatch: false } });
+    expect(ok.status).toBe(200);
   });
 
   it('names a configuration fault as config:error with db:unchecked, not as a database fault (QA-P1-1)', async () => {

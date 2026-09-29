@@ -22,7 +22,7 @@ afterEach(async () => {
 
 describe('ledgerHealth (TC-001 ledger part)', () => {
   it('reports an empty ledger with no checkpoint, and generates the key on first boot', async () => {
-    expect(await ledgerHealth(t.db, { keyPath })).toEqual({ lastSeq: 0, lastCheckpointAgeSec: null, keyPresent: true });
+    expect(await ledgerHealth(t.db, { keyPath })).toEqual({ lastSeq: 0, lastCheckpointAgeSec: null, keyPresent: true, keyMismatch: false });
   });
 
   it('reports the last seq and the whole seconds since the last checkpoint', async () => {
@@ -31,7 +31,19 @@ describe('ledgerHealth (TC-001 ledger part)', () => {
     await writeTx(t.db, (tx) => checkpointIfNeeded(tx, { key, now: () => new Date('2026-10-01T00:00:00.000Z') }));
     await writeTx(t.db, (tx) => append(tx, 'harvest_event', { i: 3 }));
     const h = await ledgerHealth(t.db, { keyPath, now: () => new Date('2026-10-01T00:01:30.900Z') });
-    expect(h).toEqual({ lastSeq: 4, lastCheckpointAgeSec: 90, keyPresent: true });
+    expect(h).toEqual({ lastSeq: 4, lastCheckpointAgeSec: 90, keyPresent: true, keyMismatch: false });
+  });
+
+  it('reports keyMismatch when a checkpoint was signed by a kid that is not published (lost key, quality #4)', async () => {
+    // The key that sealed checkpoint 1 is lost; the next boot generates a new one at keyPath.
+    const lost = await loadLedgerKey(join(t.dir, 'lost', 'ledger.jwk'));
+    for (let i = 0; i < 3; i++) await writeTx(t.db, (tx) => append(tx, 'harvest_event', { i }));
+    await writeTx(t.db, (tx) => checkpointIfNeeded(tx, { key: lost }));
+    const h = await ledgerHealth(t.db, { keyPath });
+    expect(h).toMatchObject({ keyPresent: true, keyMismatch: true });
+    expect((await loadLedgerKey(keyPath)).kid).not.toBe(lost.kid);
+    // With the original key back in place, the checkpoints match the published key again.
+    expect((await ledgerHealth(t.db, { keyPath: join(t.dir, 'lost', 'ledger.jwk') })).keyMismatch).toBe(false);
   });
 
   it('reports keyPresent:false once the key file is gone, even though the key is still loaded', async () => {

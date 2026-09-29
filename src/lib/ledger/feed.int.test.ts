@@ -60,6 +60,29 @@ describe('buildFeed (TC-063, EVAL-065)', () => {
     expect(await verifyFeed(feed, await keys())).toMatchObject({ ok: true });
   }, 30_000);
 
+  it('concurrent requests create exactly one checkpoint, and one more after a new transfer (quality #6a)', async () => {
+    const w = await seedBatchWorld(t.db, { events: 2, plots: 1, transfer: true });
+    expect(await t.db.$count(ledgerCheckpoints)).toBe(0);
+    const first = await Promise.all([buildFeed(t.db, w.batchId), buildFeed(t.db, w.batchId), resolveFeed(t.db, w.batchId, w.shortHash), resolveFeed(t.db, w.batchId, w.shortHash)]);
+    expect(await t.db.$count(ledgerCheckpoints)).toBe(1);
+    for (const f of first) expect(f!.checkpoints.map((c) => c.id)).toEqual([1]);
+
+    await transferAgain(t.db, w, 'ORG-NEXTBUY2');
+    const second = await Promise.all([buildFeed(t.db, w.batchId), resolveFeed(t.db, w.batchId, w.shortHash), buildFeed(t.db, w.batchId)]);
+    expect(await t.db.$count(ledgerCheckpoints)).toBe(2);
+    for (const f of second) {
+      expect(f!.checkpoints.map((c) => c.id)).toEqual([1, 2]);
+      expect(await verifyFeed(f, await keys())).toMatchObject({ ok: true });
+    }
+  }, 30_000);
+
+  it('emits the short hash as 12 lowercase hex (nit)', async () => {
+    const w = await seedBatchWorld(t.db, { events: 1, plots: 1 });
+    const feed = await buildFeed(t.db, w.batchId);
+    expect(feed.shortHash).toMatch(/^[0-9a-f]{12}$/);
+    expect(feed.shortHash).toBe(w.anchors.batchCreated.entryHash.slice(0, 12));
+  });
+
   it('spans automatic and on-demand checkpoints for a batch past 100 entries', async () => {
     const w = await seedBatchWorld(t.db, { events: 50, plots: 5, transfer: true });
     const feed = await buildFeed(t.db, w.batchId);

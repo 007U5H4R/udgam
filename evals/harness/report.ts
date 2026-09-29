@@ -148,6 +148,20 @@ export function renderReportFromResults(r: ResultsFile, resultsPath: string): st
   out.push(`- Improvements: ${cmp.improvements.join(', ') || 'none'}`);
   out.push(`- Baseline: ${cmp.baseline ? `${cmp.baseline.name} (${code(cmp.baseline.file)})` : 'none recorded yet'}`);
 
+  const proofCases = r.cases.filter((c) => c.suite === 'harness-proof');
+  // Only results written since the suite runs carry `proof`; older files (baseline-v0) render as they were.
+  if (proofCases.some((c) => c.proof)) {
+    h('## Proof suite (S6)');
+    const library = (c: CaseResult): string => {
+      const p = c.proof;
+      if (!p) return '—';
+      if (p.metrics) return `${p.metrics.verified}/${p.metrics.closureEntries} closure entries verified under ${p.metrics.checkpoints} checkpoints (coverage ${pct(p.metrics.coverage)})`;
+      if (p.variants.length > 0) return p.variants.map((v) => `${v.variant}: ${v.lib.step ?? 'ACCEPTED'}`).join('; ');
+      return c.assertions.map((a) => a.detail).join('; ') || '—';
+    };
+    out.push(...table(['Case', 'Outcome', 'Library verifier', 'Clean-room checker'], proofCases.map((c) => [c.id, c.outcome, library(c), c.proof?.cleanRoom.status ?? '—'])));
+  }
+
   const noted = r.cases.filter((c) => c.notes.length > 0 && c.outcome !== 'not_yet_implemented');
   if (noted.length > 0) {
     h('## Case notes');

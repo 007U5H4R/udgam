@@ -1,4 +1,5 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
+import { chmod, link, mkdir, open, readFile, stat, unlink } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { env } from '../config/env';
 import { generateKeyPair, jwkThumbprint, publicMembers, sign, type PublicJwk } from '../crypto';
@@ -6,8 +7,9 @@ import { log } from '../log';
 
 // The server's ledger key (technical-plan §8.2, N6). Server-only. It signs checkpoint statements.
 // Generated on first use if LEDGER_KEY_PATH (default DATA_DIR/keys/ledger.jwk, git-ignored) is
-// missing; the file is 0600 in a 0700 directory. The private member never leaves this module: it is
-// not logged, not returned and not published.
+// missing; the file is 0600 in a 0700 directory, created atomically (a complete temp file is
+// hard-linked into place), and looser modes found on load are tightened. The private member never
+// leaves this module: it is not logged, not returned and not published.
 
 export type LedgerKey = {
   /** RFC 7638 thumbprint of the public key. */
@@ -49,29 +51,72 @@ async function readKey(path: string): Promise<LedgerKey> {
   return fromPrivateJwk(parsed as JsonWebKey);
 }
 
+/**
+ * Write the new key to a private temp file, fsync it, then link it to `path`. link() fails with EEXIST
+ * if the path exists, so exactly one process creates the key, and the final path never holds a
+ * partial file (a crash leaves at most a stray temp file). The loser reads the winner's key.
+ */
 async function generate(path: string): Promise<LedgerKey> {
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
   const pair = await generateKeyPair(true);
   const { kty, crv, x, y, d } = await globalThis.crypto.subtle.exportKey('jwk', pair.privateKey);
+  const tmp = `${path}.${process.pid}.${randomBytes(8).toString('hex')}.tmp`;
   try {
-    await writeFile(path, JSON.stringify({ kty, crv, x, y, d }), { mode: 0o600, flag: 'wx' });
+    const file = await open(tmp, 'wx', 0o600);
+    try {
+      await file.writeFile(JSON.stringify({ kty, crv, x, y, d }));
+      await file.sync();
+    } finally {
+      await file.close();
+    }
+    await link(tmp, path);
   } catch (err) {
-    // Another process won the race: use its key.
+    // Another process won the race: its file is complete (it was linked after its fsync). Use it.
     if (isNodeError(err, 'EEXIST')) return readKey(path);
     throw err;
+  } finally {
+    await unlink(tmp).catch(() => undefined);
   }
   const key = await fromPrivateJwk({ kty, crv, x, y, d });
   log.info({ kid: key.kid }, 'ledger.key_generated');
   return key;
 }
 
-async function load(path: string): Promise<LedgerKey> {
+const octal = (mode: number) => (mode & 0o777).toString(8);
+
+/**
+ * Tighten a key file looser than 0600 and its directory looser than 0700 (for example after a restore
+ * from backup), with a warning. The directory is left alone unless this process owns it and it is not
+ * a shared sticky directory such as /tmp. A failure to tighten is logged, never fatal.
+ */
+async function tightenModes(path: string): Promise<void> {
   try {
-    return await readKey(path);
+    const file = await stat(path);
+    if (file.mode & 0o077) {
+      await chmod(path, 0o600);
+      log.warn({ from: octal(file.mode), to: '600' }, 'ledger.key_mode_tightened');
+    }
+    const dir = dirname(path);
+    const d = await stat(dir);
+    if (d.mode & 0o077 && !(d.mode & 0o1000) && typeof process.getuid === 'function' && d.uid === process.getuid()) {
+      await chmod(dir, 0o700);
+      log.warn({ from: octal(d.mode), to: '700' }, 'ledger.key_dir_mode_tightened');
+    }
+  } catch (err) {
+    log.warn({ errClass: err instanceof Error ? err.constructor.name : 'unknown' }, 'ledger.key_mode_unchecked');
+  }
+}
+
+async function load(path: string): Promise<LedgerKey> {
+  let key: LedgerKey;
+  try {
+    key = await readKey(path);
   } catch (err) {
     if (isNodeError(err, 'ENOENT')) return generate(path);
     throw err;
   }
+  await tightenModes(path);
+  return key;
 }
 
 /**

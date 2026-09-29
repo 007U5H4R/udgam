@@ -1,13 +1,15 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CONFIG_HASH } from '../../src/lib/verification/config';
 import { REGISTRY } from '../../src/lib/verification/registry';
 import type { CaseResult } from '../scorers/case-assertions';
 import { buildCase } from './mutate';
 import { loadDataset } from './dataset';
-import { caseLimitMs, CASE_TIMEOUT_MS, evaluate, main, parseArgs, runHarness } from './run';
+import { runProofSuite } from './proof-suite';
+import { REPO_ROOT } from './provenance';
+import { caseLimitMs, CASE_TIMEOUT_MS, evaluate, isolateDataDir, main, parseArgs, runHarness } from './run';
 
 // TC-015 (EVAL-092, CF-12): the harness never hides a case. TC-014 (order independence).
 
@@ -75,25 +77,28 @@ describe('the harness never hides a case (TC-015, EVAL-092)', () => {
     // EVAL-022 asserts geofence: with geofence gone it is not_yet_implemented, never dropped.
     expect(byId.get('EVAL-022')).toMatchObject({ outcome: 'not_yet_implemented', missingChecks: expect.arrayContaining(['geofence']) });
     expect(byId.get('EVAL-002')).toMatchObject({ outcome: 'errored', error: { class: 'RangeError', message: 'setup exploded' }, result: null });
-    // The proof suite is registered but not built: every case reported, none dropped.
-    expect(byId.get('EVAL-058')).toMatchObject({ suite: 'harness-proof', outcome: 'not_yet_implemented' });
+    // The proof suite runs (TKT-15); EVAL-103 waits on the EVM adapter: reported, never dropped.
+    expect(byId.get('EVAL-058')).toMatchObject({ suite: 'harness-proof', outcome: 'passed' });
+    expect(byId.get('EVAL-103')).toMatchObject({ suite: 'harness-proof', outcome: 'not_yet_implemented' });
 
     const t = run.totals;
-    expect(t).toMatchObject({ ok: true, active: 60, passed: 2, failed: 57, notYetImplemented: 57, errored: 1, skipped: 0 });
+    // dataset 0.3.0: EVAL-110–113 (TKT-08) assert geofence/EXIF/movement checks, so they are not_yet_implemented here too.
+    // + 7 harness-proof passes (EVAL-058–063, 066); EVAL-103 is not yet implemented.
+    expect(t).toMatchObject({ ok: true, active: 64, passed: 9, failed: 54, notYetImplemented: 54, errored: 1, skipped: 0 });
     expect(t.active).toBe(t.passed + t.failed + t.errored);
     expect(run.cases).toHaveLength(t.active);
     expect(run.summary.exitCode).toBe(1);
     expect(run.gates.find((g) => g.id === 'S1')!.pass).toBe(false);
-  });
+  }, 60_000);
 
   it('every in-scope case appears exactly once and the totals equal the dataset count', async () => {
     const run = await evaluate({ seed: 1 });
     const ids = run.cases.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(run.totals.active).toBe(60); // 49 active + 3 stretch harness-verifier, 8 harness-proof (dataset 0.2.0)
+    expect(run.totals.active).toBe(64); // 53 active + 3 stretch harness-verifier, 8 harness-proof (dataset 0.3.0: + EVAL-110–113)
     expect(run.totals.skipped).toBe(0);
     expect(run.totals.ok).toBe(true);
-  });
+  }, 60_000);
 
   it('a case whose verify() result lacks a check it asserts fails (attribution and status), it is not skipped', async () => {
     const run = await evaluate({ seed: 3, config: 'ledger-only' });
@@ -101,7 +106,7 @@ describe('the harness never hides a case (TC-015, EVAL-092)', () => {
     expect(c.outcome).toBe('failed');
     expect(c.detected).toBe(false);
     expect(c.result!.checks.map((x) => x.id)).toEqual(['signature_valid']);
-  });
+  }, 60_000);
 
   it('runs offline: fetch is stubbed during the run and restored afterwards', async () => {
     const before = globalThis.fetch;
@@ -125,12 +130,12 @@ describe('per-case watchdog', () => {
     const run = await evaluate({
       seed: 4,
       suites: ['harness-verifier'],
-      caseTimeoutMs: 50,
+      caseTimeoutMs: 2000, // generous: only EVAL-001 hangs; a loaded machine must not time out real cases
       buildCase: (c, inputs, keys) => (c.id === 'EVAL-001' ? new Promise(() => undefined) : buildCase(c, inputs, keys)),
     });
     const c = run.cases.find((x) => x.id === 'EVAL-001')!;
-    expect(c).toMatchObject({ outcome: 'errored', result: null, error: { class: 'CaseTimeout', message: 'timeout: the case did not settle within 50 ms' } });
-    expect(run.totals).toMatchObject({ active: 52, errored: 1, skipped: 0, ok: true });
+    expect(c).toMatchObject({ outcome: 'errored', result: null, error: { class: 'CaseTimeout', message: 'timeout: the case did not settle within 2000 ms' } });
+    expect(run.totals).toMatchObject({ active: 56, errored: 1, skipped: 0, ok: true }); // harness-verifier, dataset 0.3.0
   });
 
   it('the limit is the case own max_latency_ms when it has one, else 30 s', () => {
@@ -139,6 +144,87 @@ describe('per-case watchdog', () => {
     expect(caseLimitMs(ds.cases.find((c) => c.id === 'EVAL-001')!)).toBe(30_000);
     expect(caseLimitMs({ ...ds.cases.find((c) => c.id === 'EVAL-001')!, expected: { verdict: 'Verified', max_latency_ms: 3000 } })).toBe(3000);
     expect(caseLimitMs(ds.cases.find((c) => c.id === 'EVAL-001')!, 50)).toBe(50);
+  });
+});
+
+describe('harness-proof suite (TSK-15.8, S6-lib)', () => {
+  it('runs the proof suite once per run: EVAL-058 at coverage 1, EVAL-059–063 and 066 pass, the clean-room column is kept', async () => {
+    const keyFile = resolve(REPO_ROOT, 'data/keys/ledger.jwk');
+    const before = existsSync(keyFile) ? statSync(keyFile).mtimeMs : null;
+    let calls = 0;
+    const run = await evaluate({
+      seed: 21,
+      suites: ['harness-proof'],
+      proofSuite: async (o) => {
+        calls++;
+        return runProofSuite(o);
+      },
+    });
+    expect(calls).toBe(1);
+    const byId = new Map(run.cases.map((c) => [c.id, c]));
+
+    const intact = byId.get('EVAL-058')!;
+    expect(intact).toMatchObject({ outcome: 'passed', error: null, result: null });
+    expect(intact.proof).toMatchObject({ metrics: { coverage: 1, checkpoints: 2 }, cleanRoom: { status: 'not_yet_implemented' } });
+    expect(intact.proof!.metrics!.verified).toBe(intact.proof!.metrics!.closureEntries);
+    expect(intact.assertions.every((a) => a.pass)).toBe(true);
+
+    const steps: Record<string, string[]> = {
+      'EVAL-059': ['payload-hash'],
+      'EVAL-060': ['merkle-path'],
+      'EVAL-061': ['checkpoint-signature'],
+      'EVAL-062': ['unknown-key'],
+      'EVAL-063': ['closure-incomplete', 'merkle-path'],
+    };
+    for (const [id, want] of Object.entries(steps)) {
+      const c = byId.get(id)!;
+      expect(c.outcome, id).toBe('passed');
+      expect(c.proof!.variants.map((v) => v.lib.step), id).toEqual(want);
+      expect(c.assertions.length, id).toBe(want.length);
+      expect(c.assertions.every((a) => a.pass), id).toBe(true);
+    }
+    expect(byId.get('EVAL-066')).toMatchObject({ outcome: 'passed' });
+    for (const id of ['EVAL-058', 'EVAL-059', 'EVAL-060', 'EVAL-061', 'EVAL-062', 'EVAL-063', 'EVAL-066']) {
+      expect(byId.get(id)!.proof!.cleanRoom, id).toEqual({ status: 'not_yet_implemented' });
+      expect(byId.get(id)!.notes.join('; '), id).toContain('clean-room checker: not_yet_implemented');
+    }
+
+    // EVAL-103 (EVM anchoring, M-002) is reported as not yet implemented, never dropped.
+    expect(byId.get('EVAL-103')).toMatchObject({ outcome: 'not_yet_implemented' });
+    expect(byId.get('EVAL-103')!.notes.join(' ')).toMatch(/TKT-23/);
+    expect(run.totals).toMatchObject({ ok: true, active: 8, passed: 7, notYetImplemented: 1, errored: 0, skipped: 0 });
+    expect(run.gates.find((g) => g.id === 'S6-lib')).toMatchObject({ display: '87.5 % (7/8)', pass: false, detail: '1 not yet implemented' });
+    expect(run.criticalConditions).toEqual([]);
+
+    // The suite used a temporary ledger and key: ./data was not touched.
+    expect(existsSync(keyFile) ? statSync(keyFile).mtimeMs : null).toBe(before);
+  }, 120_000);
+
+  it('a proof suite that crashes → every proof case it owns is errored, none dropped', async () => {
+    const run = await evaluate({
+      seed: 22,
+      suites: ['harness-proof'],
+      proofSuite: async () => {
+        throw new RangeError('ledger exploded');
+      },
+    });
+    for (const id of ['EVAL-058', 'EVAL-059', 'EVAL-060', 'EVAL-061', 'EVAL-062', 'EVAL-063', 'EVAL-066']) {
+      expect(run.cases.find((c) => c.id === id), id).toMatchObject({ outcome: 'errored', error: { class: 'RangeError', message: 'ledger exploded' } });
+    }
+    expect(run.totals).toMatchObject({ active: 8, errored: 7, skipped: 0 });
+    expect(run.criticalConditions.map((f) => f.id)).toContain('CF-04');
+  });
+
+  it('the CLI gives pnpm eval a throwaway DATA_DIR, database and ledger key path, never ./data', () => {
+    const vars: Record<string, string | undefined> = { DATA_DIR: './data' };
+    const dir = isolateDataDir(vars);
+    try {
+      expect(dir.startsWith(tmpdir())).toBe(true);
+      expect(existsSync(dir)).toBe(true);
+      expect(vars).toMatchObject({ DATA_DIR: dir, LEDGER_KEY_PATH: join(dir, 'keys', 'ledger.jwk'), DATABASE_URL: `file:${join(dir, 'udgam.db')}`, LOG_LEVEL: 'warn' });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 
@@ -209,7 +295,7 @@ describe('order independence (TC-014)', () => {
     expect(a.runtime.executionOrder).not.toEqual(b.runtime.executionOrder);
     expect(strip(b.cases)).toEqual(strip(a.cases));
     expect(a.provenance.seed).toBe(11);
-  });
+  }, 120_000);
 });
 
 describe('runHarness writes results and a report derived from them', () => {
@@ -222,7 +308,7 @@ describe('runHarness writes results and a report derived from them', () => {
     const results = JSON.parse(readFileSync(r.resultsPath, 'utf8'));
     expect(results.summary.overall).toBe('FAIL');
     expect(readFileSync(r.reportPath, 'utf8')).toContain('**Overall: FAIL**');
-  });
+  }, 60_000);
 
   it('never overwrites a report: an existing one keeps its bytes and the new report gets -rN', async () => {
     const root = mkdtempSync(join(tmpdir(), 'udgam-run-'));

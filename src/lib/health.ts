@@ -4,6 +4,8 @@ export interface LedgerHealth {
   lastSeq: number | null;
   lastCheckpointAgeSec: number | null;
   keyPresent: boolean;
+  /** A checkpoint carries a kid that is not published (lost or replaced ledger key): 503. */
+  keyMismatch: boolean;
 }
 
 export interface HealthBody {
@@ -52,6 +54,6 @@ export async function health(deps: HealthDeps): Promise<{ status: 200 | 503; bod
     version: deps.version,
     commit: deps.commit,
   };
-  const ok = db === 'ok' && (deps.ledger ? deps.ledger.keyPresent : true);
+  const ok = db === 'ok' && (deps.ledger ? deps.ledger.keyPresent && !deps.ledger.keyMismatch : true);
   return { status: ok ? 200 : 503, body };
 }

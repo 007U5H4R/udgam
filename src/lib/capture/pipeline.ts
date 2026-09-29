@@ -4,6 +4,7 @@ import { writeTx, type Db } from '../db/client';
 import { devices, harvestEvents, media, plots, verificationRuns } from '../db/schema';
 import { isPlotAssigned } from '../enrolment/assign';
 import { log as defaultLog } from '../log';
+import { extractExif } from '../media/exif';
 import type { MediaStore } from '../media/store';
 import { verify } from '../verification/verify';
 import type { CapturePayloadV1, CheckId, CheckResult, CheckStatus, Submission, Verdict } from '../verification/types';
@@ -44,9 +45,6 @@ export type CaptureDeps = {
   append?: AppendFn;
   log?: Pick<typeof defaultLog, 'error' | 'info' | 'warn'>;
 };
-
-/** EXIF is read from the stored photo from TKT-08 on (media/exif.ts); until then it is absent. */
-const NO_EXIF = { gps: null, takenAt: null };
 
 async function findDevice(db: Db, id: string): Promise<BoundaryDevice | null> {
   const [d] = await db.select().from(devices).where(eq(devices.id, id));
@@ -212,13 +210,15 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
   const [plot] = await db.select().from(plots).where(eq(plots.id, payload.plotId));
   if (!plot) return reject(form_, 'plot_not_assigned', STATUS.plot_not_assigned, device, serverReceivedAt);
 
-  // 4. media (content-addressed and shared; each put holds its path until this request ends)
+  // 4. media (content-addressed and shared; each put holds its path until this request ends) and
+  // the EXIF read from each stored photo's bytes (TKT-08; never throws, absent → nulls)
   const stored: StoredMedia[] = [];
   for (const [i, file] of form_.files.entries()) {
     const m = payload.media[i]!;
-    const put = await deps.media.put(new Uint8Array(await file.arrayBuffer()), m.sha256, m.mime);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const put = await deps.media.put(bytes, m.sha256, m.mime);
     held.push(put.path);
-    stored.push({ sha256: m.sha256, size: m.size, mime: m.mime, path: put.path });
+    stored.push({ sha256: m.sha256, size: m.size, mime: m.mime, path: put.path, exif: await extractExif(bytes) });
   }
 
   // 5–6. context (reads only) and verification, streaming each finished check
@@ -227,7 +227,7 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
     payload,
     payloadHash,
     signature: form_.signature,
-    media: payload.media.map((m) => ({ sha256: m.sha256, exif: NO_EXIF })),
+    media: stored.map((m) => ({ sha256: m.sha256, exif: m.exif })),
     serverReceivedAt,
   };
   const result = await verify(sub, ctx, { onCheck: (r) => send({ t: 'check', id: r.id, status: r.status }) });

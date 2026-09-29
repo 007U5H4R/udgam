@@ -46,8 +46,12 @@ function timeLine({ exifClientMin, clientServerMin }: TimeGaps): string {
 }
 
 type Movement = { first: true } | { speedKmh: number; distanceM: number; minutes: number };
-function movementLine(f: Movement): string {
+/** The phone's capture time did not move forward since its previous entry: no speed is plausible. */
+type ClockStood = { timeDidNotAdvance: true; distanceM: number; minutes: number };
+function movementLine(f: Movement | ClockStood): string {
   if ('first' in f) return 'First entry from this phone';
+  if ('timeDidNotAdvance' in f)
+    return `Capture time did not advance from the previous entry ${m(f.distanceM)} away (${Math.round(f.minutes) || 0} min apart; limit ${kmh(C.movement.maxKmh)})`;
   return `Implied speed ${kmh(f.speedKmh)} from the previous entry ${m(f.distanceM)} away ${Math.round(f.minutes)} min earlier (limit ${kmh(C.movement.maxKmh)})`;
 }
 
@@ -101,7 +105,7 @@ export const evidence = {
   },
   movement_plausibility: {
     ok: (f: Movement) => movementLine(f),
-    fail: (f: { speedKmh: number; distanceM: number; minutes: number }) => movementLine(f),
+    fail: (f: { speedKmh: number; distanceM: number; minutes: number } | ClockStood) => movementLine(f),
   },
   deforestation_overlap: {
     ok: ({ lossPct }: { lossPct: number }) => lossLine(lossPct),

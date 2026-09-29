@@ -74,7 +74,8 @@ export type VerifyStep =
 /** The failing step, in the order checked (docs/proof-feed.md, "Verification steps"). */
 export type VerifyFailure = { ok: false; step: VerifyStep; seq?: number; checkpointId?: number; kid?: string };
 export type VerifyOutcome = { ok: true } | VerifyFailure;
-export type FeedOutcome = { ok: true; entries: number; checkpoints: { id: number; kid: string }[] } | VerifyFailure;
+/** On ok, `feed` is the verified feed: unknown members removed, every payload exactly the bytes that were hashed. */
+export type FeedOutcome = { ok: true; entries: number; checkpoints: { id: number; kid: string }[]; feed: ProofFeedV1 } | VerifyFailure;
 
 /** jcs of the checkpoint statement that the ledger key signs. */
 export function checkpointStatementOf(cp: Pick<FeedCheckpoint, 'id' | 'fromSeq' | 'toSeq' | 'merkleRoot' | 'prevCheckpointHash' | 'ts'>): string {
@@ -85,6 +86,42 @@ export function checkpointStatementOf(cp: Pick<FeedCheckpoint, 'id' | 'fromSeq' 
 /** entryHash = sha256Hex(jcs({ seq, prev_hash, kind, payload_hash, ts })) (§8.1). */
 export function entryHashFor(e: Pick<FeedEntry, 'seq' | 'prevHash' | 'kind' | 'payloadHash' | 'ts'>): Promise<string> {
   return sha256Hex(jcs({ seq: e.seq, prev_hash: e.prevHash, kind: e.kind, payload_hash: e.payloadHash, ts: e.ts }));
+}
+
+/**
+ * Keys a feed may not contain at any depth (docs/proof-feed.md §3.1). A JSON parser gives an own
+ * "__proto__" member, but schema parsing and object spreads drop or reinterpret it, so what is shown
+ * could differ from what was hashed. Refused at step `format`.
+ */
+export const FORBIDDEN_KEYS = ['__proto__', 'constructor', 'prototype'] as const;
+
+function hasForbiddenKey(value: unknown): boolean {
+  const stack: unknown[] = [value];
+  const seen = new Set<object>();
+  while (stack.length > 0) {
+    const v = stack.pop();
+    if (typeof v !== 'object' || v === null || seen.has(v)) continue;
+    seen.add(v);
+    if (Array.isArray(v)) {
+      stack.push(...(v as unknown[]));
+      continue;
+    }
+    for (const key of Object.keys(v)) {
+      if ((FORBIDDEN_KEYS as readonly string[]).includes(key)) return true;
+      stack.push((v as Record<string, unknown>)[key]);
+    }
+  }
+  return false;
+}
+
+/** The payload as received: its JCS (what is hashed) and a copy parsed back from exactly those bytes. */
+function received(payload: unknown): { canonical: string; payload: Record<string, unknown> } | null {
+  try {
+    const canonical = jcs(payload);
+    return { canonical, payload: JSON.parse(canonical) as Record<string, unknown> };
+  } catch {
+    return null;
+  }
 }
 
 /** The statement a signed payload's signature covers: the payload without kid, publicJwk, signature. */
@@ -113,9 +150,16 @@ async function checkCheckpoint(cp: FeedCheckpoint, keys: VerifierKey[]): Promise
   return null;
 }
 
+/** A payload's embedded key: exactly { kty: "EC", crv: "P-256", x, y } — no other member (docs §9.2). */
+function isPublicP256Jwk(jwk: unknown): jwk is JsonWebKey {
+  if (typeof jwk !== 'object' || jwk === null || Array.isArray(jwk)) return false;
+  const o = jwk as Record<string, unknown>;
+  return Object.keys(o).sort().join(',') === 'crv,kty,x,y' && o.kty === 'EC' && o.crv === 'P-256' && typeof o.x === 'string' && typeof o.y === 'string';
+}
+
 async function checkPayloadSignature(entry: FeedEntry): Promise<boolean> {
   const { kid, publicJwk, signature } = entry.payload as { kid?: unknown; publicJwk?: unknown; signature?: unknown };
-  if (typeof kid !== 'string' || typeof signature !== 'string' || typeof publicJwk !== 'object' || publicJwk === null) return false;
+  if (typeof kid !== 'string' || typeof signature !== 'string' || !isPublicP256Jwk(publicJwk)) return false;
   try {
     if ((await jwkThumbprint(publicJwk as JsonWebKey)) !== kid) return false;
     return await verify(publicJwk as JsonWebKey, payloadStatement(entry.payload), signature);
@@ -124,16 +168,14 @@ async function checkPayloadSignature(entry: FeedEntry): Promise<boolean> {
   }
 }
 
-/** Steps 3–6 for one entry against its (already verified) checkpoint. */
-async function checkEntry(entry: FeedEntry, cp: FeedCheckpoint | undefined): Promise<VerifyFailure | null> {
+/**
+ * Steps 3–7 for one entry against its (already verified) checkpoint. `entry.payload` must already be
+ * the payload as received (see `received`); the payload hash is over its canonical bytes (null: the
+ * payload has no canonical form, which fails like a hash mismatch).
+ */
+async function checkEntry(entry: FeedEntry, canonical: string | null, cp: FeedCheckpoint | undefined): Promise<VerifyFailure | null> {
   const seq = entry.seq;
-  let payloadHash: string;
-  try {
-    payloadHash = await sha256Hex(jcs(entry.payload));
-  } catch {
-    return fail('payload-hash', { seq });
-  }
-  if (payloadHash !== entry.payloadHash) return fail('payload-hash', { seq });
+  if (canonical === null || (await sha256Hex(canonical)) !== entry.payloadHash) return fail('payload-hash', { seq });
   if ((await entryHashFor(entry)) !== entry.entryHash) return fail('entry-hash', { seq });
 
   if (!cp || seq < cp.fromSeq || seq > cp.toSeq || entry.leafIndex !== seq - cp.fromSeq) return fail('merkle-path', { seq });
@@ -152,33 +194,55 @@ async function checkEntry(entry: FeedEntry, cp: FeedCheckpoint | undefined): Pro
 
 /** Verify one entry's proof: its checkpoint (key, signature), then the entry (hashes, path, payload signature). */
 export async function verifyProof(proof: Proof, keys: VerifierKey[]): Promise<VerifyOutcome> {
+  if (hasForbiddenKey(proof)) return fail('format');
   const entry = FeedEntrySchema.safeParse(proof?.entry);
   const cp = FeedCheckpointSchema.safeParse(proof?.checkpoint);
   if (!entry.success || !cp.success || entry.data.checkpointId !== cp.data.id) return fail('format');
-  return (await checkCheckpoint(cp.data, keys)) ?? (await checkEntry(entry.data, cp.data)) ?? { ok: true };
+  const got = received(proof.entry.payload);
+  const asReceived = { ...entry.data, payload: got?.payload ?? entry.data.payload };
+  return (await checkCheckpoint(cp.data, keys)) ?? (await checkEntry(asReceived, got?.canonical ?? null, cp.data)) ?? { ok: true };
 }
 
 const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
 
-/** Every event listed in batch_created has its harvest_event and ≥ 1 verification_run; custody chains from the batch. */
+/**
+ * Closure completeness (docs/proof-feed.md §9.3): every event listed in batch_created has its
+ * harvest_event, carrying the listed payloadHash, and ≥ 1 verification_run; every harvest_event in the
+ * feed has the plot_registered of its plotId and the device_enrolled of its deviceId; this batch's
+ * custody transfers chain from the batch's organisation (transfers of other batches are ignored).
+ */
 function closureComplete(feed: ProofFeedV1, batch: FeedEntry): boolean {
   const events = batch.payload.events;
   if (!Array.isArray(events) || events.length === 0) return false;
-  const harvested = new Set<string>();
+  const harvested = new Map<string, FeedEntry>();
   const verified = new Set<string>();
+  const plots = new Set<string>();
+  const devices = new Set<string>();
   for (const e of feed.entries) {
+    const plotId = str(e.payload.plotId);
+    const deviceId = str(e.payload.deviceId);
+    if (e.kind === 'plot_registered' && plotId) plots.add(plotId);
+    if (e.kind === 'device_enrolled' && deviceId) devices.add(deviceId);
     const eventId = str(e.payload.eventId);
     if (!eventId) continue;
-    if (e.kind === 'harvest_event') harvested.add(eventId);
+    if (e.kind === 'harvest_event') harvested.set(eventId, e);
     if (e.kind === 'verification_run') verified.add(eventId);
   }
   for (const ev of events) {
-    const eventId = str((ev as { eventId?: unknown } | null)?.eventId);
-    if (!eventId || !harvested.has(eventId) || !verified.has(eventId)) return false;
+    const listed = (ev ?? {}) as { eventId?: unknown; payloadHash?: unknown };
+    const eventId = str(listed.eventId);
+    const harvest = eventId ? harvested.get(eventId) : undefined;
+    if (!eventId || !harvest || !verified.has(eventId)) return false;
+    if (typeof listed.payloadHash !== 'string' || listed.payloadHash !== harvest.payload.payloadHash) return false;
+  }
+  for (const h of feed.entries.filter((e) => e.kind === 'harvest_event')) {
+    const plotId = str(h.payload.plotId);
+    const deviceId = str(h.payload.deviceId);
+    if (!plotId || !deviceId || !plots.has(plotId) || !devices.has(deviceId)) return false;
   }
   let holder = str(batch.payload.orgId);
-  for (const c of feed.entries.filter((e) => e.kind === 'custody_transfer')) {
-    if (c.seq < batch.seq || c.payload.batchId !== feed.batchId || str(c.payload.fromOrg) !== holder) return false;
+  for (const c of feed.entries.filter((e) => e.kind === 'custody_transfer' && e.payload.batchId === feed.batchId)) {
+    if (c.seq < batch.seq || str(c.payload.fromOrg) !== holder) return false;
     holder = str(c.payload.toOrg);
   }
   return true;
@@ -190,9 +254,18 @@ function closureComplete(feed: ProofFeedV1, batch: FeedEntry): boolean {
  * closure completeness. Keys must come from /.well-known/udgam-ledger-key, never from the feed.
  */
 export async function verifyFeed(feed: unknown, keys: VerifierKey[]): Promise<FeedOutcome> {
+  if (hasForbiddenKey(feed)) return fail('format');
   const parsed = ProofFeedV1Schema.safeParse(feed);
   if (!parsed.success) return fail('format');
-  const f = parsed.data;
+  // Hash each payload as received (the input's own members), never the schema-parsed copy.
+  const rawEntries = (feed as { entries: { payload: unknown }[] }).entries;
+  const canonical: (string | null)[] = [];
+  const f: ProofFeedV1 = { ...parsed.data, entries: [] };
+  for (const [i, e] of parsed.data.entries.entries()) {
+    const got = received(rawEntries[i]!.payload);
+    canonical.push(got?.canonical ?? null);
+    f.entries.push({ ...e, payload: got?.payload ?? e.payload });
+  }
   for (let i = 1; i < f.entries.length; i++) if (f.entries[i]!.seq <= f.entries[i - 1]!.seq) return fail('format', { seq: f.entries[i]!.seq });
   const byId = new Map<number, FeedCheckpoint>();
   for (const cp of f.checkpoints) {
@@ -204,8 +277,8 @@ export async function verifyFeed(feed: unknown, keys: VerifierKey[]): Promise<Fe
     const bad = await checkCheckpoint(cp, keys);
     if (bad) return bad;
   }
-  for (const entry of f.entries) {
-    const bad = await checkEntry(entry, byId.get(entry.checkpointId));
+  for (const [i, entry] of f.entries.entries()) {
+    const bad = await checkEntry(entry, canonical[i] ?? null,byId.get(entry.checkpointId));
     if (bad) return bad;
   }
 
@@ -215,5 +288,5 @@ export async function verifyFeed(feed: unknown, keys: VerifierKey[]): Promise<Fe
   if (batch.entryHash.slice(0, 12) !== f.shortHash) return fail('short-hash', { seq: batch.seq });
   if (!closureComplete(f, batch)) return fail('closure-incomplete');
 
-  return { ok: true, entries: f.entries.length, checkpoints: f.checkpoints.map((c) => ({ id: c.id, kid: c.kid })) };
+  return { ok: true, entries: f.entries.length, checkpoints: f.checkpoints.map((c) => ({ id: c.id, kid: c.kid })), feed: structuredClone(f) };
 }

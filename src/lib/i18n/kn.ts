@@ -20,7 +20,8 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'signIn.submit': 'ಸೈನ್ ಇನ್', // REVIEW: native speaker
   'signIn.working': 'ಸೈನ್ ಇನ್ ಆಗುತ್ತಿದೆ…', // REVIEW: native speaker
   'signIn.error': 'ಇಮೇಲ್ ಅಥವಾ ಪಾಸ್‌ವರ್ಡ್ ಸರಿಯಿಲ್ಲ.', // REVIEW: native speaker
-  'signOut': 'ಸೈನ್ ಔಟ್', // REVIEW: native speaker
+  'signIn.unavailable': 'ಈಗ ಸೈನ್ ಇನ್ ಮಾಡಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', // REVIEW: native speaker
+  'signOut':'ಸೈನ್ ಔಟ್', // REVIEW: native speaker
 
   'shell.field.title': 'ಮುಖಪುಟ', // REVIEW: native speaker
   'shell.field.empty': 'ಇನ್ನೂ ಯಾವುದೇ ಕೊಯ್ಲು ದಾಖಲಾಗಿಲ್ಲ.', // REVIEW: native speaker

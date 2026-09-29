@@ -42,6 +42,7 @@ const ALL = {
   'movement_plausibility.ok first': evidence.movement_plausibility.ok({ first: true }),
   'movement_plausibility.ok': evidence.movement_plausibility.ok({ speedKmh: 0.13, distanceM: 100, minutes: 45 }),
   'movement_plausibility.fail': evidence.movement_plausibility.fail({ speedKmh: 337.5, distanceM: 45000, minutes: 8 }),
+  'movement_plausibility.fail clock': evidence.movement_plausibility.fail({ timeDidNotAdvance: true, distanceM: 100, minutes: -5 }),
   'deforestation_overlap.ok': evidence.deforestation_overlap.ok({ lossPct: 0 }),
   'deforestation_overlap.flag': evidence.deforestation_overlap.flag({ lossPct: 9.5 }),
   'deforestation_overlap.fail': evidence.deforestation_overlap.fail({ lossPct: 25 }),

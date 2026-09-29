@@ -28,9 +28,22 @@ Branch `build/stage7` (from `main` @ `b397c08`). Protocol: technical-plan.md §2
 | TASK-3 | 02.10 media store + context | done | 32f8637 | int tests PASS | | |
 | TASK-3 | 02.11 pipeline + NDJSON route | done | c7d3506, d43d586 (fix round 1) | TC-010, EVAL-067 PASS | | |
 | TASK-3 | 02.12 tracer page + seed | done | 8927b17, 802e0a2 (E2E_PORT) | TC-013, EVAL-001/002 PASS | scratchpad qa/P2 tracer-verdict-375x812.png | |
+| TASK-4 (TKT-03) | 03.1 dataset loader | done | 3f79e16 | TC-017 PASS | QA P3 | |
+| TASK-4 | 03.2 plot + RS fixtures | done | 5331107 | fixtures tests PASS | | |
+| TASK-4 | 03.3 fixture provider | done | c8e5ad8 | PASS | | `ProviderError` added to RS types |
+| TASK-4 | 03.4 mutation engine | done | ff7ccb1 | TC-014 PASS | | `client_clock` sign (EXE4) |
+| TASK-4 | 03.5 scorers | done | 71a641e | Wilson/detection/FP tests PASS | | |
+| TASK-4 | 03.6 runner + report | done | 7c93ac4, 172ce90 (fix round 1) | TC-015, TC-016, EVAL-091, EVAL-092 PASS | | fails closed; exit 2 = crash |
+| TASK-4 | 03.7 baseline-v0 | done | 6b0c538 (merge 85c1861) | reproduces at dataset 0.2.0 | `evals/results/baseline-v0-ledger-only.json` | detection 0/26; CF-01 on 10 hard-fail attacks |
+| TASK-5 (TKT-04) | 04.1 Better Auth | done | 9f0b08d, b774c4f | int tests PASS | QA P3 | `auth@1.7.6` CLI (EXE5) |
+| TASK-5 | 04.2 guards | done | 35c472a | TC-018 matrix PASS | | |
+| TASK-5 | 04.3 route groups | done | 41e5868 | TC-018 PASS | | `src/proxy.ts`; wrong role redirects (EXE5) |
+| TASK-5 | 04.4 guard coverage | done | eb8083e, 41384f0 (fix round 1) | PASS (planted fixtures) | | stricter rule (EXE5) |
+| TASK-5 | 04.5 seed + org scope | done | c11b7ee | TC-019 PASS (batch part → TKT-14) | | |
+| TASK-5 | 04.6 sign-in screen | done | f8ac500 (merge edcf4d3) | TC-020, TC-080/081 PASS | scratchpad qa/P3 sign-in 375/1440 | |
 
 ## Decisions and parked items
-- EXE1 (owner gate waiver), EXE2 (TKT-01 toolchain), EXE3 (TKT-02 foundations: `writeTx`, boundary statuses, test route, `E2E_PORT`) are in `decisions.md`.
+- EXE1 (owner gate waiver), EXE2 (TKT-01 toolchain), EXE3 (TKT-02 foundations: `writeTx`, boundary statuses, test route, `E2E_PORT`), EXE4 (harness semantics), EXE5 (auth under Next 16 and Better Auth; `device_not_owned` not anchored) are in `decisions.md`.
 - QA-P1-1 (low, parked → TKT-15 health work): when env is invalid in production (e.g. no `BETTER_AUTH_SECRET`), `/api/health` answers 503 `db:"error"` and logs `health.config_invalid`, so a config fault reads as a DB fault in the body. No values leak.
 - Carried to later tickets from the TKT-02 review: re-evaluating stored boundary rejections for the same `payload_hash` and the duplicate-resend race go to TKT-09; binding the device to the session agent before the replay lookup goes to TKT-04; anonymous ledger growth goes to TKT-04/19; aborting remote checks at the 10 s cap goes to TKT-07; the concurrent same-photo race goes to TKT-19.
 - QA-P2-1 (low, parked → TKT-10): the temporary tracer page's file input overflows at 375 px, and TKT-10 replaces the page.
@@ -62,3 +75,23 @@ Branch `build/stage7` (from `main` @ `b397c08`). Protocol: technical-plan.md §2
 - **P1 regressions:** TC-001 (TKT-01 part), TC-002 (local), TC-004, TC-005 PASS.
 - **Eval delta:** none yet (harness in P3).
 - **Open:** GitHub Actions still assigns no runners (commented on PR #1); QA-P2-1 parked to TKT-10.
+
+---
+
+## Gate P3 — TKT-03 (TASK-4) ∥ TKT-04 (TASK-5) · PASS · 2026-09-29
+- **Reviews:**
+  - TKT-03: spec PASS. Quality FAIL → fix round 1 (172ce90) → PASS. Two majors fixed: an unreadable baseline no longer fails open (it now fails integrity and fires CF-13), and a case with zero assertions no longer passes. Minors fixed: per-case watchdog, `InvalidMutationParam`, report names validated with no overwrite, crash exit code 2.
+  - TKT-04: spec PASS. Quality FAIL → fix round 1 (41384f0) → PASS. Major fixed: a swallowing `catch` no longer bypasses the guard-coverage test. Minors fixed: role matches group, pages and layouts guarded, all `'use server'` files scanned, sign-in error classes, exact refusal codes, seed default only in dev/test, cookie-attribute test.
+- **Gate commands (independent QA, @ 41384f0, which also holds P4's TKT-08 and TKT-15):**
+  - `pnpm typecheck && pnpm lint && pnpm test`: 673 passed. `pnpm test:int`: 141 passed.
+  - `pnpm eval:validate`: dataset 0.3.0, 109 cases.
+  - `E2E_PORT=3103 pnpm test:e2e`: 68 passed. `pnpm build` ok.
+- **`pnpm eval` (exit 1 expected while checks are missing):** 64 active · 20 passed · 44 failed (41 `not_yet_implemented`) · 0 errored · 0 skipped. Gates: S1 50.0 % (15/30) FAIL · S1-floor FAIL · S2 FAIL (14/14 legitimate cases still wait on 5 unbuilt checks) · S6-lib 0/8 FAIL (proof suite registration in the TKT-15 fix round) · S7 PASS · CF 0.
+- **Baseline:** baseline-v0 (ledger only, dataset 0.2.0, seed 20260929) reproduces exactly. Detection 0/26 and CF-01 fire on all 10 hard-fail attacks — the "just put it on a ledger" number.
+- **Eval delta vs baseline-v0:** S1 0/26 → 15/30 (includes TKT-08's scenario 1: 11/11).
+- **Running build:** all three roles sign in and land home. A wrong password gets the inline error. The wrong role is redirected. Signed-out users get 307 to `/sign-in`. `/verify/x` is public. `/api/capture` answers 401 without a session and 403 for admin/buyer.
+- **TC/EVAL:**
+  - PASS: TC-014–020, TC-080/081 (sign-in and shells), EVAL-080, 091, 092.
+  - TC-019: batch and HTTP-level cross-org parts wait for TKT-14 (QA-P3-2).
+  - P1–P2 regressions: PASS.
+- **Open:** QA-P3-1 (compare later runs to baseline-v0 by case ID, since the dataset grew); QA-P3-2 → TKT-14. GitHub Actions still has no runners.

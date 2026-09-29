@@ -9,15 +9,27 @@ import {
 } from '../../../tests/helpers/verify';
 import { CONFIG, CONFIG_HASH } from './config';
 import { REGISTRY, type Check } from './registry';
-import type { CheckResult } from './types';
+import type { CheckResult, Submission } from './types';
 import { runCheck, verify, verifyWith } from './verify';
 
+/** The TKT-02 checks: the verify() mechanics below are tested over them, whatever else is registered. */
+const CORE = REGISTRY.filter((c) => ['signature_valid', 'photo_uniqueness', 'geofence'].includes(c.id));
+/** Photos whose EXIF agrees with the phone (same place, same time), as an honest capture's do. */
+const withMatchingExif = (sub: Submission): Submission => ({
+  ...sub,
+  media: sub.media.map((m) => ({ ...m, exif: { gps: { lat: sub.payload.gps.lat, lng: sub.payload.gps.lng }, takenAt: sub.payload.capturedAt } })),
+});
+
 describe('registry', () => {
-  it('holds the three TKT-02 checks in §6.3 order; the rest are simply absent', () => {
+  it('holds the checks built so far in §6.3 order; the rest are simply absent', () => {
     expect(REGISTRY.map((c) => [c.id, c.kind])).toEqual([
       ['signature_valid', 'local'],
       ['photo_uniqueness', 'local'],
       ['geofence', 'local'],
+      ['gps_accuracy', 'local'],
+      ['exif_gps_agreement', 'local'],
+      ['exif_time_agreement', 'local'],
+      ['movement_plausibility', 'local'],
     ]);
   });
 });
@@ -127,9 +139,9 @@ describe('photo_uniqueness', () => {
 describe('verify() (§6.1)', () => {
   it('EVAL-001 clean capture at plot centre, first event on the device → Verified', async () => {
     const d = await makeDevice();
-    const res = await verify(await makeSubmission({ device: d, gps: { ...CENTRE, accuracyM: 8 } }), makeContext(d));
+    const res = await verify(withMatchingExif(await makeSubmission({ device: d, gps: { ...CENTRE, accuracyM: 8 } })), makeContext(d));
     expect(res).toMatchObject({ verdict: 'Verified', score: 100, capReasons: [], unavailableProviders: [] });
-    expect(res.checks.map((c) => c.status)).toEqual(['ok', 'ok', 'ok']);
+    expect(res.checks.map((c) => c.status)).toEqual(REGISTRY.map(() => 'ok'));
     expect(res.config).toEqual({ version: 'cfg-1', hash: CONFIG_HASH });
   });
 
@@ -150,14 +162,14 @@ describe('verify() (§6.1)', () => {
     });
     ctx.device.lastSeq = 1;
     ctx.device.lastEventHash = first.payloadHash;
-    const res = await verify(sub, ctx);
+    const res = await verify(withMatchingExif(sub), ctx);
     expect(res.verdict).toBe('Verified');
     expect(res.checks.find((c) => c.id === 'geofence')?.evidence).toBe('Inside the plot, 40 m from the edge');
   });
 
   it('fills weight and score from cfg-1 and returns checks in registry order', async () => {
     const d = await makeDevice();
-    const res = await verify(await makeSubmission({ device: d, gps: { ...northOfTop(12), accuracyM: 20 } }), makeContext(d));
+    const res = await verifyWith(CORE, await makeSubmission({ device: d, gps: { ...northOfTop(12), accuracyM: 20 } }), makeContext(d));
     expect(res.checks.map((c) => [c.id, c.weight, c.score])).toEqual([
       ['signature_valid', 1, 1],
       ['photo_uniqueness', 1, 1],
@@ -168,7 +180,7 @@ describe('verify() (§6.1)', () => {
   it('calls onCheck once per finished check', async () => {
     const d = await makeDevice();
     const seen: string[] = [];
-    await verify(await makeSubmission({ device: d }), makeContext(d), { onCheck: (r) => seen.push(`${r.id}:${r.status}`) });
+    await verifyWith(CORE, await makeSubmission({ device: d }), makeContext(d), { onCheck: (r) => seen.push(`${r.id}:${r.status}`) });
     expect(seen.sort()).toEqual(['geofence:ok', 'photo_uniqueness:ok', 'signature_valid:ok']);
   });
 
@@ -183,7 +195,7 @@ describe('verify() (§6.1)', () => {
 
   it('a throwing onCheck callback does not break verify()', async () => {
     const d = await makeDevice();
-    const res = await verify(await makeSubmission({ device: d }), makeContext(d), {
+    const res = await verifyWith(CORE, await makeSubmission({ device: d }), makeContext(d), {
       onCheck: () => {
         throw new Error('listener broke');
       },
@@ -216,7 +228,7 @@ describe('a throwing check (TC-012, EVAL-018, CF-03)', () => {
 
   it('EVAL-018 the other checks still run and the verdict is Needs Review, never Rejected; verify() resolves', async () => {
     const d = await makeDevice();
-    const res = await verifyWith([...REGISTRY, thrower], await makeSubmission({ device: d }), makeContext(d));
+    const res = await verifyWith([...CORE, thrower], await makeSubmission({ device: d }), makeContext(d));
     expect(res.checks.map((c) => [c.id, c.status])).toEqual([
       ['signature_valid', 'ok'],
       ['photo_uniqueness', 'ok'],
@@ -252,7 +264,7 @@ describe('remote phase', () => {
     const order: string[] = [];
     const config = { ...CONFIG, providers: { ...CONFIG.providers, remotePhaseCapMs: 50 } };
     const res = await verifyWith(
-      [...REGISTRY, slow('deforestation_overlap', 'gfw', 5), slow('ndvi_harvest_window', 'sentinel-hub', 5_000)],
+      [...CORE, slow('deforestation_overlap', 'gfw', 5), slow('ndvi_harvest_window', 'sentinel-hub', 5_000)],
       await makeSubmission({ device: d }),
       makeContext(d),
       { onCheck: (r) => order.push(r.id) },
