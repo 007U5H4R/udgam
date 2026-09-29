@@ -9,14 +9,24 @@ import type { PlotPolygon } from '../geo/types';
  */
 export type PlotGeom = { id: string; polygon: PlotPolygon; areaHa: number; geometryHash: string };
 
-/** Per-call options. `signal` carries the caller's timeout (TKT-07 wraps every call in AbortSignal.timeout). */
+/**
+ * Per-call options. `signal` carries the caller's deadline: the 8 s per-call timeout (withTimeouts) and
+ * the verifier's 10 s remote-phase cap. An aborted call rejects with a `timeout` ProviderError.
+ */
 export type CallOptions = { signal?: AbortSignal };
+
+/** `datasetVersion`: the GFW dataset version that answered (the live adapter pins the resolved one). */
+export type ForestLoss = { lossHa: number; lossPct: number; yearsFrom: number; dataYear: number; datasetVersion?: string };
+export type NdviHistory = { months: { month: string; mean: number | null; clearFraction: number }[] };
+export type NdviWindow = { mean: number | null; clearObservations: number };
 
 export interface RemoteSensingProvider {
   name: 'fixture' | 'live';
-  forestLoss(plot: PlotGeom, opts?: CallOptions): Promise<{ lossHa: number; lossPct: number; yearsFrom: number; dataYear: number }>;
-  ndviHistory(plot: PlotGeom, endMonth: string, opts?: CallOptions): Promise<{ months: { month: string; mean: number | null; clearFraction: number }[] }>;
-  ndviWindow(plot: PlotGeom, centreDate: string, days: number, opts?: CallOptions): Promise<{ mean: number | null; clearObservations: number }>;
+  forestLoss(plot: PlotGeom, opts?: CallOptions): Promise<ForestLoss>;
+  /** The 12 calendar months ending at `endMonth` (YYYY-MM). */
+  ndviHistory(plot: PlotGeom, endMonth: string, opts?: CallOptions): Promise<NdviHistory>;
+  /** NDVI over [centreDate − days, centreDate + days]; `centreDate` is an IST calendar date (YYYY-MM-DD). */
+  ndviWindow(plot: PlotGeom, centreDate: string, days: number, opts?: CallOptions): Promise<NdviWindow>;
 }
 
 export type ProviderName = 'gfw' | 'sentinel-hub';
