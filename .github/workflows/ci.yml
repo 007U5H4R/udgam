@@ -71,7 +71,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # A stub that exits 0 with a ::warning:: until TKT-03 replaces it with real dataset validation.
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # TC-017: ajv (JSON Schema 2020-12) plus unique IDs and case references; fails naming the path.
       - run: pnpm eval:validate
 
   setup-idempotent:
