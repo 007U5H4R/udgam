@@ -95,3 +95,56 @@ test('TC-050 (b) / EVAL-068: the server commits but the answer is lost → Try a
   const rows = await dbRows<{ id: string; boundary_status: string }>('SELECT id, boundary_status FROM harvest_events WHERE payload_hash = ?', [hash]);
   expect(rows).toEqual([expect.objectContaining({ id: original!.eventId, boundary_status: 'accepted' })]);
 });
+
+// TSK-11.3: pickings saved on this phone are listed above the sent ones with "Send now" (no verdict chip:
+// the row is not a verdict). Send now sends them oldest first, one at a time, as the identical signed
+// copies. Two pickings saved offline carry the same seq, so the second is flagged by chain_continuity on
+// the server; Home shows each one's verdict as the server gave it.
+test('TSK-11.3: two pickings saved offline → two "Saved on this phone" rows above the sent ones; Send now sends both, oldest first, and Home shows the server\'s verdicts', async ({ page, context }) => {
+  const seed = seedCaptureWorld({ events: ['40:Verified'] });
+  await openField(page, context, seed);
+  await page.route('**/api/capture', (r) => r.abort('internetdisconnected'));
+  for (const kg of ['42.5', '38']) {
+    await typePicking(page, seed, { photos: 1, kg });
+    await page.locator('#send-btn').click();
+    await page.getByTestId('saved-sheet').getByRole('button', { name: 'Try later' }).click();
+    await expect(page).toHaveURL(/\/field$/);
+  }
+  const saved = await readOutbox(page);
+  expect(saved.map((i) => (JSON.parse(i.payload) as { seq: number; cherryKg: number }).cherryKg)).toEqual([42.5, 38]);
+  expect(saved.map((i) => (JSON.parse(i.payload) as { seq: number }).seq)).toEqual([seed.nextSeq, seed.nextSeq]);
+
+  const pending = page.getByTestId('pending-rows').locator('li');
+  await expect(pending).toHaveCount(2);
+  await expect(pending.first()).toHaveClass(/\brow\b/);
+  await expect(pending.first().locator('.r-date')).toHaveText('Saved on this phone');
+  await expect(pending.locator('.r-kg')).toHaveText(['42.5 kg', '38.0 kg']);
+  await expect(pending.first().getByRole('button', { name: 'Send now' })).toBeVisible();
+  await expect(pending.locator('.vchip, .mk')).toHaveCount(0);
+  // above the sent entries
+  const pendingBox = (await page.getByTestId('pending-rows').boundingBox())!;
+  const sentBox = (await page.getByTestId('home-rows').boundingBox())!;
+  expect(pendingBox.y + pendingBox.height).toBeLessThanOrEqual(sentBox.y);
+  await expectNoHorizontalScroll(page);
+
+  await page.unroute('**/api/capture');
+  await pending.first().getByRole('button', { name: 'Send now' }).click();
+  await expect(page.getByTestId('pending-rows')).toHaveCount(0, { timeout: 90_000 });
+  expect(await readOutbox(page)).toEqual([]);
+
+  const events = await dbRows<{ id: string; cherry_kg: number; final_verdict: string; checks: string }>(
+    `SELECT e.id, e.cherry_kg, e.final_verdict, r.checks FROM harvest_events e JOIN verification_runs r ON r.event_id = e.id
+     WHERE e.payload_hash IN (?, ?) ORDER BY e.anchor_seq`,
+    saved.map((i) => payloadHash(i.payload)),
+  );
+  expect(events.map((e) => e.cherry_kg)).toEqual([42.5, 38]);
+  const chain = (e: { checks: string }) => (JSON.parse(e.checks) as { id: string; status: string }[]).find((c) => c.id === 'chain_continuity')!.status;
+  expect(events.map(chain)).toEqual(['ok', 'flag']);
+  // Home shows each picking with the verdict the server recorded (the newest first)
+  const sent = page.getByTestId('home-rows').locator('li');
+  const word = { Verified: 'Verified', 'Needs Review': 'Needs a check', Rejected: 'Not accepted' } as Record<string, string>;
+  await expect(sent.nth(0)).toHaveAttribute('data-event', events[1]!.id);
+  await expect(sent.nth(0).locator('.vchip')).toHaveText(word[events[1]!.final_verdict]!);
+  await expect(sent.nth(1)).toHaveAttribute('data-event', events[0]!.id);
+  await expect(sent.nth(1).locator('.vchip')).toHaveText(word[events[0]!.final_verdict]!);
+});

@@ -159,6 +159,11 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'rec.photos1': '1 ಫೋಟೋ', // REVIEW: native speaker
   'rec.photosN': '{n} ಫೋಟೋಗಳು', // REVIEW: native speaker
   'rec.noDevice': 'ಈ ಫೋನ್ ಇನ್ನೂ ಕೊಯ್ಲುಗಳಿಗೆ ಸಿದ್ಧವಾಗಿಲ್ಲ.', // REVIEW: native speaker
+  'pend.label': 'ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ, ಇನ್ನೂ ಕಳುಹಿಸಿಲ್ಲ', // REVIEW: native speaker
+  'pend.saved': 'ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ', // REVIEW: native speaker
+  'pend.send': 'ಈಗ ಕಳುಹಿಸಿ', // REVIEW: native speaker
+  'pend.sending': 'ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'pend.kept': 'ಏನೂ ಕಳೆದುಹೋಗಿಲ್ಲ: ನಿಮ್ಮ ಕೊಯ್ಲುಗಳು ಇನ್ನೂ ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಲಾಗಿವೆ.', // REVIEW: native speaker
   'rec.noFix': 'ನಿಮ್ಮ ಸ್ಥಳ ಇನ್ನೂ ಸಿಗಲಿಲ್ಲ. ಸ್ವಲ್ಪ ಕಾಯಿರಿ, ನಂತರ ಮತ್ತೆ ಕಳುಹಿಸಿ.', // REVIEW: native speaker
   'fe.plot.default': 'ತೋಟ', // REVIEW: native speaker
   'fe.location.inside': 'ನೀವು {plot} ಒಳಗೆ {m} ಇದ್ದಿರಿ', // REVIEW: native speaker

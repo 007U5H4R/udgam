@@ -3,7 +3,7 @@ import type { FormReason } from '../lib/capture/parse';
 import type { CaptureEvent } from '../lib/capture/pipeline';
 import { sha256Hex } from '../lib/crypto';
 import type { CheckId, CheckStatus } from '../lib/verification/types';
-import { advanceDevice, answeredItems, bumpAttempt, deleteOutbox, loadSigner, markAnswered, putOutbox, type Advance } from './capture-store';
+import { advanceDevice, answeredItems, bumpAttempt, deleteOutbox, listOutbox, loadSigner, markAnswered, putOutbox, type Advance, type OutboxItem } from './capture-store';
 import type { GpsWatch } from './gps';
 import { signCapture } from './sign';
 
@@ -302,4 +302,60 @@ export async function sendOutboxItem(
     await settleLocally(item.id, null);
   }
   return r;
+}
+
+/** A stored copy as `sendOutboxItem` takes it: the device and seq are read from the signed payload. */
+export function outboxSend(item: Pick<OutboxItem, 'id' | 'payload' | 'signature' | 'files'>): OutboxSend | null {
+  try {
+    const p = JSON.parse(item.payload) as { deviceId?: unknown; seq?: unknown };
+    if (typeof p.deviceId !== 'string' || typeof p.seq !== 'number' || !Number.isInteger(p.seq)) return null;
+    return { id: item.id, payload: item.payload, signature: item.signature, files: item.files, deviceId: p.deviceId, seq: p.seq };
+  } catch {
+    return null;
+  }
+}
+
+/** The pickings saved on this phone that still need sending (not those the server already answered), oldest first. */
+export async function pendingItems(): Promise<OutboxItem[]> {
+  return (await listOutbox()).filter((i) => i.answered === undefined);
+}
+
+export type PendingResult = { id: string; result: SendResult };
+
+let queue: Promise<PendingResult[]> | null = null;
+
+/**
+ * Send every picking saved on this phone, oldest first and one at a time (technical-plan §9, TKT-11):
+ * each is the identical signed copy (never re-signed, TP7). It stops at the first copy that stays on the
+ * phone (no network, the server busy, or a refusal that signing in again can fix): the ones after it
+ * would meet the same answer, and sending them first would change their order. Two pickings saved
+ * offline were signed with the same seq (the chain head moves only on a verdict), so the second to
+ * arrive is flagged by chain_continuity on the server; the phone shows whatever verdict it gets and
+ * never re-signs to "fix" the seq. A second call while one runs joins it. Never throws.
+ */
+export function sendPending(opts: SendOptions & { keepOnRefusal?: (reason: string) => boolean; onResult?: (r: PendingResult) => void } = {}): Promise<PendingResult[]> {
+  queue ??= (async () => {
+    const out: PendingResult[] = [];
+    try {
+      await finishAnswered();
+      for (const item of await pendingItems().catch(() => [])) {
+        const send = outboxSend(item);
+        if (!send) continue; // not a payload this app signed: left as it is
+        const result = await sendOutboxItem(send, opts);
+        const r = { id: item.id, result };
+        out.push(r);
+        try {
+          opts.onResult?.(r);
+        } catch {
+          // a screen update must never stop the queue
+        }
+        const kept = result.kind === 'retryable' || (result.kind === 'rejected' && (opts.keepOnRefusal?.(result.reason) ?? false));
+        if (kept) break;
+      }
+    } finally {
+      queue = null;
+    }
+    return out;
+  })();
+  return queue;
 }

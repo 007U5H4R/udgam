@@ -19,6 +19,7 @@ import { TabBar } from '../ui/TabBar';
 import { VerdictChip } from '../ui/VerdictChip';
 import { Ic } from './icons';
 import { Lit } from './Lit';
+import { PendingList } from './PendingRow';
 import { useGps } from './useGps';
 
 // Home (final/index.html #s1, TSK-10.5): header with the wordmark and the language chip, the greeting
@@ -137,6 +138,7 @@ export function HomeClient({
       )}
 
       <h2 className="sec-h">{tr('home.recent')}</h2>
+      <PendingList lang={lang} />
       {rows.length === 0 ? (
         <p className="lede" data-testid="home-empty">
           {tr('home.empty')}

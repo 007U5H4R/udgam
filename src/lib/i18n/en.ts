@@ -227,6 +227,12 @@ export const en = {
   'rec.photosN': '{n} photos',
   'rec.noDevice': 'This phone is not set up for pickings yet.',
   'rec.noFix': 'Your location is not found yet. Wait a moment, then send again.',
+  // Saved on this phone, not sent yet (TKT-11, TSK-11.3)
+  'pend.label': 'Saved on this phone, not sent yet',
+  'pend.saved': 'Saved on this phone',
+  'pend.send': 'Send now',
+  'pend.sending': 'Sending…',
+  'pend.kept': 'Nothing is lost: your pickings are still saved on this phone.',
   // Farmer evidence lines on the verdict screens (TKT-10, src/lib/i18n/farmer-evidence.ts). Numbers come
   // from the verifier's evidence as written ({m} = "14 m", {pct} = "18.0%", {d} = "3 h", {x} = "1.75x").
   'fe.plot.default': 'the plot',

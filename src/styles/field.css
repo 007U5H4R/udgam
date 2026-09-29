@@ -1226,6 +1226,11 @@ html[lang='kn'] body {
   padding-bottom: 4px;
 }
 
+/* Pickings saved on this phone sit above the sent ones, one row gap apart (TSK-11.3). */
+.rows.pending {
+  margin-bottom: 10px;
+}
+
 /* ── Help sheet rows (TKT-11, index.html lines 283–284) ── */
 .help-row {
   display: flex;
