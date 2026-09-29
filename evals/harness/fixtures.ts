@@ -43,6 +43,9 @@ const ANCHORS: Record<string, { place: string; lat: number; lng: number }> = {
   X05: { place: 'Koppa, Chikkamagaluru', lat: 13.5310, lng: 75.3580 },
   X06: { place: 'Kalasa, Chikkamagaluru', lat: 13.2360, lng: 75.3540 },
   X07: { place: 'Baba Budangiri foothills, Chikkamagaluru', lat: 13.4200, lng: 75.7500 },
+  X08: { place: 'Jayapura, Chikkamagaluru', lat: 13.4420, lng: 75.4080 },
+  X09: { place: 'Sringeri, Chikkamagaluru', lat: 13.4200, lng: 75.2570 },
+  X10: { place: 'Kushalnagar, Kodagu', lat: 12.4580, lng: 75.9600 },
 };
 
 export type PlotFeature = {

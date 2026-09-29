@@ -1,0 +1,44 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "X08",
+    "role": "adversarial",
+    "area_ha": 2,
+    "shape": "convex",
+    "anchor": {
+      "place": "Jayapura, Chikkamagaluru",
+      "lat": 13.442,
+      "lng": 75.408
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 4001173111
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.4072386,
+          13.4414071
+        ],
+        [
+          75.4088816,
+          13.4415942
+        ],
+        [
+          75.4087614,
+          13.4425929
+        ],
+        [
+          75.4071184,
+          13.4424058
+        ],
+        [
+          75.4072386,
+          13.4414071
+        ]
+      ]
+    ]
+  }
+}

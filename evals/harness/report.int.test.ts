@@ -31,7 +31,7 @@ describe('provenance (evaluation-plan §12)', () => {
       git: { commit: expect.stringMatching(/^[0-9a-f]{40}$/), shortSha: expect.any(String), branch: expect.any(String), dirty: expect.any(Boolean) },
       environment: expect.stringMatching(/^(local|ci)$/),
       dataset: { version: loadDataset().version, sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
-      fixtures: { version: expect.any(String), sha256: expect.stringMatching(/^[0-9a-f]{64}$/), files: 36 },
+      fixtures: { version: expect.any(String), sha256: expect.stringMatching(/^[0-9a-f]{64}$/), files: 42 },
       config: { version: 'cfg-1', hash: expect.stringMatching(/^[0-9a-f]{64}$/), mode: 'full', object: expect.any(Object) },
       provider: 'fixture',
       yieldReference: { version: expect.any(String), source: 'placeholder', placeholder: true, row: { maxKgHa: 1000, cherryToCleanRatio: 0.2 } },

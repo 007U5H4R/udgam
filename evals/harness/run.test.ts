@@ -85,9 +85,10 @@ describe('the harness never hides a case (TC-015, EVAL-092)', () => {
     expect(byId.get('EVAL-103')).toMatchObject({ suite: 'harness-proof', outcome: 'not_yet_implemented' });
 
     const t = run.totals;
-    // dataset 0.3.0: EVAL-110–113 (TKT-08) assert geofence/EXIF/movement checks, so they are not_yet_implemented here too.
+    // dataset 0.3.0: EVAL-110–113 (TKT-08) assert geofence/EXIF/movement checks, so they are not_yet_implemented here too;
+    // dataset 0.4.0: so are EVAL-106–108 (TKT-07, satellite checks).
     // + 7 harness-proof passes (EVAL-058–063, 066); EVAL-103 is not yet implemented.
-    expect(t).toMatchObject({ ok: true, active: 64, passed: 9, failed: 54, notYetImplemented: 54, errored: 1, skipped: 0 });
+    expect(t).toMatchObject({ ok: true, active: 67, passed: 9, failed: 57, notYetImplemented: 57, errored: 1, skipped: 0 });
     expect(t.active).toBe(t.passed + t.failed + t.errored);
     expect(run.cases).toHaveLength(t.active);
     expect(run.summary.exitCode).toBe(1);
@@ -98,7 +99,7 @@ describe('the harness never hides a case (TC-015, EVAL-092)', () => {
     const run = await evaluate({ seed: 1 });
     const ids = run.cases.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(run.totals.active).toBe(64); // 53 active + 3 stretch harness-verifier, 8 harness-proof (dataset 0.3.0: + EVAL-110–113)
+    expect(run.totals.active).toBe(67); // 53 active + 3 stretch harness-verifier, 8 harness-proof (dataset 0.3.0: + EVAL-110–113; 0.4.0: + EVAL-106–108)
     expect(run.totals.skipped).toBe(0);
     expect(run.totals.ok).toBe(true);
   }, 60_000);
@@ -138,7 +139,7 @@ describe('per-case watchdog', () => {
     });
     const c = run.cases.find((x) => x.id === 'EVAL-001')!;
     expect(c).toMatchObject({ outcome: 'errored', result: null, error: { class: 'CaseTimeout', message: 'timeout: the case did not settle within 2000 ms' } });
-    expect(run.totals).toMatchObject({ active: 56, errored: 1, skipped: 0, ok: true }); // harness-verifier, dataset 0.3.0
+    expect(run.totals).toMatchObject({ active: 59, errored: 1, skipped: 0, ok: true }); // harness-verifier, dataset 0.4.0
   });
 
   it('the limit is the case own max_latency_ms when it has one, else 30 s', () => {

@@ -13,9 +13,9 @@ const plots = generatePlotFixtures(ds);
 const byId = new Map(plots.map((p) => [p.feature.properties.id, p]));
 
 describe('generatePlotFixtures', () => {
-  it('makes one fixture for every dataset plot: P01–P10, E01, X01–X07', () => {
+  it('makes one fixture for every dataset plot: P01–P10, E01, X01–X10', () => {
     expect([...byId.keys()].sort()).toEqual(ds.fixtures.plots.map((p) => p.id).sort());
-    expect(byId.size).toBe(18);
+    expect(byId.size).toBe(21); // dataset 0.4.0 added X08–X10 (TKT-07)
   });
 
   it.each(ds.fixtures.plots.map((p) => [p.id, p.area_ha] as const))('%s area is within 0.5 %% of %s ha', (id, ha) => {
