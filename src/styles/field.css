@@ -459,6 +459,30 @@ html[lang='kn'] body {
   letter-spacing: -0.01em;
 }
 
+/* Loading skeleton (Design.md §18: a skeleton of the plot line and the list, no spinner). Composed
+   from the surface tokens; static (no shimmer: motion is reserved for the cherry). */
+.skel {
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.skel-map {
+  height: 150px;
+  margin: 8px 0 12px;
+  border-radius: 16px;
+}
+.skel-line {
+  height: 22px;
+  margin-top: 10px;
+  width: 80%;
+}
+.skel-line.short {
+  width: 45%;
+}
+.skel-pill {
+  min-height: 60px;
+  border-radius: 999px;
+}
+
 /* Floating glass tab bar */
 .tabbar {
   position: sticky;

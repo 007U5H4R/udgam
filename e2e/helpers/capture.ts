@@ -55,7 +55,7 @@ export async function injectDevice(page: Page, seed: SeededCapture): Promise<voi
   );
 }
 
-/** Sign in as the seeded agent at a GPS fix, open /field and put the phone key in place. */
+/** Sign in as the seeded agent at a GPS fix, open /field, put the phone key in place and reload. */
 export async function openField(
   page: Page,
   context: BrowserContext,
@@ -66,6 +66,7 @@ export async function openField(
   await signIn(page, seed.agentEmail, seed.testOnlyAgentPassword);
   await expect(page).toHaveURL(/\/field$/);
   await injectDevice(page, seed);
+  await page.reload();
 }
 
 /** No horizontal page scroll: the document is no wider than the viewport (not innerWidth, which emulated phones widen). */

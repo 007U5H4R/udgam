@@ -1,44 +1,76 @@
-import { and, desc, eq } from 'drizzle-orm';
-import { GlassCard } from '../../../components/ui/GlassCard';
-import { Pill } from '../../../components/ui/Pill';
-import { TabBar } from '../../../components/ui/TabBar';
-import { VerdictChip } from '../../../components/ui/VerdictChip';
-import { Ic } from '../../../components/field/icons';
+import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
+import { HomeClient, type HomePlotView, type HomeRow } from '../../../components/field/HomeClient';
+import { ha1, istDayMonth, istIsoDate, istLongDate, istPartOfDay, istShortDay, kg1 } from '../../../components/field/format';
+import { HomeError, HomeSkeleton } from '../../../components/field/HomeStates';
+import { env } from '../../../lib/config/env';
 import { getDbReady } from '../../../lib/db/client';
-import { harvestEvents } from '../../../lib/db/schema';
-import { t } from '../../../lib/i18n';
+import { getFieldHome, type FieldHome } from '../../../lib/db/queries/field-home';
+import { isLang, LANG_COOKIE, t, type Lang } from '../../../lib/i18n';
+import { log } from '../../../lib/log';
 import { requireSession } from '../../_auth/require';
 
-// /field — Home (index.html #s1). The ported components in place; TSK-10.5 adds the plot card.
+// /field — the capture Home (technical-plan §3.2, final/index.html #s1, TSK-10.5). The plot the agent
+// picked most recently is preselected (Design.md §8); `?plot=` switches to another assigned plot.
+// `?state=loading|empty|error` renders that state in dev and e2e builds only (§11).
 export const dynamic = 'force-dynamic';
+export const metadata: Metadata = { title: 'Home · Udgam' };
 
-export default async function FieldHome() {
+type Forced = 'loading' | 'empty' | 'error' | null;
+
+function forcedState(v: unknown): Forced {
+  if (env.NODE_ENV === 'production' && env.E2E !== '1') return null;
+  return v === 'loading' || v === 'empty' || v === 'error' ? v : null;
+}
+
+function view(home: FieldHome, lang: Lang): { plots: HomePlotView[]; rows: HomeRow[] } {
+  const tr = (key: Parameters<typeof t>[0], vars: Record<string, string | number> = {}) => t(key, vars, lang);
+  return {
+    plots: home.plots.map((p) => {
+      const crop = tr(p.crop === 'arabica' ? 'crop.arabica' : 'crop.robusta');
+      return {
+        id: p.id,
+        name: tr('home.plotName', { n: p.ordinal }),
+        farmerName: p.farmerName,
+        geojson: p.geojson,
+        facts: p.lastPickedAt
+          ? tr('home.facts', { ha: ha1(p.areaHa), crop, date: istDayMonth(p.lastPickedAt, lang) })
+          : tr('home.factsNew', { ha: ha1(p.areaHa), crop }),
+      };
+    }),
+    rows: home.recent.map((r) => ({ eventId: r.eventId, date: istShortDay(r.receivedAt, lang), kg: tr('home.kg', { kg: kg1(r.cherryKg) }), verdict: r.verdict })),
+  };
+}
+
+export default async function FieldHome({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const agent = await requireSession('agent');
-  const db = await getDbReady();
-  const rows = await db
-    .select({ id: harvestEvents.id, kg: harvestEvents.cherryKg, at: harvestEvents.serverReceivedAt, verdict: harvestEvents.finalVerdict })
-    .from(harvestEvents)
-    .where(and(eq(harvestEvents.agentId, agent.userId), eq(harvestEvents.boundaryStatus, 'accepted')))
-    .orderBy(desc(harvestEvents.serverReceivedAt))
-    .limit(3);
+  const params = await searchParams;
+  const forced = forcedState(params.state);
+  const cookie = (await cookies()).get(LANG_COOKIE)?.value;
+  const lang: Lang = isLang(cookie) ? cookie : 'en';
+
+  if (forced === 'loading') return <HomeSkeleton lang={lang} />;
+  let home: FieldHome | null = null;
+  if (forced !== 'error') {
+    try {
+      home = await getFieldHome(await getDbReady(), agent.userId, agent.orgId);
+    } catch (err) {
+      log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'field.home_failed');
+    }
+  }
+  if (!home) return <HomeError lang={lang} />;
+  if (forced === 'empty') home = { ...home, recent: [] };
+
+  const now = new Date().toISOString();
+  const { plots, rows } = view(home, lang);
+  const wanted = typeof params.plot === 'string' ? params.plot : null;
   return (
-    <main className="screen has-tabs">
-      <h1 className="vh">{t('tabs.home')}</h1>
-      <Pill className="record" icon={<Ic name="camera" />}>
-        {t('home.record')}
-      </Pill>
-      <h2 className="sec-h">{t('home.recent')}</h2>
-      <ul className="rows">
-        {rows.map((r) => (
-          <GlassCard as="li" card={false} className="row" key={r.id}>
-            <span>
-              <span className="r-kg">{t('home.kg', { kg: (r.kg ?? 0).toFixed(1) })}</span>
-            </span>
-            {r.verdict ? <VerdictChip verdict={r.verdict} /> : null}
-          </GlassCard>
-        ))}
-      </ul>
-      <TabBar current="home" />
-    </main>
+    <HomeClient
+      lang={lang}
+      greeting={{ text: t(`home.greet.${istPartOfDay(now)}`, {}, lang), dateIso: istIsoDate(now), date: istLongDate(now, lang) }}
+      plots={plots}
+      selectedId={plots.some((p) => p.id === wanted) ? wanted : (plots[0]?.id ?? null)}
+      rows={rows}
+    />
   );
 }

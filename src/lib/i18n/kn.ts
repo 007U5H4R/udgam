@@ -43,6 +43,36 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'home.recent': 'ನಿಮ್ಮ ಇತ್ತೀಚಿನ ಕೊಯ್ಲುಗಳು', // REVIEW: native speaker
   'home.kg': '{kg} ಕೆಜಿ', // REVIEW: native speaker
 
+  'home.greet.morning': 'ಶುಭೋದಯ', // REVIEW: native speaker
+  'home.greet.afternoon': 'ಶುಭ ಮಧ್ಯಾಹ್ನ', // REVIEW: native speaker
+  'home.greet.evening': 'ಶುಭ ಸಂಜೆ', // REVIEW: native speaker
+  'home.plotName': 'ತೋಟ {n}', // REVIEW: native speaker
+  'home.inside': 'ನೀವು {plot} ಒಳಗೆ ಇದ್ದೀರಿ', // REVIEW: native speaker
+  'home.outside': 'ನೀವು {plot} ಇಂದ {m} ದೂರದಲ್ಲಿದ್ದೀರಿ', // REVIEW: native speaker
+  'home.finding': 'ನಿಮ್ಮ ಸ್ಥಳ ಹುಡುಕಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'home.denied': 'ಸ್ಥಳ ಆಫ್ ಆಗಿದೆ', // REVIEW: native speaker
+  'home.deniedHelp': 'ಬ್ರೌಸರ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ Udgam ಗೆ ಸ್ಥಳ ಅನುಮತಿಸಿ, ನಂತರ ಹಿಂತಿರುಗಿ.', // REVIEW: native speaker
+  'home.facts': '{ha} ಹೆ · {crop} · ಕೊನೆಯ ಕೊಯ್ಲು {date}', // REVIEW: native speaker
+  'home.factsNew': '{ha} ಹೆ · {crop} · ಇನ್ನೂ ಕೊಯ್ಲು ಆಗಿಲ್ಲ', // REVIEW: native speaker
+  'home.changePlot': 'ತೋಟ ಬದಲಿಸಿ', // REVIEW: native speaker
+  'home.choosePlot': 'ಒಂದು ತೋಟ ಆರಿಸಿ', // REVIEW: native speaker
+  'home.close': 'ಮುಚ್ಚಿ', // REVIEW: native speaker
+  'home.you': 'ನೀವು', // REVIEW: native speaker
+  'home.mapLabel': '{plot} ನ ನಕ್ಷೆ. ಬಿಳಿ ಚುಕ್ಕೆ ನೀವು ಇರುವ ಜಾಗ ತೋರಿಸುತ್ತದೆ.', // REVIEW: native speaker
+  'home.mapLabelNoFix': '{plot} ನ ನಕ್ಷೆ.', // REVIEW: native speaker
+  'home.empty': 'ಇನ್ನೂ ಯಾವುದೇ ಕೊಯ್ಲು ದಾಖಲಾಗಿಲ್ಲ', // REVIEW: native speaker
+  'home.noPlots.title': 'ಇನ್ನೂ ನಿಮಗೆ ಯಾವುದೇ ತೋಟ ನಿಯೋಜಿಸಿಲ್ಲ', // REVIEW: native speaker
+  'home.noPlots.body': 'ನಿಮ್ಮ ತೋಟಗಳನ್ನು ನಿಯೋಜಿಸಲು ಕಚೇರಿಗೆ ಕೇಳಿ. ನಿಯೋಜಿಸಿದ ನಂತರ ಅವು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ.', // REVIEW: native speaker
+  'home.error.title': 'ನಿಮ್ಮ ದಾಖಲೆಗಳನ್ನು ತೆರೆಯಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'home.error.body': 'ಉಳಿಸಿದ ಕೊಯ್ಲುಗಳು ಈ ಫೋನಿನಲ್ಲಿ ಸುರಕ್ಷಿತವಾಗಿವೆ.', // REVIEW: native speaker
+  'home.error.retry': 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ', // REVIEW: native speaker
+  'home.loading': 'ನಿಮ್ಮ ತೋಟ ತೆರೆಯಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'home.setUp': 'ಈ ಫೋನ್ ಸಿದ್ಧಪಡಿಸಿ', // REVIEW: native speaker
+  'lang.label': 'ಭಾಷೆ', // REVIEW: native speaker
+  'home.greeting': '{greet} · ', // REVIEW: native speaker
+  'home.plotChoice': '{plot} · {farmer}', // REVIEW: native speaker
+  'lang.kn': 'ಕನ್ನಡ', // REVIEW: native speaker
+  'lang.en': 'English', // REVIEW: native speaker
   'fe.plot.default': 'ತೋಟ', // REVIEW: native speaker
   'fe.location.inside': 'ನೀವು {plot} ಒಳಗೆ {m} ಇದ್ದಿರಿ', // REVIEW: native speaker
   'fe.location.edge': 'ನೀವು {plot} ಹೊರಗೆ {m} ಇದ್ದಿರಿ, GPS ಅನುಮತಿಯ ಒಳಗೆ.', // REVIEW: native speaker

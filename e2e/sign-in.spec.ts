@@ -8,9 +8,10 @@ import { DEMO_ACCOUNTS, SEED_PASSWORD, seedAccounts, signIn } from './helpers/au
 
 test.beforeAll(() => seedAccounts());
 
+/** TC-080: the document is no wider than the viewport (innerWidth is widened on emulated phones, so it can't tell). */
 async function noHorizontalScroll(page: Page) {
-  const { scrollWidth, innerWidth } = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth }));
-  expect(scrollWidth).toBeLessThanOrEqual(innerWidth);
+  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(scrollWidth).toBeLessThanOrEqual(page.viewportSize()!.width);
 }
 
 async function noSeriousAxeViolations(page: Page) {
@@ -20,7 +21,8 @@ async function noSeriousAxeViolations(page: Page) {
 
 test.describe('TC-020 sign-in', () => {
   for (const [who, account, home, heading] of [
-    ['agent', DEMO_ACCOUNTS.agentA, '/field', 'Home'],
+    // The capture Home (TKT-10): its heading says where the phone is, or that no plot is assigned yet.
+    ['agent', DEMO_ACCOUNTS.agentA, '/field', /^(No plot is assigned to you yet|Finding your location…|Location is off|You're .+)$/],
     ['admin', DEMO_ACCOUNTS.adminA, '/admin', 'Review'],
     ['buyer', DEMO_ACCOUNTS.buyerA, '/buyer', 'Batches'],
   ] as const) {

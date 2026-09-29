@@ -11,7 +11,8 @@ function fakeGeo() {
   let success: Success | undefined;
   let failure: Failure | undefined;
   const geo = {
-    watchPosition: vi.fn((s: Success, f?: Failure | null, _opts?: PositionOptions) => {
+    watchPosition: vi.fn((s: Success, f?: Failure | null, opts?: PositionOptions) => {
+      expect(opts).toBeDefined();
       success = s;
       failure = f ?? undefined;
       return 7;
