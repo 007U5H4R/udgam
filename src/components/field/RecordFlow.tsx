@@ -2,10 +2,13 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { sendOutboxItem, submitCapture, type OutboxSend, type SubmitResult } from '../../client/capture-client';
 import { hashFile } from '../../client/hash-file';
+import { refusalKeepsOutbox } from '../../lib/i18n/farmer-evidence';
+import type { CheckId, CheckStatus } from '../../lib/verification/types';
 import { t, type Lang } from '../../lib/i18n';
 import { PhotosStep, SLOTS } from './PhotosStep';
-import { initialFlow, reduce, usedPhotos, type Slot } from './record-flow';
+import { initialFlow, kgValue, reduce, usedPhotos, type FlowAction, type Slot } from './record-flow';
 import { ReviewStep } from './ReviewStep';
 import { useGps } from './useGps';
 import { WeightStep } from './WeightStep';
@@ -24,6 +27,7 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
   const [hashing, setHashing] = useState(false);
   const gps = useGps();
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
+  const sent = useRef<OutboxSend | null>(null);
 
   // Show the farmer's own photos from memory; release them when they change or the flow closes.
   const [f0, f1, f2] = flow.photos.map((p) => p.file);
@@ -59,6 +63,40 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
     } finally {
       setHashing(false);
     }
+  }
+
+  /** The screen's answer to a send: verdict, Not accepted, or saved on the phone. */
+  function settle(r: SubmitResult) {
+    const fail = (a: Omit<Extract<FlowAction, { type: 'fail' }>, 'type'>) => dispatch({ type: 'fail', ...a });
+    if (r.kind === 'verdict') dispatch({ type: 'verdict', v: r.verdict });
+    else if (r.kind === 'rejected') fail(refusalKeepsOutbox(r.reason) ? { kind: 'server', reason: r.reason } : { kind: 'rejected', reason: r.reason });
+    else if (r.kind === 'retryable') fail({ kind: r.cause, ...(r.retryAfterSec !== undefined ? { retryAfterSec: r.retryAfterSec } : {}) });
+    else if (r.reason === 'no_device') fail({ kind: 'rejected', reason: 'unknown_device' });
+    else fail({ kind: 'server', reason: 'no_fix' });
+  }
+
+  const onCheck = (id: CheckId, status: CheckStatus) => dispatch({ type: 'check', id, status });
+
+  /** Send: sign and keep the picking, then upload it; "Try again" re-sends the identical copy (TP7). */
+  async function send() {
+    const cherryKg = kgValue(flow.kg);
+    if (cherryKg === null) return;
+    dispatch({ type: 'send' });
+    let r: SubmitResult;
+    try {
+      if (sent.current) {
+        r = await sendOutboxItem(sent.current, { onCheck, keepOnRefusal: refusalKeepsOutbox });
+      } else {
+        const photos = usedPhotos(flow).map(({ file, sha256, size, mime }) => ({ file, sha256, size, mime }));
+        const out = await submitCapture({ plotId: plot.id, cherryKg, photos, gps: gps.watch() }, { onCheck, keepOnRefusal: refusalKeepsOutbox });
+        if (out.item) sent.current = out.item;
+        r = out;
+      }
+    } catch {
+      r = { kind: 'retryable', cause: 'server' }; // IndexedDB or signing failed: nothing was sent
+    }
+    if (r.kind === 'verdict' || (r.kind === 'rejected' && !refusalKeepsOutbox(r.reason))) sent.current = null;
+    settle(r);
   }
 
   function retake() {
@@ -121,7 +159,7 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
           gps={gps.state}
           onKey={(k) => dispatch({ type: 'key', k })}
           onBack={() => dispatch({ type: 'back' })}
-          onSend={() => dispatch({ type: 'send' })}
+          onSend={() => void send()}
         />
       ) : null}
     </>

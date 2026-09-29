@@ -7,7 +7,7 @@
 
 import { openDB, type IDBPDatabase } from 'idb';
 import { useState, type FormEvent } from 'react';
-import { captureForm, sendCapture } from '../../../../client/capture-client';
+import { sendCapture } from '../../../../client/capture-client';
 import { buildAndSign } from '../../../../client/sign';
 import type { CaptureEvent } from '../../../../lib/capture/pipeline';
 import { sha256Hex } from '../../../../lib/crypto';
@@ -68,14 +68,15 @@ export function TracerClient() {
       const { payloadString, signature } = await buildAndSign(draft, key.privateKey);
       const payloadHash = await sha256Hex(payloadString);
       setSigned(payloadString);
-      await sendCapture(captureForm({ payloadString, signature, files }), (ev) => {
-        if (ev.t === 'check') setChecks((c) => [...c, { id: ev.id, status: ev.status }]);
-        else if (ev.t === 'verdict') {
-          setVerdict(ev);
-          void db.put('device', { ...device, nextSeq: device.nextSeq + 1, lastEventHash: payloadHash } satisfies DeviceRecord);
-        } else if (ev.t === 'rejected') setMessage(`Not accepted: ${ev.reason.replaceAll('_', ' ')}.`);
-        else setMessage('Could not reach the server. Nothing is lost; try again.');
-      });
+      const r = await sendCapture(
+        { payload: payloadString, signature, files },
+        { onCheck: (id, status) => setChecks((c) => [...c, { id, status }]) },
+      );
+      if (r.kind === 'verdict') {
+        setVerdict({ t: 'verdict', ...r.verdict });
+        void db.put('device', { ...device, nextSeq: device.nextSeq + 1, lastEventHash: payloadHash } satisfies DeviceRecord);
+      } else if (r.kind === 'rejected') setMessage(`Not accepted: ${r.reason.replaceAll('_', ' ')}.`);
+      else setMessage('Could not reach the server. Nothing is lost; try again.');
     } catch (err) {
       setMessage(`Could not send: ${err instanceof Error ? err.message : 'unknown error'}.`);
     } finally {
