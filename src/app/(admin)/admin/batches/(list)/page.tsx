@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import { GlassCard } from '../../../../../components/ui/GlassCard';
+import { RailShell } from '../../../../../components/ui/Rail';
 import screen from '../../../../../components/buyer/BatchScreen.module.css';
 import { listOrgBatches, orgNames } from '../../../../../lib/batches/read';
 import { forcedViewState } from '../../../../../lib/batches/view-state';
 import { getDbReady } from '../../../../../lib/db/client';
+import { userName } from '../../../../../lib/enrolment/phones';
 import { t } from '../../../../../lib/i18n';
 import { requireSession } from '../../../../_auth/require';
 import { BatchList } from '../BatchList';
@@ -19,17 +21,19 @@ export default async function BatchesPage({ searchParams }: Props) {
   const me = await requireSession('admin');
   const state = forcedViewState((await searchParams).state);
   const db = await getDbReady();
-  const [batches, names] = await Promise.all([state ? [] : listOrgBatches(db, me.orgId), orgNames(db, [me.orgId])]);
+  const [batches, names, name] = await Promise.all([state ? [] : listOrgBatches(db, me.orgId), orgNames(db, [me.orgId]), userName(db, me.userId)]);
   return (
-    <main className={screen.main}>
-      <BatchList orgName={names.get(me.orgId) ?? ''} batches={batches} state={state} primary />
-      <section className={screen.detail} aria-label={t('batches.pick')}>
-        <div className={screen.dBody}>
-          <GlassCard className={screen.hint}>
-            <p>{t('batches.pick')}</p>
-          </GlassCard>
-        </div>
-      </section>
-    </main>
+    <RailShell current="batches" me={name ? { name } : undefined}>
+      <main className={screen.main}>
+        <BatchList orgName={names.get(me.orgId) ?? ''} batches={batches} state={state} primary />
+        <section className={screen.detail} aria-label={t('batches.pick')}>
+          <div className={screen.dBody}>
+            <GlassCard className={screen.hint}>
+              <p>{t('batches.pick')}</p>
+            </GlassCard>
+          </div>
+        </section>
+      </main>
+    </RailShell>
   );
 }

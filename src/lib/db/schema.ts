@@ -1,5 +1,5 @@
 import { relations, sql } from 'drizzle-orm';
-import { check, index, integer, real, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
+import { check, index, integer, primaryKey, real, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
 
 // technical-plan §4.1, initial slice (TKT-02). Later tickets add tables and columns in new migrations.
 // Times are ISO-8601 UTC strings with milliseconds. JSON columns are text.
@@ -366,4 +366,57 @@ export const custodyTransfers = sqliteTable(
     anchorSeq: anchorSeq(),
   },
   (t) => [index('custody_transfers_batch_idx').on(t.batchId), index('custody_transfers_to_org_idx').on(t.toOrg)],
+);
+
+// ── Enrolment, plot assignment and rate limits (TKT-05) ─────────────────────────────────────────
+
+/**
+ * One-time phone enrolment codes (§10, EVAL-082). Only the SHA-256 of the 6-character code is stored;
+ * single use (`used_at`), 24 h expiry, and `attempts` counts redemption attempts on this code.
+ */
+export const enrollmentCodes = sqliteTable(
+  'enrollment_codes',
+  {
+    codeHash: text('code_hash').primaryKey(),
+    agentId: text('agent_id')
+      .notNull()
+      .references(() => user.id),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => user.id),
+    expiresAt: text('expires_at').notNull(),
+    usedAt: text('used_at'),
+    attempts: integer('attempts').notNull().default(0),
+  },
+  (t) => [index('enrollment_codes_agent_idx').on(t.agentId)],
+);
+
+/**
+ * Which agent may capture for which plot (GAP-2, TP5). A capture for a plot without a live row
+ * (`revoked_at IS NULL`) for the device's agent is refused at the boundary (§6.4).
+ */
+export const agentPlots = sqliteTable(
+  'agent_plots',
+  {
+    agentId: text('agent_id')
+      .notNull()
+      .references(() => user.id),
+    plotId: text('plot_id')
+      .notNull()
+      .references(() => plots.id),
+    assignedAt: text('assigned_at').notNull(),
+    revokedAt: text('revoked_at'),
+  },
+  (t) => [primaryKey({ columns: [t.agentId, t.plotId] }), index('agent_plots_plot_idx').on(t.plotId)],
+);
+
+/** Fixed-window counters (no Redis, N3): `window_start` is epoch seconds, aligned to the window. */
+export const rateLimits = sqliteTable(
+  'rate_limits',
+  {
+    key: text('key').notNull(),
+    windowStart: integer('window_start').notNull(),
+    count: integer('count').notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.key, t.windowStart] })],
 );

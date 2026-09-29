@@ -50,6 +50,9 @@ export default defineConfig({
       BETTER_AUTH_SECRET: randomBytes(32).toString('hex'),
       // Better Auth checks request origins against its base URL: the server's own address on this port.
       BETTER_AUTH_URL: `http://localhost:${PORT}`,
+      // The admin plot editor requests keyed Esri tiles (TKT-06); e2e specs stub every tile host
+      // (helpers/stubs.ts), so this placeholder is never sent anywhere. Not a real key.
+      ARCGIS_API_KEY: 'e2e',
     },
   },
 });

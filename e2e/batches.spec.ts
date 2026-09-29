@@ -1,13 +1,14 @@
 import { execFileSync } from 'node:child_process';
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import type { SeededBatches } from './helpers/seed-batches';
 import { DEMO_ACCOUNTS, SEED_PASSWORD, seedAccounts, signIn } from './helpers/auth';
 import { E2E_DATA_DIR } from './helpers/tracer';
 
 // TKT-14 (TC-059/TC-060 through the screens, EVAL-080) with TC-080 (no horizontal scroll) and TC-081
 // (axe) on every batch screen in its four states. Each Playwright project is one viewport (320, 375,
-// 768, 1440). Every test seeds its own pickings (new random IDs) into the shared e2e database.
+// 768, 1440). Every test seeds its own FPO, admin and pickings (e2e/helpers/seed-batches.ts) into the
+// shared e2e database, so parallel workers never crowd the demo FPO's lists.
 
 test.beforeAll(() => seedAccounts());
 
@@ -20,8 +21,8 @@ function seedBatches(transferTo?: string): SeededBatches {
 }
 
 async function noHorizontalScroll(page: Page) {
-  const { scrollWidth, innerWidth } = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth }));
-  expect(scrollWidth).toBeLessThanOrEqual(innerWidth);
+  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(scrollWidth).toBeLessThanOrEqual(page.viewportSize()!.width);
 }
 
 async function noSeriousAxeViolations(page: Page) {
@@ -36,11 +37,28 @@ async function checkSurface(page: Page) {
 
 const isDesktop = (page: Page) => (page.viewportSize()?.width ?? 0) >= 1100;
 
+/** TKT-05's admin rail (a floating tab bar below 700 px) is present with Batches current. */
+async function expectRail(page: Page) {
+  const rail = page.getByRole('navigation', { name: 'Admin sections' });
+  await expect(rail).toBeVisible();
+  await expect(rail.getByRole('link', { name: 'Batches' })).toHaveAttribute('aria-current', 'page');
+}
+
+/** The primary pill is not covered by the rail or tab bar (on phones the tab bar floats at the bottom). */
+async function notCoveredByRail(page: Page, pill: Locator) {
+  // At the end of the page (where the shell leaves room below the content) and for a sticky pill anywhere.
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const a = (await pill.boundingBox())!;
+  const b = (await page.getByRole('navigation', { name: 'Admin sections' }).boundingBox())!;
+  const overlap = a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+  expect(overlap, `pill ${JSON.stringify(a)} vs rail ${JSON.stringify(b)}`).toBe(false);
+}
+
 test.describe('admin batches (TSK-14.5, TC-059, TC-060)', () => {
   test('build a batch of one crop, see its members and certificate link, transfer it, and it locks', async ({ page }) => {
     test.setTimeout(90_000);
     const seeded = seedBatches();
-    await signIn(page, DEMO_ACCOUNTS.adminA.email, SEED_PASSWORD);
+    await signIn(page, seeded.adminEmail, seeded.testOnlyAdminPassword);
 
     await page.goto('/admin/batches/new');
     await expect(page.getByRole('heading', { level: 1, name: 'New batch' })).toBeVisible();
@@ -57,6 +75,8 @@ test.describe('admin batches (TSK-14.5, TC-059, TC-060)', () => {
     await expect(pill).toHaveText('Create batch · 1 picking · 40 kg');
     for (const id of seeded.arabica.slice(1)) await page.locator(`#pick-${id}`).check();
     await expect(pill).toHaveText('Create batch · 3 pickings · 128.5 kg');
+    await expectRail(page);
+    await notCoveredByRail(page, pill);
     await checkSurface(page);
 
     await pill.click();
@@ -82,6 +102,8 @@ test.describe('admin batches (TSK-14.5, TC-059, TC-060)', () => {
     await expect(form.getByText('This is signed and recorded permanently.', { exact: false })).toBeVisible();
     const transfer = form.getByRole('button', { name: 'Sign and transfer' });
     await expect(transfer).toBeDisabled();
+    await expectRail(page);
+    await notCoveredByRail(page, transfer);
     await checkSurface(page);
 
     await form.getByLabel('Buyer').selectOption({ label: 'Demo Buyer A' });
@@ -89,7 +111,7 @@ test.describe('admin batches (TSK-14.5, TC-059, TC-060)', () => {
 
     // after the transfer the form is replaced by the custody line
     const custody = page.getByTestId('custody-line');
-    await expect(custody).toContainText('Hosahalli FPO → Demo Buyer A');
+    await expect(custody).toContainText(`${seeded.orgName} → Demo Buyer A`);
     await expect(custody).toContainText('Locked: this batch can no longer change.');
     await expect(page.getByRole('form', { name: 'Transfer custody' })).toHaveCount(0);
     await checkSurface(page);
@@ -105,7 +127,7 @@ test.describe('admin batches (TSK-14.5, TC-059, TC-060)', () => {
 
   test('a picking already in a batch is gone from the builder', async ({ page }) => {
     const seeded = seedBatches('ORG-BUYER-A');
-    await signIn(page, DEMO_ACCOUNTS.adminA.email, SEED_PASSWORD);
+    await signIn(page, seeded.adminEmail, seeded.testOnlyAdminPassword);
     await page.goto('/admin/batches/new');
     await expect(page.locator(`#pick-${seeded.robusta}`)).toBeVisible();
     for (const id of seeded.arabica) await expect(page.locator(`#pick-${id}`)).toHaveCount(0);
@@ -123,9 +145,10 @@ test.describe('admin batches (TSK-14.5, TC-059, TC-060)', () => {
   for (const path of ['/admin/batches', '/admin/batches/new']) {
     test(`${path} in all four states (TC-080, TC-081)`, async ({ page }) => {
       test.setTimeout(90_000);
-      seedBatches('ORG-BUYER-A');
-      await signIn(page, DEMO_ACCOUNTS.adminA.email, SEED_PASSWORD);
+      const seeded = seedBatches('ORG-BUYER-A');
+      await signIn(page, seeded.adminEmail, seeded.testOnlyAdminPassword);
       await page.goto(path);
+      await expectRail(page);
       await expect(page.locator('ul[aria-label]').first()).toBeVisible();
       if (path === '/admin/batches' && isDesktop(page)) await expect(page.getByText('Choose a batch to see its pickings and transfer it.')).toBeVisible();
       await checkSurface(page);
@@ -165,10 +188,11 @@ test.describe('buyer list and detail (TSK-14.6, TC-060, EVAL-080)', () => {
     await signIn(page, DEMO_ACCOUNTS.buyerA.email, SEED_PASSWORD);
     await expect(page).toHaveURL(/\/buyer$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Batches' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Admin sections' })).toHaveCount(0); // buyers have no admin rail
     const row = page.locator(`[data-batch-id="${batchId}"]`);
     await expect(row).toContainText('128.5 kg');
     await expect(row).toContainText('Arabica · 1 plot · score 84');
-    await expect(row).toContainText('From Hosahalli FPO');
+    await expect(row).toContainText(`From ${seeded.orgName}`);
     await checkSurface(page);
 
     await row.click();
@@ -178,7 +202,7 @@ test.describe('buyer list and detail (TSK-14.6, TC-060, EVAL-080)', () => {
     await expect(page.getByText('128.5 kg of arabica cherry · 3 pickings · 1 plot')).toBeVisible();
     const plots = page.getByRole('region', { name: 'Plots and producers' });
     await expect(plots).toContainText(`producer ${seeded.producerIds[0]}`);
-    await expect(page.getByTestId('custody-chain')).toContainText('Hosahalli FPO → Demo Buyer A');
+    await expect(page.getByTestId('custody-chain')).toContainText(`${seeded.orgName} → Demo Buyer A`);
     await expect(page.locator('body')).not.toContainText('Test farmer'); // producer IDs only (EV16)
     const certificate = page.getByTestId('certificate-link');
     await expect(certificate).toHaveText('Open the certificate');

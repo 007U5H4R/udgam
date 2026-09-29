@@ -40,15 +40,22 @@
     {
       "idx": 5,
       "version": "6",
-      "when": 1790666394873,
-      "tag": "0005_batches",
+      "when": 1790663916684,
+      "tag": "0005_enrolment",
       "breakpoints": true
     },
     {
       "idx": 6,
       "version": "6",
-      "when": 1790666401389,
-      "tag": "0006_batch_invariants",
+      "when": 1790671879690,
+      "tag": "0006_batches",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1790671881231,
+      "tag": "0007_batch_invariants",
       "breakpoints": true
     }
   ]

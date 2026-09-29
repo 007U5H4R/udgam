@@ -87,6 +87,12 @@
   padding: 20px 0 calc(20px + env(safe-area-inset-bottom));
   background: linear-gradient(to top, var(--bg) 72%, rgba(10, 14, 12, 0));
 }
+/* Phone < 700: the admin rail is a floating tab bar at the bottom (12 px + 72 px); keep the pill above it. */
+@media (max-width: 699.98px) {
+  .actions {
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+}
 .note {
   margin: 0;
   font-size: var(--fs-small);

@@ -1,7 +1,8 @@
 import { desc, eq } from 'drizzle-orm';
 import { sha256Hex } from '../crypto';
-import { writeTx, type Db } from '../db/client';
+import { writeTx, type Db, type Tx } from '../db/client';
 import { devices, harvestEvents, media, plots, verificationRuns } from '../db/schema';
+import { isPlotAssigned } from '../enrolment/assign';
 import { log as defaultLog } from '../log';
 import { extractExif } from '../media/exif';
 import type { MediaStore } from '../media/store';
@@ -78,9 +79,9 @@ function verdictLine(eventId: string, run: { verdict: Verdict; score: number; ch
   };
 }
 
-/** Status for a recorded refusal (boundary reasons, plus plot assignment §6.4). */
+/** Status for a recorded refusal (the boundary reasons, plot assignment §6.4 among them). */
 function statusFor(reason: string): number {
-  return Object.hasOwn(STATUS, reason) ? STATUS[reason as BoundaryReason] : reason === 'plot_not_assigned' ? 403 : 400;
+  return Object.hasOwn(STATUS, reason) ? STATUS[reason as BoundaryReason] : 400;
 }
 
 /**
@@ -137,13 +138,9 @@ export async function runCapture(form: FormData, deps: CaptureDeps, emit: (line:
   const releaseHolds = () => {
     for (const path of held.splice(0)) deps.media.release(path);
   };
-
-  let terminal: CaptureEvent;
-  try {
-    terminal = await capture(form, deps, send, held);
-  } catch (err) {
-    // Nothing was committed. Drop this request's holds, then delete each photo only if no other
-    // request holds it and no committed row references it (content-addressed files are shared).
+  // No media row of this request was committed: drop its holds, then delete each photo only if no other
+  // request holds it and no committed row references it (content-addressed files are shared).
+  const dropStored = async () => {
     const paths = [...new Set(held)];
     releaseHolds();
     for (const path of paths) {
@@ -153,12 +150,33 @@ export async function runCapture(form: FormData, deps: CaptureDeps, emit: (line:
         log.error({ errClass: errClass(cleanupErr) }, 'capture.media_cleanup_failed');
       }
     }
+  };
+
+  let terminal: CaptureEvent;
+  try {
+    terminal = await capture(form, deps, send, held);
+  } catch (err) {
+    await dropStored(); // nothing was committed
     log.error({ errClass: errClass(err) }, 'capture.failed');
     send({ t: 'error', retryable: true });
     return;
   }
-  releaseHolds(); // committed (or nothing stored): the rows now own the files
+  // A refusal stores no media row (a late one, at step 7, may already have stored the photos).
+  if (terminal.t === 'rejected') await dropStored();
+  else releaseHolds(); // committed (or nothing stored): the rows now own the files
   send(terminal);
+}
+
+/**
+ * Step 7's re-check, under the write lock (BEGIN IMMEDIATE): the boundary read the device and the plot
+ * assignment before media storage and verification, and a revocation or un-assignment may have
+ * committed since (TOCTOU). Returns the refusal that now applies, or null.
+ */
+async function lateRefusal(tx: Tx, device: BoundaryDevice, plotId: string): Promise<'device_revoked' | 'plot_not_assigned' | null> {
+  const [d] = await tx.select({ revokedAt: devices.revokedAt }).from(devices).where(eq(devices.id, device.id));
+  if (!d || d.revokedAt !== null) return 'device_revoked';
+  if (!(await isPlotAssigned(tx, device.agentId, plotId))) return 'plot_not_assigned';
+  return null;
 }
 
 /** The capture steps (technical-plan §3.1). Returns the terminal line; throws when nothing was committed. */
@@ -193,8 +211,8 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
   }
   const serverReceivedAt = now().toISOString();
 
-  // 2. boundary (canonical bytes, schema, device, signature, revocation, media sizes and hashes)
-  const b = await checkBoundary(form_, { findDevice: (id) => findDevice(db, id) });
+  // 2. boundary (canonical bytes, schema, device, signature, revocation, plot assignment, media sizes and hashes)
+  const b = await checkBoundary(form_, { findDevice: (id) => findDevice(db, id), isPlotAssigned: (agentId, plotId) => isPlotAssigned(db, agentId, plotId) });
   // Another agent's phone: an authorisation refusal, not a verdict on the payload. Not anchored, so it can
   // neither answer with the owner's recorded result nor block the owner's own upload of the same payload.
   if (b.device && b.device.agentId !== deps.agentId) return { t: 'rejected', reason: 'device_not_owned', status: 403 };
@@ -205,9 +223,9 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
   const previous = await previousAnswer(db, payloadHash);
   if (previous) return previous;
 
-  // plot assignment is a boundary rule (§6.4); TKT-05 checks agent_plots, here the plot must exist
+  // the plot exists: the boundary found a live agent_plots assignment for it (§6.4, foreign key)
   const [plot] = await db.select().from(plots).where(eq(plots.id, payload.plotId));
-  if (!plot) return reject(form_, 'plot_not_assigned', 403, device, serverReceivedAt);
+  if (!plot) return reject(form_, 'plot_not_assigned', STATUS.plot_not_assigned, device, serverReceivedAt);
 
   // 4. media (content-addressed and shared; each put holds its path until this request ends) and
   // the EXIF read from each stored photo's bytes (TKT-08; never throws, absent → nulls)
@@ -231,15 +249,26 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
   };
   const result = await verify(sub, ctx, { onCheck: (r) => send({ t: 'check', id: r.id, status: r.status }) });
 
-  // 7. one transaction: event, media, run and both ledger entries
-  const { eventId } = await writeTx(db, (tx) =>
-    persistAccepted(
+  // 7. one transaction: re-check revocation and assignment, then event, media, run and both ledger
+  // entries — or, if either changed meanwhile, the anchored refusal instead
+  const committed = await writeTx(db, async (tx) => {
+    const late = await lateRefusal(tx, device, payload.plotId);
+    if (late) {
+      await persistRejected(
+        tx,
+        { payloadString: form_.payloadString, payloadHash, signature: form_.signature, serverReceivedAt, reason: late, payload, device },
+        deps.append,
+      );
+      return { refused: late } as const;
+    }
+    return persistAccepted(
       tx,
       { payload, payloadString: form_.payloadString, payloadHash, signature: form_.signature, serverReceivedAt, device, media: stored, result },
       deps.append,
-    ),
-  );
+    );
+  });
+  if ('refused' in committed) return { t: 'rejected', reason: committed.refused, status: STATUS[committed.refused] };
 
   // 8. the verdict line; runCapture sends it only now, after COMMIT
-  return verdictLine(eventId, result);
+  return verdictLine(committed.eventId, result);
 }

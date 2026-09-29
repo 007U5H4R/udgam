@@ -1,7 +1,7 @@
 import { hashPassword } from 'better-auth/crypto';
 import { jwkThumbprint, publicMembers } from '../src/lib/crypto';
 import { writeTx, type Db } from '../src/lib/db/client';
-import { account, devices, farmers, organisations, plots, user } from '../src/lib/db/schema';
+import { account, agentPlots, devices, farmers, organisations, plots, user } from '../src/lib/db/schema';
 import { newId } from '../src/lib/ids';
 import { append } from '../src/lib/ledger/hashchain';
 import { P01_AREA_HA, P01_INSIDE, P01_POLYGON } from './tracer-plot';
@@ -9,7 +9,7 @@ import { P01_AREA_HA, P01_INSIDE, P01_POLYGON } from './tracer-plot';
 export { P01_AREA_HA, P01_INSIDE, P01_POLYGON };
 
 // The TKT-02 tracer's world: one FPO, one farmer, plot P01 (scripts/tracer-plot.ts), the FPO's field
-// agent (a Better Auth user, TKT-04) and one phone enrolled to that agent. Used by the seed script and the integration tests; TKT-05/06 replace it with real enrolment
+// agent (a Better Auth user, TKT-04) with P01 assigned (TKT-05) and one phone enrolled to that agent. Used by the seed script and the integration tests; TKT-05/06 replace it with real enrolment
 // and plot registration.
 
 /** `prefix` + 8 random Crockford base32 characters. */
@@ -74,6 +74,8 @@ export async function seedTracerWorld(
       createdAt: ts,
       updatedAt: ts,
     });
+    // The agent may capture on P01 (agent_plots, TKT-05): the capture boundary refuses unassigned plots.
+    await tx.insert(agentPlots).values({ agentId: world.agentId, plotId: world.plotId, assignedAt: ts });
     const deviceAnchor = await append(tx, 'device_enrolled', { deviceId: world.deviceId, agentId: world.agentId, kid, publicJwk: jwk, enrolledAt: ts });
     await tx.insert(devices).values({
       id: world.deviceId,

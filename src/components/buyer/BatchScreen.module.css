@@ -1,8 +1,8 @@
 /* The list + detail grammar of the batch screens (admin batches and the buyer list), composed from
    .design/exploration/final/admin.html (".main", ".queue", ".q-head", ".q-list", ".detail", ".d-body",
    ".d-title", ".score-card", ".sec-h", ".state-card", ".sk", ".back", ".decide", ".dec-note") with its
-   values unchanged (TP17: no new colours, radii, type sizes or motion). The rail comes from the admin
-   layout (TKT-05); these screens are the columns beside it. Shared by the admin and buyer screens. */
+   values unchanged (TP17: no new colours, radii, type sizes or motion). Admin screens sit inside TKT-05's
+   RailShell (these are the columns beside the rail); the buyer screens use them without a rail. */
 
 .main {
   display: grid;

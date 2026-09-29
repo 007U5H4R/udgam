@@ -1,14 +1,16 @@
 import { generateKeyPair, jcs, jwkThumbprint, publicMembers, sha256Hex, sign } from '../../src/lib/crypto';
 import { persistAccepted } from '../../src/lib/capture/persist';
 import { writeTx, type Db } from '../../src/lib/db/client';
-import { devices, farmers, organisations, plots, user } from '../../src/lib/db/schema';
+import { hashPassword } from 'better-auth/crypto';
+import { account, devices, farmers, organisations, plots, user } from '../../src/lib/db/schema';
 import { newId } from '../../src/lib/ids';
 import { append } from '../../src/lib/ledger/hashchain';
 import type { CapturePayloadV1, Verdict, VerifyResult } from '../../src/lib/verification/types';
 import { P01_AREA_HA, P01_INSIDE, P01_POLYGON } from '../../scripts/tracer-plot';
 
-// An FPO with an arabica and a robusta plot, an agent with one enrolled phone and an admin, for the
-// batch and custody tests (TKT-14) and the batches e2e seed. Everything is written by the real writers
+// An FPO with an arabica and a robusta plot, an agent with one enrolled phone and an admin (optionally
+// with a password, so an e2e can sign in as them), for the batch and custody tests (TKT-14) and the
+// batches e2e seed. Everything is written by the real writers
 // with its ledger anchor: plot_registered and device_enrolled entries, captures via persistAccepted
 // (harvest_event + verification_run), so a batch built on top has a complete provenance closure.
 
@@ -16,7 +18,9 @@ export type Crop = 'arabica' | 'robusta';
 
 export type FpoWorld = {
   orgId: string;
+  orgName: string;
   adminId: string;
+  adminEmail: string;
   agentId: string;
   plots: Record<Crop, { plotId: string; producerId: string }>;
   device: { id: string; pair: CryptoKeyPair; publicJwk: JsonWebKey; seq: number; last: string };
@@ -31,23 +35,33 @@ const ts = () => new Date().toISOString();
  * farmer, plots, agent and phone are added; otherwise a new FPO and admin are created too. Every call
  * makes new random IDs for what it creates.
  */
-export async function seedFpo(db: Db, o: { orgId?: string; adminId?: string } = {}): Promise<FpoWorld> {
+export async function seedFpo(db: Db, o: { orgId?: string; adminId?: string; orgName?: string; adminPassword?: string } = {}): Promise<FpoWorld> {
   const orgId = o.orgId ?? newId('ORG-');
+  const orgName = o.orgName ?? `FPO ${orgId}`;
   const adminId = o.adminId ?? newId('USR-');
+  const adminEmail = `${adminId.toLowerCase()}@fpo.udgam.test`;
+  const passwordHash = o.adminPassword === undefined ? undefined : await hashPassword(o.adminPassword);
   const agentId = newId('USR-');
   const pair = await generateKeyPair(false);
   const publicJwk = publicMembers(await globalThis.crypto.subtle.exportKey('jwk', pair.publicKey));
   const deviceId = newId('DV-');
   const world: FpoWorld = {
     orgId,
+    orgName,
     adminId,
+    adminEmail,
     agentId,
     plots: { arabica: { plotId: newId('PL-'), producerId: newId('PR-') }, robusta: { plotId: newId('PL-'), producerId: newId('PR-') } },
     device: { id: deviceId, pair, publicJwk, seq: 0, last: 'genesis' },
   };
   await writeTx(db, async (tx) => {
-    if (!o.orgId) await tx.insert(organisations).values({ id: orgId, type: 'fpo', name: `FPO ${orgId}` });
-    if (!o.adminId) await tx.insert(user).values({ id: adminId, name: 'Test admin', email: `${adminId.toLowerCase()}@fpo.udgam.test`, role: 'admin', orgId });
+    if (!o.orgId) await tx.insert(organisations).values({ id: orgId, type: 'fpo', name: orgName });
+    if (!o.adminId) {
+      await tx.insert(user).values({ id: adminId, name: 'Test admin', email: adminEmail, emailVerified: true, role: 'admin', orgId });
+      if (passwordHash !== undefined) {
+        await tx.insert(account).values({ id: `${adminId}-cred`, accountId: adminId, providerId: 'credential', userId: adminId, password: passwordHash, updatedAt: new Date() });
+      }
+    }
     await tx.insert(user).values({ id: agentId, name: 'Test agent', email: `${agentId.toLowerCase()}@fpo.udgam.test`, role: 'agent', orgId });
     for (const crop of ['arabica', 'robusta'] as const) {
       const { plotId, producerId } = world.plots[crop];

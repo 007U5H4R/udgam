@@ -1,8 +1,8 @@
 {
-  "id": "ec1fa9e5-ac38-4463-b10a-be55e2d2a72d",
-  "prevId": "4cbe8e2c-eda2-4f2f-8c34-33f81b48aed2",
   "version": "6",
   "dialect": "sqlite",
+  "id": "e411b2e4-0227-4351-bb59-f59c40cfef56",
+  "prevId": "5484dac2-e062-41ce-8351-ac6c27b2fe59",
   "tables": {
     "account": {
       "name": "account",
@@ -113,18 +113,99 @@
         "account_user_id_user_id_fk": {
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
+          "tableTo": "user",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "user",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "agent_plots": {
+      "name": "agent_plots",
+      "columns": {
+        "agent_id": {
+          "name": "agent_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "plot_id": {
+          "name": "plot_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "assigned_at": {
+          "name": "assigned_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "agent_plots_plot_idx": {
+          "name": "agent_plots_plot_idx",
+          "columns": [
+            "plot_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "agent_plots_agent_id_user_id_fk": {
+          "name": "agent_plots_agent_id_user_id_fk",
+          "tableFrom": "agent_plots",
+          "tableTo": "user",
+          "columnsFrom": [
+            "agent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "agent_plots_plot_id_plots_id_fk": {
+          "name": "agent_plots_plot_id_plots_id_fk",
+          "tableFrom": "agent_plots",
+          "tableTo": "plots",
+          "columnsFrom": [
+            "plot_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "agent_plots_agent_id_plot_id_pk": {
+          "columns": [
+            "agent_id",
+            "plot_id"
+          ],
+          "name": "agent_plots_agent_id_plot_id_pk"
+        }
+      },
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
@@ -166,28 +247,28 @@
         "batch_events_batch_id_batches_id_fk": {
           "name": "batch_events_batch_id_batches_id_fk",
           "tableFrom": "batch_events",
+          "tableTo": "batches",
           "columnsFrom": [
             "batch_id"
           ],
-          "tableTo": "batches",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "batch_events_event_id_harvest_events_id_fk": {
           "name": "batch_events_event_id_harvest_events_id_fk",
           "tableFrom": "batch_events",
+          "tableTo": "harvest_events",
           "columnsFrom": [
             "event_id"
           ],
-          "tableTo": "harvest_events",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -276,28 +357,28 @@
         "batches_org_id_organisations_id_fk": {
           "name": "batches_org_id_organisations_id_fk",
           "tableFrom": "batches",
+          "tableTo": "organisations",
           "columnsFrom": [
             "org_id"
           ],
-          "tableTo": "organisations",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "batches_anchor_seq_ledger_entries_seq_fk": {
           "name": "batches_anchor_seq_ledger_entries_seq_fk",
           "tableFrom": "batches",
+          "tableTo": "ledger_entries",
           "columnsFrom": [
             "anchor_seq"
           ],
-          "tableTo": "ledger_entries",
           "columnsTo": [
             "seq"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -400,67 +481,67 @@
         "custody_transfers_batch_id_batches_id_fk": {
           "name": "custody_transfers_batch_id_batches_id_fk",
           "tableFrom": "custody_transfers",
+          "tableTo": "batches",
           "columnsFrom": [
             "batch_id"
           ],
-          "tableTo": "batches",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "custody_transfers_from_org_organisations_id_fk": {
           "name": "custody_transfers_from_org_organisations_id_fk",
           "tableFrom": "custody_transfers",
+          "tableTo": "organisations",
           "columnsFrom": [
             "from_org"
           ],
-          "tableTo": "organisations",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "custody_transfers_to_org_organisations_id_fk": {
           "name": "custody_transfers_to_org_organisations_id_fk",
           "tableFrom": "custody_transfers",
+          "tableTo": "organisations",
           "columnsFrom": [
             "to_org"
           ],
-          "tableTo": "organisations",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "custody_transfers_admin_id_user_id_fk": {
           "name": "custody_transfers_admin_id_user_id_fk",
           "tableFrom": "custody_transfers",
+          "tableTo": "user",
           "columnsFrom": [
             "admin_id"
           ],
-          "tableTo": "user",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "custody_transfers_anchor_seq_ledger_entries_seq_fk": {
           "name": "custody_transfers_anchor_seq_ledger_entries_seq_fk",
           "tableFrom": "custody_transfers",
+          "tableTo": "ledger_entries",
           "columnsFrom": [
             "anchor_seq"
           ],
-          "tableTo": "ledger_entries",
           "columnsTo": [
             "seq"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -548,15 +629,103 @@
         "devices_anchor_seq_ledger_entries_seq_fk": {
           "name": "devices_anchor_seq_ledger_entries_seq_fk",
           "tableFrom": "devices",
+          "tableTo": "ledger_entries",
           "columnsFrom": [
             "anchor_seq"
           ],
-          "tableTo": "ledger_entries",
           "columnsTo": [
             "seq"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "enrollment_codes": {
+      "name": "enrollment_codes",
+      "columns": {
+        "code_hash": {
+          "name": "code_hash",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "agent_id": {
+          "name": "agent_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "used_at": {
+          "name": "used_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "enrollment_codes_agent_idx": {
+          "name": "enrollment_codes_agent_idx",
+          "columns": [
+            "agent_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "enrollment_codes_agent_id_user_id_fk": {
+          "name": "enrollment_codes_agent_id_user_id_fk",
+          "tableFrom": "enrollment_codes",
+          "tableTo": "user",
+          "columnsFrom": [
+            "agent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "enrollment_codes_created_by_user_id_fk": {
+          "name": "enrollment_codes_created_by_user_id_fk",
+          "tableFrom": "enrollment_codes",
+          "tableTo": "user",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -615,15 +784,15 @@
         "farmers_org_id_organisations_id_fk": {
           "name": "farmers_org_id_organisations_id_fk",
           "tableFrom": "farmers",
+          "tableTo": "organisations",
           "columnsFrom": [
             "org_id"
           ],
-          "tableTo": "organisations",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -794,28 +963,28 @@
         "harvest_events_device_id_devices_id_fk": {
           "name": "harvest_events_device_id_devices_id_fk",
           "tableFrom": "harvest_events",
+          "tableTo": "devices",
           "columnsFrom": [
             "device_id"
           ],
-          "tableTo": "devices",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "harvest_events_anchor_seq_ledger_entries_seq_fk": {
           "name": "harvest_events_anchor_seq_ledger_entries_seq_fk",
           "tableFrom": "harvest_events",
+          "tableTo": "ledger_entries",
           "columnsFrom": [
             "anchor_seq"
           ],
-          "tableTo": "ledger_entries",
           "columnsTo": [
             "seq"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -904,28 +1073,28 @@
         "ledger_checkpoints_from_seq_ledger_entries_seq_fk": {
           "name": "ledger_checkpoints_from_seq_ledger_entries_seq_fk",
           "tableFrom": "ledger_checkpoints",
+          "tableTo": "ledger_entries",
           "columnsFrom": [
             "from_seq"
           ],
-          "tableTo": "ledger_entries",
           "columnsTo": [
             "seq"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "ledger_checkpoints_to_seq_ledger_entries_seq_fk": {
           "name": "ledger_checkpoints_to_seq_ledger_entries_seq_fk",
           "tableFrom": "ledger_checkpoints",
+          "tableTo": "ledger_entries",
           "columnsFrom": [
             "to_seq"
           ],
-          "tableTo": "ledger_entries",
           "columnsTo": [
             "seq"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1084,15 +1253,15 @@
         "media_event_id_harvest_events_id_fk": {
           "name": "media_event_id_harvest_events_id_fk",
           "tableFrom": "media",
+          "tableTo": "harvest_events",
           "columnsFrom": [
             "event_id"
           ],
-          "tableTo": "harvest_events",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1222,28 +1391,28 @@
         "plots_farmer_id_farmers_id_fk": {
           "name": "plots_farmer_id_farmers_id_fk",
           "tableFrom": "plots",
+          "tableTo": "farmers",
           "columnsFrom": [
             "farmer_id"
           ],
-          "tableTo": "farmers",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "plots_anchor_seq_ledger_entries_seq_fk": {
           "name": "plots_anchor_seq_ledger_entries_seq_fk",
           "tableFrom": "plots",
+          "tableTo": "ledger_entries",
           "columnsFrom": [
             "anchor_seq"
           ],
-          "tableTo": "ledger_entries",
           "columnsTo": [
             "seq"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1258,6 +1427,46 @@
           "value": "\"plots\".\"registration_stale\" IN (0,1)"
         }
       }
+    },
+    "rate_limits": {
+      "name": "rate_limits",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "window_start": {
+          "name": "window_start",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "count": {
+          "name": "count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "rate_limits_key_window_start_pk": {
+          "columns": [
+            "key",
+            "window_start"
+          ],
+          "name": "rate_limits_key_window_start_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     },
     "session": {
       "name": "session",
@@ -1340,15 +1549,15 @@
         "session_user_id_user_id_fk": {
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
+          "tableTo": "user",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "user",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1445,15 +1654,15 @@
         "user_org_id_organisations_id_fk": {
           "name": "user_org_id_organisations_id_fk",
           "tableFrom": "user",
+          "tableTo": "organisations",
           "columnsFrom": [
             "org_id"
           ],
-          "tableTo": "organisations",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1622,28 +1831,28 @@
         "verification_runs_event_id_harvest_events_id_fk": {
           "name": "verification_runs_event_id_harvest_events_id_fk",
           "tableFrom": "verification_runs",
+          "tableTo": "harvest_events",
           "columnsFrom": [
             "event_id"
           ],
-          "tableTo": "harvest_events",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "verification_runs_anchor_seq_ledger_entries_seq_fk": {
           "name": "verification_runs_anchor_seq_ledger_entries_seq_fk",
           "tableFrom": "verification_runs",
+          "tableTo": "ledger_entries",
           "columnsFrom": [
             "anchor_seq"
           ],
-          "tableTo": "ledger_entries",
           "columnsTo": [
             "seq"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1659,9 +1868,9 @@
   "views": {},
   "enums": {},
   "_meta": {
-    "columns": {},
     "schemas": {},
-    "tables": {}
+    "tables": {},
+    "columns": {}
   },
   "internal": {
     "indexes": {}

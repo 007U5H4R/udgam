@@ -3,8 +3,10 @@ import type { CapturePayloadV1 } from '../verification/types';
 import { capturePayloadV1 } from './payload';
 
 // The capture boundary (technical-plan §3.1 step 2, Review focus 1–2). Order matters:
-// canonical form → schema → device → signature over the RECEIVED bytes → revocation → media sizes and hashes.
-// A failure is a 4xx; the pipeline anchors it as a rejected harvest_event.
+// canonical form → schema → device → signature over the RECEIVED bytes → revocation → plot assignment
+// (§6.4, TP5) → media sizes and hashes. A failure is a 4xx; the pipeline anchors it as a rejected
+// harvest_event. The signature is checked before revocation so that only the phone's own key can learn
+// (or be recorded as) a revoked or unassigned phone.
 
 export type BoundaryDevice = {
   id: string;
@@ -15,10 +17,21 @@ export type BoundaryDevice = {
   lastEventHash: string | null;
 };
 
-export type BoundaryReason = 'non_canonical' | 'bad_schema' | 'unknown_device' | 'device_revoked' | 'bad_signature' | 'media_hash_mismatch';
+export type BoundaryReason =
+  | 'non_canonical'
+  | 'bad_schema'
+  | 'unknown_device'
+  | 'device_revoked'
+  | 'bad_signature'
+  | 'plot_not_assigned'
+  | 'media_hash_mismatch';
 
 export type BoundaryInput = { payloadString: string; signature: string; files: Blob[] };
-export type BoundaryDeps = { findDevice(deviceId: string): Promise<BoundaryDevice | null> };
+export type BoundaryDeps = {
+  findDevice(deviceId: string): Promise<BoundaryDevice | null>;
+  /** Does the agent hold a live `agent_plots` assignment for the plot? (§6.4) */
+  isPlotAssigned(agentId: string, plotId: string): Promise<boolean>;
+};
 
 export type BoundaryResult =
   | { ok: true; payload: CapturePayloadV1; payloadHash: string; device: BoundaryDevice }
@@ -38,6 +51,7 @@ export const STATUS: Record<BoundaryReason, 400 | 401 | 403 | 409> = {
   unknown_device: 401,
   bad_signature: 401,
   device_revoked: 403,
+  plot_not_assigned: 403,
   media_hash_mismatch: 409,
 };
 
@@ -71,10 +85,13 @@ export async function checkBoundary(input: BoundaryInput, deps: BoundaryDeps): P
   if (!device) return reject('unknown_device');
   if (!(await verifySignature(device.publicJwk, input.payloadString, input.signature))) return reject('bad_signature');
 
-  // 5. Revocation (enforcement details finish in TKT-05).
+  // 5. Revocation.
   if (device.revokedAt !== null) return reject('device_revoked', device);
 
-  // 6. The uploaded bytes are the signed bytes, in order (S1).
+  // 6. Plot assignment: the plot must be assigned to the phone's agent (a boundary rule, not a check).
+  if (!(await deps.isPlotAssigned(device.agentId, payload.plotId))) return reject('plot_not_assigned', device);
+
+  // 7. The uploaded bytes are the signed bytes, in order (S1).
   if (input.files.length !== payload.media.length) return reject('media_hash_mismatch', device);
   // The signed size must be the uploaded byte length too, so media.size never stores an unchecked claim.
   for (let i = 0; i < input.files.length; i++) {

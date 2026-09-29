@@ -10,7 +10,7 @@ import { capturePayloadV1 } from './payload';
 const bytesOf = (s: string) => new TextEncoder().encode(s);
 const PHOTOS = [bytesOf('photo-zero'), bytesOf('photo-one')];
 
-async function setup(over: { revokedAt?: string | null } = {}) {
+async function setup(over: { revokedAt?: string | null; assigned?: boolean } = {}) {
   const device = await makeDevice('DV-7K2M9Q4D');
   const hashes = await Promise.all(PHOTOS.map((b) => sha256Hex(b)));
   const payload = await makePayload({ device, mediaHashes: hashes });
@@ -26,8 +26,9 @@ async function setup(over: { revokedAt?: string | null } = {}) {
     lastEventHash: null,
   };
   const findDevice = vi.fn(async (id: string) => (id === device.id ? row : null));
+  const isPlotAssigned = vi.fn(async (agentId: string, plotId: string) => (over.assigned ?? true) && agentId === row.agentId && plotId === payload.plotId);
   const files = PHOTOS.map((b, i) => new File([b], `photo${i}.jpg`, { type: 'image/jpeg' }));
-  return { device, payload, payloadString, signature, findDevice, files, row };
+  return { device, payload, payloadString, signature, findDevice, isPlotAssigned, files, row };
 }
 
 async function resign(device: TestDevice, value: unknown) {
@@ -38,7 +39,7 @@ async function resign(device: TestDevice, value: unknown) {
 describe('checkBoundary (TC-007)', () => {
   it('(a) accepts the canonical string the phone signed', async () => {
     const s = await setup();
-    const r = await checkBoundary({ payloadString: s.payloadString, signature: s.signature, files: s.files }, { findDevice: s.findDevice });
+    const r = await checkBoundary({ payloadString: s.payloadString, signature: s.signature, files: s.files }, { findDevice: s.findDevice, isPlotAssigned: s.isPlotAssigned });
     expect(r).toEqual({ ok: true, payload: s.payload, payloadHash: await sha256Hex(s.payloadString), device: s.row });
   });
 
@@ -47,7 +48,7 @@ describe('checkBoundary (TC-007)', () => {
     const { v, ...rest } = s.payload;
     const reordered = JSON.stringify({ ...rest, v }); // same object, different key order
     expect(JSON.parse(reordered)).toEqual(s.payload);
-    const r = await checkBoundary({ payloadString: reordered, signature: s.signature, files: s.files }, { findDevice: s.findDevice });
+    const r = await checkBoundary({ payloadString: reordered, signature: s.signature, files: s.files }, { findDevice: s.findDevice, isPlotAssigned: s.isPlotAssigned });
     expect(r).toEqual({ ok: false, status: 400, reason: 'non_canonical', signedByKnownDevice: false });
     expect(s.findDevice).not.toHaveBeenCalled();
   });
@@ -56,14 +57,14 @@ describe('checkBoundary (TC-007)', () => {
     const s = await setup();
     const spaced = JSON.stringify(JSON.parse(s.payloadString), null, 1);
     const sig = await sign(s.device.pair.privateKey, spaced);
-    const r = await checkBoundary({ payloadString: spaced, signature: sig, files: s.files }, { findDevice: s.findDevice });
+    const r = await checkBoundary({ payloadString: spaced, signature: sig, files: s.files }, { findDevice: s.findDevice, isPlotAssigned: s.isPlotAssigned });
     expect(r).toMatchObject({ ok: false, status: 400, reason: 'non_canonical' });
   });
 
   it('(c) EVAL-053 cherryKg changed after signing → bad_signature, 4xx', async () => {
     const s = await setup();
     const tampered = jcs({ ...s.payload, cherryKg: 142.5 });
-    const r = await checkBoundary({ payloadString: tampered, signature: s.signature, files: s.files }, { findDevice: s.findDevice });
+    const r = await checkBoundary({ payloadString: tampered, signature: s.signature, files: s.files }, { findDevice: s.findDevice, isPlotAssigned: s.isPlotAssigned });
     expect(r).toEqual({ ok: false, status: 401, reason: 'bad_signature', signedByKnownDevice: false });
   });
 
@@ -72,7 +73,7 @@ describe('checkBoundary (TC-007)', () => {
     const other = await makeDevice('DV-7K2M9Q4D');
     const r = await checkBoundary(
       { payloadString: s.payloadString, signature: await sign(other.pair.privateKey, s.payloadString), files: s.files },
-      { findDevice: s.findDevice },
+      { findDevice: s.findDevice, isPlotAssigned: s.isPlotAssigned },
     );
     expect(r).toMatchObject({ ok: false, reason: 'bad_signature' });
   });
@@ -80,29 +81,49 @@ describe('checkBoundary (TC-007)', () => {
   it('refuses an unknown device with 401', async () => {
     const s = await setup();
     const { payloadString, signature } = await resign(s.device, { ...s.payload, deviceId: 'DV-00000000' });
-    const r = await checkBoundary({ payloadString, signature, files: s.files }, { findDevice: s.findDevice });
+    const r = await checkBoundary({ payloadString, signature, files: s.files }, { findDevice: s.findDevice, isPlotAssigned: s.isPlotAssigned });
     expect(r).toEqual({ ok: false, status: 401, reason: 'unknown_device', signedByKnownDevice: false });
   });
 
   it('refuses a revoked device with 403, noting that its key did sign', async () => {
     const s = await setup({ revokedAt: '2026-10-01T00:00:00.000Z' });
-    const r = await checkBoundary({ payloadString: s.payloadString, signature: s.signature, files: s.files }, { findDevice: s.findDevice });
+    const r = await checkBoundary({ payloadString: s.payloadString, signature: s.signature, files: s.files }, { findDevice: s.findDevice, isPlotAssigned: s.isPlotAssigned });
     expect(r).toEqual({ ok: false, status: 403, reason: 'device_revoked', signedByKnownDevice: true, device: s.row });
+  });
+
+  it("refuses a plot not assigned to the phone's agent with 403 plot_not_assigned (§6.4, TP5)", async () => {
+    const s = await setup({ assigned: false });
+    const r = await checkBoundary({ payloadString: s.payloadString, signature: s.signature, files: s.files }, { findDevice: s.findDevice, isPlotAssigned: s.isPlotAssigned });
+    expect(r).toEqual({ ok: false, status: 403, reason: 'plot_not_assigned', signedByKnownDevice: true, device: s.row });
+    expect(s.isPlotAssigned).toHaveBeenCalledWith('agent-1', s.payload.plotId);
+  });
+
+  it('checks the plot assignment only after the signature and revocation (an unsigned claim learns nothing)', async () => {
+    const s = await setup({ assigned: false, revokedAt: '2026-10-01T00:00:00.000Z' });
+    const revoked = await checkBoundary({ payloadString: s.payloadString, signature: s.signature, files: s.files }, { findDevice: s.findDevice, isPlotAssigned: s.isPlotAssigned });
+    expect(revoked).toMatchObject({ ok: false, reason: 'device_revoked' });
+    const other = await makeDevice('DV-OTHER000');
+    const forged = await checkBoundary(
+      { payloadString: s.payloadString, signature: await sign(other.pair.privateKey, s.payloadString), files: s.files },
+      { findDevice: s.findDevice, isPlotAssigned: s.isPlotAssigned },
+    );
+    expect(forged).toMatchObject({ ok: false, reason: 'bad_signature' });
+    expect(s.isPlotAssigned).not.toHaveBeenCalled();
   });
 
   it('refuses uploaded bytes that differ from media[i].sha256 (Review focus 2)', async () => {
     const s = await setup();
     const swapped = [s.files[1]!, s.files[0]!]; // right bytes, wrong order
-    const r = await checkBoundary({ payloadString: s.payloadString, signature: s.signature, files: swapped }, { findDevice: s.findDevice });
+    const r = await checkBoundary({ payloadString: s.payloadString, signature: s.signature, files: swapped }, { findDevice: s.findDevice, isPlotAssigned: s.isPlotAssigned });
     expect(r).toEqual({ ok: false, status: 409, reason: 'media_hash_mismatch', signedByKnownDevice: true, device: s.row });
     const fewer = await checkBoundary(
       { payloadString: s.payloadString, signature: s.signature, files: s.files.slice(0, 1) },
-      { findDevice: s.findDevice },
+      { findDevice: s.findDevice, isPlotAssigned: s.isPlotAssigned },
     );
     expect(fewer).toMatchObject({ ok: false, reason: 'media_hash_mismatch' });
     const edited = [new File([bytesOf('photo-zerO')], 'p.jpg', { type: 'image/jpeg' }), s.files[1]!];
     expect(
-      await checkBoundary({ payloadString: s.payloadString, signature: s.signature, files: edited }, { findDevice: s.findDevice }),
+      await checkBoundary({ payloadString: s.payloadString, signature: s.signature, files: edited }, { findDevice: s.findDevice, isPlotAssigned: s.isPlotAssigned }),
     ).toMatchObject({ ok: false, reason: 'media_hash_mismatch' });
   });
 
@@ -110,13 +131,13 @@ describe('checkBoundary (TC-007)', () => {
     const s = await setup();
     const wrongSize = { ...s.payload, media: s.payload.media.map((m, i) => (i === 0 ? { ...m, size: m.size + 1 } : m)) };
     const { payloadString, signature } = await resign(s.device, wrongSize);
-    const r = await checkBoundary({ payloadString, signature, files: s.files }, { findDevice: s.findDevice });
+    const r = await checkBoundary({ payloadString, signature, files: s.files }, { findDevice: s.findDevice, isPlotAssigned: s.isPlotAssigned });
     expect(r).toEqual({ ok: false, status: 409, reason: 'media_hash_mismatch', signedByKnownDevice: true, device: s.row });
   });
 
   it('refuses a payload that is not JSON, or fails the schema, as bad_schema', async () => {
     const s = await setup();
-    const deps = { findDevice: s.findDevice };
+    const deps = { findDevice: s.findDevice, isPlotAssigned: s.isPlotAssigned };
     expect(await checkBoundary({ payloadString: '{not json', signature: s.signature, files: s.files }, deps)).toMatchObject({
       ok: false,
       status: 400,
