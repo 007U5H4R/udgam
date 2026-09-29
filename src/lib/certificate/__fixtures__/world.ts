@@ -126,7 +126,9 @@ export async function seedCertificateWorld(db: Db, o: CertificateWorldOptions): 
   const pair = await generateKeyPair(false);
   const publicJwk = publicMembers(await globalThis.crypto.subtle.exportKey('jwk', pair.publicKey));
   const { code } = await issueCode(db, { agentId, adminId, orgId });
-  const enrolled = await enrolDevice(db, { code, publicJwk, ip: '203.0.113.7', sessionAgentId: agentId });
+  // A fresh address per world (enrolment allows 10 per IP per hour, EVAL-082); 198.18.0.0/15 is for testing (RFC 2544).
+  const [a, b] = globalThis.crypto.getRandomValues(new Uint8Array(2));
+  const enrolled = await enrolDevice(db, { code, publicJwk, ip: `198.18.${a}.${b}`, sessionAgentId: agentId });
   if (!enrolled.ok) throw new Error(`fixture: enrolment refused (${enrolled.reason})`);
   const deviceId = enrolled.deviceId;
 
