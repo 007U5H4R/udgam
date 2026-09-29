@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { P01_INSIDE, seedTracerWorld, type TracerWorld } from '../../../scripts/tracer-world';
 import { cookieHeader } from '../../../tests/helpers/auth';
@@ -222,5 +223,49 @@ describe('TC-074 / EVAL-081 upload limits at the capture boundary', () => {
     expect(r.status).toBe(200);
     expect(r.lines.at(-1)).toMatchObject({ t: 'verdict' });
     expect(verifyCalls).toHaveBeenCalledTimes(1);
+  });
+
+  // Fix round 1: the sniffed type must agree with the signed media[i].mime; AVIF is refused; HEIC passes.
+  const withMime = (mime: string) => (p: CapturePayloadV1) => ({ ...p, media: p.media.map((m) => ({ ...m, mime })) });
+
+  it('a JPEG whose signed mime says image/png → 415 media_type, anchored (validly signed); nothing stored as .png', async () => {
+    const r = await post(await multipartRequest(URL_, await signed([fakeJpeg('as-png')], withMime('image/png')), { cookie }));
+    expect(r.status).toBe(415);
+    expect(r.lines).toEqual([{ t: 'rejected', reason: 'media_type', status: 415 }]);
+    expect(await rows()).toEqual([{ boundary_status: 'rejected', boundary_reason: 'media_type', device_id: world.deviceId }]);
+    expect((await t.client.execute('SELECT COUNT(*) AS n FROM media')).rows[0]?.n).toBe(0);
+    expect(verifyCalls).not.toHaveBeenCalled();
+  });
+
+  it('a mime mismatch under a signature no enrolled key verifies → 415, only logged', async () => {
+    const fd = await signed([fakeJpeg('forged-as-heic')], withMime('image/heic'));
+    fd.set('signature', await sign((await makeDevice()).pair.privateKey, String(fd.get('payload'))));
+    const before = await entries();
+    const r = await post(await multipartRequest(URL_, fd, { cookie }));
+    expect(r.status).toBe(415);
+    expect(await rows()).toEqual([]);
+    expect(await entries()).toBe(before);
+  });
+
+  it('an AVIF photo (generic mif1 major brand, avif compatible) → 415 media_type', async () => {
+    const box = new TextEncoder().encode('ftypmif1\0\0\0\0avifmif1miafMA1B');
+    const avif = new Uint8Array([0, 0, 0, 4 + box.length, ...box, ...new TextEncoder().encode('avif body')]);
+    for (const mime of ['image/avif', 'image/heic']) {
+      const r = await post(await multipartRequest(URL_, await signed([avif], withMime(mime)), { cookie }));
+      expect(r.status, mime).toBe(415);
+      expect(r.lines, mime).toEqual([{ t: 'rejected', reason: 'media_type', status: 415 }]);
+    }
+    expect(verifyCalls).not.toHaveBeenCalled();
+  });
+
+  it('a real HEIC photo signed as image/heic is accepted end to end: verified, stored as .heic', async () => {
+    const heic = new Uint8Array(readFileSync('evals/fixtures/photos/sample.heic'));
+    const r = await post(await multipartRequest(URL_, await signed([heic], withMime('image/heic')), { cookie }));
+    expect(r.status).toBe(200);
+    expect(r.lines.at(-1)).toMatchObject({ t: 'verdict' });
+    expect(verifyCalls).toHaveBeenCalledTimes(1);
+    const media = (await t.client.execute('SELECT mime, path, size FROM media')).rows.map((m) => ({ ...m }));
+    expect(media).toEqual([{ mime: 'image/heic', path: expect.stringMatching(/\.heic$/), size: heic.length }]);
+    expect(await rows()).toEqual([{ boundary_status: 'accepted', boundary_reason: null, device_id: world.deviceId }]);
   });
 });

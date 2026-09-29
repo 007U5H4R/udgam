@@ -45,21 +45,24 @@ describe('Content-Security-Policy (TC-076)', () => {
     expect(a.headers.get('x-middleware-request-x-nonce')).toBe(nonce);
   });
 
-  it('only /admin/plots* adds the configured tile host to img-src', async () => {
-    // env is read once per module instance: load a fresh proxy for each provider
+  it('every /admin* page (and only those) adds the configured tile host to img-src', async () => {
+    // Fix round 1 (review major 1): the admin Rail and "Add plot" are client navigations, which keep the
+    // policy of the first admin document, so every admin page carries the tile host (§16 "tile hosts
+    // allow-listed on admin pages only"). env is read once per module instance: load a fresh proxy.
     const fresh = async (provider: string) => {
       vi.resetModules();
       vi.stubEnv('MAP_TILE_PROVIDER', provider);
       return (await import('../proxy')).proxy;
     };
     const esri = await fresh('esri');
-    for (const path of ['/admin/plots', '/admin/plots/new', '/admin/plots/PL-1']) {
+    for (const path of ['/admin', '/admin/', '/admin/phones', '/admin/plots', '/admin/plots/new', '/admin/plots/PL-1', '/admin/batches']) {
       expect(directives(cspOf(esri(request(path, SESSION)))).get('img-src'), path).toEqual(["'self'", 'data:', 'blob:', 'https://ibasemaps-api.arcgis.com']);
     }
     const maptiler = await fresh('maptiler');
+    expect(directives(cspOf(maptiler(request('/admin', SESSION)))).get('img-src')).toEqual(["'self'", 'data:', 'blob:', 'https://api.maptiler.com']);
     expect(directives(cspOf(maptiler(request('/admin/plots/new', SESSION)))).get('img-src')).toEqual(["'self'", 'data:', 'blob:', 'https://api.maptiler.com']);
-    for (const path of ['/admin', '/admin/phones', '/admin/plotsx', '/field', '/verify/B-12345678', '/sign-in']) {
-      expect(directives(cspOf(proxy(request(path, SESSION)))).get('img-src'), path).toEqual(["'self'", 'data:', 'blob:']);
+    for (const path of ['/', '/adminx', '/administrator', '/field', '/field/record', '/buyer', '/verify/B-12345678', '/sign-in', '/enrol']) {
+      expect(directives(cspOf(esri(request(path, SESSION)))).get('img-src'), path).toEqual(["'self'", 'data:', 'blob:']);
     }
   });
 

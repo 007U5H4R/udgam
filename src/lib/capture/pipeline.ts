@@ -173,6 +173,11 @@ export async function runCapture(form: FormData, deps: CaptureDeps, emit: (line:
  * storage and verification, so two captures carrying the same new photo could both pass. Re-read them
  * inside the write transaction; if a photo has been accepted since, re-run that (local, pure) check and
  * re-score. Returns the result to commit.
+ *
+ * The `check` line already streamed for photo_uniqueness is then stale (it said `ok`; the committed
+ * result says `fail`). It is left as sent on purpose: a check line is progress, streamed before COMMIT,
+ * and can't be taken back, while the verdict line is sent only after COMMIT and carries every committed
+ * check. Clients render the result from the verdict line's `checks` (TKT-10), never from the progress lines.
  */
 async function recheckPhotoUniqueness(tx: Tx, sub: Submission, ctx: VerifyContext, result: VerifyResult): Promise<VerifyResult> {
   const i = result.checks.findIndex((c) => c.id === photoUniqueness.id);
@@ -238,10 +243,11 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
   // neither answer with the owner's recorded result nor block the owner's own upload of the same payload.
   const notOwned = (): CaptureEvent => refuse({ reason: 'device_not_owned', status: 403 });
 
-  // Rate limit on the phone the payload claims, before anything about it is verified (TSK-19.3).
+  // Rate limit on the phone the payload claims, before anything about it is verified (TSK-19.3), in the
+  // signed-in agent's own bucket for that phone (fix round 1).
   const claimed = claimedDeviceId(form.get('payload'));
   if (claimed) {
-    const rl = await consume(db, deviceKey(claimed), DEVICE_LIMIT.limit, DEVICE_LIMIT.windowSec, now());
+    const rl = await consume(db, deviceKey(deps.agentId, claimed), DEVICE_LIMIT.limit, DEVICE_LIMIT.windowSec, now());
     if (!rl.ok) return refuse({ reason: 'rate_limited', status: 429, retryAfterSec: rl.retryAfterSec });
   }
 

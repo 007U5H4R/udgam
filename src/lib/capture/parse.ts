@@ -1,4 +1,4 @@
-import { sniffImage } from '../media/sniff';
+import { mimeMatches, SNIFF_BYTES, sniffImage, type SniffedImage } from '../media/sniff';
 import type { CapturePayloadV1 } from '../verification/types';
 import { MAX_BODY_BYTES, MAX_PHOTO_BYTES, MAX_PHOTOS } from './limits';
 import { capturePayloadV1 } from './payload';
@@ -39,7 +39,6 @@ export function checkContentLength(headers: Headers): FormRefusal | null {
 }
 
 const PHOTO = /^photo(0|[1-9]\d?)$/;
-const MAGIC_BYTES = 16;
 
 /** Read the capture form with the ordered TSK-19.2 checks. Never throws on client input. */
 export async function parseCaptureForm(form: FormData): Promise<ParseResult> {
@@ -69,8 +68,11 @@ export async function parseCaptureForm(form: FormData): Promise<ParseResult> {
 
   // Sizes, then magic bytes (JPEG or HEIC/HEIF only; the declared file type is never trusted).
   if (files.some((f) => f.size > MAX_PHOTO_BYTES)) return refuse(413, 'media_too_large', strings);
+  const sniffed: SniffedImage[] = [];
   for (const f of files) {
-    if (sniffImage(new Uint8Array(await f.slice(0, MAGIC_BYTES).arrayBuffer())) === null) return refuse(415, 'media_type', strings);
+    const type = sniffImage(new Uint8Array(await f.slice(0, SNIFF_BYTES).arrayBuffer()));
+    if (type === null) return refuse(415, 'media_type', strings);
+    sniffed.push(type);
   }
 
   // Schema, naming the first failing field.
@@ -84,6 +86,12 @@ export async function parseCaptureForm(form: FormData): Promise<ParseResult> {
   if (!schema.success) {
     const path = schema.error.issues[0]?.path.map(String).join('.') ?? '';
     return refuse(400, 'bad_schema', { ...strings, field: path === '' ? 'payload' : path });
+  }
+  // The signed type must be what the bytes are (it names the stored file); a missing entry is the
+  // boundary's media-count/hash check.
+  for (const [i, type] of sniffed.entries()) {
+    const m = schema.data.media[i];
+    if (m && !mimeMatches(type, m.mime)) return refuse(415, 'media_type', strings);
   }
   return { ok: true, form: { payloadString, signature, files, payload: schema.data } };
 }

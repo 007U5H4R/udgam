@@ -12,11 +12,10 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { hashPassword } from 'better-auth/crypto';
 import { env } from '../src/lib/config/env';
-import { emailKey } from '../src/lib/auth/sign-in-limit';
+import { clearSignInThrottles } from '../src/lib/auth/sign-in-limit';
 import { writeTx, type Db } from '../src/lib/db/client';
-import { account, organisations, rateLimits, user } from '../src/lib/db/schema';
+import { account, organisations, user } from '../src/lib/db/schema';
 import type { Role } from '../src/lib/auth/session';
-import { inArray } from 'drizzle-orm';
 
 /** Demo-only default for dev and test databases. Used only when NODE_ENV is explicitly development or test. */
 export const DEV_SEED_PASSWORD = 'kodagu-coffee-demo';
@@ -56,9 +55,11 @@ export function seedPassword(): string {
 export async function seedAccounts(db: Db, password: string, now = new Date()): Promise<DemoAccount[]> {
   const accounts: DemoAccount[] = Object.values(DEMO_ACCOUNTS);
   const hashes = await Promise.all(accounts.map(() => hashPassword(password)));
-  const throttles = await Promise.all(accounts.map((a) => emailKey(a.email)));
   await writeTx(db, async (tx) => {
-    await tx.delete(rateLimits).where(inArray(rateLimits.key, throttles));
+    await clearSignInThrottles(
+      tx,
+      accounts.map((a) => a.email),
+    );
     for (const o of Object.values(DEMO_ORGS)) await tx.insert(organisations).values(o).onConflictDoNothing();
     for (const [i, a] of accounts.entries()) {
       await tx

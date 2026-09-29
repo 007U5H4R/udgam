@@ -146,4 +146,15 @@ describe('Better Auth on the app database', () => {
     const { authSecret } = await import('./auth');
     expect(() => authSecret()).toThrow(/BETTER_AUTH_SECRET/);
   });
+
+  it('outside production without BETTER_AUTH_SECRET, every module instance in the process shares one dev secret (fix round 1)', async () => {
+    // `next start` loads this module once per Turbopack runtime (route handlers, Server Actions): a cookie
+    // signed at sign-in must verify in /api/capture.
+    vi.stubEnv('BETTER_AUTH_SECRET', '');
+    const first = (await import('./auth')).authSecret();
+    vi.resetModules();
+    const second = (await import('./auth')).authSecret();
+    expect(first).toMatch(/^[0-9a-f]{64}$/);
+    expect(second).toBe(first);
+  });
 });

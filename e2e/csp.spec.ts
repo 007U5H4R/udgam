@@ -64,14 +64,43 @@ test.describe('TC-076 security headers and CSP', () => {
     expect(violations).toEqual([]);
   });
 
-  test('the admin: /admin and /admin/plots/new (tile host allowed only there)', async ({ page }) => {
+  test('the admin: /admin and /admin/plots/new (tile host allowed on admin pages only)', async ({ page }) => {
     await stubTiles(page);
     const violations = await watchViolations(page);
     await signIn(page, DEMO_ACCOUNTS.adminA.email, SEED_PASSWORD);
-    await expectSecureHeaders(page, '/admin');
+    await expectSecureHeaders(page, '/admin', 'https://ibasemaps-api.arcgis.com');
     await expectSecureHeaders(page, '/admin/plots/new', 'https://ibasemaps-api.arcgis.com');
     await expect(page.locator('.leaflet-container')).toBeVisible();
     await page.locator('.leaflet-tile-loaded').first().waitFor();
+    expect(violations).toEqual([]);
+  });
+
+  test('the admin tiles survive client navigation: an admin page → Rail Plots → Add a plot (fix round 1)', async ({ page }) => {
+    // The Rail and "Add a plot" are soft navigations, which keep the CSP of the first admin document.
+    // Sign-in lands on /admin; its placeholder has no Rail yet (TKT-12 ports it), so the Rail is taken
+    // from /admin/phones, an admin document whose policy used to lack the tile host.
+    await stubTiles(page);
+    const violations = await watchViolations(page);
+    await signIn(page, DEMO_ACCOUNTS.adminA.email, SEED_PASSWORD);
+    await expect(page).toHaveURL(/\/admin$/);
+    await expectSecureHeaders(page, '/admin', 'https://ibasemaps-api.arcgis.com');
+    await expectSecureHeaders(page, '/admin/phones', 'https://ibasemaps-api.arcgis.com');
+    // Survives only while no new document loads: proves both steps below are client navigations.
+    await page.evaluate(() => {
+      (window as unknown as { __sameDocument?: boolean }).__sameDocument = true;
+    });
+    const tiles: string[] = [];
+    page.on('requestfinished', (r) => {
+      if (r.url().includes('arcgis.com')) tiles.push(r.url());
+    });
+    await page.getByRole('navigation', { name: 'Admin sections' }).getByRole('link', { name: 'Plots' }).click();
+    await expect(page).toHaveURL(/\/admin\/plots$/);
+    await page.getByRole('link', { name: 'Add a plot' }).click();
+    await expect(page).toHaveURL(/\/admin\/plots\/new$/);
+    await expect(page.locator('.leaflet-container')).toBeVisible();
+    await page.locator('.leaflet-tile-loaded').first().waitFor();
+    expect(await page.evaluate(() => (window as unknown as { __sameDocument?: boolean }).__sameDocument)).toBe(true);
+    expect(tiles.length).toBeGreaterThan(0); // the stub tile was fetched, not blocked
     expect(violations).toEqual([]);
   });
 });

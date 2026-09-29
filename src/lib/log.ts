@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import pino from 'pino';
 import { env } from './config/env';
+import { SECRET_ENV_NAMES } from './config/secret-names';
 
 /** The secret environment variables (.env.example): redacted wherever one is logged by name (TSK-19.6). */
-const SECRET_ENV = ['BETTER_AUTH_SECRET', 'GFW_API_KEY', 'CDSE_CLIENT_SECRET', 'ARCGIS_API_KEY', 'MAPTILER_KEY'];
+const SECRET_ENV: readonly string[] = SECRET_ENV_NAMES;
 
 // technical-plan §15: JSON to stdout; secrets and signatures never logged. pino's default censor
 // ("[Redacted]") is kept. Wildcards match one level, so header paths are listed explicitly.
