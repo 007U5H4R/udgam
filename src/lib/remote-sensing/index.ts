@@ -5,6 +5,8 @@ import type { PlotPolygon } from '../geo/types';
 import { CONFIG } from '../verification/config';
 import { withCache } from './cache';
 import { createFixtureProvider, loadFixtureSet, type FixtureProvider, type FixtureSet } from './fixture';
+import { createGfwProvider } from './gfw';
+import { createSentinelProvider } from './sentinel';
 import { ProviderError, type CallOptions, type PlotGeom, type ProviderName, type RemoteSensingProvider } from './types';
 
 // Remote sensing for the app (technical-plan §7, TSK-07.2): the provider chosen by
@@ -77,10 +79,54 @@ function deferred(name: RemoteSensingProvider['name'], get: () => Promise<Remote
   };
 }
 
+/** The live provider: GFW for forest loss, Copernicus Sentinel Hub for NDVI, plus their health probes. */
+export type LiveProvider = RemoteSensingProvider & { probe(): Promise<{ gfw: 'ok' | 'error'; sentinelHub: 'ok' | 'error' }> };
+
+const PROBE_TIMEOUT_MS = 5_000;
+
+/** Resolve within `ms` or report an error: a probe must never hold /api/health. */
+async function probeOk(run: (o: CallOptions) => Promise<void>, ms: number): Promise<'ok' | 'error'> {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), ms);
+  try {
+    await Promise.race([
+      run({ signal: ctl.signal }),
+      new Promise<never>((_, reject) => ctl.signal.addEventListener('abort', () => reject(new Error('probe timed out')), { once: true })),
+    ]);
+    return 'ok';
+  } catch {
+    return 'error';
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** technical-plan §7: the live adapters from env keys. Names missing variables, never values. */
+export function createLiveProvider(e: RsEnv, opts: { fetch?: typeof globalThis.fetch } = {}): LiveProvider {
+  const missing = (['GFW_API_KEY', 'CDSE_CLIENT_ID', 'CDSE_CLIENT_SECRET'] as const).filter((k) => !e[k]);
+  if (missing.length > 0) throw new Error(`REMOTE_SENSING_PROVIDER=live needs ${missing.join(', ')}`);
+  const gfw = createGfwProvider({ apiKey: e.GFW_API_KEY!, origin: e.PUBLIC_BASE_URL, fetch: opts.fetch });
+  const sentinel = createSentinelProvider({ clientId: e.CDSE_CLIENT_ID!, clientSecret: e.CDSE_CLIENT_SECRET!, fetch: opts.fetch });
+  return {
+    name: 'live',
+    forestLoss: (plot, o) => gfw.forestLoss(plot, o),
+    ndviHistory: (plot, endMonth, o) => sentinel.ndviHistory(plot, endMonth, o),
+    ndviWindow: (plot, centreDate, days, o) => sentinel.ndviWindow(plot, centreDate, days, o),
+    async probe() {
+      const [g, s] = await Promise.all([probeOk((o) => gfw.probe(o), PROBE_TIMEOUT_MS), probeOk((o) => sentinel.probe(o), PROBE_TIMEOUT_MS)]);
+      return { gfw: g, sentinelHub: s };
+    },
+  };
+}
+
+let liveProvider: LiveProvider | undefined;
+const appLive = (e: RsEnv): LiveProvider => (liveProvider ??= createLiveProvider(e));
+
+
 /** technical-plan TSK-07.2: the provider REMOTE_SENSING_PROVIDER names (`fixture` | `live`). */
 export function getRemoteSensing(e: RsEnv): RemoteSensingProvider {
   if (e.REMOTE_SENSING_PROVIDER === 'fixture') return deferred('fixture', appFixture);
-  throw new Error('REMOTE_SENSING_PROVIDER=live: the live adapters are not built yet');
+  return appLive(e);
 }
 
 /** What the capture pipeline and plot registration use: provider → 8 s timeouts → cache. */
