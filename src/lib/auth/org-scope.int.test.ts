@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DEMO_ACCOUNTS, DEMO_ORGS, seedAccounts } from '../../../scripts/seed-accounts';
 import { P01_INSIDE, seedTracerWorld, type TracerWorld } from '../../../scripts/tracer-world';
 import { cookieHeader } from '../../../tests/helpers/auth';
+import { fakeJpeg } from '../../../tests/helpers/capture';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 import { makeDevice, type TestDevice } from '../../../tests/helpers/verify';
 import { runCapture, type CaptureEvent } from '../capture/pipeline';
@@ -26,7 +27,7 @@ const PASSWORD = 'org scope password';
 
 /** One signed capture on `world`'s plot by its agent; returns the run ID. */
 async function captureRun(world: TracerWorld, dev: TestDevice): Promise<string> {
-  const bytes = new TextEncoder().encode(`photo-${world.plotId}`);
+  const bytes = fakeJpeg(`photo-${world.plotId}`);
   const payload = jcs({
     v: 1,
     plotId: world.plotId,

@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { P01_INSIDE, seedTracerWorld, type TracerWorld } from '../../../scripts/tracer-world';
+import { fakeJpeg } from '../../../tests/helpers/capture';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 import { makeDevice, type TestDevice } from '../../../tests/helpers/verify';
 import { jcs, sha256Hex, sign } from '../crypto';
@@ -12,7 +13,7 @@ import { REGISTRY } from '../verification/registry';
 import type { CapturePayloadV1 } from '../verification/types';
 import { runCapture, type CaptureDeps, type CaptureEvent } from './pipeline';
 
-// TC-010 (a), EVAL-067 (atomic capture), EVAL-053 (tamper → 4xx, anchored), EVAL-001/030 end to end.
+// TC-010 (a), EVAL-067 (atomic capture), EVAL-053 (tamper → 4xx), EVAL-001/030 end to end.
 let t: TempDb;
 let dev: TestDevice;
 let world: TracerWorld;
@@ -27,7 +28,7 @@ afterEach(async () => {
   await t.cleanup();
 });
 
-const photo = (label: string) => new TextEncoder().encode(`jpeg-bytes:${label}`);
+const photo = (label: string) => fakeJpeg(label);
 /** One `check` line per registered check (the registry grows by ticket), then `last`. */
 const streamOf = (last: string) => [...REGISTRY.map(() => 'check'), last];
 
@@ -139,7 +140,7 @@ describe('runCapture happy path', () => {
   });
 });
 
-describe('boundary rejections are anchored (§3.1 step 2)', () => {
+describe('boundary rejections are anchored (§3.1 step 2), except garbled payloads (TSK-19.4)', () => {
   it('EVAL-053 cherryKg tampered after signing → 401 bad_signature, anchored as a rejected event, no media', async () => {
     const { fd } = await form({ mutate: (p) => ({ ...p, cherryKg: 142.5 }) });
     const events = await run(fd);
@@ -154,12 +155,13 @@ describe('boundary rejections are anchored (§3.1 step 2)', () => {
     expect(existsSync(join(t.dir, 'media'))).toBe(false);
   });
 
-  it('a non-canonical payload is refused with 400 and anchored once, however often it is resent', async () => {
+  it('a non-canonical payload is refused with 400 however often it is resent, and never anchored', async () => {
     const { fd, payload } = await form();
     fd.set('payload', JSON.stringify(payload, null, 2));
     expect(await run(fd)).toEqual([{ t: 'rejected', reason: 'non_canonical', status: 400 }]);
     expect(await run(fd)).toEqual([{ t: 'rejected', reason: 'non_canonical', status: 400 }]);
-    expect(await count('harvest_events')).toBe(1);
+    expect(await count('harvest_events')).toBe(0);
+    expect(await count('ledger_entries')).toBe(SEED_ENTRIES);
   });
 
   it('uploaded bytes that differ from the signed hashes → 409, and a resend of that payload gets the same answer', async () => {

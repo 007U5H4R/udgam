@@ -8,10 +8,9 @@ import { extractExif } from '../media/exif';
 import type { MediaStore } from '../media/store';
 import { verify } from '../verification/verify';
 import type { CapturePayloadV1, CheckId, CheckResult, CheckStatus, Submission, Verdict } from '../verification/types';
-import { checkBoundary, STATUS, type BoundaryDevice, type BoundaryReason } from './boundary';
+import { authenticate, checkBoundary, STATUS, type BoundaryDevice, type BoundaryReason } from './boundary';
 import { buildContext } from './context';
-import { CaptureFormError, parseCaptureForm } from './parse';
-import { capturePayloadV1 } from './payload';
+import { parseCaptureForm, type FormReason } from './parse';
 import { persistAccepted, persistRejected, type AppendFn, type StoredMedia } from './persist';
 
 // The capture pipeline (technical-plan §3.1). Emits NDJSON-able events: a `check` line as each check
@@ -28,7 +27,13 @@ export type CaptureEvent =
       checks: { id: CheckId; status: CheckStatus; evidence: string }[];
       idempotent?: boolean;
     }
-  | { t: 'rejected'; reason: string; status: number }
+  | {
+      t: 'rejected';
+      reason: string;
+      status: number;
+      /** The payload field a schema refusal names (TSK-19.2). */
+      field?: string;
+    }
   | { t: 'error'; retryable: boolean };
 
 export type CaptureDeps = {
@@ -57,16 +62,6 @@ async function findDevice(db: Db, id: string): Promise<BoundaryDevice | null> {
     lastSeq: d.lastSeq,
     lastEventHash: d.lastEventHash,
   };
-}
-
-/** The schema-valid payload in a string, or null (for recording a rejection's fields). */
-function tryPayload(payloadString: string): CapturePayloadV1 | null {
-  try {
-    const r = capturePayloadV1.safeParse(JSON.parse(payloadString));
-    return r.success ? r.data : null;
-  } catch {
-    return null;
-  }
 }
 
 function verdictLine(eventId: string, run: { verdict: Verdict; score: number; checks: CheckResult[] }) {
@@ -167,6 +162,11 @@ export async function runCapture(form: FormData, deps: CaptureDeps, emit: (line:
   send(terminal);
 }
 
+/** Upload refusals from parse.ts that a valid signature makes attributable (anchored, TSK-19.4). */
+const MEDIA_REASONS = new Set<FormReason>(['media_count', 'media_too_large', 'media_type']);
+/** Signature refusals of a well-formed payload that are anchored without naming a device (EVAL-051/053). */
+const UNVERIFIED_ANCHORED = new Set<BoundaryReason>(['unknown_device', 'bad_signature']);
+
 /**
  * Step 7's re-check, under the write lock (BEGIN IMMEDIATE): the boundary read the device and the plot
  * assignment before media storage and verification, and a revocation or un-assignment may have
@@ -184,39 +184,60 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
   const { db } = deps;
   const now = deps.now ?? (() => new Date());
 
+  const log = deps.log ?? defaultLog;
+
+  /** A refusal that is only logged: nothing about the request is attributable to an enrolled phone. */
+  const refuse = (line: Omit<Extract<CaptureEvent, { t: 'rejected' }>, 't'>): CaptureEvent => {
+    log.info({ reason: line.reason, status: line.status, anchored: false }, 'capture.refused');
+    return { t: 'rejected', ...line };
+  };
+  /**
+   * A refusal of a well-formed signed payload: anchored as a rejected harvest_event (§7 rule 2; TP7: once
+   * per payload). `device` is set only when its key verified the signature.
+   */
   const reject = async (
     input: { payloadString: string; signature: string },
     reason: string,
     status: number,
     device: BoundaryDevice | null,
+    payload: CapturePayloadV1,
     serverReceivedAt: string,
   ): Promise<CaptureEvent> => {
     const payloadHash = await sha256Hex(input.payloadString);
-    await writeTx(db, (tx) =>
-      persistRejected(
-        tx,
-        { ...input, payloadHash, serverReceivedAt, reason, payload: tryPayload(input.payloadString), device },
-        deps.append,
-      ),
-    );
+    await writeTx(db, (tx) => persistRejected(tx, { ...input, payloadHash, serverReceivedAt, reason, payload, device }, deps.append));
+    log.info({ reason, status, anchored: true }, 'capture.refused');
     return { t: 'rejected', reason, status };
   };
+  // Another agent's phone: an authorisation refusal, not a verdict on the payload. Not anchored, so it can
+  // neither answer with the owner's recorded result nor block the owner's own upload of the same payload.
+  const notOwned = (): CaptureEvent => refuse({ reason: 'device_not_owned', status: 403 });
 
-  let form_;
-  try {
-    form_ = await parseCaptureForm(form);
-  } catch (err) {
-    if (err instanceof CaptureFormError) return { t: 'rejected', reason: 'bad_form', status: 400 }; // no payload to anchor
-    throw err;
-  }
+  // 1. the form, cheapest check first: count → sizes → magic bytes → schema (TSK-19.2)
+  const parsed = await parseCaptureForm(form);
   const serverReceivedAt = now().toISOString();
+  if (!parsed.ok) {
+    const { payloadString, signature } = parsed;
+    if (MEDIA_REASONS.has(parsed.reason) && payloadString !== undefined && signature !== undefined) {
+      const auth = await authenticate({ payloadString, signature }, { findDevice: (id) => findDevice(db, id) });
+      if (auth.ok) {
+        if (auth.device.agentId !== deps.agentId) return notOwned();
+        return reject({ payloadString, signature }, parsed.reason, parsed.status, auth.device, auth.payload, serverReceivedAt);
+      }
+    }
+    return refuse({ reason: parsed.reason, status: parsed.status, ...(parsed.field ? { field: parsed.field } : {}) });
+  }
+  const form_ = parsed.form;
 
   // 2. boundary (canonical bytes, schema, device, signature, revocation, plot assignment, media sizes and hashes)
   const b = await checkBoundary(form_, { findDevice: (id) => findDevice(db, id), isPlotAssigned: (agentId, plotId) => isPlotAssigned(db, agentId, plotId) });
-  // Another agent's phone: an authorisation refusal, not a verdict on the payload. Not anchored, so it can
-  // neither answer with the owner's recorded result nor block the owner's own upload of the same payload.
-  if (b.device && b.device.agentId !== deps.agentId) return { t: 'rejected', reason: 'device_not_owned', status: 403 };
-  if (!b.ok) return reject(form_, b.reason, b.status, b.device ?? null, serverReceivedAt);
+  if (b.device && b.device.agentId !== deps.agentId) return notOwned();
+  if (!b.ok) {
+    if (b.signedByKnownDevice && b.device) return reject(form_, b.reason, b.status, b.device, form_.payload, serverReceivedAt);
+    // A canonical, schema-valid payload whose signature no enrolled key verifies (EVAL-051, EVAL-053):
+    // anchored, unattributed. Only a garbled payload (non_canonical) is merely logged.
+    if (UNVERIFIED_ANCHORED.has(b.reason)) return reject(form_, b.reason, b.status, null, form_.payload, serverReceivedAt);
+    return refuse({ reason: b.reason, status: b.status });
+  }
   const { payload, payloadHash, device } = b;
 
   // 3. idempotency
@@ -225,7 +246,7 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
 
   // the plot exists: the boundary found a live agent_plots assignment for it (§6.4, foreign key)
   const [plot] = await db.select().from(plots).where(eq(plots.id, payload.plotId));
-  if (!plot) return reject(form_, 'plot_not_assigned', STATUS.plot_not_assigned, device, serverReceivedAt);
+  if (!plot) return reject(form_, 'plot_not_assigned', STATUS.plot_not_assigned, device, payload, serverReceivedAt);
 
   // 4. media (content-addressed and shared; each put holds its path until this request ends) and
   // the EXIF read from each stored photo's bytes (TKT-08; never throws, absent → nulls)

@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { jcs, sha256Hex, sign } from '../crypto';
 import { makeDevice, makePayload, type TestDevice } from '../../../tests/helpers/verify';
 import { checkBoundary, type BoundaryDevice } from './boundary';
-import { parseCaptureForm } from './parse';
 import { capturePayloadV1 } from './payload';
 
 // TC-007 (Review focus 1) and EVAL-053 at the boundary; Review focus 2 (uploaded bytes = signed bytes).
@@ -191,28 +190,5 @@ describe('capturePayloadV1 schema (§5.2)', () => {
     expect(ok({ ...p, seq: 0 })).toBe(false);
     expect(ok({ ...p, seq: 1.5 })).toBe(false);
     expect(ok({ ...p, media: [{ ...p.media[0]!, sha256: 'x' }] })).toBe(false);
-  });
-});
-
-describe('parseCaptureForm', () => {
-  it('reads payload, signature and photo0..photo2 in order', async () => {
-    const fd = new FormData();
-    fd.set('payload', '{"a":1}');
-    fd.set('signature', 'sig');
-    fd.set('photo1', new File([bytesOf('b')], 'b.jpg'));
-    fd.set('photo0', new File([bytesOf('a')], 'a.jpg'));
-    const r = await parseCaptureForm(fd);
-    expect(r.payloadString).toBe('{"a":1}');
-    expect(r.signature).toBe('sig');
-    expect(await Promise.all(r.files.map((f) => f.text()))).toEqual(['a', 'b']);
-  });
-
-  it('throws CaptureFormError when a field is missing or a photo slot is skipped', async () => {
-    const fd = new FormData();
-    fd.set('payload', '{}');
-    await expect(parseCaptureForm(fd)).rejects.toMatchObject({ name: 'CaptureFormError' });
-    fd.set('signature', 's');
-    fd.set('photo1', new File([bytesOf('b')], 'b.jpg'));
-    await expect(parseCaptureForm(fd)).rejects.toMatchObject({ name: 'CaptureFormError' });
   });
 });

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { P01_INSIDE, seedTracerWorld, type TracerWorld } from '../../../scripts/tracer-world';
 import { addUser } from '../../../tests/helpers/auth';
+import { fakeJpeg } from '../../../tests/helpers/capture';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 import { makeDevice, type TestDevice } from '../../../tests/helpers/verify';
 import { jcs, publicMembers, sha256Hex, sign } from '../crypto';
@@ -44,7 +45,7 @@ afterEach(async () => {
 
 let n = 0;
 async function capture(o: { key: TestDevice; deviceId: string; plotId?: string; seq?: number }) {
-  const bytes = new TextEncoder().encode(`photo-${n++}`);
+  const bytes = fakeJpeg(`photo-${n++}`);
   const payload: CapturePayloadV1 = {
     v: 1,
     plotId: o.plotId ?? world.plotId,

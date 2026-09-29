@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { P01_INSIDE, seedTracerWorld, type TracerWorld } from '../../../../scripts/tracer-world';
 import { addOrg, addUser, cookieHeader } from '../../../../tests/helpers/auth';
+import { fakeJpeg, multipartRequest } from '../../../../tests/helpers/capture';
 import { tempDb, type TempDb } from '../../../../tests/helpers/db';
 import { makeDevice, type TestDevice } from '../../../../tests/helpers/verify';
 import { jcs, sha256Hex, sign } from '../../../lib/crypto';
@@ -40,7 +41,7 @@ async function signIn(email: string, password = PASSWORD): Promise<string> {
 }
 
 async function request(tamper = false, cookie: string | null = agentCookie) {
-  const bytes = new TextEncoder().encode('tracer-photo');
+  const bytes = fakeJpeg('tracer-photo');
   const payload = {
     v: 1 as const,
     plotId: world.plotId,
@@ -57,7 +58,7 @@ async function request(tamper = false, cookie: string | null = agentCookie) {
   fd.set('payload', tamper ? jcs({ ...payload, cherryKg: 142.5 }) : signed);
   fd.set('signature', await sign(dev.pair.privateKey, signed));
   fd.set('photo0', new File([bytes], 'p.jpg', { type: 'image/jpeg' }));
-  return new Request('http://localhost/api/capture', { method: 'POST', body: fd, headers: cookie ? { cookie } : {} });
+  return multipartRequest('http://localhost/api/capture', fd, cookie ? { cookie } : {});
 }
 
 const lines = async (res: Response) =>
@@ -88,7 +89,7 @@ describe('POST /api/capture', () => {
 
   it('answers a body that is not multipart with 400', async () => {
     const { POST } = await import('./route');
-    const res = await POST(new Request('http://localhost/api/capture', { method: 'POST', body: 'nope', headers: { cookie: agentCookie } }));
+    const res = await POST(new Request('http://localhost/api/capture', { method: 'POST', body: 'nope', headers: { cookie: agentCookie, 'content-length': '4' } }));
     expect(res.status).toBe(400);
   });
 

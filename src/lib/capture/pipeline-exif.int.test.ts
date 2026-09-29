@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { P01_INSIDE, seedTracerWorld, type TracerWorld } from '../../../scripts/tracer-world';
+import { fakeJpeg } from '../../../tests/helpers/capture';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 import { makeDevice, type TestDevice } from '../../../tests/helpers/verify';
 import { jcs, sha256Hex, sign } from '../crypto';
@@ -33,7 +34,8 @@ afterEach(async () => {
 });
 
 const FIXTURE = new Uint8Array(readFileSync('evals/fixtures/photos/gps-time-offset.jpg'));
-const text = (label: string) => new TextEncoder().encode(`jpeg-bytes:${label}`);
+/** A JPEG with no EXIF (JPEG magic bytes and a label). */
+const text = (label: string) => fakeJpeg(label);
 
 type FormOpts = { photos: Uint8Array<ArrayBuffer>[]; seq: number; prevEventHash: string; capturedAt: string; gps?: { lat: number; lng: number } };
 
