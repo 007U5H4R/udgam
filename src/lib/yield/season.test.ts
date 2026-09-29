@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { coffeeSeasonOf } from './season';
 
 // TC-038 (window part), TSK-09.2, TP6: the Indian coffee year, 1 Oct – 30 Sep, bucketed by SERVER receipt
-// time in IST (UTC+05:30) with fixed-offset arithmetic. Run under TZ=UTC and TZ=America/Los_Angeles;
-// the expected values are literals, so both runs must agree.
+// time in IST (UTC+05:30) with fixed-offset arithmetic. `pnpm test:tz` re-runs it under
+// America/Los_Angeles and Asia/Kolkata; the expected values are literals, so every run must agree.
 
 describe('coffeeSeasonOf (TC-038 window)', () => {
   it('30 Sep 23:59:59.999 IST is still the old season', () => {

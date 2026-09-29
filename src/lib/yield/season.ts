@@ -4,7 +4,8 @@ import { harvestEvents } from '../db/schema';
 
 // The coffee season (technical-plan §6.6, TP6 — resolves GAP-3): the Indian coffee year, 1 Oct – 30 Sep,
 // bucketed by SERVER receipt time in IST (client time is attacker-controlled). Fixed-offset arithmetic
-// only; the host time zone never enters (tests run under TZ=UTC and TZ=America/Los_Angeles).
+// only; the host time zone never enters (`pnpm test:tz` runs the suite under America/Los_Angeles and
+// Asia/Kolkata as well as the host zone).
 
 const IST_OFFSET_MS = (5 * 60 + 30) * 60_000;
 

@@ -15,9 +15,9 @@ import { runCheck, verify } from '../verification/verify';
 import type { CapturePayloadV1, CheckId, CheckResult, CheckStatus, Submission, Verdict, VerifyContext, VerifyResult } from '../verification/types';
 import { admit, authenticate, STATUS, type BoundaryDevice, type BoundaryReason } from './boundary';
 import { buildContext, refreshUnderLock } from './context';
-import { findAcceptedOutcome, findRejection, winnerAfterUniqueViolation, type PriorOutcome } from './idempotency';
+import { findAcceptedOutcome, winnerAfterUniqueViolation, type AcceptedOutcome } from './idempotency';
 import { claimedDeviceId, parseCaptureForm, type FormReason } from './parse';
-import { persistAccepted, persistRejected, type AppendFn, type StoredMedia } from './persist';
+import { persistAccepted, persistRejected, type AppendFn, type RejectedCapture, type StoredMedia } from './persist';
 import { consume, DEVICE_LIMIT, deviceKey } from './rate-limit';
 
 // The capture pipeline (technical-plan §3.1). Emits NDJSON-able events: a `check` line as each check
@@ -223,13 +223,7 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
     return refusedLine(reason, status, anchored);
   };
   /** Anchor a refusal once: the same refusal of the same payload is answered with the original row. */
-  const anchorRejection = async (tx: Tx, c: Parameters<typeof persistRejected>[1]): Promise<{ eventId: string; replayed: boolean }> => {
-    const eventId = await persistRejected(tx, c, deps.append);
-    if (eventId !== null) return { eventId, replayed: false };
-    const original = await findRejection(tx, c.payloadHash, c.reason);
-    if (original === null) throw new Error('refusal neither anchored nor on record');
-    return { eventId: original, replayed: true };
-  };
+  const anchorRejection = (tx: Tx, c: RejectedCapture) => persistRejected(tx, c, deps.append);
   const refusedLine = (reason: string, status: number, a: { eventId: string; replayed: boolean }): CaptureEvent => {
     if (!a.replayed) {
       log.info({ reason, status, anchored: true }, 'capture.refused');
@@ -243,7 +237,7 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
    * Idempotency (TP7, EV15; TKT-09): the identical signed bytes of an ACCEPTED payload get the original
    * event and verdict back, and nothing is written. Refused payloads never short-circuit (idempotency.ts).
    */
-  const replay = (prior: Extract<PriorOutcome, { kind: 'accepted' }>): CaptureEvent => {
+  const replay = (prior: AcceptedOutcome): CaptureEvent => {
     log.info({ eventId: prior.eventId }, 'capture.idempotent_replay');
     return { ...verdictLine(prior.eventId, prior), idempotent: true };
   };
@@ -332,7 +326,7 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
   // and answers with the winner (defence in depth).
   let final = result;
   let committed:
-    | { replay: Extract<PriorOutcome, { kind: 'accepted' }> }
+    | { replay: AcceptedOutcome }
     | { refused: 'device_revoked' | 'plot_not_assigned'; anchored: { eventId: string; replayed: boolean } }
     | { eventId: string; runId: string };
   try {
@@ -360,7 +354,7 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
       );
     });
   } catch (err) {
-    committed = { replay: await winnerAfterUniqueViolation(db, payloadHash, err) }; // rethrows anything else
+    committed = { replay: await winnerAfterUniqueViolation(db, payloadHash, err, log) }; // rethrows anything else
   }
   if ('replay' in committed) return replay(committed.replay);
   if ('refused' in committed) return refusedLine(committed.refused, STATUS[committed.refused], committed.anchored);
