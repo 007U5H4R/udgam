@@ -48,6 +48,8 @@ export default defineConfig({
       E2E: '1',
       // The production server requires an auth secret; a throwaway value generated per run, never committed.
       BETTER_AUTH_SECRET: randomBytes(32).toString('hex'),
+      // Better Auth checks request origins against its base URL: the server's own address on this port.
+      BETTER_AUTH_URL: `http://localhost:${PORT}`,
     },
   },
 });

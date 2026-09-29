@@ -1,0 +1,29 @@
+/* Ported from .design/exploration/final/admin.html, the reason panel's label and text box (".decide
+   label", ".decide textarea", its focus ring), applied to a single-line input. */
+.field {
+  display: grid;
+  gap: 8px;
+}
+.label {
+  font-weight: 700;
+}
+.input {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--ink);
+  font: inherit;
+  font-size: 17px;
+  line-height: 1.45;
+}
+.input:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+.input[aria-invalid='true'] {
+  border-color: var(--bad-ink);
+}
