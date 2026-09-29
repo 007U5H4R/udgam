@@ -6,7 +6,7 @@ import { finishAnswered, type OutboxSend } from '../../client/capture-client';
 import { hashFile } from '../../client/hash-file';
 import type { CheckId, CheckStatus } from '../../lib/verification/types';
 import { t, type Lang } from '../../lib/i18n';
-import { T1_MARK } from '../ui/VerdictScreen';
+import { VERDICT_IN_MARK } from '../ui/VerdictScreen';
 import { CheckingStep } from './CheckingStep';
 import { PhotosStep, SLOTS } from './PhotosStep';
 import { initialFlow, kgValue, photoProblem, reduce, usedPhotos, type Slot } from './record-flow';
@@ -64,12 +64,13 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
     void finishAnswered();
   }, []);
 
-  // EVAL-070 t1: the verdict (or refusal) has rendered — marked before the 600 ms auto-advance hold and
-  // before "See result" under reduced motion, so the S3 time holds no designed delay (TASK-11 fix round 1).
+  // The verdict (or refusal) has rendered on the checking screen: marked before the 600 ms auto-advance
+  // hold and before "See result" under reduced motion, so the hold is reported as its own split. EV9's t1
+  // (the verdict card visible) is marked by VerdictScreen.
   const answered = flow.step === 'verdict';
   useEffect(() => {
     if (!answered) return;
-    const id = requestAnimationFrame(() => performance.mark(T1_MARK));
+    const id = requestAnimationFrame(() => performance.mark(VERDICT_IN_MARK));
     return () => cancelAnimationFrame(id);
   }, [answered]);
 

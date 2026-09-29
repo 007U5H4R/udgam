@@ -86,8 +86,10 @@ test('TC-045 with reduced motion: waits on "See result", the cherry does not mov
   expect(await page.locator('.cherry').evaluate((el) => el.getAnimations({ subtree: true }).length)).toBe(0);
   await page.waitForTimeout(1500); // longer than the 600 ms auto-advance
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Checking your picking');
-  // EVAL-070 t1 is marked when the verdict has rendered, before "See result" (no designed delay in S3)
-  expect(await page.evaluate(() => performance.getEntriesByName('udgam:t1-verdict').length)).toBe(1);
+  // EV9: t1 is the verdict card becoming visible, so it is not marked while "See result" waits. The
+  // verdict's arrival is its own mark (udgam:verdict-in), so the hold is reported as a separate split.
+  expect(await page.evaluate(() => performance.getEntriesByName('udgam:verdict-in').length)).toBe(1);
+  expect(await page.evaluate(() => performance.getEntriesByName('udgam:t1-verdict').length)).toBe(0);
   await expect(page.locator('#bar')).toHaveAttribute('aria-valuenow', '6');
   await expect(page.locator('.meter-txt')).toHaveText('6 of 6 checks done');
   const live = page.getByTestId('checks-live').locator('p');
@@ -95,4 +97,6 @@ test('TC-045 with reduced motion: waits on "See result", the cherry does not mov
   await expect(live.last()).toHaveText('All 6 checks done. Your result is ready.');
   await page.locator('#see-result').click();
   await expect(page.getByRole('heading', { name: 'Checking your picking' })).toHaveCount(0);
+  await expect(page.locator('#verdict-h')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => performance.getEntriesByName('udgam:t1-verdict').length)).toBe(1);
 });

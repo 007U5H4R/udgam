@@ -70,9 +70,13 @@ test('Verified: the lit word, "Your 42.5 kg from Plot 1 is recorded.", three evi
   const timing = await page.evaluate(() => ({
     t1: performance.getEntriesByName('udgam:t1-verdict').length,
     s3: performance.measure('udgam:s3', 'udgam:t0-submit', 'udgam:t1-verdict').duration,
+    // EV9: t1 is the card visible; the verdict's arrival (udgam:verdict-in) comes first, and the gap is the
+    // designed auto-advance hold, reported as its own split.
+    hold: performance.measure('udgam:hold', 'udgam:verdict-in', 'udgam:t1-verdict').duration,
   }));
   expect(timing.t1).toBe(1);
   expect(timing.s3).toBeGreaterThan(0);
+  expect(timing.hold).toBeGreaterThanOrEqual(500);
   await expectNoHorizontalScroll(page);
 
   await page.getByRole('button', { name: 'Done' }).click();
