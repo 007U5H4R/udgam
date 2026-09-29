@@ -203,13 +203,16 @@ export async function verifyProof(proof: Proof, keys: VerifierKey[]): Promise<Ve
   return (await checkCheckpoint(cp.data, keys)) ?? (await checkEntry(asReceived, got?.canonical ?? null, cp.data)) ?? { ok: true };
 }
 
-const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
+/** A non-empty string id, or undefined (docs/proof-feed.md §9.3: every id the closure compares is a non-empty string). */
+const str = (v: unknown): string | undefined => (typeof v === 'string' && v.length > 0 ? v : undefined);
 
 /**
  * Closure completeness (docs/proof-feed.md §9.3): every event listed in batch_created has its
  * harvest_event, carrying the listed payloadHash, and ≥ 1 verification_run; every harvest_event in the
  * feed has the plot_registered of its plotId and the device_enrolled of its deviceId; this batch's
  * custody transfers chain from the batch's organisation (transfers of other batches are ignored).
+ * Every id compared (eventId, plotId, deviceId, orgId, fromOrg, toOrg) must be a non-empty string: a
+ * missing, empty or non-string id never matches anything, not even another missing one.
  */
 function closureComplete(feed: ProofFeedV1, batch: FeedEntry): boolean {
   const events = batch.payload.events;
@@ -241,9 +244,12 @@ function closureComplete(feed: ProofFeedV1, batch: FeedEntry): boolean {
     if (!plotId || !deviceId || !plots.has(plotId) || !devices.has(deviceId)) return false;
   }
   let holder = str(batch.payload.orgId);
+  if (!holder) return false;
   for (const c of feed.entries.filter((e) => e.kind === 'custody_transfer' && e.payload.batchId === feed.batchId)) {
-    if (c.seq < batch.seq || str(c.payload.fromOrg) !== holder) return false;
-    holder = str(c.payload.toOrg);
+    const fromOrg = str(c.payload.fromOrg);
+    const toOrg = str(c.payload.toOrg);
+    if (c.seq < batch.seq || !fromOrg || !toOrg || fromOrg !== holder) return false;
+    holder = toOrg;
   }
   return true;
 }

@@ -15,9 +15,25 @@ const GEOMETRY = fileURLToPath(new URL('../evals/fixtures/geometry', import.meta
 
 test.beforeAll(() => seedAccounts());
 
+/** TC-080: nothing wider than the viewport (compared with the viewport width, not innerWidth). */
 async function noHorizontalScroll(page: Page) {
-  const { scrollWidth, innerWidth } = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth }));
-  expect(scrollWidth).toBeLessThanOrEqual(innerWidth);
+  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(scrollWidth).toBeLessThanOrEqual(page.viewportSize()!.width);
+}
+
+/** The admin rail (TKT-05's RailShell) is on the screen: four sections, Plots current. */
+async function railPresent(page: Page) {
+  const rail = page.getByRole('navigation', { name: 'Admin sections' });
+  await expect(rail).toBeVisible();
+  await expect(rail.getByRole('link')).toHaveCount(4);
+  await expect(rail.getByRole('link', { name: 'Plots' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('main')).toHaveCount(1);
+}
+
+/** Every plots screen: the rail, one main landmark, no horizontal scroll. */
+async function screenChecks(page: Page) {
+  await railPresent(page);
+  await noHorizontalScroll(page);
 }
 
 async function noSeriousAxeViolations(page: Page) {
@@ -46,6 +62,8 @@ test.describe('TKT-06 admin plots', () => {
   });
 
   test('new plot by upload: the detail shows the area in ha and "Registration checks pending"; the list row has farmer, producer ID, crop, area and status (TC-026, TC-027)', async ({ page }) => {
+    // Upload, two pages and two axe scans; the shared e2e database's list grows every run.
+    test.slow();
     const farmer = uniqueName('Kaveri');
     const plotId = await uploadPlot(page, farmer, 'one-placemark.kml', 'Robusta');
     const detail = page.getByRole('region', { name: 'Plot detail' });
@@ -53,7 +71,7 @@ test.describe('TKT-06 admin plots', () => {
     await expect(detail.locator('#plot-area')).toHaveText(/^Area \d+\.\d{2} ha$/);
     await expect(detail.getByText('Registration checks pending').first()).toBeVisible();
     await expect(detail.getByRole('img', { name: new RegExp(`Outline of plot ${plotId}`) })).toBeVisible();
-    await noHorizontalScroll(page);
+    await screenChecks(page);
     await noSeriousAxeViolations(page);
 
     await page.goto('/admin/plots');
@@ -62,7 +80,7 @@ test.describe('TKT-06 admin plots', () => {
     await expect(row).toContainText(/PR-[0-9A-Z]{8} · Robusta/);
     await expect(row).toContainText(/\d+\.\d{2} ha/);
     await expect(row).toContainText('Registration checks pending');
-    await noHorizontalScroll(page);
+    await screenChecks(page);
     await noSeriousAxeViolations(page);
   });
 
@@ -75,7 +93,7 @@ test.describe('TKT-06 admin plots', () => {
     await expect(page.locator('#plot-error')).toHaveText('The boundary crosses itself. Move the points so the lines do not cross.');
     await expect(page.locator('#plot-error')).toHaveRole('alert');
     await expect(page).toHaveURL(/\/admin\/plots\/new$/);
-    await noHorizontalScroll(page);
+    await screenChecks(page);
     await noSeriousAxeViolations(page);
   });
 
@@ -89,20 +107,22 @@ test.describe('TKT-06 admin plots', () => {
         await expect(alert).toContainText('Nothing was changed.');
         await expect(alert.getByRole('link', { name: 'Try again' })).toBeVisible();
       }
-      await noHorizontalScroll(page);
+      await screenChecks(page);
       await noSeriousAxeViolations(page);
     });
   }
 
   test('the working list and the new-plot screen: no horizontal scroll, no serious axe violations (TC-080, TC-081)', async ({ page }) => {
+    // Upload, two pages and two axe scans; the shared e2e database's list grows every run.
+    test.slow();
     await uploadPlot(page, uniqueName('Listed'));
     await page.goto('/admin/plots');
     await expect(page.getByRole('heading', { level: 1, name: /Registered plots?/ })).toBeVisible();
-    await noHorizontalScroll(page);
+    await screenChecks(page);
     await noSeriousAxeViolations(page);
     await page.goto('/admin/plots/new');
     await expect(page.getByRole('heading', { name: 'Add a plot', level: 2 })).toBeVisible();
-    await noHorizontalScroll(page);
+    await screenChecks(page);
     await noSeriousAxeViolations(page);
   });
 
@@ -156,7 +176,7 @@ test.describe('TKT-06 admin plots', () => {
     await expect(editor.locator('#editor-error')).toHaveText('');
 
     const liveArea = (await area.textContent())!.match(/^Area (\d+\.\d{2} ha) \(/)![1];
-    await noHorizontalScroll(page);
+    await screenChecks(page);
     await noSeriousAxeViolations(page);
     await editor.getByRole('button', { name: 'Save boundary' }).click();
     const detail = page.getByRole('region', { name: 'Plot detail' });
@@ -207,5 +227,21 @@ test.describe('TKT-06 admin plots', () => {
     await page.getByRole('button', { name: 'Save plot' }).click();
     await expect(page).toHaveURL(/\/admin\/plots\/PL-[0-9A-Z]{8}$/);
     await expect(page.locator('#plot-area')).toHaveText(`Area ${liveArea}`);
+  });
+
+  test('on a phone the floating tab bar never covers the Save pill (new plot and detail)', async ({ page, isMobile }) => {
+    test.skip(!isMobile, 'the rail is a floating tab bar only below 700 px');
+    const plotId = await uploadPlot(page, uniqueName('Covered'));
+    for (const [path, name] of [
+      ['/admin/plots/new', 'Save plot'],
+      [`/admin/plots/${plotId}`, 'Save boundary'],
+    ] as const) {
+      await page.goto(path);
+      await railPresent(page);
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      const pill = (await page.getByRole('button', { name }).boundingBox())!;
+      const bar = (await page.getByRole('navigation', { name: 'Admin sections' }).boundingBox())!;
+      expect(pill.y + pill.height, `${name} ends above the tab bar`).toBeLessThanOrEqual(bar.y);
+    }
   });
 });

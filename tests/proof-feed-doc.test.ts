@@ -13,7 +13,8 @@ type Vectors = {
   format: string;
   keys: { keys: VerifierKey[] };
   feed: unknown;
-  tampers: { variant: string; description: string; expectedStep: string; feed: unknown }[];
+  /** A tamper of the key document carries its own `keys` (docs/proof-feed.md §11). */
+  tampers: { variant: string; description: string; expectedStep: string; keys?: { keys: VerifierKey[] }; feed: unknown }[];
 };
 
 const doc = () => readFileSync(DOC, 'utf8');
@@ -51,7 +52,7 @@ describe('docs/proof-feed.md and its vectors (GAP-9)', () => {
     const text = doc();
     expect(v.tampers.length).toBeGreaterThanOrEqual(8);
     for (const t of v.tampers) {
-      expect(await verifyFeed(t.feed, v.keys.keys), t.variant).toMatchObject({ ok: false, step: t.expectedStep });
+      expect(await verifyFeed(t.feed, (t.keys ?? v.keys).keys), t.variant).toMatchObject({ ok: false, step: t.expectedStep });
       expect(text, t.expectedStep).toContain(`\`${t.expectedStep}\``);
     }
     for (const step of ['format', 'unknown-key', 'checkpoint-signature', 'payload-hash', 'entry-hash', 'merkle-path', 'payload-signature', 'short-hash', 'closure-incomplete']) {

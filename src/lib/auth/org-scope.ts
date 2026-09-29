@@ -42,12 +42,5 @@ export async function runInOrg(db: Db, orgId: string, runId: string) {
   return row?.run;
 }
 
-/**
- * The batches transferred to a buyer org. Batches arrive with TKT-14 (which replaces this with the
- * real query on custody_transfers.to_org = orgId); until then there are none for anyone.
- */
-export async function listBuyerBatches(db: Db, orgId: string): Promise<never[]> {
-  void db;
-  void orgId;
-  return [];
-}
+/** The batches held by a buyer org: TKT-14's query (latest custody transfer to that org). */
+export { listBuyerBatches } from '../batches/buyer';

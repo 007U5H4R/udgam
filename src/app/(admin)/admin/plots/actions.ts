@@ -22,20 +22,24 @@ export type PlotActionReason =
 
 export type PlotActionResult = { ok: true; plotId: string } | { ok: false; reason: PlotActionReason };
 
-/** Upload cap (and the cap on a drawn geometry's text). */
+/** Upload cap in bytes (and the cap on a drawn geometry's UTF-8 text). */
 const MAX_BYTES = 2 * 1024 * 1024;
 
 const PLOT_ID = z.string().regex(/^PL-[0-9A-Z]{8}$/);
 const FARMER_ID = z.string().regex(/^FA-[0-9A-Z]{8}$/);
 
-const farmerFields = z.union([
-  z.object({ farmerId: FARMER_ID }),
-  z.object({
-    newFarmerName: z.string().trim().min(1).max(120),
-    newFarmerIdentifier: z.string().trim().max(64).optional(),
-  }),
-]);
-const newPlotFields = z.intersection(farmerFields, z.object({ crop: z.enum(CROPS) }));
+const CROP = z.enum(CROPS);
+// Two exclusive shapes, chosen by whether `farmerId` is present: a malformed farmerId is refused, never
+// read as "a new farmer" because a name happens to be there too.
+const existingFarmer = z.object({ farmerId: FARMER_ID, crop: CROP });
+const newFarmer = z.object({
+  newFarmerName: z.string().trim().min(1).max(120),
+  newFarmerIdentifier: z.string().trim().max(64).optional(),
+  crop: CROP,
+});
+
+/** UTF-8 size of a text field (the cap is in bytes, like the upload's). */
+const tooLarge = (s: string) => Buffer.byteLength(s, 'utf8') > MAX_BYTES;
 
 const text = (form: FormData, key: string) => {
   const v = form.get(key);
@@ -46,17 +50,15 @@ const fail = (reason: PlotActionReason): PlotActionResult => ({ ok: false, reaso
 
 /** The new-plot fields of a form (farmer choice + crop), or null when they do not validate. */
 function newPlotInput(form: FormData, geometry: PlotPolygon): RegisterPlotInput | null {
-  const parsed = newPlotFields.safeParse({
-    farmerId: text(form, 'farmerId'),
-    newFarmerName: text(form, 'newFarmerName'),
-    newFarmerIdentifier: text(form, 'newFarmerIdentifier'),
-    crop: text(form, 'crop'),
-  });
-  if (!parsed.success) return null;
-  const v = parsed.data;
-  return 'farmerId' in v
-    ? { farmerId: v.farmerId, crop: v.crop, geometry }
-    : { newFarmer: { name: v.newFarmerName, identifier: v.newFarmerIdentifier || null }, crop: v.crop, geometry };
+  const farmerId = text(form, 'farmerId');
+  const crop = text(form, 'crop');
+  if (farmerId !== undefined) {
+    const v = existingFarmer.safeParse({ farmerId, crop });
+    return v.success ? { farmerId: v.data.farmerId, crop: v.data.crop, geometry } : null;
+  }
+  const v = newFarmer.safeParse({ newFarmerName: text(form, 'newFarmerName'), newFarmerIdentifier: text(form, 'newFarmerIdentifier'), crop });
+  if (!v.success) return null;
+  return { newFarmer: { name: v.data.newFarmerName, identifier: v.data.newFarmerIdentifier || null }, crop: v.data.crop, geometry };
 }
 
 /** Map a lib refusal to an answer; anything else is a bug or an outage and is rethrown. */
@@ -95,7 +97,7 @@ export async function createPlotAction(form: FormData): Promise<PlotActionResult
   const { orgId } = await requireSession('admin', { action: true });
   const geojson = text(form, 'geojson');
   if (geojson === undefined) return fail('invalid_input');
-  if (geojson.length > MAX_BYTES) return fail('file_too_large');
+  if (tooLarge(geojson)) return fail('file_too_large');
   const parsed = parsePlotFile('drawn.geojson', geojson);
   if (!parsed.ok) return fail(parsed.reason);
   const input = newPlotInput(form, parsed.geometry);
@@ -108,7 +110,7 @@ export async function updatePlotGeometryAction(plotId: string, geojsonText: stri
   const { orgId } = await requireSession('admin', { action: true });
   if (!PLOT_ID.safeParse(plotId).success) return fail('not_found');
   if (typeof geojsonText !== 'string') return fail('invalid_input');
-  if (geojsonText.length > MAX_BYTES) return fail('file_too_large');
+  if (tooLarge(geojsonText)) return fail('file_too_large');
   const parsed = parsePlotFile('edited.geojson', geojsonText);
   if (!parsed.ok) return fail(parsed.reason);
   return edit(orgId, plotId, parsed.geometry);

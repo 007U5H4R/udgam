@@ -97,9 +97,11 @@ try {
   const tampers = [];
   for (const variant of VECTOR_TAMPERS) {
     const t = await applyTamper(feed, keys.keys, variant);
-    const out = await verifyFeed(asReceived(t.feed), keys.keys);
+    const out = await verifyFeed(asReceived(t.feed), t.keys);
     if (out.ok || out.step !== t.expectedStep) throw new Error(`tamper ${variant}: expected ${t.expectedStep}, got ${out.ok ? 'ok' : out.step}`);
-    tampers.push({ variant, description: TAMPER_DESCRIPTIONS[variant], expectedStep: t.expectedStep, feed: t.feed });
+    // A tamper of the key document carries its own `keys`; every other tamper uses the top-level keys.
+    const ownKeys = JSON.stringify(t.keys) === JSON.stringify(keys.keys) ? {} : { keys: { keys: t.keys } };
+    tampers.push({ variant, description: TAMPER_DESCRIPTIONS[variant], expectedStep: t.expectedStep, ...ownKeys, feed: t.feed });
   }
 
   // An insider vector no outside forger can make: a second ledger, sealed by the same ledger key, whose
@@ -186,6 +188,91 @@ try {
       const out = await verifyFeed(asReceived(insiderFeed), keys.keys);
       if (out.ok || out.step !== v.expectedStep) throw new Error(`${v.variant}: expected ${v.expectedStep}, got ${out.ok ? 'ok' : out.step}`);
       tampers.push({ variant: v.variant, description: v.description, expectedStep: v.expectedStep, feed: insiderFeed });
+    } finally {
+      ledger.client.close();
+    }
+  }
+
+  // Insider ledgers built entry by entry (TASK-19 follow-up): ids that are not non-empty strings, and a
+  // repeated eventId. Each is a genuine ledger sealed by the same key; only step 9 catches it.
+  const H = 'c'.repeat(64);
+  const custom: { variant: string; description: string; batchId: string; entries: (admin: Awaited<ReturnType<typeof makeAdminKey>>) => Promise<[Parameters<typeof append>[1], Record<string, unknown>][]>; extraSeqs?: (seqOf: (kind: string, pred: (p: Record<string, unknown>) => boolean) => number) => number[] }[] = [
+    {
+      variant: 'custody_org_missing',
+      description: 'a batch_created with no orgId and a custody_transfer with no fromOrg (a custody chain "from nobody"); both correctly signed',
+      batchId: 'B-ORGMISS1',
+      entries: async (admin) => [
+        ['plot_registered', { plotId: 'PL-CUST0001' }],
+        ['device_enrolled', { deviceId: 'DV-CUST0001' }],
+        ['harvest_event', { eventId: 'HE-CUST00000001', plotId: 'PL-CUST0001', deviceId: 'DV-CUST0001', payloadHash: H }],
+        ['verification_run', { eventId: 'HE-CUST00000001', verdict: 'Verified' }],
+        ['batch_created', await signStatement(admin, { v: 1, batchId: 'B-ORGMISS1', events: [{ eventId: 'HE-CUST00000001', payloadHash: H }] })],
+        ['custody_transfer', await signStatement(admin, { v: 1, batchId: 'B-ORGMISS1', toOrg: 'ORG-BUYER001' })],
+      ],
+    },
+    {
+      variant: 'custody_org_nonstring',
+      description: 'a batch_created whose orgId is the number 5 and a custody_transfer whose fromOrg is the number 5; both correctly signed',
+      batchId: 'B-ORGNUM01',
+      entries: async (admin) => [
+        ['plot_registered', { plotId: 'PL-CUST0002' }],
+        ['device_enrolled', { deviceId: 'DV-CUST0002' }],
+        ['harvest_event', { eventId: 'HE-CUST00000002', plotId: 'PL-CUST0002', deviceId: 'DV-CUST0002', payloadHash: H }],
+        ['verification_run', { eventId: 'HE-CUST00000002', verdict: 'Verified' }],
+        ['batch_created', await signStatement(admin, { v: 1, batchId: 'B-ORGNUM01', orgId: 5, events: [{ eventId: 'HE-CUST00000002', payloadHash: H }] })],
+        ['custody_transfer', await signStatement(admin, { v: 1, batchId: 'B-ORGNUM01', fromOrg: 5, toOrg: 'ORG-BUYER001' })],
+      ],
+    },
+    {
+      variant: 'empty_plot_id',
+      description: 'a member harvest_event whose plotId is the empty string, with a plot_registered for the empty plotId included in the feed with its proof',
+      batchId: 'B-EMPTYPL1',
+      entries: async (admin) => [
+        ['plot_registered', { plotId: '' }],
+        ['device_enrolled', { deviceId: 'DV-CUST0003' }],
+        ['harvest_event', { eventId: 'HE-CUST00000003', plotId: '', deviceId: 'DV-CUST0003', payloadHash: H }],
+        ['verification_run', { eventId: 'HE-CUST00000003', verdict: 'Verified' }],
+        ['batch_created', await signStatement(admin, { v: 1, batchId: 'B-EMPTYPL1', orgId: 'ORG-FPO00001', events: [{ eventId: 'HE-CUST00000003', payloadHash: H }] })],
+      ],
+      // The server's closure never includes an empty plotId; a feed that does must still fail.
+      extraSeqs: (seqOf) => [seqOf('plot_registered', (p) => p.plotId === '')],
+    },
+    {
+      variant: 'duplicate_event_highest_seq',
+      description: 'two harvest_event entries for the member eventId: the earlier carries the payloadHash the batch lists, the later (highest seq) does not',
+      batchId: 'B-DUPEVT01',
+      entries: async (admin) => [
+        ['plot_registered', { plotId: 'PL-CUST0004' }],
+        ['device_enrolled', { deviceId: 'DV-CUST0004' }],
+        ['harvest_event', { eventId: 'HE-CUST00000004', plotId: 'PL-CUST0004', deviceId: 'DV-CUST0004', payloadHash: H }],
+        ['harvest_event', { eventId: 'HE-CUST00000004', plotId: 'PL-CUST0004', deviceId: 'DV-CUST0004', payloadHash: 'd'.repeat(64) }],
+        ['verification_run', { eventId: 'HE-CUST00000004', verdict: 'Verified' }],
+        ['batch_created', await signStatement(admin, { v: 1, batchId: 'B-DUPEVT01', orgId: 'ORG-FPO00001', events: [{ eventId: 'HE-CUST00000004', payloadHash: H }] })],
+      ],
+    },
+  ];
+  const { getProof } = await import('../src/lib/ledger/feed');
+  for (const [i, v] of custom.entries()) {
+    const ledger = createDb(`file:${join(dir, `custom-${i}.db`)}`);
+    try {
+      await ledger.ready;
+      await runMigrations(ledger.db, join(ROOT, 'src/lib/db/migrations'));
+      const admin = await makeAdminKey();
+      const rows = await v.entries(admin);
+      const seqs: { seq: number; kind: string; payload: Record<string, unknown> }[] = [];
+      await writeTx(ledger.db, async (tx) => {
+        for (const [kind, payload] of rows) seqs.push({ ...(await append(tx, kind, payload)), kind, payload });
+      });
+      const customFeed = await buildFeed(ledger.db, v.batchId);
+      const seqOf = (kind: string, pred: (p: Record<string, unknown>) => boolean) => seqs.find((r) => r.kind === kind && pred(r.payload))!.seq;
+      for (const seq of v.extraSeqs?.(seqOf) ?? []) {
+        const { entry } = await getProof(ledger.db, seq);
+        if (!customFeed.entries.some((e) => e.seq === seq)) customFeed.entries.push(entry);
+      }
+      customFeed.entries.sort((a, b) => a.seq - b.seq);
+      const out = await verifyFeed(asReceived(customFeed), keys.keys);
+      if (out.ok || out.step !== 'closure-incomplete') throw new Error(`${v.variant}: expected closure-incomplete, got ${out.ok ? 'ok' : out.step}`);
+      tampers.push({ variant: v.variant, description: v.description, expectedStep: 'closure-incomplete', feed: customFeed });
     } finally {
       ledger.client.close();
     }

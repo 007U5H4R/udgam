@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 
 // devices.agent_id and harvest_events.agent_id → user(id) (TKT-19 carry-forward; migration
-// 0006_agent_user_fk). Attempted directly in SQL, as the §4.2 invariants are.
+// 0008_agent_user_fk). Attempted directly in SQL, as the §4.2 invariants are.
 let t: TempDb;
 beforeEach(async () => {
   t = await tempDb();

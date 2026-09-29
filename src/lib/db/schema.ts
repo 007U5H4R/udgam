@@ -289,6 +289,85 @@ export const ledgerCheckpoints = sqliteTable(
   (t) => [check('ledger_checkpoints_range_check', sql`${t.fromSeq} <= ${t.toSeq}`)],
 );
 
+// ── Batches and custody (TKT-14, §4.1–§4.2) ─────────────────────────────────────────────────────
+// Invariants (membership, aggregates, lock after transfer) are triggers in the custom migration
+// *_batch_invariants.sql; the app's own checks are courtesy (S8, TP14).
+
+/**
+ * A batch of Verified pickings of one crop. `quantity_kg` and `integrity_score` are maintained by
+ * triggers (Σ cherry_kg, MIN score of each member's latest run); the app never writes them. A batch is
+ * inserted open and empty; after its custody transfer it is locked.
+ */
+export const batches = sqliteTable(
+  'batches',
+  {
+    /** `B-` + 8 Crockford base32. */
+    id: text('id').primaryKey(),
+    orgId: text('org_id')
+      .notNull()
+      .references(() => organisations.id),
+    crop: text('crop', { enum: ['arabica', 'robusta'] }).notNull(),
+    status: text('status', { enum: ['open', 'transferred'] })
+      .notNull()
+      .default('open'),
+    quantityKg: real('quantity_kg').notNull().default(0),
+    /** Null only while the batch has no members (inside its creating transaction). */
+    integrityScore: real('integrity_score'),
+    /** First 12 hex of the batch_created entry hash (the certificate link's `h`, §8.3). */
+    shortHash: text('short_hash').notNull(),
+    anchorSeq: anchorSeq(),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [
+    check('batches_crop_check', sql`${t.crop} IN ('arabica','robusta')`),
+    check('batches_status_check', sql`${t.status} IN ('open','transferred')`),
+    index('batches_org_idx').on(t.orgId),
+  ],
+);
+
+/** Batch membership: an event is in at most one batch (CF-07). Fixed at creation (trigger). */
+export const batchEvents = sqliteTable(
+  'batch_events',
+  {
+    batchId: text('batch_id')
+      .notNull()
+      .references(() => batches.id),
+    eventId: text('event_id')
+      .notNull()
+      .unique()
+      .references(() => harvestEvents.id),
+  },
+  (t) => [index('batch_events_batch_idx').on(t.batchId)],
+);
+
+/**
+ * A signed custody transfer (TP15): `signature` by the admin's server-held key `key_id` over
+ * jcs({ v:1, batchId, fromOrg, toOrg, ts: transferred_at, adminId }). Append-only (trigger).
+ */
+export const custodyTransfers = sqliteTable(
+  'custody_transfers',
+  {
+    id: text('id').primaryKey(),
+    batchId: text('batch_id')
+      .notNull()
+      .references(() => batches.id),
+    fromOrg: text('from_org')
+      .notNull()
+      .references(() => organisations.id),
+    toOrg: text('to_org')
+      .notNull()
+      .references(() => organisations.id),
+    adminId: text('admin_id')
+      .notNull()
+      .references(() => user.id),
+    transferredAt: text('transferred_at').notNull(),
+    signature: text('signature').notNull(),
+    keyId: text('key_id').notNull(),
+    anchorSeq: anchorSeq(),
+  },
+  (t) => [index('custody_transfers_batch_idx').on(t.batchId), index('custody_transfers_to_org_idx').on(t.toOrg)],
+);
+
 // ── Enrolment, plot assignment and rate limits (TKT-05) ─────────────────────────────────────────
 
 /**

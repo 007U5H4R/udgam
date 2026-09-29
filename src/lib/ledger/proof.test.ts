@@ -319,6 +319,69 @@ describe('verifyFeed (TSK-15.4)', () => {
   });
 });
 
+describe('verifyFeed: ids are non-empty strings, and it never throws (TASK-19 follow-up)', () => {
+  const B = 'B-TEST0001';
+  /** Re-anchor the world with its batch_created (index 6) and custody (index 7) statements replaced. */
+  async function reanchored(batch: (s: Record<string, unknown>) => Record<string, unknown>, custody: Record<string, unknown>[] | null) {
+    const w = await world();
+    const raws = w.entries.map((e) => ({ kind: e.kind, payload: e.payload }));
+    const baseBatch = { v: 1, batchId: B, orgId: 'ORG-FPO', events: [{ eventId: 'HE-1', payloadHash: HASH_HE1 }, { eventId: 'HE-2', payloadHash: HASH_HE2 }], adminId: 'AD-1', ts: TS(7) };
+    raws[6] = { kind: 'batch_created', payload: await signed(w.admin, batch(baseBatch)) };
+    const tail = await Promise.all((custody ?? []).map(async (c) => ({ kind: 'custody_transfer', payload: await signed(w.admin, { v: 1, batchId: B, ts: TS(8), adminId: 'AD-1', ...c }) })));
+    const all = [...raws.slice(0, 7), ...tail];
+    const f = await feedOf(await chain(all), [[1, 5], [6, all.length]], w.ledger, B);
+    return verifyFeed(f, w.keys);
+  }
+  const without = (o: Record<string, unknown>, k: string) => Object.fromEntries(Object.entries(o).filter(([key]) => key !== k));
+
+  it('a chain that starts and ends with string org ids verifies', async () => {
+    expect(await reanchored((s) => s, [{ fromOrg: 'ORG-FPO', toOrg: 'ORG-BUY' }, { fromOrg: 'ORG-BUY', toOrg: 'ORG-EXP' }])).toMatchObject({ ok: true });
+  });
+
+  it('a custody chain "from nobody" (orgId and fromOrg both missing, or both null) → closure-incomplete', async () => {
+    expect(await reanchored((s) => without(s, 'orgId'), [{ toOrg: 'ORG-BUY' }])).toEqual({ ok: false, step: 'closure-incomplete' });
+    expect(await reanchored((s) => ({ ...s, orgId: null }), [{ fromOrg: null, toOrg: 'ORG-BUY' }])).toEqual({ ok: false, step: 'closure-incomplete' });
+  });
+
+  it('non-string or empty org ids → closure-incomplete, even when they are equal', async () => {
+    expect(await reanchored((s) => ({ ...s, orgId: 5 }), [{ fromOrg: 5, toOrg: 'ORG-BUY' }])).toEqual({ ok: false, step: 'closure-incomplete' });
+    expect(await reanchored((s) => ({ ...s, orgId: 5 }), [{ fromOrg: 7, toOrg: 'ORG-BUY' }])).toEqual({ ok: false, step: 'closure-incomplete' });
+    expect(await reanchored((s) => ({ ...s, orgId: 5 }), [{ toOrg: 'ORG-BUY' }])).toEqual({ ok: false, step: 'closure-incomplete' });
+    expect(await reanchored((s) => ({ ...s, orgId: '' }), [{ fromOrg: '', toOrg: 'ORG-BUY' }])).toEqual({ ok: false, step: 'closure-incomplete' });
+    // A transfer whose toOrg is missing cannot hand over to a next transfer whose fromOrg is missing.
+    expect(await reanchored((s) => s, [{ fromOrg: 'ORG-FPO' }, { toOrg: 'ORG-EXP' }])).toEqual({ ok: false, step: 'closure-incomplete' });
+    // The batch's own organisation is required even with no transfer.
+    expect(await reanchored((s) => without(s, 'orgId'), null)).toEqual({ ok: false, step: 'closure-incomplete' });
+  });
+
+  it('empty-string event, plot and device ids → closure-incomplete', async () => {
+    for (const [i, raw] of [
+      [2, { kind: 'harvest_event', payload: { eventId: 'HE-1', plotId: '', deviceId: 'DV-1', payloadHash: HASH_HE1 } }],
+      [2, { kind: 'harvest_event', payload: { eventId: 'HE-1', plotId: 'PL-1', deviceId: '', payloadHash: HASH_HE1 } }],
+    ] as [number, Raw][]) {
+      const w = await world({ replace: { [i]: raw, 0: { kind: 'plot_registered', payload: { plotId: (raw.payload.plotId as string) || '' } }, 1: { kind: 'device_enrolled', payload: { deviceId: (raw.payload.deviceId as string) || '' } } } });
+      expect(await verifyFeed(w.feed, w.keys)).toEqual({ ok: false, step: 'closure-incomplete' });
+    }
+    // An event listed and harvested under the empty id, with a run for it.
+    const w = await world();
+    const raws = w.entries.map((e) => ({ kind: e.kind, payload: e.payload }));
+    raws[2] = { kind: 'harvest_event', payload: { eventId: '', plotId: 'PL-1', deviceId: 'DV-1', payloadHash: HASH_HE1 } };
+    raws[3] = { kind: 'verification_run', payload: { eventId: '' } };
+    raws[6] = { kind: 'batch_created', payload: await signed(w.admin, { v: 1, batchId: B, orgId: 'ORG-FPO', events: [{ eventId: '', payloadHash: HASH_HE1 }, { eventId: 'HE-2', payloadHash: HASH_HE2 }] }) };
+    raws[7] = { kind: 'custody_transfer', payload: await signed(w.admin, { v: 1, batchId: B, fromOrg: 'ORG-FPO', toOrg: 'ORG-BUY' }) };
+    const f = await feedOf(await chain(raws), [[1, 5], [6, 8]], w.ledger, B);
+    expect(await verifyFeed(f, w.keys)).toEqual({ ok: false, step: 'closure-incomplete' });
+  });
+
+  it('a payload nested 10 000 levels deep fails at payload-hash, without throwing', async () => {
+    const { feed, keys } = await world();
+    const text = JSON.stringify(feed).replace('"payload":{', `"payload":{"deep":${'{"a":'.repeat(10_000)}1${'}'.repeat(10_000)},`);
+    expect(await verifyFeed(JSON.parse(text), keys)).toMatchObject({ ok: false, step: 'payload-hash', seq: 1 });
+    const deeper = JSON.stringify(feed).replace('"payload":{', `"payload":{"deep":${'['.repeat(200_000)}${']'.repeat(200_000)},`);
+    expect(await verifyFeed(JSON.parse(deeper), keys)).toMatchObject({ ok: false, step: 'payload-hash', seq: 1 });
+  });
+});
+
 describe('verifyProof (TSK-15.4)', () => {
   it('verifies one entry against its checkpoint and names the failing step', async () => {
     const { feed, keys } = await world();

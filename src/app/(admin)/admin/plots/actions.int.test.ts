@@ -124,6 +124,31 @@ describe('createPlotAction', () => {
   });
 });
 
+describe('fix round 1: strict farmer choice and byte-counted caps', () => {
+  it('a malformed farmerId is refused, never turned into a new farmer', async () => {
+    const { createPlotAction } = await actions();
+    as('admin');
+    expect(await createPlotAction(form({ farmerId: 'not-an-id', newFarmerName: 'Sneaky', crop: 'arabica', geojson: P01 }))).toEqual({ ok: false, reason: 'invalid_input' });
+    expect(await t.db.select().from(plots)).toEqual([]);
+  });
+
+  it('the 2 MB cap counts bytes, not characters', async () => {
+    const { createPlotAction } = await actions();
+    as('admin');
+    // 1.1 M characters but 2.2 MB of UTF-8: over the cap.
+    const padded = JSON.stringify({ type: 'Feature', properties: { note: 'é'.repeat(1_100_000) }, geometry: JSON.parse(P01) as unknown });
+    expect(padded.length).toBeLessThan(2 * 1024 * 1024);
+    expect(await createPlotAction(form({ newFarmerName: 'K', crop: 'arabica', geojson: padded }))).toEqual({ ok: false, reason: 'file_too_large' });
+  });
+
+  it('a plot outside India (lat/lng swapped) → out_of_region', async () => {
+    const { createPlotAction } = await actions();
+    as('admin');
+    const swapped = { type: 'Polygon', coordinates: [(JSON.parse(P01) as { coordinates: number[][][] }).coordinates[0]!.map(([lng, lat]) => [lat, lng])] };
+    expect(await createPlotAction(form({ newFarmerName: 'K', crop: 'arabica', geojson: JSON.stringify(swapped) }))).toEqual({ ok: false, reason: 'out_of_region' });
+  });
+});
+
 describe('updatePlotGeometryAction', () => {
   it('re-anchors as plot_edited; another org gets not_found', async () => {
     const { createPlotAction, updatePlotGeometryAction } = await actions();

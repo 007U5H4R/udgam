@@ -27,10 +27,32 @@ describe('parsePlotFile — valid inputs (TC-026)', () => {
 
   it('a bare MultiPolygon is accepted as a MultiPolygon', () => {
     const r = parsePlotFile('valid-multipolygon.geojson', fixture('valid-multipolygon.geojson'));
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
-    expect(r.geometry.type).toBe('MultiPolygon');
-    expect(r.geometry.coordinates).toHaveLength(2);
+    expect(r).toEqual({
+      ok: true,
+      geometry: {
+        type: 'MultiPolygon',
+        coordinates: [
+          [
+            [
+              [75.8001, 12.3001],
+              [75.8011, 12.3001],
+              [75.8011, 12.3009],
+              [75.8001, 12.3009],
+              [75.8001, 12.3001],
+            ],
+          ],
+          [
+            [
+              [75.8021, 12.3001],
+              [75.8029, 12.3001],
+              [75.8029, 12.3008],
+              [75.8021, 12.3008],
+              [75.8021, 12.3001],
+            ],
+          ],
+        ],
+      },
+    });
   });
 
   it('a KML file with one placemark gives its Polygon (altitude dropped, rounded to 6 dp)', () => {
@@ -125,5 +147,45 @@ describe('parsePlotFile — refused with a reason (TC-026)', () => {
       [75.74, 12.42],
     ];
     expect(parsePlotFile('w.geojson', JSON.stringify({ type: 'Polygon', coordinates: [ring] }))).toEqual({ ok: false, reason: 'not_wgs84' });
+  });
+});
+
+describe('parsePlotFile — fix round 1 hardening', () => {
+  const polygon = { type: 'Polygon', coordinates: [VALID_RING_6DP] };
+
+  it('deeply nested Features (far past the depth cap) → not_polygon, never a thrown RangeError', () => {
+    // Built as text: JSON.stringify itself cannot recurse this deep. About 0.9 MB, under the upload cap.
+    const n = 20_000;
+    const text = '{"type":"Feature","properties":{},"geometry":'.repeat(n) + JSON.stringify(polygon) + '}'.repeat(n);
+    expect(parsePlotFile('deep.geojson', text)).toEqual({ ok: false, reason: 'not_polygon' });
+  });
+
+  it('nested GeometryCollections → not_polygon', () => {
+    let root: unknown = polygon;
+    for (let i = 0; i < 40; i++) root = { type: 'GeometryCollection', geometries: [root] };
+    expect(parsePlotFile('deep.geojson', JSON.stringify(root))).toEqual({ ok: false, reason: 'not_polygon' });
+  });
+
+  it('a Feature inside a Feature (not RFC 7946) is still read within the cap', () => {
+    expect(parsePlotFile('f.geojson', JSON.stringify({ type: 'Feature', properties: {}, geometry: { type: 'Feature', properties: {}, geometry: polygon } }))).toEqual({
+      ok: true,
+      geometry: polygon,
+    });
+  });
+
+  const coords = '75.74,12.42,0 75.741,12.42,0 75.741,12.421,0 75.74,12.42,0';
+  it('KML with an external entity (XXE) → unsupported_kml', () => {
+    const xxe = `<?xml version="1.0"?><!DOCTYPE kml [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>&xxe;</name><Placemark><Polygon><outerBoundaryIs><LinearRing><coordinates>${coords}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Document></kml>`;
+    expect(parsePlotFile('x.kml', xxe)).toEqual({ ok: false, reason: 'unsupported_kml' });
+  });
+
+  it('KML with an entity-expansion bomb (billion laughs) → unsupported_kml', () => {
+    const lol = ['<!ENTITY lol "lol">', ...Array.from({ length: 9 }, (_, i) => `<!ENTITY lol${i + 1} "${`&lol${i || ''};`.repeat(10)}">`)].join('');
+    const bomb = `<?xml version="1.0"?><!DOCTYPE kml [${lol}]><kml><Document><name>&lol9;</name></Document></kml>`;
+    expect(parsePlotFile('bomb.kml', bomb)).toEqual({ ok: false, reason: 'unsupported_kml' });
+  });
+
+  it('a lower-case doctype is refused too', () => {
+    expect(parsePlotFile('x.kml', `<!doctype kml><kml><Document/></kml>`)).toEqual({ ok: false, reason: 'unsupported_kml' });
   });
 });

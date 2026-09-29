@@ -39,17 +39,21 @@ export type ConfigMode = 'full' | 'ledger-only';
 export type ProviderMode = 'fixture' | 'live';
 
 /**
- * Milestone scoping (EXE, carry-forward TKT-18): `--milestone=M1` (the default until M-002 starts)
- * scopes the gates to cases of milestones up to and including M1. Cases of a later milestone are still
+ * Milestone scoping (EXE, carry-forward TKT-18): `--milestone=M1` scopes the gates to cases of
+ * milestones up to and including M1. M1 is the default only until M-002 starts: when it does
+ * (TSK-24.x), the default MUST move to M2 (DEFAULT_MILESTONE below). Cases of a later milestone are still
  * built and run where possible and appear in `cases`, but are REPORTED in a separate "Out of milestone
  * scope" section, never pooled into that milestone's gates or critical conditions, and never dropped
  * (CF-12, EVAL-092).
  */
 export const MILESTONES = ['M1', 'M2', 'M3'] as const;
 export type Milestone = (typeof MILESTONES)[number];
-export const inMilestone = (caseMilestone: string, scope: Milestone): boolean => {
+/** The default scope. Move to 'M2' when M-002 starts, or M2 cases stay out of every gate. */
+export const DEFAULT_MILESTONE: Milestone = 'M1';
+/** Whether a case counts in the gates. Fails closed: an unknown or missing milestone is in scope. */
+export const inMilestone = (caseMilestone: string | undefined, scope: Milestone): boolean => {
   const rank = MILESTONES.indexOf(caseMilestone as Milestone);
-  return rank !== -1 && rank <= MILESTONES.indexOf(scope);
+  return rank === -1 || rank <= MILESTONES.indexOf(scope);
 };
 
 export type Gate = {
@@ -550,7 +554,7 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
   const provider = opts.provider ?? 'fixture';
   if (provider !== 'fixture') throw new Error('--provider=live arrives with TKT-07 (TSK-07.7); pnpm eval runs on the fixture provider');
   const suites = opts.suites ?? [...HARNESS_SUITES];
-  const milestone = opts.milestone ?? 'M1';
+  const milestone = opts.milestone ?? DEFAULT_MILESTONE;
   const seed = opts.seed ?? Date.now() % 2 ** 31;
   const registry = opts.registry ?? REGISTRY;
   const enabled = mode === 'ledger-only' ? LEDGER_ONLY : [...CHECK_IDS];
@@ -667,7 +671,7 @@ export async function runHarness(opts: RunOptions = {}): Promise<{ results: Resu
 // ── CLI ───────────────────────────────────────────────────────────────────────────────────────────
 
 export function parseArgs(argv: string[]): Required<Pick<RunOptions, 'config' | 'provider' | 'suites' | 'out' | 'milestone'>> & Pick<RunOptions, 'seed' | 'name' | 'reportName'> {
-  const o = { config: 'full' as ConfigMode, provider: 'fixture' as ProviderMode, suites: [...HARNESS_SUITES] as Suite[], out: 'local' as Out, milestone: 'M1' as Milestone } as ReturnType<typeof parseArgs>;
+  const o = { config: 'full' as ConfigMode, provider: 'fixture' as ProviderMode, suites: [...HARNESS_SUITES] as Suite[], out: 'local' as Out, milestone: DEFAULT_MILESTONE } as ReturnType<typeof parseArgs>;
   for (const arg of argv) {
     const m = /^--([a-z-]+)=(.*)$/.exec(arg);
     const [flag, value] = m ? [m[1], m[2]!] : [arg, ''];

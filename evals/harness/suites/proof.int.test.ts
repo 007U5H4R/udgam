@@ -1,5 +1,47 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { runProofSuite } from './proof';
+import { CASE_TIMEOUT_MS } from '../run';
+import { CLEAN_ROOM_TIMEOUT_MS, cleanRoom, runProofSuite } from './proof';
+
+// TASK-19 follow-up (review findings 6, 7): the clean-room child never outlives the case watchdog,
+// and a child that fails with non-JSON output surfaces its own error, not a JSON SyntaxError.
+describe('cleanRoom child process', () => {
+  const withScript = async (body: string, run: (cli: string) => Promise<void>) => {
+    const dir = mkdtempSync(join(tmpdir(), 'udgam-cleanroom-child-'));
+    try {
+      const cli = join(dir, 'child.ts');
+      writeFileSync(cli, body);
+      await run(cli);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  it('is killed before the 30 s case watchdog fires', async () => {
+    expect(CLEAN_ROOM_TIMEOUT_MS).toBeLessThan(CASE_TIMEOUT_MS);
+    await withScript('setTimeout(() => {}, 60_000);\n', async (cli) => {
+      const started = Date.now();
+      await expect(cleanRoom(['--batch', 'x'], { cli, timeoutMs: 1_000 })).rejects.toMatchObject({ killed: true });
+      expect(Date.now() - started).toBeLessThan(15_000);
+    });
+  }, 30_000);
+
+  it('rethrows the original error when a failing child prints non-JSON', async () => {
+    await withScript("process.stdout.write('not json');\nprocess.stderr.write('boom from the child');\nprocess.exitCode = 1;\n", async (cli) => {
+      const err = await cleanRoom(['--vectors', 'x'], { cli }).catch((e: unknown) => e);
+      expect(err).not.toBeInstanceOf(SyntaxError);
+      expect(String((err as { stderr?: string }).stderr)).toContain('boom from the child');
+    });
+  }, 30_000);
+
+  it('a successful child with non-JSON output is an error that says so', async () => {
+    await withScript("process.stdout.write('not json');\n", async (cli) => {
+      await expect(cleanRoom(['--batch', 'x'], { cli })).rejects.toThrow(/non-JSON output: not json/);
+    });
+  }, 30_000);
+});
 
 // TSK-15.8 / TSK-18.6: the harness proof suite (EVAL-058–063, EVAL-066 Node half) with both
 // verifiers — the library verifier and the clean-room checker (a child process).

@@ -99,7 +99,7 @@ export async function seedBatchWorld(db: Db, o: BatchWorldOptions): Promise<Batc
       await tx.insert(plots).values({ id: plotId, farmerId, crop: 'arabica', geojson: JSON.stringify(P01_POLYGON), areaHa: P01_AREA_HA, anchorSeq: a.seq, createdAt: ts(), updatedAt: ts() });
     }
     for (const d of devs) {
-      // Each phone's agent is a real user of the FPO (devices.agent_id → user, migration 0006).
+      // Each phone's agent is a real user of the FPO (devices.agent_id → user, migration 0008).
       await tx.insert(user).values({ id: d.agentId, name: 'Test agent', email: `${d.agentId.toLowerCase()}@batch-world.test`, emailVerified: true, role: 'agent', orgId });
       const a = await append(tx, 'device_enrolled', { deviceId: d.id, agentId: d.agentId, kid: d.kid, publicJwk: d.publicJwk, enrolledAt: ts() });
       await tx.insert(devices).values({ id: d.id, agentId: d.agentId, publicKeyJwk: JSON.stringify(d.publicJwk), keyThumbprint: d.kid, enrolledAt: ts(), anchorSeq: a.seq });

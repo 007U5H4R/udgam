@@ -32,6 +32,14 @@ export const VECTOR_TAMPERS = [
   'payload_constructor_member',
   'payload_prototype_member',
   'drop_batch_created',
+  'duplicate_kid_first_wins',
+  'published_key_not_p256',
+  'checkpoint_signature_trailing_bits',
+  'checkpoint_signature_length',
+  'step_order_interleave',
+  'empty_feed',
+  'unsafe_integer',
+  'array_in_object_slot',
 ] as const;
 export type VectorTamper = (typeof VECTOR_TAMPERS)[number];
 
@@ -39,7 +47,18 @@ export type VectorTamper = (typeof VECTOR_TAMPERS)[number];
  * Vectors no outside forger can make with one change to a feed: genuine ledgers sealed by the ledger
  * key that hold one wrong signed payload (scripts/proof-vectors.ts builds them after VECTOR_TAMPERS).
  */
-export const INSIDER_VECTORS = ['batch_event_hash', 'payload_signature', 'payload_wrong_kid', 'payload_jwk_extra_member', 'payload_jwk_off_curve', 'custody_chain'] as const;
+export const INSIDER_VECTORS = [
+  'batch_event_hash',
+  'payload_signature',
+  'payload_wrong_kid',
+  'payload_jwk_extra_member',
+  'payload_jwk_off_curve',
+  'custody_chain',
+  'custody_org_missing',
+  'custody_org_nonstring',
+  'empty_plot_id',
+  'duplicate_event_highest_seq',
+] as const;
 
 /** The suite variants as documented vectors. */
 export const SUITE_VECTOR: Record<TamperVariant, VectorTamper> = {
@@ -70,6 +89,14 @@ export const EXPECTED_STEP: Record<VectorTamper, VerifyStep> = {
   payload_constructor_member: 'format',
   payload_prototype_member: 'format',
   drop_batch_created: 'closure-incomplete',
+  duplicate_kid_first_wins: 'unknown-key',
+  published_key_not_p256: 'unknown-key',
+  checkpoint_signature_trailing_bits: 'checkpoint-signature',
+  checkpoint_signature_length: 'checkpoint-signature',
+  step_order_interleave: 'checkpoint-signature',
+  empty_feed: 'closure-incomplete',
+  unsafe_integer: 'format',
+  array_in_object_slot: 'format',
 };
 
 export const TAMPER_DESCRIPTIONS: Record<VectorTamper, string> = {
@@ -91,6 +118,16 @@ export const TAMPER_DESCRIPTIONS: Record<VectorTamper, string> = {
   payload_constructor_member: 'an own "constructor" member added to the first harvest_event payload; payloadHash left as anchored',
   payload_prototype_member: 'an own "prototype" member added to the first harvest_event payload; payloadHash left as anchored',
   drop_batch_created: "the batch's batch_created entry removed (the feed then has no batch_created for its batchId)",
+  duplicate_kid_first_wins:
+    "feed unchanged; the tamper's own key document lists first a different P-256 key whose kid member claims the ledger key's kid, then the real key: only the first match is used, and its thumbprint differs",
+  published_key_not_p256: "feed unchanged; the tamper's own key document has the ledger key with crv \"P-384\"",
+  checkpoint_signature_trailing_bits: "the last character of the first checkpoint signature changed so that its unused low bits are not zero (alphabet and length still valid)",
+  checkpoint_signature_length: 'the first checkpoint signature cut to 84 characters (63 bytes)',
+  step_order_interleave:
+    "two changes: the first checkpoint's signature broken and the second checkpoint's kid set to an unpublished kid; steps 2 and 3 run per checkpoint in feed order, so checkpoint-signature (checkpoint 1) is reported, not unknown-key (checkpoint 2)",
+  empty_feed: 'entries and checkpoints both empty arrays (well-formed, but no batch_created for the batchId)',
+  unsafe_integer: 'leafIndex of the first entry set to 2^53 (9007199254740992), above the largest safe integer',
+  array_in_object_slot: 'the payload of the first entry replaced by an empty array',
 };
 
 export type Tampered = { variant: TamperVariant | VectorTamper; feed: ProofFeedV1; keys: VerifierKey[]; expectedStep: VerifyStep };
@@ -219,6 +256,54 @@ export async function applyTamper(input: ProofFeedV1, inputKeys: VerifierKey[], 
     case 'drop_batch_created':
       feed.entries = feed.entries.filter((x) => !(x.kind === 'batch_created' && x.payload.batchId === feed.batchId));
       break;
+    case 'duplicate_kid_first_wins': {
+      const real = keys[0];
+      if (!real) throw new Error('tamper: no published key');
+      const pair = await generateKeyPair(false);
+      const impostor = publicMembers(await globalThis.crypto.subtle.exportKey('jwk', pair.publicKey));
+      keys.unshift({ ...impostor, kid: real.kid, use: 'sig', alg: 'ES256' } as VerifierKey);
+      break;
+    }
+    case 'published_key_not_p256':
+      for (const k of keys) k.crv = 'P-384';
+      break;
+    case 'checkpoint_signature_trailing_bits': {
+      const cp = feed.checkpoints[0];
+      if (!cp || cp.signature.length !== 86) throw new Error('tamper: the first checkpoint has no 86-character signature');
+      // 86 characters carry 516 bits for 512: the last character's 4 low bits must be zero.
+      const last = B64U.indexOf(cp.signature[85]!);
+      cp.signature = cp.signature.slice(0, 85) + B64U[(last & 0b110000) | 0b0001];
+      break;
+    }
+    case 'checkpoint_signature_length': {
+      const cp = feed.checkpoints[0];
+      if (!cp) throw new Error('tamper: the feed has no checkpoint');
+      cp.signature = cp.signature.slice(0, 84);
+      break;
+    }
+    case 'step_order_interleave': {
+      const [c1, c2] = feed.checkpoints;
+      if (!c1 || !c2) throw new Error('tamper: the feed needs two checkpoints');
+      c1.signature = c1.signature.slice(0, 10) + B64U[B64U.indexOf(c1.signature[10]!) ^ 1] + c1.signature.slice(11);
+      c2.kid = 'A'.repeat(43);
+      break;
+    }
+    case 'empty_feed':
+      feed.entries = [];
+      feed.checkpoints = [];
+      break;
+    case 'unsafe_integer': {
+      const e = feed.entries[0];
+      if (!e) throw new Error('tamper: the feed has no entries');
+      e.leafIndex = 2 ** 53;
+      break;
+    }
+    case 'array_in_object_slot': {
+      const e = feed.entries[0];
+      if (!e) throw new Error('tamper: the feed has no entries');
+      (e as { payload: unknown }).payload = [];
+      break;
+    }
   }
   return { variant, feed, keys, expectedStep: EXPECTED_STEP[kind] };
 }

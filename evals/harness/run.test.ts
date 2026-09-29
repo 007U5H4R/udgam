@@ -9,7 +9,8 @@ import { buildCase } from './mutate';
 import { loadDataset } from './dataset';
 import { runProofSuite } from './suites/proof';
 import { REPO_ROOT } from './provenance';
-import { caseLimitMs, CASE_TIMEOUT_MS, evaluate, isolateDataDir, main, parseArgs, runHarness } from './run';
+import { reportPathFor, writeReport, writeResults } from './results';
+import { caseLimitMs, CASE_TIMEOUT_MS, evaluate, inMilestone, isolateDataDir, main, parseArgs, runHarness } from './run';
 
 // TC-015 (EVAL-092, CF-12): the harness never hides a case. TC-014 (order independence).
 
@@ -29,6 +30,12 @@ describe('parseArgs', () => {
     expect(parseArgs([]).milestone).toBe('M1');
     expect(parseArgs(['--milestone=M2']).milestone).toBe('M2');
     expect(() => parseArgs(['--milestone=M4'])).toThrow(/--milestone/);
+    // Fail closed: a case with an unknown or missing milestone is never scoped out of the gates.
+    expect(inMilestone('M1', 'M1')).toBe(true);
+    expect(inMilestone('M2', 'M1')).toBe(false);
+    expect(inMilestone('M2', 'M2')).toBe(true);
+    expect(inMilestone('M9', 'M1')).toBe(true);
+    expect(inMilestone(undefined, 'M1')).toBe(true);
     expect(() => parseArgs(['--config=everything'])).toThrow(/--config/);
     expect(() => parseArgs(['--suite=harness-magic'])).toThrow(/--suite/);
     expect(() => parseArgs(['--bogus'])).toThrow(/--bogus/);
@@ -335,19 +342,30 @@ describe('runHarness writes results and a report derived from them', () => {
     expect(readFileSync(r.reportPath, 'utf8')).toContain('**Overall: FAIL**');
   }, 60_000);
 
-  it('never overwrites a report: an existing one keeps its bytes and the new report gets -rN', async () => {
+  it('never overwrites a report: an existing one keeps its bytes and the new report gets -rN', () => {
+    // runHarness's naming sequence (writeResults → reportPathFor → writeReport) on a stub results
+    // object: the assertions are about file names only, so no harness run is needed.
     const root = mkdtempSync(join(tmpdir(), 'udgam-run-'));
-    const reportsDir = join(root, 'reports');
-    mkdirSync(reportsDir, { recursive: true });
-    writeFileSync(join(reportsDir, 'eval-report-baseline-v0.md'), 'COMMITTED\n');
-    const opts = { seed: 2, suites: ['harness-verifier' as const], out: 'formal' as const, name: 'foo', reportName: 'baseline-v0', resultsDir: join(root, 'results'), reportsDir };
-    const a = await runHarness(opts);
-    expect(a.resultsPath).toMatch(/results\/foo\.json$/);
-    expect(a.reportPath).toMatch(/reports\/eval-report-baseline-v0-r2\.md$/);
-    expect(readFileSync(join(reportsDir, 'eval-report-baseline-v0.md'), 'utf8')).toBe('COMMITTED\n');
-    const b = await runHarness(opts);
-    expect(b.resultsPath).toMatch(/results\/foo-r2\.json$/);
-    expect(b.reportPath).toMatch(/reports\/eval-report-baseline-v0-r3\.md$/);
-    expect(existsSync(a.reportPath)).toBe(true);
+    try {
+      const reportsDir = join(root, 'reports');
+      mkdirSync(reportsDir, { recursive: true });
+      writeFileSync(join(reportsDir, 'eval-report-baseline-v0.md'), 'COMMITTED\n');
+      const stub = { provenance: { appVersion: '0.0.0', git: { shortSha: 'abc1234' } } };
+      const once = () => {
+        const resultsPath = writeResults(stub, { out: 'formal', dir: join(root, 'results'), name: 'foo' });
+        const reportPath = writeReport(reportPathFor(resultsPath, { out: 'formal', reportsDir, reportName: 'baseline-v0' }), 'NEW\n');
+        return { resultsPath, reportPath };
+      };
+      const a = once();
+      expect(a.resultsPath).toMatch(/results\/foo\.json$/);
+      expect(a.reportPath).toMatch(/reports\/eval-report-baseline-v0-r2\.md$/);
+      expect(readFileSync(join(reportsDir, 'eval-report-baseline-v0.md'), 'utf8')).toBe('COMMITTED\n');
+      const b = once();
+      expect(b.resultsPath).toMatch(/results\/foo-r2\.json$/);
+      expect(b.reportPath).toMatch(/reports\/eval-report-baseline-v0-r3\.md$/);
+      expect(existsSync(a.reportPath)).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

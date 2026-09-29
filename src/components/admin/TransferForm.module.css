@@ -1,0 +1,19 @@
+/* The buyer select inside the signed-action panel: admin.html ".decide textarea" values (16 px radius,
+   1.5 px line, dark inset) on a native select. Unchanged values (TP17). */
+.select {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--ink);
+  font: inherit;
+  font-size: 17px;
+  line-height: 1.45;
+}
+.select:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}

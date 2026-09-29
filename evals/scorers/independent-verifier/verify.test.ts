@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { sha256Hex } from './src/hash';
+import { jwkThumbprint } from './src/signature';
 import { jcs } from './src/jcs';
 import { checkFeed } from './src/verify';
 import { buildFeed, buildLedger, keyDocument, newSigner, sampleFeed, signedPayload } from './test-feed';
@@ -20,7 +21,8 @@ const vectors = JSON.parse(readFileSync(resolve(process.cwd(), 'docs/proof-feed.
   keys: { keys: Json[] };
   feed: Json;
   expected: { ok: boolean; entries: number };
-  tampers: { variant: string; expectedStep: string; feed: Json }[];
+  /** A tamper of the key document carries its own `keys` (§11). */
+  tampers: { variant: string; expectedStep: string; keys?: { keys: Json[] }; feed: Json }[];
 };
 
 describe('checkFeed on a feed built by hand from docs/proof-feed.md', () => {
@@ -265,7 +267,7 @@ describe('checkFeed on a feed built by hand from docs/proof-feed.md', () => {
     // Not a P-256 key → unknown-key; a P-256 key whose point is off the curve → checkpoint-signature.
     expect((await checkFeed(feed, { keys: [{ ...good, crv: 'P-384' }] })).failure?.step).toBe('unknown-key');
     const offCurve = { kty: 'EC', crv: 'P-256', x: good.x as string, y: good.x as string };
-    const offKid = (await import('./src/signature')).jwkThumbprint(offCurve);
+    const offKid = jwkThumbprint(offCurve);
     const withOff = clone(feed);
     for (const c of checkpointsOf(withOff)) c.kid = await offKid;
     expect((await checkFeed(withOff, { keys: [{ ...offCurve, kid: await offKid }] })).failure?.step).toBe('checkpoint-signature');
@@ -290,6 +292,54 @@ describe('checkFeed on a feed built by hand from docs/proof-feed.md', () => {
     expect((await build('c'.repeat(64), 'd'.repeat(64))).failure?.step).toBe('closure-incomplete');
   });
 
+  it('§9.3: every id compared is a non-empty string; a custody chain "from nobody" fails', async () => {
+    const signer = await newSigner();
+    const admin = await newSigner();
+    const H = 'c'.repeat(64);
+    const build = async (o: { batch?: Json; custody?: Json[]; ids?: { eventId?: unknown; plotId?: unknown; deviceId?: unknown } }) => {
+      const ids = { eventId: 'HE-1', plotId: 'PL-1', deviceId: 'DV-1', ...o.ids };
+      const kinds: [string, Json][] = [
+        ['plot_registered', { plotId: ids.plotId }],
+        ['device_enrolled', { deviceId: ids.deviceId }],
+        ['harvest_event', { eventId: ids.eventId, plotId: ids.plotId, deviceId: ids.deviceId, payloadHash: H }],
+        ['verification_run', { eventId: ids.eventId }],
+        ['batch_created', await signedPayload(admin, o.batch ?? { batchId: 'B-1', orgId: 'O1', events: [{ eventId: ids.eventId, payloadHash: H }] })],
+        ...(await Promise.all((o.custody ?? []).map(async (c) => ['custody_transfer', await signedPayload(admin, { batchId: 'B-1', ...c })] as [string, Json]))),
+      ];
+      const ledger = await buildLedger(kinds, 0);
+      return checkFeed(await buildFeed({ ledger, cuts: [ledger.length], select: () => true, batchId: 'B-1', signer }), keyDocument(signer));
+    };
+    const events = [{ eventId: 'HE-1', payloadHash: H }];
+    const step = (r: { ok: boolean; failure?: { step: string } }) => (r.ok ? 'ok' : r.failure?.step);
+    expect(step(await build({ custody: [{ fromOrg: 'O1', toOrg: 'O2' }] }))).toBe('ok');
+    // From nobody: orgId and fromOrg both missing, or both null.
+    expect(step(await build({ batch: { batchId: 'B-1', events }, custody: [{ toOrg: 'O2' }] }))).toBe('closure-incomplete');
+    expect(step(await build({ batch: { batchId: 'B-1', orgId: null, events }, custody: [{ fromOrg: null, toOrg: 'O2' }] }))).toBe('closure-incomplete');
+    // Non-string or empty org ids, even when equal; a missing toOrg handing over to a missing fromOrg.
+    expect(step(await build({ batch: { batchId: 'B-1', orgId: 5, events }, custody: [{ fromOrg: 5, toOrg: 'O2' }] }))).toBe('closure-incomplete');
+    expect(step(await build({ batch: { batchId: 'B-1', orgId: '', events }, custody: [{ fromOrg: '', toOrg: 'O2' }] }))).toBe('closure-incomplete');
+    expect(step(await build({ custody: [{ fromOrg: 'O1' }, { toOrg: 'O3' }] }))).toBe('closure-incomplete');
+    // The batch's own organisation is required even with no transfer.
+    expect(step(await build({ batch: { batchId: 'B-1', events } }))).toBe('closure-incomplete');
+    // Empty event, plot and device ids (with a matching empty registration, enrolment or run).
+    for (const ids of [{ eventId: '' }, { plotId: '' }, { deviceId: '' }]) expect(step(await build({ ids })), JSON.stringify(ids)).toBe('closure-incomplete');
+  });
+
+  it('never throws: a payload nested 10 000 deep fails at payload-hash; an unexpected throw fails at format', async () => {
+    const { feed, keys } = await sampleFeed();
+    const deep = JSON.stringify(feed).replace('"payload":{', `"payload":{"deep":${'{"a":'.repeat(10_000)}1${'}'.repeat(10_000)},`);
+    const r = await checkFeed(JSON.parse(deep), keys);
+    expect(r).toMatchObject({ ok: false, failure: { step: 'payload-hash', seq: 4 } });
+    // 200 000 deep: still a result, never an exception. In a payload it fails at payload-hash; in the
+    // informational ledgerKey header it is an unknown member, ignored like any other (§4).
+    const inPayload = JSON.stringify(feed).replace('"payload":{', `"payload":{"deep":${'['.repeat(200_000)}${']'.repeat(200_000)},`);
+    await expect(checkFeed(JSON.parse(inPayload), keys)).resolves.toMatchObject({ ok: false, failure: { step: 'payload-hash' } });
+    const inHeader = JSON.stringify(feed).replace('"ledgerKey":{', `"ledgerKey":{"deep":${'['.repeat(200_000)}${']'.repeat(200_000)},`);
+    await expect(checkFeed(JSON.parse(inHeader), keys)).resolves.toMatchObject({ ok: true });
+    const hostile = { get keys(): unknown { throw new Error('boom'); } };
+    await expect(checkFeed(feed, hostile)).resolves.toMatchObject({ ok: false, failure: { step: 'format' } });
+  });
+
   it('entries recompute from the hand-built ledger (self-check of the helper against §5)', async () => {
     const { feed } = await sampleFeed();
     const e = entriesOf(feed)[0]!;
@@ -305,7 +355,7 @@ describe('checkFeed on the published vectors (docs/proof-feed.vectors.json)', ()
 
   for (const t of vectors.tampers) {
     it(`rejects tamper ${t.variant} at ${t.expectedStep}`, async () => {
-      const r = await checkFeed(t.feed, vectors.keys);
+      const r = await checkFeed(t.feed, t.keys ?? vectors.keys);
       expect(r.ok).toBe(false);
       expect(r.failure?.step).toBe(t.expectedStep);
     });
@@ -317,7 +367,8 @@ describe('CLI', () => {
   const tsx = resolve(process.cwd(), 'node_modules/.bin/tsx');
   const run = (args: string[]) => {
     try {
-      return { code: 0, out: execFileSync(tsx, [cli, ...args], { encoding: 'utf8' }) };
+      // A hung child would block the worker's event loop, which vitest's own timeout cannot interrupt.
+      return { code: 0, out: execFileSync(tsx, [cli, ...args], { encoding: 'utf8', timeout: 20_000, maxBuffer: 64 * 1024 * 1024 }) };
     } catch (err) {
       const e = err as { status: number; stdout: string };
       return { code: e.status, out: e.stdout };
@@ -358,10 +409,13 @@ describe('CLI', () => {
     try {
       const keysPath = join(dir, 'keys.json');
       writeFileSync(keysPath, JSON.stringify(vectors.keys));
-      const jobs = [vectors.feed, ...vectors.tampers.map((t) => t.feed)].map((f, i) => {
+      const jobs = [{ feed: vectors.feed, keys: undefined }, ...vectors.tampers].map((t, i) => {
         const feedPath = join(dir, `feed-${i}.json`);
-        writeFileSync(feedPath, JSON.stringify(f));
-        return { feed: feedPath, keys: keysPath };
+        writeFileSync(feedPath, JSON.stringify(t.feed));
+        if (!t.keys) return { feed: feedPath, keys: keysPath };
+        const ownKeys = join(dir, `keys-${i}.json`);
+        writeFileSync(ownKeys, JSON.stringify(t.keys));
+        return { feed: feedPath, keys: ownKeys };
       });
       const jobsPath = join(dir, 'jobs.json');
       writeFileSync(jobsPath, JSON.stringify(jobs));
@@ -373,6 +427,18 @@ describe('CLI', () => {
       expect(results.slice(1).map((r) => r.failure?.step)).toEqual(vectors.tampers.map((t) => t.expectedStep));
       writeFileSync(jobsPath, '{"not":"a list"}');
       expect(run(['--batch', jobsPath]).code).toBe(2);
+
+      // One hostile or unreadable job never aborts the batch: each gets its own result.
+      const deepPath = join(dir, 'deep.json');
+      writeFileSync(deepPath, JSON.stringify(vectors.feed).replace('"payload":{', `"payload":{"deep":${'{"a":'.repeat(10_000)}1${'}'.repeat(10_000)},`));
+      writeFileSync(jobsPath, JSON.stringify([{ feed: deepPath, keys: keysPath }, { feed: join(dir, 'missing.json'), keys: keysPath }, jobs[0]]));
+      const mixed = run(['--batch', jobsPath]);
+      expect(mixed.code).toBe(0);
+      const [deepResult, missing, intact] = JSON.parse(mixed.out) as { ok: boolean; failure?: { step: string }; error?: string }[];
+      expect(deepResult).toMatchObject({ ok: false, failure: { step: 'payload-hash' } });
+      expect(missing).toMatchObject({ ok: false });
+      expect(missing!.error).toMatch(/missing\.json/);
+      expect(intact!.ok).toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

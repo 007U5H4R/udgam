@@ -515,7 +515,8 @@
   gap: 10px;
 }
 
-/* ── Desktop ≥ 1100: list · detail, columns scroll on their own ── */
+/* ── Desktop ≥ 1100: rail · list · detail; the columns scroll on their own (the rail is sticky and
+   100vh tall beside them, as in admin.html) ── */
 @media (min-width: 1100px) {
   .main {
     height: 100vh;
@@ -558,9 +559,7 @@
 }
 
 @media (max-width: 699.98px) {
-  .queue {
-    padding-bottom: 110px;
-  }
+  /* RailShell pads its content 110 px for the floating tab bar; nothing extra here. */
   .h1 {
     font-size: 28px;
   }

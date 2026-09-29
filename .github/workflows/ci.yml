@@ -48,7 +48,7 @@ jobs:
           tar -xzf "$archive" -C "$RUNNER_TEMP" gitleaks
       # Scans every commit reachable from the checkout, on every event (extends the default rules).
       - name: Scan full history
-        run: '"$RUNNER_TEMP/gitleaks" git --redact --config .gitleaks.toml --exit-code 1 .'
+        run: '"$RUNNER_TEMP/gitleaks" git --redact --verbose --config .gitleaks.toml --exit-code 1 .'
 
   audit:
     # TC-075, EVAL-085 (TSK-19.7): a known high or critical advisory in a production dependency fails
@@ -58,10 +58,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+      # No `cache: pnpm` here: this job never installs, so the pnpm store path does not exist and
+      # setup-node's post-job cache save fails the job ("Path Validation Error").
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
       - run: pnpm audit --prod --audit-level=high
 
   bundle-secrets:

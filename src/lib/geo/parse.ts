@@ -23,6 +23,9 @@ export function parsePlotFile(name: string, text: string): ParsedPlot {
   const isKml = /\.kml$/i.test(name) || text.trimStart().startsWith('<');
   let root: unknown;
   if (isKml) {
+    // A KML file never needs a DTD. Refusing any DOCTYPE up front keeps entity tricks (XXE, entity
+    // expansion) out whatever the XML parser's defaults are.
+    if (/<!DOCTYPE/i.test(text)) return fail('unsupported_kml');
     root = kmlToGeoJson(text);
     if (root === null) return fail('not_polygon');
   } else {
@@ -51,9 +54,12 @@ function kmlToGeoJson(text: string): unknown {
   }
 }
 
+/** Nesting (Feature in Feature, collection in collection) deeper than this is refused, never recursed. */
+const MAX_DEPTH = 32;
+
 /** The one plot geometry in a FeatureCollection, Feature or Geometry, or why there is none. */
-function extractGeometry(root: unknown): Json | 'empty' | 'not_polygon' {
-  if (!isObject(root)) return 'not_polygon';
+function extractGeometry(root: unknown, depth = 0): Json | 'empty' | 'not_polygon' {
+  if (!isObject(root) || depth > MAX_DEPTH) return 'not_polygon';
   switch (root.type) {
     case 'FeatureCollection': {
       if (!Array.isArray(root.features)) return 'not_polygon';
@@ -61,15 +67,16 @@ function extractGeometry(root: unknown): Json | 'empty' | 'not_polygon' {
       if (geometries.length === 0) return 'empty';
       // One plot per file: several features are several plots.
       if (geometries.length > 1) return 'not_polygon';
-      return extractGeometry(geometries[0]);
+      return extractGeometry(geometries[0], depth + 1);
     }
     case 'Feature':
       if (root.geometry === null || root.geometry === undefined) return 'empty';
-      return extractGeometry(root.geometry);
+      return extractGeometry(root.geometry, depth + 1);
     case 'GeometryCollection': {
       // A KML MultiGeometry of polygons is one plot in several parts.
       if (!Array.isArray(root.geometries)) return 'not_polygon';
-      const parts = root.geometries.map(extractGeometry);
+      // Its members must be Polygons: no nested collections.
+      const parts = root.geometries.map((g) => (isObject(g) && g.type === 'Polygon' ? extractGeometry(g, depth + 1) : 'not_polygon'));
       if (parts.length === 0) return 'empty';
       if (parts.some((p) => typeof p === 'string' || p.type !== 'Polygon')) return 'not_polygon';
       return { type: 'MultiPolygon', coordinates: (parts as Json[]).map((p) => p.coordinates) };
