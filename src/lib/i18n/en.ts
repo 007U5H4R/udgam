@@ -19,6 +19,9 @@ export const en = {
   'shell.admin.empty': 'Nothing to review.',
   'shell.buyer.title': 'Batches',
   'shell.buyer.empty': 'No batches have been transferred to you yet.',
+
+  // Not accepted at the capture boundary (TKT-05; the verdict screen itself is TKT-10's)
+  'capture.rejected.plot_not_assigned': 'This plot is not assigned to you. Ask the office to assign it to you, then record the picking again.',
 } as const;
 
 export type MessageKey = keyof typeof en;

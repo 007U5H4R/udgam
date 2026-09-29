@@ -2,6 +2,7 @@ import { desc, eq } from 'drizzle-orm';
 import { sha256Hex } from '../crypto';
 import { writeTx, type Db } from '../db/client';
 import { devices, harvestEvents, media, plots, verificationRuns } from '../db/schema';
+import { isPlotAssigned } from '../enrolment/assign';
 import { log as defaultLog } from '../log';
 import type { MediaStore } from '../media/store';
 import { verify } from '../verification/verify';
@@ -80,9 +81,9 @@ function verdictLine(eventId: string, run: { verdict: Verdict; score: number; ch
   };
 }
 
-/** Status for a recorded refusal (boundary reasons, plus plot assignment §6.4). */
+/** Status for a recorded refusal (the boundary reasons, plot assignment §6.4 among them). */
 function statusFor(reason: string): number {
-  return Object.hasOwn(STATUS, reason) ? STATUS[reason as BoundaryReason] : reason === 'plot_not_assigned' ? 403 : 400;
+  return Object.hasOwn(STATUS, reason) ? STATUS[reason as BoundaryReason] : 400;
 }
 
 /**
@@ -195,8 +196,8 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
   }
   const serverReceivedAt = now().toISOString();
 
-  // 2. boundary (canonical bytes, schema, device, signature, revocation, media sizes and hashes)
-  const b = await checkBoundary(form_, { findDevice: (id) => findDevice(db, id) });
+  // 2. boundary (canonical bytes, schema, device, signature, revocation, plot assignment, media sizes and hashes)
+  const b = await checkBoundary(form_, { findDevice: (id) => findDevice(db, id), isPlotAssigned: (agentId, plotId) => isPlotAssigned(db, agentId, plotId) });
   // Another agent's phone: an authorisation refusal, not a verdict on the payload. Not anchored, so it can
   // neither answer with the owner's recorded result nor block the owner's own upload of the same payload.
   if (b.device && b.device.agentId !== deps.agentId) return { t: 'rejected', reason: 'device_not_owned', status: 403 };
@@ -207,9 +208,9 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
   const previous = await previousAnswer(db, payloadHash);
   if (previous) return previous;
 
-  // plot assignment is a boundary rule (§6.4); TKT-05 checks agent_plots, here the plot must exist
+  // the plot exists: the boundary found a live agent_plots assignment for it (§6.4, foreign key)
   const [plot] = await db.select().from(plots).where(eq(plots.id, payload.plotId));
-  if (!plot) return reject(form_, 'plot_not_assigned', 403, device, serverReceivedAt);
+  if (!plot) return reject(form_, 'plot_not_assigned', STATUS.plot_not_assigned, device, serverReceivedAt);
 
   // 4. media (content-addressed and shared; each put holds its path until this request ends)
   const stored: StoredMedia[] = [];
