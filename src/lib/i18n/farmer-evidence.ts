@@ -56,8 +56,9 @@ function findingLine(c: CheckResult, tr: Tr, ctx: Ctx): string | null {
       if (/no time data/.test(e)) return tr('fe.photoTime.none');
       const photo = grab(e, /Photo time (.+?) from capture time/);
       const clock = grab(e, /phone clock (.+?) from server/);
-      // Name the gap that is over its limit: the phone clock when the photo gap is small.
-      if (c.status === 'fail' && clock && /days|\d+ h/.test(clock)) return tr('fe.photoTime.clock', { d: clock });
+      // Name the gap that crossed its fail limit (EXE10): the phone clock only when the sentence says the
+      // clock gap ("fail over 7 days") failed and the photo gap ("fail over 24 h") did not.
+      if (c.status === 'fail' && clock && /fail over 7 days/.test(e) && !/fail over 24 h/.test(e)) return tr('fe.photoTime.clock', { d: clock });
       return tr('fe.photoTime.far', { d: photo ?? clock ?? '' });
     }
     case 'movement_plausibility':

@@ -1,6 +1,6 @@
 {
   "$schema": "./eval-dataset.schema.json",
-  "dataset_version": "0.5.0",
+  "dataset_version": "0.6.0",
   "status": "Stage 3 seed. Representative cases only; Stage 7 extends to about 40 legitimate and at least 10 attack cases per scenario 1-4, appending new IDs after the last one used here. IDs are never renumbered or reused. 0.2.0 (Stage 6, TP23): added Milestone 2 cases EVAL-093 to EVAL-105; EVAL-054 and EVAL-068 activated by TP5 and TP7. 0.3.0 (Stage 7, TKT-08): added scenario 1 attack cases EVAL-110 to EVAL-113 (scenario 1 to 11 active S1 cases). 0.4.0 (Stage 7, TKT-07): added plot-laundering fixtures X08 to X10 and scenario 3 attack cases EVAL-106 to EVAL-108 (scenario 3 to 10 active S1 cases). 0.5.0 (Stage 7, TKT-09): added scenario 2 replay cases EVAL-114 to EVAL-117 and scenario 4 yield cases EVAL-118 to EVAL-121 (each scenario to 10 active S1 cases); input.context.crop overrides a fixture plot's crop (EVAL-121).",
   "plan": "evaluation-plan.md (project root, authoritative)",
   "conventions": {
@@ -456,9 +456,9 @@
       "priority": "high", "automated": true, "milestone": "M1", "status": "active",
       "depends_on": ["EV7"],
       "input": { "plot": "P01", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "exif_time", "mode": "offset", "offset_min": -4320 } ] },
-      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["exif_time_agreement"], "check_status": { "exif_time_agreement": "flag" } },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["exif_time_agreement"], "check_status": { "exif_time_agreement": "fail" } },
       "failure_conditions": ["Verified"],
-      "notes": "A lone flag. Detection depends on the verdict rule for flags (EV7) or on weights; this case measures that.",
+      "notes": "Owner decision EXE10: an EXIF gap over 24 h fails. Detection depends on the verdict rule for flags (EV7) or on weights; this case measures that.",
       "tags": ["single-signal", "subtle"]
     },
     {
@@ -1463,6 +1463,32 @@
       "failure_conditions": ["Any verdict other than Rejected", "Robusta judged against a missing or arabica-only reference"],
       "notes": "P08 with a case-level crop override (input.context.crop); U is the robusta reference row's upper bound (synthetic in the harness).",
       "tags": ["hard-fail", "robusta"]
+    },
+    {
+      "id": "EVAL-122",
+      "title": "Subtle: photo taken 23 h before submission (just under the 24 h EXIF fail limit)",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 2, "gates": ["S1"],
+      "priority": "high", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "P01", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "exif_time", "mode": "offset", "offset_min": -1380 } ] },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["exif_time_agreement"], "check_status": { "exif_time_agreement": "flag" } },
+      "failure_conditions": ["Verified"],
+      "notes": "Owner decision EXE10: an EXIF gap up to 24 h is a flag, so a time-zone misread never fails an honest farmer. A lone flag; detection depends on the verdict rule for flags (EV7).",
+      "tags": ["single-signal", "subtle", "boundary"]
+    },
+    {
+      "id": "EVAL-123",
+      "title": "Subtle: photo taken 25 h before submission (just over the 24 h EXIF fail limit)",
+      "feature": "verifier", "category": "security", "suite": "harness-verifier",
+      "case_class": "attack", "scenario": 2, "gates": ["S1"],
+      "priority": "high", "automated": true, "milestone": "M1", "status": "active",
+      "depends_on": ["EV7"],
+      "input": { "plot": "P01", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "exif_time", "mode": "offset", "offset_min": -1500 } ] },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["exif_time_agreement"], "check_status": { "exif_time_agreement": "fail" } },
+      "failure_conditions": ["Verified"],
+      "notes": "Owner decision EXE10: an EXIF gap over 24 h fails.",
+      "tags": ["single-signal", "subtle", "boundary"]
     }
   ]
 }

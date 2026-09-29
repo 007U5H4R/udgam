@@ -93,9 +93,9 @@ describe('the harness never hides a case (TC-015, EVAL-092)', () => {
 
     const t = run.totals;
     // dataset 0.3.0: EVAL-110–113 (TKT-08) assert geofence/EXIF/movement checks, so they are not_yet_implemented here too;
-    // dataset 0.4.0: so are EVAL-106–108 (TKT-07, satellite checks); 0.5.0: and EVAL-114–121 (TKT-09).
+    // dataset 0.4.0: so are EVAL-106–108 (TKT-07, satellite checks); 0.5.0: and EVAL-114–121 (TKT-09); 0.6.0: and EVAL-122–123 (EXE10).
     // + 7 harness-proof passes (EVAL-058–063, 066); EVAL-103 is not yet implemented.
-    expect(t).toMatchObject({ ok: true, active: 75, passed: 9, failed: 65, notYetImplemented: 65, errored: 1, skipped: 0 });
+    expect(t).toMatchObject({ ok: true, active: 77, passed: 9, failed: 67, notYetImplemented: 67, errored: 1, skipped: 0 });
     expect(t.active).toBe(t.passed + t.failed + t.errored);
     expect(run.cases).toHaveLength(t.active);
     expect(run.summary.exitCode).toBe(1);
@@ -106,7 +106,7 @@ describe('the harness never hides a case (TC-015, EVAL-092)', () => {
     const run = await evaluate({ seed: 1 });
     const ids = run.cases.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(run.totals.active).toBe(75); // 53 active + 3 stretch harness-verifier, 8 harness-proof (dataset 0.3.0: + EVAL-110–113; 0.4.0: + EVAL-106–108; 0.5.0: + EVAL-114–121)
+    expect(run.totals.active).toBe(77); // 53 active + 3 stretch harness-verifier, 8 harness-proof (dataset 0.3.0: + EVAL-110–113; 0.4.0: + EVAL-106–108; 0.5.0: + EVAL-114–121; 0.6.0: + EVAL-122–123)
     expect(run.totals.skipped).toBe(0);
     expect(run.totals.ok).toBe(true);
   }, 60_000);
@@ -146,7 +146,7 @@ describe('per-case watchdog', () => {
     });
     const c = run.cases.find((x) => x.id === 'EVAL-001')!;
     expect(c).toMatchObject({ outcome: 'errored', result: null, error: { class: 'CaseTimeout', message: 'timeout: the case did not settle within 2000 ms' } });
-    expect(run.totals).toMatchObject({ active: 67, errored: 1, skipped: 0, ok: true }); // harness-verifier, dataset 0.5.0
+    expect(run.totals).toMatchObject({ active: 69, errored: 1, skipped: 0, ok: true }); // harness-verifier, dataset 0.6.0 (EXE10: + EVAL-122–123)
   });
 
   it('the limit is the case own max_latency_ms when it has one, else 30 s', () => {

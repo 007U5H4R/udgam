@@ -134,7 +134,7 @@ describe('cfg-1 (TP2)', () => {
     expect(CONFIG.geofence).toEqual({ maxBufferM: 25 });
     expect(CONFIG.gpsAccuracy).toEqual({ okBelowM: 30, flagBelowM: 100 });
     expect(CONFIG.exifGps).toEqual({ maxDistanceM: 50 });
-    expect(CONFIG.exifTime).toEqual({ maxExifClientMin: 10, maxClientServerMin: 1440, failAfterMin: 10080 });
+    expect(CONFIG.exifTime).toEqual({ maxExifClientMin: 10, exifFailAfterMin: 1440, maxClientServerMin: 1440, clientServerFailAfterMin: 10080 }); // EXE10
     expect(CONFIG.movement).toEqual({ maxKmh: 120 });
     expect(CONFIG.deforestation).toEqual({ flagAbovePct: 0, hardFailAtPct: 10, lossFromYear: 2021, canopyDensityPct: 10, gfwDatasetVersion: 'v1.13' });
     expect(CONFIG.ndviCultivation).toEqual({ minClearMonths: 6, canopyMin: 0.5, maxSeasonalSwing: 0.35 });
@@ -149,6 +149,6 @@ describe('cfg-1 (TP2)', () => {
   });
 
   it('CONFIG_HASH is pinned: changing cfg-1 needs a TP/EV decision (EV13, CF-13)', () => {
-    expect(CONFIG_HASH).toBe('3e513e842af28f164ea6e0b3e67c42ecfceadb353a30937f995fb5c2228c1906');
+    expect(CONFIG_HASH).toBe('c91ccb2c8295cfd1b7010964ee83f41e04085a0507674d149a21397b3b3655ac'); // EXE10 (was 3e513e84…, before the exifTime split)
   });
 });

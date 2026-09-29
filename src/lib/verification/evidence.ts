@@ -53,6 +53,13 @@ function timeLine({ exifClientMin, clientServerMin }: TimeGaps): string {
   if (exifClientMin === null) return `Photo has no time data; ${clock}`;
   return `Photo time ${dur(exifClientMin)} from capture time (limit ${dur(C.exifTime.maxExifClientMin)}); ${clock}`;
 }
+/** The fail limit(s) actually crossed (EXE10): "fail over 24 h" for the EXIF gap, "fail over 7 days" for the clock. */
+function timeFailLimits({ exifClientMin, clientServerMin }: TimeGaps): string {
+  const crossed: string[] = [];
+  if (exifClientMin !== null && exifClientMin > C.exifTime.exifFailAfterMin) crossed.push(`fail over ${dur(C.exifTime.exifFailAfterMin)}`);
+  if (clientServerMin > C.exifTime.clientServerFailAfterMin) crossed.push(`fail over ${dur(C.exifTime.clientServerFailAfterMin)}`);
+  return crossed.join('; ');
+}
 
 type Movement = { first: true } | { speedKmh: number; distanceM: number; minutes: number };
 /** The phone's capture time did not move forward since its previous entry: no speed is plausible. */
@@ -110,7 +117,7 @@ export const evidence = {
   exif_time_agreement: {
     ok: (f: TimeGaps) => timeLine(f),
     flag: (f: TimeGaps) => timeLine(f),
-    fail: (f: TimeGaps) => `${timeLine(f)} (fail over ${dur(C.exifTime.failAfterMin)})`,
+    fail: (f: TimeGaps) => `${timeLine(f)} (${timeFailLimits(f)})`,
   },
   movement_plausibility: {
     ok: (f: Movement) => movementLine(f),

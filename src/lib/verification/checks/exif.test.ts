@@ -9,7 +9,8 @@ import { runCheck } from '../verify';
 
 // TC-036 (EXIF GPS part) and TC-037 (time part), technical-plan §22 TSK-08.4, §6.3 and TP4 (GAP-1).
 // Every threshold pair from the dataset lands on its expected side: EVAL-014/023 (EXIF GPS),
-// EVAL-011/056, 034/033 (EXIF–client) and EVAL-055/057/035 (client–server).
+// EVAL-011/056, 122/123, 034/033 (EXIF–client; worst photo, fail over 24 h per EXE10) and
+// EVAL-055/057/035 (client–server; fail over 7 days).
 
 let dev: TestDevice;
 beforeAll(async () => {
@@ -82,7 +83,7 @@ describe('exif_time_agreement (TC-037; TP4)', () => {
   const photoAt = (offsetMin: number): ExifFacts => ({ gps: null, takenAt: minutes(CAPTURED_AT, offsetMin) });
   const noTime: ExifFacts = { gps: null, takenAt: null };
 
-  describe('EXIF–client gap (latest photo time vs capturedAt; client = server)', () => {
+  describe('EXIF–client gap (worst photo time vs capturedAt; client = server; EXE10)', () => {
     it.each([
       [-2, 'ok', 'Photo time 2 min'],
       [-9, 'ok', 'Photo time 9 min'], // EVAL-011
@@ -91,9 +92,12 @@ describe('exif_time_agreement (TC-037; TP4)', () => {
       [-11, 'flag', 'Photo time 11 min'],
       [-119, 'flag', 'Photo time 119 min'],
       [-120, 'flag', 'Photo time 2 h'], // EVAL-056; §6.5: N min under 120 min, N h from there
-      [-4320, 'flag', 'Photo time 3 days'], // EVAL-034
-      [-10_080, 'flag', 'Photo time 7 days'],
-      [-10_081, 'fail', '(fail over 7 days)'],
+      [-1380, 'flag', 'Photo time 23 h'], // EVAL-122
+      [-1440, 'flag', 'Photo time 24 h'],
+      [1440, 'flag', 'Photo time 24 h'],
+      [-1441, 'fail', 'Photo time 24 h from capture time (limit 10 min); phone clock 0 min from server (limit 24 h) (fail over 24 h)'],
+      [-1500, 'fail', 'Photo time 25 h'], // EVAL-123
+      [-4320, 'fail', 'Photo time 3 days'], // EVAL-034
       [-64_800, 'fail', 'Photo time 45 days'], // EVAL-033
     ] as const)('%d min → %s', async (offset, status, text) => {
       const r = await run('exif_time_agreement', await sub([photoAt(offset)]));
@@ -101,13 +105,28 @@ describe('exif_time_agreement (TC-037; TP4)', () => {
       expect(r.evidence).toContain(text);
     });
 
+    it('an EXIF gap over 24 h names the 24 h limit, never the 7-day one', async () => {
+      const r = await run('exif_time_agreement', await sub([photoAt(-4320)]));
+      expect(r.evidence).toBe('Photo time 3 days from capture time (limit 10 min); phone clock 0 min from server (limit 24 h) (fail over 24 h)');
+    });
+
     it('names both limits and both gaps', async () => {
       const r = await run('exif_time_agreement', await sub([photoAt(-2)], { serverReceivedAt: minutes(CAPTURED_AT, 1) }));
       expect(r.evidence).toBe('Photo time 2 min from capture time (limit 10 min); phone clock 1 min from server (limit 24 h)');
     });
 
-    it('the latest photo time is the one compared', async () => {
-      expect((await run('exif_time_agreement', await sub([photoAt(-4320), photoAt(-3)]))).status).toBe('ok');
+    it('the worst photo decides', async () => {
+      expect(await run('exif_time_agreement', await sub([photoAt(-2), photoAt(-4320)]))).toMatchObject({
+        status: 'fail',
+        evidence: 'Photo time 3 days from capture time (limit 10 min); phone clock 0 min from server (limit 24 h) (fail over 24 h)',
+      });
+      expect(await run('exif_time_agreement', await sub([photoAt(-4320), photoAt(-3)]))).toMatchObject({ status: 'fail' });
+      expect(await run('exif_time_agreement', await sub([photoAt(-2), photoAt(-11)]))).toMatchObject({ status: 'flag', evidence: expect.stringContaining('Photo time 11 min') });
+      expect(await run('exif_time_agreement', await sub([photoAt(-11), photoAt(2)]))).toMatchObject({ status: 'flag', evidence: expect.stringContaining('Photo time 11 min') });
+    });
+
+    it('photos without EXIF time are ignored while another photo has one', async () => {
+      expect(await run('exif_time_agreement', await sub([noTime, photoAt(-2)]))).toMatchObject({ status: 'ok', evidence: expect.stringContaining('Photo time 2 min') });
       expect((await run('exif_time_agreement', await sub([photoAt(-30), noTime]))).evidence).toContain('Photo time 30 min');
     });
 
@@ -144,5 +163,18 @@ describe('exif_time_agreement (TC-037; TP4)', () => {
     expect(r.evidence).toBe('Photo time 11 min from capture time (limit 10 min); phone clock 9 days from server (limit 24 h) (fail over 7 days)');
     const noExif = await run('exif_time_agreement', await sub([noTime], { serverReceivedAt: minutes(CAPTURED_AT, 12_960) }));
     expect(noExif).toMatchObject({ status: 'fail', evidence: 'Photo has no time data; phone clock 9 days from server (limit 24 h) (fail over 7 days)' });
+  });
+
+  it('two flags stay a flag; the fail sentence names every limit that was crossed (EXE10)', async () => {
+    const flags = await run('exif_time_agreement', await sub([photoAt(-1380)], { serverReceivedAt: minutes(CAPTURED_AT, 4320) }));
+    expect(flags).toMatchObject({ status: 'flag', evidence: 'Photo time 23 h from capture time (limit 10 min); phone clock 3 days from server (limit 24 h)' });
+    const exifOnly = await run('exif_time_agreement', await sub([photoAt(-1500)], { serverReceivedAt: minutes(CAPTURED_AT, 4320) }));
+    expect(exifOnly).toMatchObject({ status: 'fail', evidence: 'Photo time 25 h from capture time (limit 10 min); phone clock 3 days from server (limit 24 h) (fail over 24 h)' });
+    const both = await run('exif_time_agreement', await sub([photoAt(-1500)], { serverReceivedAt: minutes(CAPTURED_AT, 12_960) }));
+    expect(both).toMatchObject({
+      status: 'fail',
+      hardFail: false,
+      evidence: 'Photo time 25 h from capture time (limit 10 min); phone clock 9 days from server (limit 24 h) (fail over 24 h; fail over 7 days)',
+    });
   });
 });

@@ -66,6 +66,18 @@ describe('farmerLines', () => {
     expect(lines[0]!.icon).toBe('location');
   });
 
+  it('an exif_time_agreement fail names the gap that crossed its limit (EXE10)', () => {
+    const timeFail = (exifClientMin: number, clientServerMin: number) =>
+      farmerLines(
+        result('Needs Review', [check('exif_time_agreement', 'fail', evidence.exif_time_agreement.fail({ exifClientMin, clientServerMin }))], ['anyFail']),
+        'en',
+      )[0]!.text;
+    // The photo is 3 days old while the clock is 23 h off (a flag): the photo is the reason.
+    expect(timeFail(4320, 1380)).toBe('The photo was taken 3 days before or after this picking.');
+    // The clock is 9 days off while the photo matches it.
+    expect(timeFail(2, 12_960)).toBe("This phone's clock is 9 days off.");
+  });
+
   it('ndvi_harvest_window unavailable (cloud): names the cloudy satellite picture and asks nothing of the farmer', () => {
     const r = result(
       'Needs Review',

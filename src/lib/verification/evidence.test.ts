@@ -39,6 +39,7 @@ const ALL = {
   'exif_time_agreement.flag gap': evidence.exif_time_agreement.flag({ exifClientMin: 185, clientServerMin: 1 }),
   'exif_time_agreement.flag no exif': evidence.exif_time_agreement.flag({ exifClientMin: null, clientServerMin: 3 }),
   'exif_time_agreement.fail': evidence.exif_time_agreement.fail({ exifClientMin: 2, clientServerMin: 12960 }),
+  'exif_time_agreement.fail exif': evidence.exif_time_agreement.fail({ exifClientMin: 4320, clientServerMin: 1 }), // EXE10
   'movement_plausibility.ok first': evidence.movement_plausibility.ok({ first: true }),
   'movement_plausibility.ok': evidence.movement_plausibility.ok({ speedKmh: 0.13, distanceM: 100, minutes: 45 }),
   'movement_plausibility.fail': evidence.movement_plausibility.fail({ speedKmh: 337.5, distanceM: 45000, minutes: 8 }),
@@ -97,7 +98,9 @@ describe('evidence templates (TC-011)', () => {
     expectContains(ALL['gps_accuracy.ok'], '30 m', '100 m');
     expectContains(ALL['exif_gps_agreement.ok'], 'limit 50 m');
     expectContains(ALL['exif_time_agreement.ok'], 'limit 10 min', 'limit 24 h');
-    expectContains(ALL['exif_time_agreement.fail'], '7 days');
+    expectContains(ALL['exif_time_agreement.fail'], 'fail over 7 days');
+    expectContains(ALL['exif_time_agreement.fail exif'], '3 days', 'fail over 24 h'); // EXE10: the limit actually crossed
+    expect(ALL['exif_time_agreement.fail exif']).not.toContain('7 days');
     expectContains(ALL['movement_plausibility.fail'], 'limit 120 km/h');
     expectContains(ALL['deforestation_overlap.ok'], '10.0%');
     expectContains(ALL['ndvi_cultivation.ok'], '0.50', '0.35');

@@ -14,6 +14,7 @@ exports[`evidence templates (TC-011) > render every §6.5 row (snapshot) 1`] = `
   "exif_gps_agreement.flag": "Photo has no location data",
   "exif_gps_agreement.ok": "Photo location 10 m from phone location (limit 50 m)",
   "exif_time_agreement.fail": "Photo time 2 min from capture time (limit 10 min); phone clock 9 days from server (limit 24 h) (fail over 7 days)",
+  "exif_time_agreement.fail exif": "Photo time 3 days from capture time (limit 10 min); phone clock 1 min from server (limit 24 h) (fail over 24 h)",
   "exif_time_agreement.flag gap": "Photo time 3 h from capture time (limit 10 min); phone clock 1 min from server (limit 24 h)",
   "exif_time_agreement.flag no exif": "Photo has no time data; phone clock 3 min from server (limit 24 h)",
   "exif_time_agreement.ok": "Photo time 2 min from capture time (limit 10 min); phone clock 0 min from server (limit 24 h)",
