@@ -5,9 +5,10 @@ import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { hashFile } from '../../client/hash-file';
 import { t, type Lang } from '../../lib/i18n';
 import { PhotosStep, SLOTS } from './PhotosStep';
-import { initialFlow, reduce, type Slot } from './record-flow';
+import { initialFlow, reduce, usedPhotos, type Slot } from './record-flow';
 import { ReviewStep } from './ReviewStep';
 import { useGps } from './useGps';
+import { WeightStep } from './WeightStep';
 
 // The record flow (technical-plan §3.2 /field/record, TSK-10.7+): photos → review → weight → checking →
 // verdict, a full-screen stack with no tab bar (Design.md §5). The GPS watch starts when the flow
@@ -17,7 +18,7 @@ import { useGps } from './useGps';
 
 export type RecordPlot = { id: string; name: string };
 
-export function RecordFlow({ plot, lang }: { plot: RecordPlot; lang: Lang; range?: { min: number; max: number } | null }) {
+export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lang: Lang; range?: { min: number; max: number } | null }) {
   const router = useRouter();
   const [flow, dispatch] = useReducer(reduce, plot.id, initialFlow);
   const [hashing, setHashing] = useState(false);
@@ -108,6 +109,19 @@ export function RecordFlow({ plot, lang }: { plot: RecordPlot; lang: Lang; range
           onBack={() => dispatch({ type: 'back' })}
           onUse={() => void acceptPhoto()}
           onRetake={retake}
+        />
+      ) : null}
+      {flow.step === 'weight' ? (
+        <WeightStep
+          kg={flow.kg}
+          photos={usedPhotos(flow).length}
+          plotName={plot.name}
+          range={range}
+          lang={lang}
+          gps={gps.state}
+          onKey={(k) => dispatch({ type: 'key', k })}
+          onBack={() => dispatch({ type: 'back' })}
+          onSend={() => dispatch({ type: 'send' })}
         />
       ) : null}
     </>
