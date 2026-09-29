@@ -92,4 +92,12 @@ describe('hex and base64url', () => {
     expect(() => b64uDecode('Z')).toThrow(TypeError);
     expect(() => b64uDecode('Zm 9')).toThrow(TypeError);
   });
+
+  it('accepts exactly one encoding per byte string: non-zero pad bits are refused (RFC 4648 §3.5)', () => {
+    expect(Array.from(b64uDecode('Zg'))).toEqual([0x66]);
+    for (const alt of ['Zh', 'Zv', 'Zm9', 'Zm+']) expect(() => b64uDecode(alt), alt).toThrow(TypeError);
+    expect(Array.from(b64uDecode('Zm8'))).toEqual([0x66, 0x6f]);
+    expect(() => b64uDecode('Zm9=')).toThrow(TypeError);
+    expect(() => b64uDecode('Zm9')).toThrow(TypeError); // 'o' needs pad bits 00; '9' ends in 01
+  });
 });

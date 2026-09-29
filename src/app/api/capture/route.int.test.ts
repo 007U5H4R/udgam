@@ -85,6 +85,55 @@ describe('POST /api/capture', () => {
   });
 });
 
+describe('client disconnect', () => {
+  afterEach(() => {
+    vi.doUnmock('../../../lib/db/client');
+    vi.doUnmock('../../../lib/log');
+  });
+
+  it('a stream cancelled before the verdict still commits once, raises no unhandled rejection and logs no failure', async () => {
+    // Hold the capture transaction until the client has gone.
+    let openGate!: () => void;
+    const gate = new Promise<void>((r) => (openGate = r));
+    vi.doMock('../../../lib/db/client', async (importOriginal) => {
+      const real = await importOriginal<typeof import('../../../lib/db/client')>();
+      return {
+        ...real,
+        writeTx: async (...args: Parameters<typeof real.writeTx>) => {
+          await gate;
+          return real.writeTx(...args);
+        },
+      };
+    });
+    const error = vi.fn();
+    const warn = vi.fn();
+    vi.doMock('../../../lib/log', () => ({ log: { error, warn, info: vi.fn() } }));
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      const { POST } = await import('./route');
+      const res = await POST(await request());
+      expect(res.status).toBe(200);
+      const reader = res.body!.getReader();
+      await reader.read(); // the first check line
+      await reader.cancel(); // the phone drops off the network
+      openGate();
+
+      await vi.waitFor(async () => {
+        const n = (await t.client.execute('SELECT COUNT(*) AS n FROM verification_runs')).rows[0]?.n;
+        expect(n).toBe(1);
+      });
+      await new Promise((r) => setTimeout(r, 50)); // let the route's finally run
+      expect(unhandled).toEqual([]);
+      expect(error).not.toHaveBeenCalled();
+      expect((await t.client.execute('SELECT COUNT(*) AS n FROM harvest_events')).rows[0]?.n).toBe(1);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+  });
+});
+
 describe('session guard stub (technical-plan §10)', () => {
   it('the route calls captureSessionGuard before reading the body', () => {
     const src = readFileSync(new URL('./route.ts', import.meta.url), 'utf8');

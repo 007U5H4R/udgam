@@ -106,6 +106,14 @@ describe('checkBoundary (TC-007)', () => {
     ).toMatchObject({ ok: false, reason: 'media_hash_mismatch' });
   });
 
+  it('refuses an upload whose byte length differs from the signed media[i].size, even when the hash matches', async () => {
+    const s = await setup();
+    const wrongSize = { ...s.payload, media: s.payload.media.map((m, i) => (i === 0 ? { ...m, size: m.size + 1 } : m)) };
+    const { payloadString, signature } = await resign(s.device, wrongSize);
+    const r = await checkBoundary({ payloadString, signature, files: s.files }, { findDevice: s.findDevice });
+    expect(r).toEqual({ ok: false, status: 409, reason: 'media_hash_mismatch', signedByKnownDevice: true, device: s.row });
+  });
+
   it('refuses a payload that is not JSON, or fails the schema, as bad_schema', async () => {
     const s = await setup();
     const deps = { findDevice: s.findDevice };

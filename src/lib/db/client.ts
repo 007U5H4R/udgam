@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { mkdirSync } from 'node:fs';
 import { createClient, type Client } from '@libsql/client';
 import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
@@ -11,6 +12,8 @@ export type Db = LibSQLDatabase<typeof schema>;
 export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 const writeQueues = new WeakMap<Db, Promise<unknown>>();
+/** Set while a writeTx body runs, across its awaits (re-entrancy guard). */
+const insideWriteTx = new AsyncLocalStorage<true>();
 
 /**
  * Run `fn` in a write transaction (BEGIN IMMEDIATE, technical-plan §4.3). Every write goes through here.
@@ -21,8 +24,12 @@ const writeQueues = new WeakMap<Db, Promise<unknown>>();
  * BEGIN IMMEDIATE and the busy timeout still serialise against other processes (seed scripts, CLI).
  */
 export function writeTx<T>(db: Db, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  // A writeTx inside a writeTx body would wait behind itself and stall every later write for good.
+  if (insideWriteTx.getStore()) {
+    return Promise.reject(new Error('nested writeTx: use the enclosing transaction handle instead'));
+  }
   const previous = writeQueues.get(db) ?? Promise.resolve();
-  const run = previous.then(() => db.transaction(fn, { behavior: 'immediate' }));
+  const run = previous.then(() => insideWriteTx.run(true, () => db.transaction(fn, { behavior: 'immediate' })));
   writeQueues.set(
     db,
     run.catch(() => undefined),

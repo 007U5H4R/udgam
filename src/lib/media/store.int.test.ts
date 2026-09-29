@@ -53,6 +53,42 @@ describe('localMediaStore', () => {
     }
   });
 
+  it('removeIfUnused keeps a file while any request holds it or a committed row references it', async () => {
+    const a = localMediaStore(root);
+    const b = localMediaStore(root); // another request's store instance over the same DATA_DIR
+    const { path } = await a.put(bytes, sha, 'image/jpeg');
+    await b.put(bytes, sha, 'image/jpeg');
+    a.release(path);
+    // b still holds it
+    expect(await a.removeIfUnused(path, async () => false)).toBe(false);
+    expect(existsSync(join(root, path))).toBe(true);
+    b.release(path);
+    // nobody holds it, but a committed media row references it
+    expect(await a.removeIfUnused(path, async () => true)).toBe(false);
+    expect(existsSync(join(root, path))).toBe(true);
+    // unheld and unreferenced: removed
+    expect(await a.removeIfUnused(path, async () => false)).toBe(true);
+    expect(existsSync(join(root, path))).toBe(false);
+  });
+
+  it('a put that starts while a removal is deciding still ends with the file on disk', async () => {
+    const store = localMediaStore(root);
+    const { path } = await store.put(bytes, sha, 'image/jpeg');
+    store.release(path);
+    let letGo!: () => void;
+    const gate = new Promise<void>((r) => (letGo = r));
+    const removing = store.removeIfUnused(path, async () => {
+      await gate; // the reference check is slow
+      return false;
+    });
+    const putting = store.put(bytes, sha, 'image/jpeg'); // takes a hold before the removal decides
+    letGo();
+    expect(await removing).toBe(false);
+    await putting;
+    expect(existsSync(join(root, path))).toBe(true);
+    store.release(path);
+  });
+
   it('removes a file, tolerates a missing one and refuses paths outside the store', async () => {
     const store = localMediaStore(root);
     const { path } = await store.put(bytes, sha, 'image/jpeg');

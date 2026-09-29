@@ -67,6 +67,38 @@ describe('writeTx (technical-plan §4.3)', () => {
   });
 });
 
+describe('writeTx re-entrancy guard', () => {
+  it('a nested writeTx in the same async context fails at once with a clear error instead of deadlocking', async () => {
+    t = await tempDb();
+    const { writeTx } = await import('./client');
+    await t.client.execute('CREATE TABLE w (i INTEGER)');
+    const nestedError = await Promise.race([
+      writeTx(t.db, async (tx) => {
+        await tx.run(sql`INSERT INTO w (i) VALUES (1)`);
+        try {
+          await writeTx(t!.db, (inner) => inner.run(sql`INSERT INTO w (i) VALUES (2)`));
+          return 'no error';
+        } catch (err) {
+          return (err as Error).message;
+        }
+      }),
+      new Promise<string>((r) => setTimeout(() => r('deadlocked'), 2_000)),
+    ]);
+    expect(nestedError).toMatch(/nested writeTx/);
+    // the outer transaction committed its own write, and the queue still works
+    await writeTx(t.db, (tx) => tx.run(sql`INSERT INTO w (i) VALUES (3)`));
+    expect((await t.client.execute('SELECT i FROM w ORDER BY i')).rows.map((r) => r.i)).toEqual([1, 3]);
+  });
+
+  it('writers started from separate contexts still queue normally', async () => {
+    t = await tempDb();
+    const { writeTx } = await import('./client');
+    await t.client.execute('CREATE TABLE w (i INTEGER)');
+    await Promise.all([1, 2, 3].map((i) => writeTx(t!.db, (tx) => tx.run(sql`INSERT INTO w (i) VALUES (${i})`))));
+    expect((await t.client.execute('SELECT COUNT(*) AS n FROM w')).rows[0]?.n).toBe(3);
+  });
+});
+
 describe('database singleton', () => {
   afterEach(() => {
     vi.doUnmock('@libsql/client');

@@ -3,7 +3,7 @@ import type { CapturePayloadV1 } from '../verification/types';
 import { capturePayloadV1 } from './payload';
 
 // The capture boundary (technical-plan §3.1 step 2, Review focus 1–2). Order matters:
-// canonical form → schema → device → signature over the RECEIVED bytes → revocation → media hashes.
+// canonical form → schema → device → signature over the RECEIVED bytes → revocation → media sizes and hashes.
 // A failure is a 4xx; the pipeline anchors it as a rejected harvest_event.
 
 export type BoundaryDevice = {
@@ -76,9 +76,12 @@ export async function checkBoundary(input: BoundaryInput, deps: BoundaryDeps): P
 
   // 6. The uploaded bytes are the signed bytes, in order (S1).
   if (input.files.length !== payload.media.length) return reject('media_hash_mismatch', device);
+  // The signed size must be the uploaded byte length too, so media.size never stores an unchecked claim.
   for (let i = 0; i < input.files.length; i++) {
     const bytes = new Uint8Array(await input.files[i]!.arrayBuffer());
-    if ((await sha256Hex(bytes)) !== payload.media[i]!.sha256) return reject('media_hash_mismatch', device);
+    const signed = payload.media[i]!;
+    if (bytes.length !== signed.size) return reject('media_hash_mismatch', device);
+    if ((await sha256Hex(bytes)) !== signed.sha256) return reject('media_hash_mismatch', device);
   }
 
   return { ok: true, payload, payloadHash: await sha256Hex(input.payloadString), device };

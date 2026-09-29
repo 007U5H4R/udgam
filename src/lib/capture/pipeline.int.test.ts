@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { P01_INSIDE, seedTracerWorld, type TracerWorld } from '../../../scripts/tracer-world';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 import { makeDevice, type TestDevice } from '../../../tests/helpers/verify';
@@ -171,6 +171,19 @@ describe('boundary rejections are anchored (§3.1 step 2)', () => {
     expect(await count('media')).toBe(0);
   });
 
+  it('a signed size that differs from the uploaded byte length → 409 media_hash_mismatch, anchored, nothing stored', async () => {
+    const f = await form({ photos: [photo('sized')] });
+    const wrong = { ...f.payload, media: f.payload.media.map((m) => ({ ...m, size: m.size + 7 })) };
+    const s = jcs(wrong);
+    f.fd.set('payload', s);
+    f.fd.set('signature', await sign(dev.pair.privateKey, s));
+    expect(await run(f.fd)).toEqual([{ t: 'rejected', reason: 'media_hash_mismatch', status: 409 }]);
+    const ev = (await t.client.execute('SELECT boundary_status, boundary_reason, anchor_seq FROM harvest_events')).rows[0]!;
+    expect(ev).toMatchObject({ boundary_status: 'rejected', boundary_reason: 'media_hash_mismatch' });
+    expect(Number(ev.anchor_seq)).toBe(SEED_ENTRIES + 1);
+    expect(await count('media')).toBe(0);
+  });
+
   it('a capture for an unknown plot is refused with 403 plot_not_assigned', async () => {
     const f = await form();
     const payload = { ...f.payload, plotId: 'PL-NOPE0000' };
@@ -186,6 +199,47 @@ describe('boundary rejections are anchored (§3.1 step 2)', () => {
     fd.set('payload', '{}');
     expect(await run(fd)).toEqual([{ t: 'rejected', reason: 'bad_form', status: 400 }]);
     expect(await count('harvest_events')).toBe(0);
+  });
+});
+
+describe('delivery failures never change what was committed', () => {
+  it('an emit that throws after COMMIT (client gone) is not logged as a failed capture and runCapture resolves', async () => {
+    const error = vi.fn();
+    const warn = vi.fn();
+    const { fd } = await form();
+    const lines: string[] = [];
+    await expect(
+      runCapture(fd, deps({ log: { error, warn, info: vi.fn() } }), (e) => {
+        lines.push(e.t);
+        if (e.t === 'verdict' || e.t === 'error') throw new TypeError('Invalid state: Controller is already closed');
+      }),
+    ).resolves.toBeUndefined();
+    expect(lines).toEqual(['check', 'check', 'check', 'verdict']);
+    expect(await count('verification_runs')).toBe(1);
+    expect(error).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(expect.objectContaining({ errClass: 'TypeError' }), 'capture.emit_failed');
+  });
+
+  it('logs, and does not swallow, a media cleanup that fails', async () => {
+    const error = vi.fn();
+    const real = localMediaStore(t.dir);
+    const brokenCleanup: CaptureDeps['media'] = {
+      ...real,
+      put: real.put,
+      release: real.release,
+      remove: real.remove,
+      removeIfUnused: () => Promise.reject(new Error('EACCES')),
+    };
+    const failing: CaptureDeps['append'] = async (tx, kind, payload) => {
+      if (kind === 'verification_run') throw new Error('injected ledger failure');
+      return append(tx, kind, payload);
+    };
+    const { fd } = await form({ photos: [photo('cleanup')] });
+    const events = await run(fd, deps({ media: brokenCleanup, append: failing, log: { error, warn: vi.fn(), info: vi.fn() } }));
+    expect(events.at(-1)).toEqual({ t: 'error', retryable: true });
+    expect(error).toHaveBeenCalledWith({ errClass: 'Error' }, 'capture.media_cleanup_failed');
+    expect(error).toHaveBeenCalledWith({ errClass: 'Error' }, 'capture.failed');
+    expect(JSON.stringify(error.mock.calls)).not.toContain('EACCES'); // class only, no message or path
   });
 });
 
@@ -210,6 +264,53 @@ describe('the capture transaction is atomic (TC-010 a, EVAL-067, CF-08, N7)', ()
     // the same capture succeeds on retry
     const retry = await run(fd);
     expect(retry.at(-1)).toMatchObject({ t: 'verdict', verdict: 'Verified' });
+  });
+
+  it('interleaving: A stores X, B finds X and commits, A fails — X must survive A’s cleanup', async () => {
+    const shared = photo('interleaved');
+    const sha = await sha256Hex(shared);
+    const file = join(t.dir, 'media', sha.slice(0, 2), `${sha}.jpg`);
+
+    // A pauses right after storing X (it created the file), then fails inside its transaction.
+    let aStored!: () => void;
+    const aHasStored = new Promise<void>((r) => (aStored = r));
+    let resumeA!: () => void;
+    const aMayContinue = new Promise<void>((r) => (resumeA = r));
+    const real = localMediaStore(t.dir);
+    const pausingStore: CaptureDeps['media'] = {
+      ...real,
+      put: async (...args) => {
+        const r = await real.put(...args);
+        expect(r.created).toBe(true);
+        aStored();
+        await aMayContinue;
+        return r;
+      },
+      release: real.release,
+      removeIfUnused: real.removeIfUnused,
+      remove: real.remove,
+    };
+    const failing: CaptureDeps['append'] = async (tx, kind, payload) => {
+      if (kind === 'verification_run') throw new Error('injected ledger failure');
+      return append(tx, kind, payload);
+    };
+    const a = await form({ photos: [shared] });
+    const aEvents: CaptureEvent[] = [];
+    const aRun = runCapture(a.fd, deps({ media: pausingStore, append: failing }), (e) => aEvents.push(e));
+    await aHasStored;
+
+    // B carries the same photo on a different payload: it finds X already on disk and commits.
+    const b = await form({ photos: [shared], seq: 2 });
+    const bEvents = await run(b.fd);
+    expect(bEvents.at(-1)).toMatchObject({ t: 'verdict' });
+
+    resumeA();
+    await aRun;
+    expect(aEvents.at(-1)).toEqual({ t: 'error', retryable: true });
+    expect(existsSync(file)).toBe(true); // B's committed media row still has its photo
+    expect((await t.client.execute('SELECT path FROM media')).rows.map((r) => String(r.path))).toEqual([
+      `media/${sha.slice(0, 2)}/${sha}.jpg`,
+    ]);
   });
 
   it('keeps a media file that an earlier event already stored when the transaction fails', async () => {

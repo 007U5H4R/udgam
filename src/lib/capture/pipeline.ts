@@ -1,7 +1,7 @@
 import { desc, eq } from 'drizzle-orm';
 import { sha256Hex } from '../crypto';
 import { writeTx, type Db } from '../db/client';
-import { devices, harvestEvents, plots, verificationRuns } from '../db/schema';
+import { devices, harvestEvents, media, plots, verificationRuns } from '../db/schema';
 import { log as defaultLog } from '../log';
 import type { MediaStore } from '../media/store';
 import { verify } from '../verification/verify';
@@ -35,7 +35,7 @@ export type CaptureDeps = {
   now?: () => Date;
   /** Ledger append; injectable so tests can fail it inside the transaction (TC-010, EVAL-067). */
   append?: AppendFn;
-  log?: Pick<typeof defaultLog, 'error' | 'info'>;
+  log?: Pick<typeof defaultLog, 'error' | 'info' | 'warn'>;
 };
 
 /** EXIF is read from the stored photo from TKT-08 on (media/exif.ts); until then it is absent. */
@@ -76,7 +76,7 @@ function verdictLine(eventId: string, run: { verdict: Verdict; score: number; ch
 
 /** Status for a recorded refusal (boundary reasons, plus plot assignment §6.4). */
 function statusFor(reason: string): number {
-  return reason in STATUS ? STATUS[reason as BoundaryReason] : reason === 'plot_not_assigned' ? 403 : 400;
+  return Object.hasOwn(STATUS, reason) ? STATUS[reason as BoundaryReason] : reason === 'plot_not_assigned' ? 403 : 400;
 }
 
 /**
@@ -107,11 +107,60 @@ async function previousAnswer(db: Db, payloadHash: string): Promise<CaptureEvent
   };
 }
 
+const errClass = (err: unknown) => (err instanceof Error ? err.constructor.name : typeof err);
+
+/** Is a stored file referenced by a committed media row? */
+async function isReferenced(db: Db, path: string): Promise<boolean> {
+  const [row] = await db.select({ id: media.id }).from(media).where(eq(media.path, path)).limit(1);
+  return row !== undefined;
+}
+
+/**
+ * Run one capture. `emit` receives each `check` line and then exactly one terminal line. The listener
+ * may throw (a client that has gone away): that is logged as a delivery failure and never changes or
+ * re-reports what was committed. Resolves; never rejects.
+ */
 export async function runCapture(form: FormData, deps: CaptureDeps, emit: (line: CaptureEvent) => void): Promise<void> {
+  const log = deps.log ?? defaultLog;
+  const send = (line: CaptureEvent) => {
+    try {
+      emit(line);
+    } catch (err) {
+      log.warn({ errClass: errClass(err), line: line.t }, 'capture.emit_failed');
+    }
+  };
+  const held: string[] = []; // media paths this request holds until it commits or fails
+  const releaseHolds = () => {
+    for (const path of held.splice(0)) deps.media.release(path);
+  };
+
+  let terminal: CaptureEvent;
+  try {
+    terminal = await capture(form, deps, send, held);
+  } catch (err) {
+    // Nothing was committed. Drop this request's holds, then delete each photo only if no other
+    // request holds it and no committed row references it (content-addressed files are shared).
+    const paths = [...new Set(held)];
+    releaseHolds();
+    for (const path of paths) {
+      try {
+        await deps.media.removeIfUnused(path, () => isReferenced(deps.db, path));
+      } catch (cleanupErr) {
+        log.error({ errClass: errClass(cleanupErr) }, 'capture.media_cleanup_failed');
+      }
+    }
+    log.error({ errClass: errClass(err) }, 'capture.failed');
+    send({ t: 'error', retryable: true });
+    return;
+  }
+  releaseHolds(); // committed (or nothing stored): the rows now own the files
+  send(terminal);
+}
+
+/** The capture steps (technical-plan §3.1). Returns the terminal line; throws when nothing was committed. */
+async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEvent) => void, held: string[]): Promise<CaptureEvent> {
   const { db } = deps;
   const now = deps.now ?? (() => new Date());
-  const log = deps.log ?? defaultLog;
-  const created: string[] = [];
 
   const reject = async (
     input: { payloadString: string; signature: string },
@@ -119,7 +168,7 @@ export async function runCapture(form: FormData, deps: CaptureDeps, emit: (line:
     status: number,
     device: BoundaryDevice | null,
     serverReceivedAt: string,
-  ) => {
+  ): Promise<CaptureEvent> => {
     const payloadHash = await sha256Hex(input.payloadString);
     await writeTx(db, (tx) =>
       persistRejected(
@@ -128,81 +177,60 @@ export async function runCapture(form: FormData, deps: CaptureDeps, emit: (line:
         deps.append,
       ),
     );
-    emit({ t: 'rejected', reason, status });
+    return { t: 'rejected', reason, status };
   };
 
+  let form_;
   try {
-    let form_;
-    try {
-      form_ = await parseCaptureForm(form);
-    } catch (err) {
-      if (err instanceof CaptureFormError) {
-        emit({ t: 'rejected', reason: 'bad_form', status: 400 }); // no payload to anchor
-        return;
-      }
-      throw err;
-    }
-    const serverReceivedAt = now().toISOString();
-
-    // 2. boundary (canonical bytes, schema, device, signature, revocation, media hashes)
-    const b = await checkBoundary(form_, { findDevice: (id) => findDevice(db, id) });
-    if (!b.ok) {
-      await reject(form_, b.reason, b.status, b.device ?? null, serverReceivedAt);
-      return;
-    }
-    const { payload, payloadHash, device } = b;
-
-    // 3. idempotency
-    const previous = await previousAnswer(db, payloadHash);
-    if (previous) {
-      emit(previous);
-      return;
-    }
-
-    // plot assignment is a boundary rule (§6.4); TKT-05 checks agent_plots, here the plot must exist
-    const [plot] = await db.select().from(plots).where(eq(plots.id, payload.plotId));
-    if (!plot) {
-      await reject(form_, 'plot_not_assigned', 403, device, serverReceivedAt);
-      return;
-    }
-
-    // 4. media (content-addressed; removed again below if the transaction fails)
-    const stored: StoredMedia[] = [];
-    for (const [i, file] of form_.files.entries()) {
-      const m = payload.media[i]!;
-      const put = await deps.media.put(new Uint8Array(await file.arrayBuffer()), m.sha256, m.mime);
-      if (put.created) created.push(put.path);
-      stored.push({ sha256: m.sha256, size: m.size, mime: m.mime, path: put.path });
-    }
-
-    // 5–6. context (reads only) and verification, streaming each finished check
-    const ctx = await buildContext(db, { payload, device, plot });
-    const sub: Submission = {
-      payload,
-      payloadHash,
-      signature: form_.signature,
-      media: payload.media.map((m) => ({ sha256: m.sha256, exif: NO_EXIF })),
-      serverReceivedAt,
-    };
-    const result = await verify(sub, ctx, { onCheck: (r) => emit({ t: 'check', id: r.id, status: r.status }) });
-
-    // 7. one transaction: event, media, run and both ledger entries
-    const { eventId } = await writeTx(db, (tx) =>
-      persistAccepted(
-        tx,
-        { payload, payloadString: form_.payloadString, payloadHash, signature: form_.signature, serverReceivedAt, device, media: stored, result },
-        deps.append,
-      ),
-    );
-    created.length = 0; // committed: the files now belong to rows
-
-    // 8. verdict, only after COMMIT
-    emit(verdictLine(eventId, result));
+    form_ = await parseCaptureForm(form);
   } catch (err) {
-    for (const path of created) {
-      await deps.media.remove(path).catch(() => undefined);
-    }
-    log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'capture.failed');
-    emit({ t: 'error', retryable: true });
+    if (err instanceof CaptureFormError) return { t: 'rejected', reason: 'bad_form', status: 400 }; // no payload to anchor
+    throw err;
   }
+  const serverReceivedAt = now().toISOString();
+
+  // 2. boundary (canonical bytes, schema, device, signature, revocation, media sizes and hashes)
+  const b = await checkBoundary(form_, { findDevice: (id) => findDevice(db, id) });
+  if (!b.ok) return reject(form_, b.reason, b.status, b.device ?? null, serverReceivedAt);
+  const { payload, payloadHash, device } = b;
+
+  // 3. idempotency
+  const previous = await previousAnswer(db, payloadHash);
+  if (previous) return previous;
+
+  // plot assignment is a boundary rule (§6.4); TKT-05 checks agent_plots, here the plot must exist
+  const [plot] = await db.select().from(plots).where(eq(plots.id, payload.plotId));
+  if (!plot) return reject(form_, 'plot_not_assigned', 403, device, serverReceivedAt);
+
+  // 4. media (content-addressed and shared; each put holds its path until this request ends)
+  const stored: StoredMedia[] = [];
+  for (const [i, file] of form_.files.entries()) {
+    const m = payload.media[i]!;
+    const put = await deps.media.put(new Uint8Array(await file.arrayBuffer()), m.sha256, m.mime);
+    held.push(put.path);
+    stored.push({ sha256: m.sha256, size: m.size, mime: m.mime, path: put.path });
+  }
+
+  // 5–6. context (reads only) and verification, streaming each finished check
+  const ctx = await buildContext(db, { payload, device, plot });
+  const sub: Submission = {
+    payload,
+    payloadHash,
+    signature: form_.signature,
+    media: payload.media.map((m) => ({ sha256: m.sha256, exif: NO_EXIF })),
+    serverReceivedAt,
+  };
+  const result = await verify(sub, ctx, { onCheck: (r) => send({ t: 'check', id: r.id, status: r.status }) });
+
+  // 7. one transaction: event, media, run and both ledger entries
+  const { eventId } = await writeTx(db, (tx) =>
+    persistAccepted(
+      tx,
+      { payload, payloadString: form_.payloadString, payloadHash, signature: form_.signature, serverReceivedAt, device, media: stored, result },
+      deps.append,
+    ),
+  );
+
+  // 8. the verdict line; runCapture sends it only now, after COMMIT
+  return verdictLine(eventId, result);
 }

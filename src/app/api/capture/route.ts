@@ -31,10 +31,16 @@ export async function POST(req: Request): Promise<Response> {
     return new Response(line({ t: 'rejected', reason: 'bad_form', status: 400 }), { status: 400, headers: HEADERS });
   }
 
+  // A client that disconnects cancels the stream. The capture carries on (it may already be
+  // committing) and simply stops being delivered: `emit` and `close` never throw.
   let controller!: ReadableStreamDefaultController<Uint8Array>;
+  let closed = false;
   const body = new ReadableStream<Uint8Array>({
     start(c) {
       controller = c;
+    },
+    cancel() {
+      closed = true;
     },
   });
   let resolveFirst!: (e: CaptureEvent | null) => void;
@@ -42,8 +48,22 @@ export async function POST(req: Request): Promise<Response> {
     resolveFirst = r;
   });
   const emit = (e: CaptureEvent) => {
-    controller.enqueue(line(e));
     resolveFirst(e);
+    if (closed) return;
+    try {
+      controller.enqueue(line(e));
+    } catch {
+      closed = true;
+    }
+  };
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    try {
+      controller.close();
+    } catch {
+      // already closed or cancelled
+    }
   };
 
   void (async () => {
@@ -51,11 +71,12 @@ export async function POST(req: Request): Promise<Response> {
       const db = await getDbReady();
       await runCapture(form, { db, media: localMediaStore(env.DATA_DIR) }, emit);
     } catch (err) {
+      // runCapture never rejects; this is the database handle failing to open.
       log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'capture.route_failed');
       emit({ t: 'error', retryable: true });
     } finally {
       resolveFirst(null);
-      controller.close();
+      close();
     }
   })();
 

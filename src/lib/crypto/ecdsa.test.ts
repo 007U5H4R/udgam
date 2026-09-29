@@ -30,6 +30,16 @@ describe('ECDSA P-256 sign/verify (TC-006 Node half)', () => {
     expect(await verify(jwk, MESSAGE, b64uEncode(bytes))).toBe(false);
   });
 
+  it('refuses the same signature bytes in a second encoding (last character changed only in its pad bits)', async () => {
+    const good = signatures[0]!.signature;
+    const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    const last = ALPHABET.indexOf(good.at(-1)!);
+    const alt = good.slice(0, -1) + ALPHABET[last ^ 1]; // 64 bytes = 86 chars: the last char carries 2 pad bits
+    expect(alt).not.toBe(good);
+    expect(await verify(publicJwk, signatures[0]!.message, good)).toBe(true);
+    expect(await verify(publicJwk, signatures[0]!.message, alt)).toBe(false);
+  });
+
   it('rejects a DER-encoded signature (P1363 only)', async () => {
     const priv = createPrivateKey({ key: testOnlyPrivateJwk, format: 'jwk' });
     let der: Buffer | undefined;
