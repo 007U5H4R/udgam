@@ -15,6 +15,13 @@
       "when": 1790657618011,
       "tag": "0001_invariants",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790660850304,
+      "tag": "0002_auth",
+      "breakpoints": true
     }
   ]
 }
