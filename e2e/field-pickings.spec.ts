@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoHorizontalScroll, openField, seedCaptureWorld, type SeededCapture } from './helpers/capture';
+import { typePicking } from './helpers/field';
 
 // TKT-11 · TC-051 and EVAL-088 (capture views): the Pickings tab (final/index.html #s8, lines 642–659)
 // in all four states. Working: "Your pickings", a month header with its count and plot, rows with
@@ -112,4 +113,47 @@ test('TC-051 / EVAL-088: loading shows skeleton rows (no spinner); empty says so
   await expect(page.getByRole('link', { name: 'Try again' })).toHaveAttribute('href', '/field/pickings');
   await expectNoHorizontalScroll(page);
   await axeClean(page);
+});
+
+test("TC-051 detail: a picking's photos, kg, IST time, plot, verdict chip, up to three reasons and every group's state; another agent's picking is not found", async ({ page, context }) => {
+  const seed = seedCaptureWorld();
+  await openField(page, context, seed);
+  await typePicking(page, seed, { photos: 2 });
+  await page.locator('#send-btn').click();
+  await expect(page.locator('#verdict-h')).toBeVisible({ timeout: 60_000 });
+
+  await page.goto('/field/pickings');
+  const row = page.locator('section[data-month] li.row').first();
+  const eventId = (await row.getAttribute('data-event'))!;
+  await row.getByRole('link').click();
+  await expect(page).toHaveURL(new RegExp(`/field/pickings/${eventId}$`));
+
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('42.5 kg · Plot 1');
+  await expect(page.locator('.status-row .vchip svg.mk')).toHaveCount(1);
+  await expect(page.locator('main time')).toHaveText(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2} [A-Z][a-z]{2}, \d{2}:\d{2}$/);
+  const photos = page.getByTestId('detail-photos').locator('img');
+  await expect(photos).toHaveCount(2);
+  await expect(photos.first()).toHaveAttribute('alt', 'Photo 1');
+  // the thumbnails load for their owner
+  await expect.poll(() => photos.evaluateAll((imgs) => imgs.map((i) => (i as HTMLImageElement).naturalWidth > 0))).toEqual([true, true]);
+  const lines = page.getByTestId('evidence').locator('li');
+  expect(await lines.count()).toBeGreaterThan(0);
+  expect(await lines.count()).toBeLessThanOrEqual(3);
+
+  const all = page.getByTestId('all-checks');
+  await expect(all.locator('summary')).toHaveText('See all checks');
+  await all.locator('summary').click();
+  const groups = all.locator('li');
+  await expect(groups).toHaveCount(6);
+  await expect(groups.locator('.c-name')).toHaveText(["Your phone's seal", 'Inside Plot 1', 'Photos are new', 'Forest map for Plot 1', 'Satellite view this month', 'Harvest size for this plot']);
+  for (const s of await groups.locator('.c-state').allTextContents()) expect(['Passed', 'Needs a look', 'Did not pass', 'Could not run', 'Not run']).toContain(s);
+  await expectNoHorizontalScroll(page);
+  await axeClean(page);
+
+  await page.getByRole('link', { name: 'Back to Pickings' }).click();
+  await expect(page).toHaveURL(/\/field\/pickings$/);
+
+  const other = seedCaptureWorld({ events: ['40:Verified'] });
+  const res = await page.goto(`/field/pickings/${other.events[0]!.eventId}`);
+  expect(res!.status()).toBe(404);
 });

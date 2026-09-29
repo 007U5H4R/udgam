@@ -1,20 +1,22 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
-import { monthYear } from '../../../../components/field/format';
-import { PendingList } from '../../../../components/field/PendingRow';
-import { PickingRow } from '../../../../components/field/PickingRow';
-import { env } from '../../../../lib/config/env';
-import { getDbReady } from '../../../../lib/db/client';
-import { listPickings, type PickingMonth } from '../../../../lib/db/queries/pickings';
-import { isLang, LANG_COOKIE, t, type Lang } from '../../../../lib/i18n';
-import { log } from '../../../../lib/log';
-import { requireSession } from '../../../_auth/require';
-import { PickingsEmpty, PickingsError, PickingsFrame, PickingsSkeleton } from './PickingsStates';
+import { monthYear } from '../../../../../components/field/format';
+import { PendingList } from '../../../../../components/field/PendingRow';
+import { PickingRow } from '../../../../../components/field/PickingRow';
+import { env } from '../../../../../lib/config/env';
+import { getDbReady } from '../../../../../lib/db/client';
+import { listPickings, type PickingMonth } from '../../../../../lib/db/queries/pickings';
+import { isLang, LANG_COOKIE, t, type Lang } from '../../../../../lib/i18n';
+import { log } from '../../../../../lib/log';
+import { requireSession } from '../../../../_auth/require';
+import { PickingsEmpty, PickingsError, PickingsFrame, PickingsSkeleton } from '../PickingsStates';
 
 // /field/pickings — the Pickings tab (technical-plan §3.2, final/index.html #s8, TSK-11.4): every
 // picking this agent sent, by IST month, newest first, each with its verdict chip; Needs a check and
 // Not accepted say why. Pickings saved on this phone and not sent yet are listed first (TSK-11.3).
-// `?state=loading|empty|error` renders that state in dev and e2e builds only (§11).
+// `?state=loading|empty|error` renders that state in dev and e2e builds only (§11). The (list) group keeps
+// the list's loading and error states off /field/pickings/[eventId], which must answer 404 for another
+// agent's picking (a loading boundary above it would stream a 200 first).
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Pickings · Udgam' };
 

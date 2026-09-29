@@ -242,6 +242,17 @@ export const en = {
   'pk.noKg': 'No weight',
   'pk.why.check': '{reason} The office is checking it.',
   'pk.whatCanIDo': 'What can I do?',
+  // One picking (TKT-11, TSK-11.5)
+  'dt.back': 'Back to Pickings',
+  'dt.title': '{kg} · {plot}',
+  'dt.received': 'Received by the office',
+  'dt.photo': 'Photo {n}',
+  'dt.seeAll': 'See all checks',
+  'dt.state.ok': 'Passed',
+  'dt.state.flag': 'Needs a look',
+  'dt.state.fail': 'Did not pass',
+  'dt.state.unavailable': 'Could not run',
+  'dt.state.none': 'Not run',
   // Farmer evidence lines on the verdict screens (TKT-10, src/lib/i18n/farmer-evidence.ts). Numbers come
   // from the verifier's evidence as written ({m} = "14 m", {pct} = "18.0%", {d} = "3 h", {x} = "1.75x").
   'fe.plot.default': 'the plot',

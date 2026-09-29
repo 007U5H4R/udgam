@@ -172,6 +172,16 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'pk.noKg': 'ತೂಕ ಇಲ್ಲ', // REVIEW: native speaker
   'pk.why.check': '{reason} ಕಚೇರಿ ಇದನ್ನು ಪರಿಶೀಲಿಸುತ್ತಿದೆ.', // REVIEW: native speaker
   'pk.whatCanIDo': 'ನಾನು ಏನು ಮಾಡಬಹುದು?', // REVIEW: native speaker
+  'dt.back': 'ಕೊಯ್ಲುಗಳಿಗೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
+  'dt.title': '{kg} · {plot}', // REVIEW: native speaker
+  'dt.received': 'ಕಚೇರಿ ಸ್ವೀಕರಿಸಿದ ಸಮಯ', // REVIEW: native speaker
+  'dt.photo': 'ಫೋಟೋ {n}', // REVIEW: native speaker
+  'dt.seeAll': 'ಎಲ್ಲಾ ಪರಿಶೀಲನೆಗಳನ್ನು ನೋಡಿ', // REVIEW: native speaker
+  'dt.state.ok': 'ಸರಿಯಾಗಿದೆ', // REVIEW: native speaker
+  'dt.state.flag': 'ಒಮ್ಮೆ ನೋಡಬೇಕು', // REVIEW: native speaker
+  'dt.state.fail': 'ಸರಿಯಾಗಿಲ್ಲ', // REVIEW: native speaker
+  'dt.state.unavailable': 'ನಡೆಸಲಾಗಲಿಲ್ಲ', // REVIEW: native speaker
+  'dt.state.none': 'ನಡೆಸಿಲ್ಲ', // REVIEW: native speaker
   'rec.noFix': 'ನಿಮ್ಮ ಸ್ಥಳ ಇನ್ನೂ ಸಿಗಲಿಲ್ಲ. ಸ್ವಲ್ಪ ಕಾಯಿರಿ, ನಂತರ ಮತ್ತೆ ಕಳುಹಿಸಿ.', // REVIEW: native speaker
   'fe.plot.default': 'ತೋಟ', // REVIEW: native speaker
   'fe.location.inside': 'ನೀವು {plot} ಒಳಗೆ {m} ಇದ್ದಿರಿ', // REVIEW: native speaker

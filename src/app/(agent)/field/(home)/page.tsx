@@ -1,18 +1,20 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
-import { HomeClient, type HomePlotView, type HomeRow } from '../../../components/field/HomeClient';
-import { ha1, istDayMonth, istIsoDate, istLongDate, istPartOfDay, istShortDay, kg1 } from '../../../components/field/format';
-import { HomeError, HomeSkeleton } from '../../../components/field/HomeStates';
-import { env } from '../../../lib/config/env';
-import { getDbReady } from '../../../lib/db/client';
-import { getFieldHome, type FieldHome } from '../../../lib/db/queries/field-home';
-import { isLang, LANG_COOKIE, t, type Lang } from '../../../lib/i18n';
-import { log } from '../../../lib/log';
-import { requireSession } from '../../_auth/require';
+import { HomeClient, type HomePlotView, type HomeRow } from '../../../../components/field/HomeClient';
+import { ha1, istDayMonth, istIsoDate, istLongDate, istPartOfDay, istShortDay, kg1 } from '../../../../components/field/format';
+import { HomeError, HomeSkeleton } from '../../../../components/field/HomeStates';
+import { env } from '../../../../lib/config/env';
+import { getDbReady } from '../../../../lib/db/client';
+import { getFieldHome, type FieldHome } from '../../../../lib/db/queries/field-home';
+import { isLang, LANG_COOKIE, t, type Lang } from '../../../../lib/i18n';
+import { log } from '../../../../lib/log';
+import { requireSession } from '../../../_auth/require';
 
 // /field — the capture Home (technical-plan §3.2, final/index.html #s1, TSK-10.5). The plot the agent
 // picked most recently is preselected (Design.md §8); `?plot=` switches to another assigned plot.
-// `?state=loading|empty|error` renders that state in dev and e2e builds only (§11).
+// `?state=loading|empty|error` renders that state in dev and e2e builds only (§11). The (home) group keeps
+// Home's loading and error states to Home: a loading boundary above /field/pickings/[eventId] would start
+// the stream before its notFound(), and another agent's picking must answer 404, not 200 (TKT-11).
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Home · Udgam' };
 
