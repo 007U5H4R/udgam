@@ -44,3 +44,19 @@ describe('seedPassword', () => {
     expect(seedPassword()).toBe('a long seed value');
   }, BUDGET);
 });
+
+// EXE13 (EV16): a seeded user ID reaches anchored ledger payloads (device_enrolled.agentId), so it must be
+// opaque, like Better Auth's generated IDs: `USR-` + 8 Crockford base32 characters, no org name or role.
+describe('DEMO_ACCOUNTS ids (EXE13)', () => {
+  it('every seeded user ID is opaque: ^USR-[0-9A-HJKMNP-TV-Z]{8}$, unique, and carries no org name, role or email part', async () => {
+    const { DEMO_ACCOUNTS, DEMO_ORGS } = await load({ NODE_ENV: 'test', SEED_PASSWORD: '' });
+    const accounts = Object.values(DEMO_ACCOUNTS);
+    const orgName = (id: string) => Object.values(DEMO_ORGS).find((o) => o.id === id)!.name;
+    for (const a of accounts) {
+      expect(a.id).toMatch(/^USR-[0-9A-HJKMNP-TV-Z]{8}$/);
+      const words = [...`${orgName(a.orgId)} ${a.orgId} ${a.name} ${a.role} ${a.email}`.toUpperCase().matchAll(/[A-Z]{4,}/g)].map((w) => w[0]);
+      for (const w of words) expect(a.id, `${a.id} contains ${w}`).not.toContain(w);
+    }
+    expect(new Set(accounts.map((a) => a.id)).size).toBe(accounts.length);
+  }, BUDGET);
+});
