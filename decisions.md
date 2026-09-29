@@ -413,3 +413,19 @@
 - **`.gitleaks.toml`.** Uses a path-scoped `[allowlist]` (older-gitleaks syntax) instead of the plan's path+rule form.
 - **Build-time injection.** `commit` in `/api/health` comes from `git rev-parse --short HEAD` at build.
 **Rejected.** Downgrading `@playwright/test` to match the VM's Chromium, because the §0 pins stay.
+
+## EXE3 · TKT-02 foundations: an in-process write queue, boundary status codes and a test-only route path — accepted
+**Context.** The tracer bullet (TKT-02, TASK-3) fixed shapes that every later ticket builds on. Four points needed a choice the plan did not make.
+**Decision.**
+- **Writes go through `writeTx(db, fn)`** (`src/lib/db/client.ts`). This is an in-process FIFO queue in front of `BEGIN IMMEDIATE`. It exists because the `@libsql/client` 0.18 file driver busy-waits on the event loop when the lock is taken: with 20 concurrent `db.transaction()` calls, the holder could never finish and the calls failed with SQLITE_BUSY. Across processes, `BEGIN IMMEDIATE` and `busy_timeout` still serialise writers. A nested `writeTx` throws immediately rather than deadlocking. Reads may use `db` directly.
+- **Boundary status codes:**
+  - 400: `non_canonical`, `bad_schema`, `bad_form` (a malformed form with no payload is not anchored);
+  - 401: `unknown_device`, `bad_signature`;
+  - 403: `device_revoked`, `plot_not_assigned`;
+  - 409: `media_hash_mismatch`, which also covers a signed size that differs from the upload.
+
+  Base64url signatures must use canonical encoding, so each signature has exactly one accepted string.
+- **Minimal idempotency.** A payload that was already stored gets its original answer and writes nothing, because `payload_hash` is UNIQUE. TKT-09 still owns EVAL-068 and decides whether a stored boundary *rejection* may be re-evaluated. Today a stored rejection is sticky: for example, a `bad_signature` rejection blocks a later genuine submission of the same payload.
+- **Test-only route.** The test-only crypto page lives at `src/app/%5F_test__/crypto/`, which serves `/__test__/crypto`, because Next.js does not route folders that start with `_`. It returns 404 unless `E2E=1`. `E2E` is an env flag that is deliberately absent from `.env.example`.
+- **Playwright port.** The e2e server port comes from `E2E_PORT` (default 3100), so parallel worktrees never reuse each other's server.
+**Rejected.** Retry loops on SQLITE_BUSY, because they don't fix the event-loop starvation. A `public/` HTML page for the crypto vectors, because public files cannot be turned off by env.
