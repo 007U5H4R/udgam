@@ -73,7 +73,7 @@ test('TC-013 EVAL-001 EVAL-002 a seeded phone signs a picking and sees Verified 
   await capture(page, '42.5');
   await expect(page.getByTestId('verdict')).toHaveText('Verified');
   const evidence = page.getByTestId('evidence').getByRole('listitem');
-  await expect(evidence).toHaveCount(6); // one row per registered check
+  await expect(evidence).toHaveCount(7); // one row per registered check
   await expect(evidence).toContainText([`Signed by enrolled phone ${key.deviceId}`, '1 of 1 photos are new', 'Inside the plot']);
   const signed = await page.getByTestId('signed-payload').textContent();
 

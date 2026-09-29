@@ -2,6 +2,7 @@ import { exifGpsAgreement } from './checks/exif_gps_agreement';
 import { exifTimeAgreement } from './checks/exif_time_agreement';
 import { geofence } from './checks/geofence';
 import { gpsAccuracy } from './checks/gps_accuracy';
+import { movementPlausibility } from './checks/movement_plausibility';
 import { photoUniqueness } from './checks/photo-uniqueness';
 import { signatureValid } from './checks/signature-valid';
 import type { VerifyConfig } from './config';
@@ -28,4 +29,5 @@ export const REGISTRY: readonly Check[] = [
   gpsAccuracy,
   exifGpsAgreement,
   exifTimeAgreement,
+  movementPlausibility,
 ];

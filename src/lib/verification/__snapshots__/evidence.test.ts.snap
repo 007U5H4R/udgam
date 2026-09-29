@@ -24,6 +24,7 @@ exports[`evidence templates (TC-011) > render every §6.5 row (snapshot) 1`] = `
   "gps_accuracy.flag": "GPS accuracy 60 m (good under 30 m, limit 100 m)",
   "gps_accuracy.ok": "GPS accuracy 8 m (good under 30 m, limit 100 m)",
   "movement_plausibility.fail": "Implied speed 338 km/h from the previous entry 45000 m away 8 min earlier (limit 120 km/h)",
+  "movement_plausibility.fail clock": "Capture time did not advance from the previous entry 100 m away (-5 min apart; limit 120 km/h)",
   "movement_plausibility.ok": "Implied speed 0 km/h from the previous entry 100 m away 45 min earlier (limit 120 km/h)",
   "movement_plausibility.ok first": "First entry from this phone",
   "ndvi_cultivation.fail low": "No year-round canopy over 10 clear months: lowest month NDVI 0.21 (needs ≥ 0.50); seasonal swing 0.45 (limit 0.35)",

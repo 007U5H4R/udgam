@@ -29,6 +29,7 @@ describe('registry', () => {
       ['gps_accuracy', 'local'],
       ['exif_gps_agreement', 'local'],
       ['exif_time_agreement', 'local'],
+      ['movement_plausibility', 'local'],
     ]);
   });
 });
