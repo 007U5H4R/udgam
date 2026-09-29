@@ -200,7 +200,8 @@ describe('verifyFeed (TSK-15.4)', () => {
     const { feed, keys } = await world();
     expect(await verifyFeed(null, keys)).toEqual({ ok: false, step: 'format' });
     expect(await verifyFeed({ ...feed, format: 'udgam-proof-feed/2' }, keys)).toEqual({ ok: false, step: 'format' });
-    expect(await verifyFeed({ ...feed, extra: 1 }, keys)).toEqual({ ok: false, step: 'format' });
+    expect(await verifyFeed({ ...feed, entries: undefined }, keys)).toEqual({ ok: false, step: 'format' });
+    expect(await verifyFeed({ ...feed, evm: { chainId: 31337 } }, keys)).toMatchObject({ ok: true }); // unknown members are ignored
     const f = clone(feed);
     [f.entries[2], f.entries[3]] = [f.entries[3]!, f.entries[2]!];
     expect(await verifyFeed(f, keys)).toMatchObject({ ok: false, step: 'format' });

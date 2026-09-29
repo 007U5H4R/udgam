@@ -123,6 +123,7 @@ export async function seedBatchWorld(db: Db, o: BatchWorldOptions): Promise<Batc
     };
     const payloadString = jcs(payload);
     const payloadHash = await sha256Hex(payloadString);
+    const signature = await sign(d.pair.privateKey, payloadString);
     const needsReview = o.override && i === 0;
     const score = needsReview ? 0.7 : 0.9;
     const ids = await writeTx(db, (tx) =>
@@ -130,7 +131,7 @@ export async function seedBatchWorld(db: Db, o: BatchWorldOptions): Promise<Batc
         payload,
         payloadString,
         payloadHash,
-        signature: 'test-signature',
+        signature,
         serverReceivedAt: ts(),
         device: { id: d.id, agentId: d.agentId, publicJwk: d.publicJwk, revokedAt: null, lastSeq: d.seq - 1, lastEventHash: null },
         media: [],

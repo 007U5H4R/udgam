@@ -16,7 +16,8 @@ const hex64 = z.string().regex(/^[0-9a-f]{64}$/);
 const b64u = z.string().regex(/^[A-Za-z0-9_-]+$/);
 const seqNo = z.number().int().min(1);
 
-export const FeedCheckpointSchema = z.strictObject({
+// Unknown members are ignored (stripped), so later additive fields (M-002 `evm`) keep format /1.
+export const FeedCheckpointSchema = z.object({
   id: seqNo,
   fromSeq: seqNo,
   toSeq: seqNo,
@@ -27,7 +28,7 @@ export const FeedCheckpointSchema = z.strictObject({
   signature: b64u,
 });
 
-export const FeedEntrySchema = z.strictObject({
+export const FeedEntrySchema = z.object({
   seq: seqNo,
   prevHash: hex64,
   kind: z.string().min(1),
@@ -40,11 +41,11 @@ export const FeedEntrySchema = z.strictObject({
   path: z.array(hex64),
 });
 
-export const ProofFeedV1Schema = z.strictObject({
+export const ProofFeedV1Schema = z.object({
   format: z.literal(PROOF_FEED_FORMAT),
   batchId: z.string().min(1),
   shortHash: z.string().regex(/^[0-9a-f]{12}$/),
-  ledgerKey: z.strictObject({ kid: z.string().min(1), url: z.string().min(1) }),
+  ledgerKey: z.object({ kid: z.string().min(1), url: z.string().min(1) }),
   checkpoints: z.array(FeedCheckpointSchema),
   entries: z.array(FeedEntrySchema),
 });
