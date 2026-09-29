@@ -59,11 +59,25 @@ async function agentAcceptedEvents(handle: Db | Tx, agentId: string): Promise<nu
   return row?.n ?? 0;
 }
 
+/** The phone's latest accepted capture, where and when (movement_plausibility), or null. */
+async function previousEventOf(handle: Db | Tx, deviceId: string): Promise<VerifyContext['previousEvent']> {
+  const [previous] = await handle
+    .select({ lat: harvestEvents.lat, lng: harvestEvents.lng, capturedAt: harvestEvents.clientCapturedAt })
+    .from(harvestEvents)
+    .where(and(eq(harvestEvents.deviceId, deviceId), eq(harvestEvents.boundaryStatus, 'accepted')))
+    .orderBy(desc(harvestEvents.seq))
+    .limit(1);
+  return previous && previous.lat !== null && previous.lng !== null && previous.capturedAt !== null
+    ? { lat: previous.lat, lng: previous.lng, capturedAt: previous.capturedAt }
+    : null;
+}
+
 /**
  * The context fields a concurrent commit can change, re-read inside the write transaction (step 7, under
  * the lock): the seen photos (photo_uniqueness), the phone's chain head and the agent's accepted count
- * (chain_continuity), and the plot's season kg (yield_plausibility). buildContext read them before
- * media storage and verification, so captures in flight at once all saw the same stale values.
+ * (chain_continuity), the phone's previous accepted capture (movement_plausibility) and the plot's
+ * season kg (yield_plausibility). buildContext read them before media storage and verification, so
+ * captures in flight at once all saw the same stale values.
  */
 export async function refreshUnderLock(
   tx: Tx,
@@ -76,12 +90,14 @@ export async function refreshUnderLock(
   );
   const [head] = await tx.select({ lastSeq: devices.lastSeq, lastEventHash: devices.lastEventHash }).from(devices).where(eq(devices.id, ctx.device.id));
   const prior = await agentAcceptedEvents(tx, agentId);
+  const previousEvent = await previousEventOf(tx, ctx.device.id);
   const seasonKg = await seasonCherryKgBefore(tx, ctx.plot.id, coffeeSeasonOf(serverReceivedAt));
   return {
     ...ctx,
     seenMediaHashes: seen,
     device: head ? { ...ctx.device, lastSeq: head.lastSeq, lastEventHash: head.lastEventHash } : ctx.device,
     agentPriorAcceptedEvents: prior,
+    previousEvent,
     seasonCherryKgBefore: seasonKg,
   };
 }
@@ -108,18 +124,13 @@ export async function buildContext(
   },
   deps: { remoteSensing?: RemoteSensingProvider } = {},
 ): Promise<VerifyContext> {
-  const [seen, prior, [previous], seasonKg, reference] = await Promise.all([
+  const [seen, prior, previousEvent, seasonKg, reference] = await Promise.all([
     seenMediaHashes(
       db,
       payload.media.map((m) => m.sha256),
     ),
     agentAcceptedEvents(db, device.agentId),
-    db
-      .select({ lat: harvestEvents.lat, lng: harvestEvents.lng, capturedAt: harvestEvents.clientCapturedAt })
-      .from(harvestEvents)
-      .where(and(eq(harvestEvents.deviceId, device.id), eq(harvestEvents.boundaryStatus, 'accepted')))
-      .orderBy(desc(harvestEvents.seq))
-      .limit(1),
+    previousEventOf(db, device.id),
     seasonCherryKgBefore(db, plot.id, coffeeSeasonOf(serverReceivedAt)),
     getYieldReference(db, plot.crop),
   ]);
@@ -127,10 +138,7 @@ export async function buildContext(
   return {
     device: { id: device.id, publicJwk: device.publicJwk, revokedAt: device.revokedAt, lastSeq: device.lastSeq, lastEventHash: device.lastEventHash },
     agentPriorAcceptedEvents: prior,
-    previousEvent:
-      previous && previous.lat !== null && previous.lng !== null && previous.capturedAt !== null
-        ? { lat: previous.lat, lng: previous.lng, capturedAt: previous.capturedAt }
-        : null,
+    previousEvent,
     plot: { id: plot.id, crop: plot.crop, polygon: JSON.parse(plot.geojson) as PlotPolygon, areaHa: plot.areaHa, ...historyEndMonth(plot) },
     seenMediaHashes: seen,
     // TP6: this plot's accepted, non-Rejected kg in the receipt season, and the crop's reference row

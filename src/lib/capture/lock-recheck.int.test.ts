@@ -12,7 +12,8 @@ import { runCapture, type CaptureEvent } from './pipeline';
 
 // TKT-09 fix round 1 (quality review #1): the checks that read what a concurrent commit changes — the
 // plot's season kg (yield_plausibility), the phone's chain head and the agent's accepted count
-// (chain_continuity), the seen photos (photo_uniqueness) — are re-run under the write lock. Different
+// (chain_continuity), the seen photos (photo_uniqueness), the phone's previous accepted capture
+// (movement_plausibility) — are re-run under the write lock. Different
 // captures in flight at once must get the verdicts they would get one after the other.
 //
 // World: the arabica tracer plot shrunk to 0.1 ha. U = 783 kg/ha, cherry→clean 1/6, so each 400 kg
@@ -34,7 +35,7 @@ afterEach(async () => {
 });
 
 /** A 400 kg capture at seq 1 from genesis, with its own photos (each label distinct). */
-async function capture400(label: string, capturedAt: string) {
+async function capture400(label: string, capturedAt: string, o: { gps?: { lat: number; lng: number }; cherryKg?: number } = {}) {
   const photos = [fakeJpeg(`${label}-1`), fakeJpeg(`${label}-2`)];
   const payload: CapturePayloadV1 = {
     v: 1,
@@ -43,8 +44,8 @@ async function capture400(label: string, capturedAt: string) {
     seq: 1,
     prevEventHash: 'genesis',
     capturedAt,
-    gps: { ...P01_INSIDE, accuracyM: 8 },
-    cherryKg: 400,
+    gps: { ...(o.gps ?? P01_INSIDE), accuracyM: 8 },
+    cherryKg: o.cherryKg ?? 400,
     media: await Promise.all(photos.map(async (b) => ({ sha256: await sha256Hex(b), size: b.length, mime: 'image/jpeg' }))),
   };
   const signed = jcs(payload);
@@ -114,7 +115,7 @@ async function device() {
 }
 const seasonKg = () => seasonCherryKgBefore(t.db, world.plotId, coffeeSeasonOf(RECEIVED.toISOString()));
 
-describe('different captures in flight at once are re-checked under the write lock (yield, chain, photos)', () => {
+describe('different captures in flight at once are re-checked under the write lock (yield, chain, photos, movement)', () => {
   it('two 400 kg captures at seq 1 on a 0.1 ha arabica plot → one Verified, the other Needs Review at 1.70x with a chain flag', async () => {
     const a = await capture400('a', '2026-10-14T04:12:33.000Z');
     const b = await capture400('b', '2026-10-14T04:12:35.000Z');
@@ -184,5 +185,34 @@ describe('different captures in flight at once are re-checked under the write lo
     expect(await seasonKg()).toBe(800); // the Rejected capture does not count toward the season
     expect(await device()).toEqual({ lastSeq: 1, lastEventHash: first.hash });
     expect(await verifyChain(t.db)).toEqual({ ok: true });
+  });
+
+  it('two captures in flight on one phone, 33 m apart at the same capture time → one passes movement, the other fails it (time did not advance)', async () => {
+    // P01_INSIDE and a point 0.0003° of latitude north of it (both inside P01): 33.36 m apart. The same
+    // client capturedAt: whichever commits second has an unbounded implied speed from the first (§6.3).
+    const at = '2026-10-14T04:12:33.000Z';
+    const a = await capture400('a', at, { cherryKg: 12.5 });
+    const b = await capture400('b', at, { cherryKg: 12.5, gps: { lat: 12.4214, lng: 75.7392 } });
+    const media = barrierStore(2);
+    const [va, vb] = await Promise.all([run(a.fd, media), run(b.fd, media)]);
+
+    const byVerdict = new Map([va, vb].map((v) => [v.verdict, v]));
+    expect([...byVerdict.keys()].sort()).toEqual(['Needs Review', 'Verified']);
+    const won = byVerdict.get('Verified')!;
+    const lost = byVerdict.get('Needs Review')!;
+    expect(check(won, 'movement_plausibility')).toMatchObject({ status: 'ok', evidence: 'First entry from this phone' });
+    const MOVEMENT_FAIL = 'Capture time did not advance from the previous entry 33 m away (0 min apart; limit 120 km/h)';
+    expect(check(lost, 'movement_plausibility')).toMatchObject({ status: 'fail', evidence: MOVEMENT_FAIL });
+
+    const rows = await stored();
+    expect(rows.map(({ id, runVerdict }) => ({ id, runVerdict }))).toEqual([
+      { id: won.eventId, runVerdict: 'Verified' },
+      { id: lost.eventId, runVerdict: 'Needs Review' },
+    ]);
+    expect(rows[1]!.checks.find((c) => c.id === 'movement_plausibility')).toMatchObject({ status: 'fail', evidence: MOVEMENT_FAIL });
+    expect(await ledgerRunVerdicts()).toEqual([
+      { eventId: won.eventId, verdict: 'Verified' },
+      { eventId: lost.eventId, verdict: 'Needs Review' },
+    ]);
   });
 });

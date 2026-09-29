@@ -7,6 +7,7 @@ import { log as defaultLog } from '../log';
 import { extractExif } from '../media/exif';
 import type { MediaStore } from '../media/store';
 import { chainContinuity } from '../verification/checks/chain_continuity';
+import { movementPlausibility } from '../verification/checks/movement_plausibility';
 import { photoUniqueness } from '../verification/checks/photo-uniqueness';
 import { yieldPlausibility } from '../verification/checks/yield_plausibility';
 import { CONFIG } from '../verification/config';
@@ -142,14 +143,14 @@ export async function runCapture(form: FormData, deps: CaptureDeps, emit: (line:
 }
 
 /** The local checks whose inputs a concurrent commit can change (refreshUnderLock re-reads them). */
-const LOCK_SENSITIVE = [chainContinuity, photoUniqueness, yieldPlausibility] as const;
+const LOCK_SENSITIVE = [chainContinuity, photoUniqueness, movementPlausibility, yieldPlausibility] as const;
 
 /**
- * The step-7 re-check under the write lock (TKT-19 for photos; TKT-09 fix round 1 for yield and chain):
- * the context read the seen photos, the phone's chain head, the agent's accepted count and the plot's
- * season kg before media storage and verification, so captures in flight at once all saw the same
- * values — two 400 kg captures could each pass yield at 0.85x where one after the other the second flags
- * at 1.70x. Re-read them inside the write transaction, re-run those (local, pure) checks against the fresh
+ * The step-7 re-check under the write lock (TKT-19 for photos; TKT-09 fix round 1 for yield, chain and
+ * movement): the context read the seen photos, the phone's chain head, the agent's accepted count, the
+ * phone's previous accepted capture and the plot's season kg before media storage and verification, so
+ * captures in flight at once all saw the same values — two 400 kg captures could each pass yield at
+ * 0.85x where one after the other the second flags at 1.70x. Re-read them inside the write transaction, re-run those (local, pure) checks against the fresh
  * values and re-score if any result changed. Remote checks do not read these values and are not re-run.
  * Returns the result to commit: its verdict, checks and evidence are what is stored and anchored.
  *
@@ -321,9 +322,9 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
   // 7. one transaction: an identical payload accepted meanwhile (the duplicate-resend race) → its
   // verdict, nothing written; else re-check revocation and assignment, then event, media, run and both
   // ledger entries — or, if either changed meanwhile, the anchored refusal instead. photo_uniqueness,
-  // chain_continuity and yield_plausibility are re-run under the lock too (recheckUnderLock), so the
-  // verdict streamed after COMMIT is the one committed. A unique violation on payload_hash rolls back
-  // and answers with the winner (defence in depth).
+  // chain_continuity, movement_plausibility and yield_plausibility are re-run under the lock too
+  // (recheckUnderLock), so the verdict streamed after COMMIT is the one committed. A unique violation
+  // on payload_hash rolls back and answers with the winner (defence in depth).
   let final = result;
   let committed:
     | { replay: AcceptedOutcome }
