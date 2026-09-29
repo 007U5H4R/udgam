@@ -8,7 +8,9 @@ import { ProofPanel } from '../../../../components/ui/ProofPanel';
 import { Timeline, type TimelineStep } from '../../../../components/ui/Timeline';
 import { certCopy, istDay, istRange, istToday, kg1, kgShort } from '../../../../lib/certificate/copy';
 import { FEED_ELEMENT_ID, serializeFeedForEmbed } from '../../../../lib/certificate/embed';
+import { resolveDevState } from '../../../../lib/certificate/dev-state';
 import { buildCertificateView, type CertificateView, type EntryVerdict } from '../../../../lib/certificate/view-model';
+import { env } from '../../../../lib/config/env';
 import { getDbReady } from '../../../../lib/db/client';
 import { resolveFeed } from '../../../../lib/ledger/feed';
 import c from './certificate.module.css';
@@ -88,7 +90,7 @@ export default async function CertificatePage({ params, searchParams }: Props) {
       <main className={c.wrap}>
         <div className={c.hero}>
           <div className={c.proofCol}>
-            <ProofPanel entryCount={view.entryCount} batchId={view.batchId} />
+            <ProofPanel entryCount={view.entryCount} batchId={view.batchId} forced={resolveDevState(sp, env)} />
           </div>
           <section className={c.intro} aria-labelledby="h1">
             <p className={c.eyebrow}>{certCopy.eyebrow(view.batchId)}</p>

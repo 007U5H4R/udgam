@@ -55,7 +55,7 @@ export async function greenOnPage(page: Page): Promise<string[]> {
       if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || !visible(el) || inHidden(el)) continue;
       for (const pseudo of [null, '::before', '::after'] as const) {
         const s = getComputedStyle(el, pseudo);
-        if (pseudo && (s.content === 'none' || s.content === 'normal')) continue;
+        if (pseudo && (s.content === 'none' || s.content === 'normal' || s.display === 'none')) continue;
         for (const p of PROPS) {
           const v = s.getPropertyValue(p);
           if (GREEN.test(v)) hits.push(`${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}.${String(el.getAttribute('class') ?? '').split(' ')[0]}${pseudo ?? ''} ${p}: ${v}`);
