@@ -207,6 +207,9 @@ test.describe('buyer list and detail (TSK-14.6, TC-060, EVAL-080)', () => {
     const certificate = page.getByTestId('certificate-link');
     await expect(certificate).toHaveText('Open the certificate');
     await expect(certificate).toHaveAttribute('href', `/verify/${batchId}?h=${shortHash}`);
+    // TSK-16.7 (TC-069): the certificate QR card carries the absolute link with h
+    await expect(page.getByTestId('batch-qr')).toContainText(`/verify/${batchId}?h=${shortHash}`);
+    await expect(page.getByTestId('batch-qr').locator('svg')).toBeVisible();
     // The certificate page itself arrives with TKT-16; its data is the proof feed, served for this h.
     const feed = await page.request.get(`/api/verify/${batchId}?h=${shortHash}`);
     expect(feed.status()).toBe(200);
