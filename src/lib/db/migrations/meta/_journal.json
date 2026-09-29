@@ -15,6 +15,20 @@
       "when": 1790657618011,
       "tag": "0001_invariants",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790661210747,
+      "tag": "0002_ledger_checkpoints",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790661211860,
+      "tag": "0003_ledger_checkpoints_invariants",
+      "breakpoints": true
     }
   ]
 }
