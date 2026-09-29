@@ -33,6 +33,7 @@ describe('registry', () => {
       ['deforestation_overlap', 'remote'],
       ['ndvi_cultivation', 'remote'],
       ['ndvi_harvest_window', 'remote'],
+      ['yield_plausibility', 'local'],
     ]);
   });
 });

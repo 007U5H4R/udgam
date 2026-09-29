@@ -131,6 +131,7 @@ describe('buildContext', () => {
   });
 
   it('no seeded reference row → yieldReference null (yield_plausibility reports unavailable)', async () => {
+    await t.client.execute('DELETE FROM crop_yield_reference'); // the tracer world seeds it, as the server does at boot
     const payload = await makePayload({ device: { ...dev, id: world.deviceId }, plotId: world.plotId });
     const ctx = await buildContext(t.db, { payload, device: boundaryDevice, plot: await plotRow(), serverReceivedAt: '2026-10-14T04:12:34.000Z' });
     expect(ctx.yieldReference).toBeNull();

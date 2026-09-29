@@ -8,6 +8,7 @@ import { ndviCultivation } from './checks/ndvi_cultivation';
 import { ndviHarvestWindow } from './checks/ndvi_harvest_window';
 import { photoUniqueness } from './checks/photo-uniqueness';
 import { signatureValid } from './checks/signature-valid';
+import { yieldPlausibility } from './checks/yield_plausibility';
 import type { VerifyConfig } from './config';
 import type { CheckId, CheckResult, Provider, Submission, VerifyContext } from './types';
 
@@ -38,4 +39,5 @@ export const REGISTRY: readonly Check[] = [
   deforestationOverlap,
   ndviCultivation,
   ndviHarvestWindow,
+  yieldPlausibility,
 ];
