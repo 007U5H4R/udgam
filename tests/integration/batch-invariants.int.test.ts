@@ -46,7 +46,7 @@ async function seed() {
   ] as const) {
     await exec(`INSERT INTO plots (id, farmer_id, crop, geojson, area_ha, anchor_seq, created_at, updated_at) VALUES (?, ?, ?, '{}', 1, ?, ?, ?)`, [id, farmer, crop, await anchor(), TS, TS]);
   }
-  // The phone's agent is a real user (devices.agent_id → user, migration 0008_agent_user_fk).
+  // The phone's agent is a real user (devices.agent_id → user, migration 0009_agent_user_fk).
   await exec(`INSERT INTO user (id, name, email, role, org_id) VALUES ('AG-1', 'Agent', 'agent@a.test', 'agent', 'ORG-A')`);
   await exec(`INSERT INTO devices (id, agent_id, public_key_jwk, key_thumbprint, enrolled_at, anchor_seq) VALUES ('DV-1', 'AG-1', '{}', 'kid', ?, ?)`, [TS, await anchor()]);
   await exec(`INSERT INTO user (id, name, email, role, org_id) VALUES ('AD-1', 'Admin', 'admin@a.test', 'admin', 'ORG-A')`);
