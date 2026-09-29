@@ -1226,6 +1226,15 @@ html[lang='kn'] body {
   padding-bottom: 4px;
 }
 
+/* The date and kg open the picking's detail: a link that keeps the row's type (TSK-11.4). */
+.row .r-open {
+  display: block;
+  min-height: 48px;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 8px;
+}
+
 /* Pickings saved on this phone sit above the sent ones, one row gap apart (TSK-11.3). */
 .rows.pending {
   margin-bottom: 10px;

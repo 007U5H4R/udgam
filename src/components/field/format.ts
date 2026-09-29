@@ -47,5 +47,19 @@ export function istPartOfDay(iso: string): 'morning' | 'afternoon' | 'evening' {
 /** kg as the capture screens show it: one decimal ("44.0"). */
 export const kg1 = (kg: number): string => kg.toFixed(1);
 
+/** "September 2026" for an IST month 'YYYY-MM' (the Pickings month header, #s8). */
+export function monthYear(month: string, lang: Lang = 'en'): string {
+  const [y, m] = month.split('-').map(Number) as [number, number];
+  if (lang === 'kn') return new Intl.DateTimeFormat('kn-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, 15)));
+  return `${MONTHS[m - 1]} ${y}`;
+}
+
+/** "Sat 27 Sep, 10:30" in IST (the picking detail). */
+export function istDayTime(iso: string, lang: Lang = 'en'): string {
+  if (lang === 'kn') return kn(iso, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hourCycle: 'h23' });
+  const d = ist(iso);
+  return `${istShortDay(iso)}, ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+}
+
 /** Hectares with one decimal ("1.8"). */
 export const ha1 = (ha: number): string => (Math.round(ha * 10) / 10).toFixed(1);

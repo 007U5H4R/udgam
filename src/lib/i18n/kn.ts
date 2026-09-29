@@ -164,6 +164,14 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'pend.send': 'ಈಗ ಕಳುಹಿಸಿ', // REVIEW: native speaker
   'pend.sending': 'ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
   'pend.kept': 'ಏನೂ ಕಳೆದುಹೋಗಿಲ್ಲ: ನಿಮ್ಮ ಕೊಯ್ಲುಗಳು ಇನ್ನೂ ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಲಾಗಿವೆ.', // REVIEW: native speaker
+  'pk.title': 'ನಿಮ್ಮ ಕೊಯ್ಲುಗಳು', // REVIEW: native speaker
+  'pk.loading': 'ನಿಮ್ಮ ಕೊಯ್ಲುಗಳನ್ನು ತೆರೆಯಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'pk.emptyBody': 'ನೀವು ಕಳುಹಿಸಿದ ಕೊಯ್ಲುಗಳು ಕಚೇರಿ ಕಂಡದ್ದರೊಂದಿಗೆ ಇಲ್ಲಿ ಕಾಣುತ್ತವೆ.', // REVIEW: native speaker
+  'pk.count': '{n} ಕೊಯ್ಲುಗಳು · {plots}', // REVIEW: native speaker
+  'pk.count1': '1 ಕೊಯ್ಲು · {plots}', // REVIEW: native speaker
+  'pk.noKg': 'ತೂಕ ಇಲ್ಲ', // REVIEW: native speaker
+  'pk.why.check': '{reason} ಕಚೇರಿ ಇದನ್ನು ಪರಿಶೀಲಿಸುತ್ತಿದೆ.', // REVIEW: native speaker
+  'pk.whatCanIDo': 'ನಾನು ಏನು ಮಾಡಬಹುದು?', // REVIEW: native speaker
   'rec.noFix': 'ನಿಮ್ಮ ಸ್ಥಳ ಇನ್ನೂ ಸಿಗಲಿಲ್ಲ. ಸ್ವಲ್ಪ ಕಾಯಿರಿ, ನಂತರ ಮತ್ತೆ ಕಳುಹಿಸಿ.', // REVIEW: native speaker
   'fe.plot.default': 'ತೋಟ', // REVIEW: native speaker
   'fe.location.inside': 'ನೀವು {plot} ಒಳಗೆ {m} ಇದ್ದಿರಿ', // REVIEW: native speaker

@@ -233,6 +233,15 @@ export const en = {
   'pend.send': 'Send now',
   'pend.sending': 'Sending…',
   'pend.kept': 'Nothing is lost: your pickings are still saved on this phone.',
+  // The Pickings tab (TKT-11, #s8)
+  'pk.title': 'Your pickings',
+  'pk.loading': 'Loading your pickings…',
+  'pk.emptyBody': 'Pickings you send appear here, with what the office found.',
+  'pk.count': '{n} pickings · {plots}',
+  'pk.count1': '1 picking · {plots}',
+  'pk.noKg': 'No weight',
+  'pk.why.check': '{reason} The office is checking it.',
+  'pk.whatCanIDo': 'What can I do?',
   // Farmer evidence lines on the verdict screens (TKT-10, src/lib/i18n/farmer-evidence.ts). Numbers come
   // from the verifier's evidence as written ({m} = "14 m", {pct} = "18.0%", {d} = "3 h", {x} = "1.75x").
   'fe.plot.default': 'the plot',

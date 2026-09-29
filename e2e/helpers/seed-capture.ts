@@ -7,13 +7,18 @@
 // chain head moves on; with `--photo <file>` the newest one holds that file's bytes as its photo (the
 // reused-photo case). Prints one JSON line: IDs, the chain head and the test-only secrets.
 //
+// TKT-11 adds: an event may name why it is not Verified (`44:Needs Review:cloud`, `29:Rejected:outside`),
+// so its run carries the check the farmer copy layer explains; `--refusal <reason>` anchors one boundary
+// refusal of this phone (after the events); `--phone <tel>` sets the organisation's office phone.
+//
 // Usage: NODE_ENV=test DATA_DIR=.e2e-data pnpm exec tsx e2e/helpers/seed-capture.ts
-//          [--plots P01,P09] [--events "38.5:Verified,44:Needs Review"] [--photo <file>]
+//          [--plots P01,P09] [--events "38.5:Verified,44:Needs Review:cloud"] [--photo <file>]
+//          [--refusal plot_not_assigned] [--phone +918000000000]
 import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { hashPassword } from 'better-auth/crypto';
 import { generateKeyPair, jcs, jwkThumbprint, publicMembers, sha256Hex, sign } from '../../src/lib/crypto';
-import { persistAccepted, type StoredMedia } from '../../src/lib/capture/persist';
+import { persistAccepted, persistRejected, type StoredMedia } from '../../src/lib/capture/persist';
 import { closeDb, getDbReady, writeTx } from '../../src/lib/db/client';
 import { runMigrations } from '../../src/lib/db/migrate';
 import { account, agentPlots, devices, farmers, organisations, plots, user } from '../../src/lib/db/schema';
@@ -21,7 +26,7 @@ import { locate } from '../../src/lib/geo/geofence';
 import type { Polygon } from '../../src/lib/geo/types';
 import { newId } from '../../src/lib/ids';
 import { append } from '../../src/lib/ledger/hashchain';
-import type { CapturePayloadV1, Verdict, VerifyResult } from '../../src/lib/verification/types';
+import type { CapturePayloadV1, CheckResult, Verdict, VerifyResult } from '../../src/lib/verification/types';
 
 export type SeededCapture = {
   orgId: string;
@@ -37,6 +42,8 @@ export type SeededCapture = {
   lastEventHash: string;
   plots: { id: string; fixture: string; areaHa: number; inside: { lat: number; lng: number } }[];
   events: { eventId: string; cherryKg: number; verdict: Verdict }[];
+  /** The boundary refusal seeded with --refusal, if any. */
+  refusal?: { eventId: string; cherryKg: number; reason: string };
 };
 
 const arg = (name: string): string | undefined => {
@@ -58,10 +65,16 @@ function insidePoint(g: Polygon): { lat: number; lng: number } {
   throw new Error('no inside point found');
 }
 
-const result = (verdict: Verdict): VerifyResult => ({
+/** The check that explains a seeded non-Verified picking (evidence as the verifier writes it, §6.5). */
+const WHY: Record<string, CheckResult> = {
+  cloud: { id: 'ndvi_harvest_window', status: 'unavailable', score: 0, weight: 1, hardFail: false, evidence: 'Satellite view blocked by cloud for ±15 days', provider: 'sentinel-hub' },
+  outside: { id: 'geofence', status: 'fail', score: 0, weight: 1, hardFail: false, evidence: '212 m outside the plot edge (allowance 25 m)' },
+};
+
+const result = (verdict: Verdict, why?: string): VerifyResult => ({
   verdict,
   score: verdict === 'Verified' ? 95 : verdict === 'Needs Review' ? 70 : 30,
-  checks: [{ id: 'signature_valid', status: 'ok', score: 1, weight: 1, hardFail: false, evidence: 'Signed by enrolled phone' }],
+  checks: [{ id: 'signature_valid', status: 'ok', score: 1, weight: 1, hardFail: false, evidence: 'Signed by enrolled phone' }, ...(why && WHY[why] ? [WHY[why]] : [])],
   unavailableProviders: [],
   capReasons: verdict === 'Verified' ? [] : ['anyFail'],
   config: { version: 'cfg-1', hash: '0'.repeat(64) },
@@ -75,8 +88,8 @@ try {
     .split(',')
     .filter(Boolean)
     .map((e) => {
-      const [kg, verdict] = e.split(':');
-      return { kg: Number(kg), verdict: (verdict ?? 'Verified') as Verdict };
+      const [kg, verdict, why] = e.split(':');
+      return { kg: Number(kg), verdict: (verdict ?? 'Verified') as Verdict, why };
     });
   const photo = arg('--photo');
 
@@ -106,7 +119,7 @@ try {
   }));
 
   await writeTx(db, async (tx) => {
-    await tx.insert(organisations).values({ id: orgId, type: 'fpo', name: `Capture FPO ${tag}` });
+    await tx.insert(organisations).values({ id: orgId, type: 'fpo', name: `Capture FPO ${tag}`, officePhone: arg('--phone') ?? null });
     await tx.insert(user).values({ id: agentId, name: `Capture agent ${tag}`, email: agentEmail, emailVerified: true, role: 'agent', orgId, createdAt: now, updatedAt: now });
     await tx.insert(account).values({ id: `${agentId}-credential`, accountId: agentId, providerId: 'credential', userId: agentId, password: hash, createdAt: now, updatedAt: now });
     await tx.insert(farmers).values({ id: farmerId, orgId, name: farmerName, producerId });
@@ -154,12 +167,44 @@ try {
         serverReceivedAt: at,
         device: { id: deviceId, agentId, publicJwk, revokedAt: null, lastSeq: seq, lastEventHash: seq === 0 ? null : last },
         media,
-        result: result(e.verdict),
+        result: result(e.verdict, e.why),
       }),
     );
     seq += 1;
     last = payloadHash;
     out.push({ eventId: ids.eventId, cherryKg: e.kg, verdict: e.verdict });
+  }
+
+  // One boundary refusal of this phone's next picking (attributable: signed by the enrolled key).
+  let refusal: SeededCapture['refusal'];
+  const refusalReason = arg('--refusal');
+  if (refusalReason) {
+    const first = seeded[0]!;
+    const at = new Date(now.getTime() - 1_800_000).toISOString();
+    const payload: CapturePayloadV1 = {
+      v: 1,
+      plotId: first.id,
+      deviceId,
+      seq: seq + 1,
+      prevEventHash: last,
+      capturedAt: at,
+      gps: { lat: first.inside.lat, lng: first.inside.lng, accuracyM: 8 },
+      cherryKg: 30,
+      media: [{ sha256: createHash('sha256').update(randomBytes(64)).digest('hex'), size: 64, mime: 'image/jpeg' }],
+    };
+    const payloadString = jcs(payload);
+    const { eventId } = await writeTx(db, (tx) =>
+      persistRejected(tx, {
+        payloadString,
+        payloadHash: createHash('sha256').update(payloadString).digest('hex'),
+        signature: 'test-only',
+        serverReceivedAt: at,
+        reason: refusalReason,
+        payload,
+        device: { id: deviceId, agentId, publicJwk, revokedAt: null, lastSeq: seq, lastEventHash: seq === 0 ? null : last },
+      }),
+    );
+    refusal = { eventId, cherryKg: 30, reason: refusalReason };
   }
 
   const seed: SeededCapture = {
@@ -173,6 +218,7 @@ try {
     lastEventHash: last,
     plots: seeded.map(({ id, fixture, areaHa, inside }) => ({ id, fixture, areaHa, inside })),
     events: out,
+    ...(refusal ? { refusal } : {}),
   };
   console.log(JSON.stringify(seed));
 } finally {
