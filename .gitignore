@@ -39,3 +39,6 @@ broadcast/
 # next.js generated
 next-env.d.ts
 *.tsbuildinfo
+
+# e2e scratch data
+.e2e-data/

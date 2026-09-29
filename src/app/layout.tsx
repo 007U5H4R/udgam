@@ -20,6 +20,9 @@ const notoSansKannada = Noto_Sans_Kannada({
 export const metadata: Metadata = {
   title: "Udgam",
   description: "Verifiable agricultural provenance for coffee",
+  // Placeholder until TKT-10 ships the real icons: an explicit empty icon stops the browser
+  // requesting /favicon.ico (a 404 console error that the smoke test rejects).
+  icons: { icon: "data:," },
 };
 
 export const viewport: Viewport = {
