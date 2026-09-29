@@ -3,7 +3,7 @@ import { webcrypto } from 'node:crypto';
 import { fromHex, sha256Hex, toHex, utf8 } from './hash';
 import { jcs } from './jcs';
 import { rootFromPath } from './merkle';
-import { importP256, isBase64url, jwkThumbprint, verifyEs256 } from './signature';
+import { importP256, jwkThumbprint, verifyEs256 } from './signature';
 
 export type Step =
   | 'format'
@@ -51,11 +51,13 @@ const FORMAT = 'udgam-proof-feed/1';
 const FORBIDDEN = new Set(['__proto__', 'constructor', 'prototype']);
 const HEX64 = /^[0-9a-f]{64}$/;
 const HEX12 = /^[0-9a-f]{12}$/;
+const B64U_CHARS = /^[A-Za-z0-9_-]+$/; // §4.2: format checks the alphabet only
 const SIGNED_KINDS = new Set(['batch_created', 'custody_transfer', 'admin_override']);
 
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isInt = (v: unknown, min: number): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= min;
 const isStr = (v: unknown): v is string => typeof v === 'string';
+const isName = (v: unknown): v is string => isStr(v) && v.length > 0;
 const isHex64 = (v: unknown): v is string => isStr(v) && HEX64.test(v);
 const own = (o: Obj, k: string): unknown => (Object.prototype.hasOwnProperty.call(o, k) ? o[k] : undefined);
 
@@ -82,8 +84,8 @@ function parseCheckpoint(v: unknown): Checkpoint | null {
     signature: own(v, 'signature'),
   };
   if (!isInt(c.id, 1) || !isInt(c.fromSeq, 1) || !isInt(c.toSeq, 1) || c.fromSeq > c.toSeq) return null;
-  if (!isHex64(c.merkleRoot) || !isHex64(c.prevCheckpointHash) || !isStr(c.ts) || !isStr(c.kid)) return null;
-  if (!isBase64url(c.signature)) return null;
+  if (!isHex64(c.merkleRoot) || !isHex64(c.prevCheckpointHash) || !isStr(c.ts) || !isName(c.kid)) return null;
+  if (!isStr(c.signature) || !B64U_CHARS.test(c.signature)) return null;
   return c as Checkpoint;
 }
 
@@ -101,9 +103,9 @@ function parseEntry(v: unknown): Entry | null {
     leafIndex: own(v, 'leafIndex'),
     path: own(v, 'path'),
   };
-  if (!isInt(e.seq, 1) || !isHex64(e.prevHash) || !isStr(e.kind) || !isObj(e.payload)) return null;
+  if (!isInt(e.seq, 1) || !isHex64(e.prevHash) || !isName(e.kind) || !isObj(e.payload)) return null;
   if (!isHex64(e.payloadHash) || !isStr(e.ts) || !isHex64(e.entryHash)) return null;
-  if (!isInt(e.checkpointId, Number.MIN_SAFE_INTEGER) || !isInt(e.leafIndex, 0)) return null;
+  if (!isInt(e.checkpointId, 1) || !isInt(e.leafIndex, 0)) return null;
   if (!Array.isArray(e.path) || !e.path.every(isHex64)) return null;
   return e as Entry;
 }
@@ -117,7 +119,8 @@ function parseFeed(feed: unknown): { batchId: string; shortHash: string; checkpo
   const ledgerKey = own(feed, 'ledgerKey');
   const rawCheckpoints = own(feed, 'checkpoints');
   const rawEntries = own(feed, 'entries');
-  if (!isStr(batchId) || !isStr(shortHash) || !HEX12.test(shortHash) || !isObj(ledgerKey)) return null;
+  if (!isName(batchId) || !isStr(shortHash) || !HEX12.test(shortHash)) return null;
+  if (!isObj(ledgerKey) || !isName(own(ledgerKey, 'kid')) || !isName(own(ledgerKey, 'url'))) return null;
   if (!Array.isArray(rawCheckpoints) || !Array.isArray(rawEntries)) return null;
   const checkpoints = rawCheckpoints.map(parseCheckpoint);
   const entries = rawEntries.map(parseEntry);
@@ -129,30 +132,28 @@ function parseFeed(feed: unknown): { batchId: string; shortHash: string; checkpo
   return { batchId, shortHash, checkpoints: cps, entries: ens };
 }
 
-type PublishedKey = { kid: string; key: webcrypto.CryptoKey | null };
+type ChosenKey = { ok: false } | { ok: true; key: webcrypto.CryptoKey | null };
 
-/** The published keys whose `kid` member equals their recomputed RFC 7638 thumbprint. */
-async function publishedKeys(keys: unknown): Promise<PublishedKey[]> {
+/**
+ * §7.2: the first key in the key document whose `kid` equals `kid`. It must be a P-256 public key whose
+ * recomputed thumbprint is `kid`, else there is no key (unknown-key). A key that cannot be imported
+ * yields `key: null`: its signatures cannot verify (checkpoint-signature).
+ */
+async function chooseKey(keys: unknown, kid: string): Promise<ChosenKey> {
   const list = isObj(keys) ? own(keys, 'keys') : undefined;
-  if (!Array.isArray(list)) return [];
-  const out: PublishedKey[] = [];
-  for (const k of list) {
-    if (!isObj(k)) continue;
-    const kid = own(k, 'kid');
-    const x = own(k, 'x');
-    const y = own(k, 'y');
-    if (own(k, 'kty') !== 'EC' || own(k, 'crv') !== 'P-256' || !isStr(kid) || !isStr(x) || !isStr(y)) continue;
-    if (!isBase64url(x) || !isBase64url(y)) continue;
-    if ((await jwkThumbprint({ x, y })) !== kid) continue;
-    let key: webcrypto.CryptoKey | null = null;
-    try {
-      key = await importP256({ x, y });
-    } catch {
-      key = null; // present and matching, but not a usable P-256 key: its signatures cannot verify
-    }
-    out.push({ kid, key });
+  if (!Array.isArray(list)) return { ok: false };
+  const k = list.find((x) => isObj(x) && own(x, 'kid') === kid) as Obj | undefined;
+  if (!k) return { ok: false };
+  const x = own(k, 'x');
+  const y = own(k, 'y');
+  if (own(k, 'kty') !== 'EC' || own(k, 'crv') !== 'P-256' || !isName(x) || !isName(y)) return { ok: false };
+  const thumbprint = await jwkThumbprint({ x, y }).catch(() => null); // a lone surrogate has no JCS form
+  if (thumbprint !== kid) return { ok: false };
+  try {
+    return { ok: true, key: await importP256({ x, y }) };
+  } catch {
+    return { ok: true, key: null };
   }
-  return out;
 }
 
 function checkpointStatement(c: Checkpoint): string {
@@ -203,10 +204,9 @@ function closureComplete(batchId: string, b: Entry, entries: Entry[]): boolean {
     const eventId = own(ev, 'eventId');
     const payloadHash = own(ev, 'payloadHash');
     if (!isStr(eventId) || !isStr(payloadHash)) return false;
-    const hasHarvest = harvests.some(
-      (h) => own(h.payload, 'eventId') === eventId && own(h.payload, 'payloadHash') === payloadHash,
-    );
-    if (!hasHarvest) return false;
+    // Several harvest_event entries for one eventId: the one with the highest seq counts (§9.3).
+    const h = harvests.filter((x) => own(x.payload, 'eventId') === eventId).at(-1);
+    if (!h || own(h.payload, 'payloadHash') !== payloadHash) return false;
     if (!runs.some((r) => own(r.payload, 'eventId') === eventId)) return false;
   }
   const plots = new Set(of('plot_registered').map((e) => own(e.payload, 'plotId')));
@@ -236,10 +236,9 @@ export async function checkFeed(feed: unknown, keys: unknown): Promise<CheckResu
   const fail = (verified: number, failure: CheckResult['failure']): CheckResult => ({ ok: false, verified, total, failure });
 
   // Steps 2–3, for every checkpoint in feed order.
-  const published = await publishedKeys(keys);
   for (const c of checkpoints) {
-    const match = published.find((k) => k.kid === c.kid);
-    if (!match) return fail(0, { step: 'unknown-key', checkpointId: c.id, kid: c.kid });
+    const match = await chooseKey(keys, c.kid);
+    if (!match.ok) return fail(0, { step: 'unknown-key', checkpointId: c.id, kid: c.kid });
     const ok = match.key !== null && (await verifyEs256(match.key, c.signature, utf8(checkpointStatement(c))));
     if (!ok) return fail(0, { step: 'checkpoint-signature', checkpointId: c.id });
   }

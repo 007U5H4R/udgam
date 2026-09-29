@@ -1,6 +1,7 @@
 // base64url (RFC 4648 §5, strict), the RFC 7638 kid and ES256 over P1363 bytes, from docs/proof-feed.md §3 and §7.
 import { webcrypto } from 'node:crypto';
 import { sha256 } from './hash';
+import { jcs } from './jcs';
 
 type CryptoKey = webcrypto.CryptoKey;
 
@@ -42,20 +43,10 @@ export function base64urlDecode(text: string): Uint8Array {
   return new Uint8Array(out);
 }
 
-export function isBase64url(text: unknown): text is string {
-  if (typeof text !== 'string') return false;
-  try {
-    base64urlDecode(text);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** RFC 7638 thumbprint of a P-256 public key: base64url(SHA-256('{"crv":"P-256","kty":"EC","x":…,"y":…}')). */
 export async function jwkThumbprint(jwk: { x: string; y: string }): Promise<string> {
-  const input = `{"crv":"P-256","kty":"EC","x":${JSON.stringify(jwk.x)},"y":${JSON.stringify(jwk.y)}}`;
-  return base64urlEncode(await sha256(input));
+  // The four required members in JCS form: {"crv":"P-256","kty":"EC","x":"…","y":"…"} (§7.2).
+  return base64urlEncode(await sha256(jcs({ crv: 'P-256', kty: 'EC', x: jwk.x, y: jwk.y })));
 }
 
 /** Imports a P-256 public JWK for ES256 verification; throws on an invalid key or off-curve point. */

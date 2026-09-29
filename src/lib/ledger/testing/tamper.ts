@@ -35,6 +35,12 @@ export const VECTOR_TAMPERS = [
 ] as const;
 export type VectorTamper = (typeof VECTOR_TAMPERS)[number];
 
+/**
+ * Vectors no outside forger can make with one change to a feed: genuine ledgers sealed by the ledger
+ * key that hold one wrong signed payload (scripts/proof-vectors.ts builds them after VECTOR_TAMPERS).
+ */
+export const INSIDER_VECTORS = ['batch_event_hash', 'payload_signature', 'payload_wrong_kid', 'payload_jwk_extra_member', 'payload_jwk_off_curve', 'custody_chain'] as const;
+
 /** The suite variants as documented vectors. */
 export const SUITE_VECTOR: Record<TamperVariant, VectorTamper> = {
   'payload-field': 'entry_payload',

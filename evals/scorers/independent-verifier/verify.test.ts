@@ -223,6 +223,73 @@ describe('checkFeed on a feed built by hand from docs/proof-feed.md', () => {
     expect(bad(twice)).toBe('closure-incomplete');
   });
 
+  it('§4 types: empty strings, a malformed ledgerKey and checkpointId 0 fail at format', async () => {
+    const { feed, keys } = await sampleFeed();
+    const cases: ((f: Json) => void)[] = [
+      (f) => { f.batchId = ''; },
+      (f) => { delete f.ledgerKey; },
+      (f) => { f.ledgerKey = { kid: '', url: '/.well-known/udgam-ledger-key' }; },
+      (f) => { f.ledgerKey = { kid: 'x' }; },
+      (f) => { checkpointsOf(f)[0]!.kid = ''; },
+      (f) => { checkpointsOf(f)[0]!.signature = ''; },
+      (f) => { entriesOf(f)[0]!.kind = ''; },
+      (f) => { entriesOf(f)[0]!.checkpointId = 0; },
+    ];
+    for (const [i, mutate] of cases.entries()) {
+      const f = clone(feed);
+      mutate(f);
+      expect((await checkFeed(f, keys)).failure?.step, `case ${i}`).toBe('format');
+    }
+  });
+
+  it('§4.2: a signature of base64url characters that does not decode strictly fails at checkpoint-signature', async () => {
+    const { feed, keys } = await sampleFeed();
+    const f = clone(feed);
+    checkpointsOf(f)[0]!.signature = checkpointsOf(f)[0]!.signature.slice(0, 85); // 85 characters: an impossible length
+    expect((await checkFeed(f, keys)).failure).toMatchObject({ step: 'checkpoint-signature' });
+    const h = clone(feed);
+    checkpointsOf(h)[0]!.signature = checkpointsOf(h)[0]!.signature.slice(0, 85) + 'B'; // non-zero unused bits
+    expect((await checkFeed(h, keys)).failure).toMatchObject({ step: 'checkpoint-signature' });
+    const g = clone(feed);
+    checkpointsOf(g)[0]!.signature = checkpointsOf(g)[0]!.signature.slice(0, 84);
+    expect((await checkFeed(g, keys)).failure).toMatchObject({ step: 'checkpoint-signature' });
+  });
+
+  it('§7.2: the first key whose kid matches is the one used; later keys with that kid are not tried', async () => {
+    const { feed, keys, signer } = await sampleFeed();
+    const good = keys.keys[0] as Json;
+    const other = await newSigner();
+    const impostor = { ...(keyDocument(other).keys[0] as Json), kid: signer.kid };
+    expect((await checkFeed(feed, { keys: [impostor, good] })).failure).toMatchObject({ step: 'unknown-key', kid: signer.kid });
+    expect((await checkFeed(feed, { keys: [good, impostor] })).ok).toBe(true);
+    // Not a P-256 key → unknown-key; a P-256 key whose point is off the curve → checkpoint-signature.
+    expect((await checkFeed(feed, { keys: [{ ...good, crv: 'P-384' }] })).failure?.step).toBe('unknown-key');
+    const offCurve = { kty: 'EC', crv: 'P-256', x: good.x as string, y: good.x as string };
+    const offKid = (await import('./src/signature')).jwkThumbprint(offCurve);
+    const withOff = clone(feed);
+    for (const c of checkpointsOf(withOff)) c.kid = await offKid;
+    expect((await checkFeed(withOff, { keys: [{ ...offCurve, kid: await offKid }] })).failure?.step).toBe('checkpoint-signature');
+  });
+
+  it('§9.3: with two harvest_event entries for one eventId, the one with the highest seq is used', async () => {
+    const signer = await newSigner();
+    const admin = await newSigner();
+    const build = async (first: string, second: string) => {
+      const kinds: [string, Json][] = [
+        ['plot_registered', { plotId: 'PL-1' }],
+        ['device_enrolled', { deviceId: 'DV-1' }],
+        ['harvest_event', { eventId: 'HE-1', plotId: 'PL-1', deviceId: 'DV-1', payloadHash: first }],
+        ['harvest_event', { eventId: 'HE-1', plotId: 'PL-1', deviceId: 'DV-1', payloadHash: second }],
+        ['verification_run', { eventId: 'HE-1' }],
+        ['batch_created', await signedPayload(admin, { batchId: 'B-1', orgId: 'O1', events: [{ eventId: 'HE-1', payloadHash: 'c'.repeat(64) }] })],
+      ];
+      const ledger = await buildLedger(kinds, 0);
+      return checkFeed(await buildFeed({ ledger, cuts: [ledger.length], select: () => true, batchId: 'B-1', signer }), keyDocument(signer));
+    };
+    expect((await build('d'.repeat(64), 'c'.repeat(64))).ok).toBe(true);
+    expect((await build('c'.repeat(64), 'd'.repeat(64))).failure?.step).toBe('closure-incomplete');
+  });
+
   it('entries recompute from the hand-built ledger (self-check of the helper against §5)', async () => {
     const { feed } = await sampleFeed();
     const e = entriesOf(feed)[0]!;
