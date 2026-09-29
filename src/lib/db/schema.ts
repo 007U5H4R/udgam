@@ -300,6 +300,38 @@ export const verificationRuns = sqliteTable(
 );
 
 /**
+ * An admin's decision on a Needs Review run (technical-plan §4.1, TKT-12, TP15). `signature` is by the
+ * admin's server-held key `key_id` over jcs({ v:1, runId, eventId, newVerdict, reason, adminId, ts }),
+ * anchored as admin_override. Triggers (admin_override_guards migration) set the event's final verdict,
+ * refuse a hard-failed run, a batched event's run and a superseded run, and keep the row append-only.
+ * The reason is public: it appears on the certificate (Review focus 5).
+ */
+export const adminOverrides = sqliteTable(
+  'admin_overrides',
+  {
+    /** `AO-` + 12 Crockford base32. */
+    id: text('id').primaryKey(),
+    runId: text('run_id')
+      .notNull()
+      .unique()
+      .references(() => verificationRuns.id),
+    adminId: text('admin_id')
+      .notNull()
+      .references(() => user.id),
+    newVerdict: text('new_verdict', { enum: ['Verified', 'Rejected'] }).notNull(),
+    reason: text('reason').notNull(),
+    signature: text('signature').notNull(),
+    keyId: text('key_id').notNull(),
+    createdAt: text('created_at').notNull(),
+    anchorSeq: anchorSeq(),
+  },
+  (t) => [
+    check('admin_overrides_verdict_check', sql`${t.newVerdict} IN ('Verified','Rejected')`),
+    check('admin_overrides_reason_check', sql`length(trim(${t.reason})) >= 10`),
+  ],
+);
+
+/**
  * Signed Merkle checkpoints over contiguous ledger ranges (§8.2, TKT-15). Append-only (trigger).
  * `merkle_root` and `prev_checkpoint_hash` are lowercase hex; `signature` is P1363 base64url by the
  * ledger key `key_id` (RFC 7638 kid) over the checkpoint statement.

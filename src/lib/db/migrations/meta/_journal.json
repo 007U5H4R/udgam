@@ -120,6 +120,20 @@
       "when": 1790697850220,
       "tag": "0016_user_replace_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1790708039138,
+      "tag": "0017_admin_overrides",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1790708040471,
+      "tag": "0018_admin_override_guards",
+      "breakpoints": true
     }
   ]
 }
