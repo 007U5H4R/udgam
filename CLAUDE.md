@@ -34,3 +34,16 @@ This is a **snapshot** taken 2026-09-28. The authoritative source is the owner's
 - **Obsidian vault and auto-memory persistence.** Record progress in `HANDOFF.md`; the owner's local session mirrors it to the vault.
 - **Local-only MCP servers** may be missing. If a stage skill needs one that is unavailable, say which, and continue with everything else.
 - Machine rules in `global-CLAUDE.md` about `/Volumes/E Drive` apply to the owner's Mac, not to the cloud sandbox.
+
+## Stage 7 execution in the cloud (from technical-plan.md §21.2)
+- **Branch:** work on `build/stage7` (from `main`); never push to `main`.
+- **Per task:** one fresh implementer subagent per task in technical-plan.md §22, using TDD, then a spec-compliance review and a code-quality review by fresh reviewers. Allow at most 2 fix rounds, then write a `BLOCKED` row in the ledger. Make one commit per task with the subject `<imperative summary> (TASK-n)`, using the native Campfire ID.
+- **Parallelism:** at most 3 implementers at once, each in its own worktree, with the disjoint file ownership in technical-plan.md §3.3 and §20.
+- **Gates:** after each §20 phase, run `pnpm typecheck && pnpm lint && pnpm test`, `pnpm eval` (from P3 on) and `pnpm test:e2e` (for UI phases). An independent QA subagent re-checks the phase's acceptance criteria and TC/EVAL cases. Update `docs/exec/ledger.md`, push, and post a gate report. **At the M-001 gate (after TKT-21 = TASK-22), stop and wait for the owner's approval** before M-002 or M-003.
+- **Never:**
+  - print or echo environment variables or secrets;
+  - edit `backlog/` (Campfire is local-only, TP22);
+  - change a Design Freeze item;
+  - weaken a threshold, weight, expected verdict or case class, or move `cfg-1` after baseline-v1 (EV13, CF-13);
+  - delete, hide or hand-edit an eval case or a results file.
+- **Decisions:** append decisions made during execution to `decisions.md` as `EXE1…`. Record scope changes in the ledger with the reason, and wait for the owner.

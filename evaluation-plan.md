@@ -249,6 +249,17 @@ Total seeded: 92. Of these, 26 are S1-gated attack cases and 14 are S2 legitimat
 
 Each scenario's attack cases include blatant (several signals), single-signal, and boundary cases: just outside the buffer, 9.5 % and 10.5 % loss, 1.95× and 2.05× U. Each of the twelve checks has at least one case where it fires (`signature_valid` fires at the capture boundary, in integration cases EVAL-051 to EVAL-053). Each numeric threshold has a case on both sides: the geofence buffer (EVAL-009 / EVAL-025), 30 m accuracy (EVAL-010 / EVAL-027), 50 m EXIF GPS (EVAL-014 / EVAL-023), 10 min and 7 days EXIF time (EVAL-011 / EVAL-056, EVAL-034 / EVAL-033), 120 km/h (EVAL-013 / EVAL-028), any loss and 10 % loss (EVAL-006 / EVAL-040, EVAL-039 / EVAL-038), and 1.5× and 2× U (EVAL-012 / EVAL-048, EVAL-047 / EVAL-046).
 
+### 7.6 Milestone 2 cases (added in Stage 6, TP23; dataset 0.2.0)
+
+| Group | IDs | Suite |
+|---|---|---|
+| Settlement conditions (all met; quantity short; grade low; an event not Verified; double settlement; unauthorised caller; bad quality signature) | EVAL-093–099 | integration (Vitest against Anvil) |
+| Processor mass balance (inside band; below; above) | EVAL-100–102 | integration |
+| EVM ledger adapter (proof and tamper suites on EVM; DB/chain divergence detected) | EVAL-103–104 | harness-proof, integration |
+| M-002 screens meet the design gates | EVAL-105 | e2e |
+
+EVAL-054 (TP5) and EVAL-068 (TP7) moved from `pending_decision` to `active`. Stage 7 blocks for the pre-baseline growth: TKT-07 EVAL-106–109, TKT-08 110–113, TKT-09 114–121, TKT-20 122 onward (technical-plan §13).
+
 ## 8. Scorers
 
 Specified here and implemented in Stage 7 under `evals/scorers/`. No scorer files are created in Stage 3; an empty stub would carry no information.

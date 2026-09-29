@@ -158,7 +158,8 @@
             "secrets",
             "dependencies",
             "demo",
-            "harness"
+            "harness",
+            "contract-farming"
           ]
         },
         "category": { "enum": ["functional", "product_acceptance", "performance", "reliability", "security", "design"] },

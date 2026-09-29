@@ -1,26 +1,43 @@
 # HANDOFF — Udgam
 
-**Stage just completed:** Stage 5 · Problem Breakdown — **approved 2026-09-29**.
-**Next stage:** Stage 6 · Technical Planning (`bw-technical-planning`, Fable 5.1 / Medium). **Runs locally** (Campfire Board PWA onboarding + Gantt sync). **Stage 7 must run in an owner-opened claude.ai/code cloud session (S11).**
+**Stage just completed:** Stage 6 · Technical Planning — **approved 2026-09-29** (Campfire TASK-1).
+**Next stage:** Stage 7 · Execution (`bw-execution-orchestration`, Opus 5.5 / Standard). **Runs in an owner-opened claude.ai/code cloud session on `007U5H4R/udgam` (S11)**, on branch `build/stage7`.
 
-## Outputs of Stage 5
-- `milestones.md` — M-001 Trust at the edge, end to end (P0, TKT-01–21, 102 sp) · M-002 Contract farming on real smart contracts (P2, TKT-22–26, 23 sp) · M-003 Public deployment and demo (P1, TKT-27–29, 11 sp). Each has objective, scope, deliverables, entry/exit criteria, DoD, risks.
-- `tickets.md` — 29 tracer-bullet vertical-slice tickets (136 sp, none above 8 sp), base Definition of Done, dependency DAG + M-001 phase build order, type + priority + acceptance criteria per ticket, all 92 EVAL cases (EVAL-001–092) linked. IDs are provisional `TKT-##`; `TC-` IDs not yet assigned.
-- S11 prerequisites are tickets: TKT-01 (walking skeleton + cloud setup script, `.env.example`, fixture-provider default).
+## Outputs of Stage 6
+- `technical-plan.md`:
+  - architecture, schema with DB-enforced invariants, the crypto and payload spec, and the verification pipeline with `cfg-1`;
+  - remote-sensing adapters, the ledger and proof-feed v1, the capture client, auth, UI port rules, EUDR export, the eval architecture, testing, observability, security, deployment, budgets and risks;
+  - phase sequencing (§20), the cloud runbook (§21), and per-ticket atomic task plans for all 29 tickets (§22).
+- `test-cases.md` — TC-001–TC-092, linked to M-, TKT-, TASK- and EVAL- IDs.
+- `decisions.md` — TP1–TP27 (TP13 staged photo upload is **proposed**, see below).
+- `evals/eval-dataset.json` 0.2.0: M-002 cases EVAL-093–105 added; EVAL-054 and EVAL-068 activated; schema feature `contract-farming`; `evaluation-plan.md` §7.6.
+- **Campfire:** project **Udgam** onboarded (`backlog/`, manifest entry `udgam`), milestones M-001 `m-0`, M-002 `m-1`, M-003 `m-2`, tickets TKT-01..29 → **TASK-2..30** with type, priority, `P#` and `sp:` labels, dependencies, ACs and DoD; the Gantt renders from them. Mapping in `tickets.md` → Campfire mapping.
 
-## Earlier stages (all approved)
-Stage 1 `Discovery-PRD.md` (DISC1–16) · Stage 2 `Solution-PRD.md` (F1–F20, N1–N7, S1–S11) · Stage 3 `evaluation-plan.md` + `evals/eval-dataset.json` (EV1–EV16, S1–S7 gates, CF-01–CF-14) · Stage 4 `Design.md` FROZEN + `.design/exploration/final/` (D1–D8).
+## Stage 7 — start here
+1. **Owner pre-flight** (technical-plan §21.1): the Claude GitHub App on the repo; claude.ai/code environment `udgam` with the network allow-list and setup script from §21.1; no secrets needed for M-001 (fixture provider).
+2. Open claude.ai/code on `007U5H4R/udgam`, branch `main`, and paste the prompt from technical-plan §21.4.
+3. Order: M-001 phases P1 → P9 (§20): TKT-01 = TASK-2 first. Stop after each phase with a gate report; stop at the M-001 gate for owner approval.
+4. The cloud session never edits `backlog/`; it keeps `docs/exec/ledger.md`.
 
-## Open items (not blocking Stage 6)
-- Should farmers log in themselves? (D8) — owner decision pending.
-- Kannada strings need native-speaker review. Dark UI needs a midday sunlight field test (Design.md §22/§23).
-- M-002 screens are outside the frozen design — TKT-23 design addendum is required before any M-002 UI.
-- Owner actions pending from Stage 1 (block M-003, not M-001): create GFW, Copernicus, ArcGIS, Oracle Cloud accounts (provision the A1 instance early). Domain: `udgam.in` is taken; register `udgamtrace.in` or `udgam.co.in`.
+## Preserve
+All DISC#, S#, EV#, D#, TP#, M-, TC-, EVAL- IDs and native TASK- IDs; approved types, priorities, dependencies and scope; `cfg-1` until baseline-v1 (EV13); the Design Freeze.
 
-## What Stage 6 must do
-Invoke `bw-technical-planning`. Read first: `milestones.md`, `tickets.md`, `Solution-PRD.md`, `evaluation-plan.md`, `evals/eval-dataset.json`, `Design.md` (frozen), `decisions.md`.
-1. **Entry gate:** verify the Campfire Board PWA is loaded locally; onboard Udgam into Campfire (`backlog init` + `projects.json`) per the skill's Campfire entry protocol. Create milestones and tickets there; Campfire allocates native IDs — record the `TKT-##` → native ID mapping in `tickets.md`. Sync the Gantt from the DAG.
-2. Produce `technical-plan.md` (architecture, stack, per-ticket plans sized for fresh-context execution, eval architecture wiring for `pnpm eval`) and `test-cases.md` (`TC-` IDs, linked back into `tickets.md`).
-3. Append `TP#` decisions to `decisions.md`.
-4. Preserve all DISC#, S#, EV#, D#, M-, EVAL- IDs and the approved ticket types, priorities and dependencies.
-5. End by rewriting this file for Stage 7 (cloud session, `bw-execution-orchestration`) and committing + pushing so the cloud session can `git pull` it.
+## To sync locally after each Stage 7 phase gate
+From `docs/exec/ledger.md` on `build/stage7`:
+- Campfire task statuses, `--check-ac` and `--append-notes` (commit SHAs, eval deltas);
+- the Obsidian vault `Udgam/` progress note;
+- auto-memory `udgam-project-state.md`.
+
+## Open items
+- **TP13 (owner decision):** approve TKT-30 "Stage photo uploads when a photo is accepted" (Enhancement, P1, 3 sp, depends on TKT-10 and TKT-19) to protect S3, or defer until HR3 measures real photo sizes.
+- **HR3 field calibration** (about 10 real captures on the demo phone) before baseline-v1 (TKT-21).
+- **Yield reference (TP6):** Coffee Board district averages are used as U; the design-partner FPO should validate them before any pilot. The cherry ratio of 6:1 is unverified.
+- **Mass-balance bands (TKT-26):** there is no Coffee Board figure for pulping/drying; the owner confirms placeholder bands before M-002.
+- **Processor role (M-002):** decided with the TKT-23 design addendum (next D#).
+- Carried over: D8 farmer login; Kannada native review; midday sunlight test; TKT-23 design addendum before any M-002 UI.
+- **Owner accounts (block M-003, not M-001):**
+  - Oracle Cloud A1 instance: provision early.
+  - Domain: `udgamtrace.in` or `udgam.co.in`.
+  - GFW Data API key.
+  - Copernicus Data Space OAuth client.
+  - ArcGIS Location Platform key (tiles; MapTiler as fallback).

@@ -237,3 +237,150 @@
 **Context.** The owner said farmers will mostly use the app; DISC10 made the field agent the login and the farmer a record. Asked twice at the Stage 4 gate; the owner approved the design without changing roles.
 **Decision.** Keep DISC10. The capture app is designed for a farmer's comfort level regardless of who holds the phone. Revisit if the owner decides farmers should log in (affects enrolment and Home, not the visual design).
 **Rejected.** Changing roles without an explicit owner decision.
+
+## TP1 · Stack and pinned versions — accepted
+**Context.** Stage 7 runs in fresh cloud sessions, where an unpinned major version (Next 16, React 19, zod 4, Vitest 5) would change behaviour between sessions.
+**Decision.** Next.js 16.3.6 (App Router), React 19.3.0, TypeScript strict, Node 22, pnpm, Tailwind 4.3.3 carrying the Design.md tokens verbatim, Drizzle 0.45.3 on @libsql/client 0.18.0, Better Auth 1.7.6, zod 4.6.5, canonicalize 5.1.0 with WebCrypto, exifr, sharp (with linux-arm64 prebuilds), @turf/turf, Leaflet 1.9.4 + react-leaflet 5 + leaflet-draw 1.0.4 (admin editor only), idb, pino, Vitest 5.0.2, Playwright 1.63 + axe. Everything is pinned exactly (technical-plan §0, checked with `npm view` on 2026-09-29).
+**Rejected.** Caret ranges (a cloud session would drift silently). next-intl (a dictionary is enough, TP18). leaflet-geoman as the default (TKT-06 names leaflet-draw; geoman is the fallback if leaflet-draw breaks, recorded as an EXE decision).
+
+## TP2 · Verdict config cfg-1: status scores 1 / 0.5 / 0 and equal weights — accepted (resolves GAP-5)
+**Context.** S4 and S10 fix the verdict rules but not the per-status score values or the weights. EV13 forbids tuning weights to the eval set.
+**Decision.** ok = 1, flag = 0.5, fail = 0; `unavailable` is excluded from the mean. All twelve weights are 1. Verified ≥ 80, Rejected < 50; hard fail → Rejected; the S10 caps apply. The config is one object, `cfg-1`, hashed with SHA-256 over its JCS form and printed in every result. It is frozen at baseline-v1.
+**Rejected.** Hand-set unequal weights (no evidence to set them, and they invite tuning on the eval set); fail = −1 (the caps already prevent Verified).
+
+## TP3 · Evidence sentences name the measured value and the threshold — accepted (resolves GAP-8)
+**Decision.** One English template per check and status (technical-plan §6.5), in the evaluation-plan §7.4 unit formats, with snapshot tests (TC-011). Farmer-facing copy rewrites them in plain words with the same numbers. HR1 scores the templates at Stage 9.
+**Rejected.** Free-form evidence per check author (it can't be tested and drifts from the dataset's `evidence_substrings`).
+
+## TP4 · `exif_time_agreement` rules — accepted (resolves GAP-1)
+**Decision.** ok only when EXIF–client ≤ 10 min and client–server ≤ 24 h. flag when EXIF time is absent, EXIF–client > 10 min, or client–server > 24 h. fail when either gap is > 7 days. This matches the dataset's assumption (EVAL-011, 033, 034, 035, 055–057).
+**Rejected.** Absent EXIF time → fail (browsers and apps strip EXIF; honest agents would be capped).
+
+## TP5 · Plot assignment is enforced at the capture boundary — accepted (resolves GAP-2)
+**Context.** F4 says "assigned plot", but the data model had no assignment, and EVAL-054 was pending.
+**Decision.** Add an `agent_plots` table. A capture for a plot not currently assigned to the device's agent is refused at the boundary (HTTP 403 `plot_not_assigned`) and anchored as a rejected `harvest_event`, like a bad signature (Solution-PRD §7 rule 2). The twelve-check registry and cfg-1 are unchanged. EVAL-054 becomes `active` (dataset 0.2.0).
+**Rejected.** A thirteenth scored check (it changes S4's registry and scoring for what is an authorisation question); no enforcement (the identity-substitution scenario would stay open).
+
+## TP6 · Yield season, conversion point and reference values — accepted (resolves GAP-3; R6)
+**Decision.**
+- Season = the Indian coffee year, 1 Oct – 30 Sep IST, bucketed by server receipt time.
+- Cumulative = this plot's accepted, non-Rejected events plus this event.
+- The conversion is applied once, at comparison: s = (Σ cherry kg × ratio ÷ area_ha) ÷ max_kg_ha.
+- Reference `max_kg_ha` = the highest Kodagu/Chikkamagaluru district average, 2018-19 to 2023-24 (Coffee Board *Database on Coffee*, July 2024, Tables 1.10–1.11): Arabica 783, Robusta 1,494 kg/ha clean.
+- `cherry_to_clean_ratio` = 1/6 (industry range 5–6:1, conservative end; recorded as unverified because the Coffee Board publishes only dry-cherry outturn).
+**Consequence / risk.** District averages are not upper bounds, so exceptional honest estates can be flagged, and above 2× rejected. The design-partner FPO validates the numbers before any pilot, and per-plot yield history is the roadmap fix. GAP-7 (no retroactive re-scoring) stays a declared limitation.
+**Rejected.** Client capture time for the season (attacker-controlled); inventing an upper bound with no source; a 5:1 ratio (more honest estates flagged).
+
+## TP7 · Idempotent retry keyed on the payload hash — accepted (implements EV15; resolves GAP-4)
+**Decision.** `harvest_events.payload_hash` is UNIQUE. Before verification, the pipeline looks up the hash: an accepted event streams its original verdict with `idempotent:true`; a boundary-rejected one returns the same rejection. No new rows or anchors are written. EVAL-068 becomes `active`.
+**Rejected.** A client-side dedupe key (only the server knows whether the first upload landed).
+
+## TP8 · The proof feed hides unknown batches and wrong short hashes identically — accepted (resolves GAP-6)
+**Decision.** An unknown batch, a missing `h`, and an `h` that doesn't equal the batch's 12-hex short hash (constant-time compare) all return the same 404 body from both the feed and the page. EVAL-064 is confirmed.
+**Rejected.** Serving the feed without `h` (batch IDs would become enumerable); a distinct "wrong hash" error (an oracle for guessing).
+
+## TP9 · Proof feed v1 and RFC 6962 Merkle checkpoints — accepted (resolves GAP-9)
+**Decision.**
+- Leaves are `SHA-256(0x00 ‖ entry_hash)` and nodes `SHA-256(0x01 ‖ l ‖ r)`, split at the largest power of two below n.
+- A checkpoint statement is `jcs({v,id,fromSeq,toSeq,merkleRoot,prevCheckpointHash,ts})`, signed with ECDSA P-256, P1363, base64url, and identified by an RFC 7638 `kid`.
+- Checkpoints are made every 100 entries (in the same transaction) or on demand.
+- The feed format `udgam-proof-feed/1` is documented in `docs/proof-feed.md` well enough for the clean-room checker (TKT-18).
+**Rejected.** Duplicating the odd leaf (Bitcoin style; second-preimage ambiguity); unsigned roots; a DER signature encoding (WebCrypto emits P1363 natively).
+
+## TP10 · `chain_continuity` rules, including re-enrolment — accepted
+**Decision.** ok: seq = last + 1 and prev hash = the device's last accepted hash, or genesis when the agent has no prior accepted events. flag: a wrong seq or prev hash, or genesis on a new device when the agent already has accepted events on another device (EVAL-021). Never a fail, because a lost IndexedDB is honest (Solution-PRD §12).
+**Rejected.** Failing chain breaks (would penalise honest re-enrolment).
+
+## TP11 · Initial NDVI and forest-loss parameters — accepted (frozen at baseline-v1)
+**Decision.**
+- `ndvi_cultivation`: needs ≥ 6 clear months; fail if the minimum monthly NDVI is < 0.50 or the seasonal swing is > 0.35; unavailable if there are fewer clear months.
+- `ndvi_harvest_window`: mean NDVI over ±30 days ≥ 0.45 → ok; 0.30–0.45 → flag; < 0.30 → fail; no clear observation → unavailable.
+- Clouds are masked with Sentinel-2 SCL classes 3, 8, 9, 10 and 11.
+- GFW loss uses canopy density ≥ 10 % in 2000 (the EUDR forest definition), years ≥ 2021, dataset pinned at v1.13.
+**Consequence.** These are initial, literature-level values for perennial shade canopy, not fitted to the eval set. Live-provider agreement runs report divergence; any change after baseline-v1 follows EV13.
+**Rejected.** GFW's 30 % default (it undercounts loss in the >10 % canopy that EUDR calls forest); unmasked NDVI (monsoon cloud would read as bare ground).
+
+## TP12 · Remote calls happen outside the write transaction; progress streams as NDJSON — accepted
+**Context.** S2 keeps verification in the upload request, and the checking screen must show the real checks (Design.md §9). A SQLite write lock held across an 8 s provider call would block every other writer.
+**Decision.** Parse → boundary → idempotency → media → context reads → `verify()` (remote phase capped at 10 s) → one `BEGIN IMMEDIATE` transaction for rows plus anchors → response. `/api/capture` streams `application/x-ndjson` events: `check` as each check finishes, `verdict` only after COMMIT, or a retryable `error`. Caddy uses `flush_interval -1` in production.
+**Rejected.** Polling a job endpoint (needs job state S2 rejected); verifying inside the transaction (lock contention); server-sent events (a POST body plus a stream is simpler with fetch).
+
+## TP13 · GPS starts with the record flow; staged photo upload proposed as a new ticket — proposed (owner decision)
+**Context.** EV9 placeholder budget: 3 × 4 MB at 5 Mbit/s up is about 19 s, GPS can add 10 s and a cold provider 8 s, so the worst case is on or over 30 s.
+**Decision.** In TKT-10: `watchPosition` starts when `/field/record` opens, so the fix is ready at Submit. **Proposed, TKT-30:** upload each photo to a staging endpoint when "Use this photo" is tapped (content-addressed, 1 h TTL, session-authenticated, verified by hash against the signed payload), taking upload off the Submit-to-verdict path. Enhancement, P1, 3 sp, depends on TKT-10 and TKT-19. HR3's measured photo size decides urgency. It is not created in Campfire until the owner approves the added scope.
+**Rejected.** Weakening S3 (EV9 forbids it); downscaling photos (S1 signs the original bytes).
+
+## TP14 · Provenance invariants live in the database — accepted (S8, N7)
+**Decision.** Every provenance table has `anchor_seq NOT NULL REFERENCES ledger_entries(seq)` with foreign keys enabled. Triggers make the ledger append-only, keep `final_verdict` current, block overrides of hard-failed runs, admit only Verified same-crop events to open batches, recompute batch quantity and minimum score, and lock transferred batches. `batch_events.event_id` is UNIQUE.
+**Rejected.** Application-only checks (S8 rejected them; CF-07 and CF-08 must be impossible, not merely unlikely).
+
+## TP15 · Overrides and custody are signed with server-held per-user keys — accepted
+**Context.** Solution-PRD §4.4 says "signed with the admin's server-bound key".
+**Decision.** On first use, the server generates a P-256 key per admin (or buyer, for M-002 quality grades) at `DATA_DIR/keys/users/<id>.jwk` (mode 0600). It signs the JCS statement and anchors the statement, the signature and the `kid`. UI and docs say plainly that the server signs on behalf of the signed-in account: this attests which account decided, not possession of a personal device.
+**Rejected.** Per-admin browser keys (a second enrolment flow for a desk user in M1); unsigned overrides (D7 and S4 require signing).
+
+## TP16 · The certificate renders only from the proof feed; public payloads carry no personal data; noindex — accepted
+**Decision.**
+- `/verify/[batchId]` derives every displayed fact from the feed payloads that the browser verifies, and embeds that feed in the page (no second request, which helps S4).
+- Ledger payloads carry IDs, hashes, numbers and `producer_id` only (EV16).
+- The page is `noindex, nofollow`, with OG tags kept (the Design.md §25 deferred decision).
+- Admin override reasons are public, and the reason panel says so.
+**Rejected.** Rendering from separate DB queries (the displayed facts could diverge from what was verified, CF-11); indexing certificates (supply-chain pages don't belong in search).
+
+## TP17 · Screens without a mockup are composed from frozen components — accepted
+**Context.** `.design/exploration/final/` covers capture s1–s8, the admin review queue and the certificate. It has no Not-accepted verdict screen, sign-in, enrolment, Help, plot editor, batch builder, phones or buyer list, all of which the M-001 tickets need.
+**Decision.** Build them only from ported components and the same layout grammar: field is one column with one pill; admin is rail + list + detail. No new colours, sizes, radii, motion or icons. Not accepted uses the D5 template (no green, reason plus what to do). Stage 8 critiques them against Design.md. This is not a design change; any new visual concept goes back to design review.
+**Rejected.** A Stage 4 re-entry before M-001 (it would delay the riskiest slice for screens with no new design problem); leaving the composition to each implementer (drift).
+
+## TP18 · i18n with typed dictionaries, English shipped, Kannada marked for review — accepted
+**Decision.** `src/lib/i18n/{en,kn}.ts` with identical key sets (tested), `t(key, vars)`, the language in a cookie, and `<html lang>` set. Kannada strings carry `REVIEW: native speaker` until the owner's review. There is no i18n library.
+**Rejected.** next-intl (routing and message loading the MVP doesn't need).
+
+## TP19 · Satellite tiles only in the admin plot editor, through the keyed Esri service — accepted
+**Decision.** Leaflet is loaded only on `/admin/plots*`, with Esri World Imagery via the ArcGIS Location Platform (`ARCGIS_API_KEY`, free tier) and its required attribution; MapTiler Satellite is the one-config fallback. The Home plot card and the certificate draw inline SVG from GeoJSON (Design.md §25). e2e stubs tiles.
+**Rejected.** The unkeyed legacy `server.arcgisonline.com` URL (licence for a public demo unverified); tiles on the certificate (S4 weight, third-party requests from a public page).
+
+## TP20 · Evaluation architecture and commands — accepted
+**Decision.**
+- `pnpm eval` is the single top-level command: offline, fixture provider, harness-verifier and harness-proof suites, gates S1/S2/S6-lib/S7 plus CFs, and results and reports under `evals/` per evaluation-plan §12.
+- Plus `--config=ledger-only`, `--provider=live [--record]`, `--ledger=evm` (M-002), `eval:validate`, `eval:integration`, `eval:e2e`, `eval:perf --target`, and `eval:release`.
+- Integration and e2e tests carry EVAL-/TC- IDs in their titles, and the release aggregator maps them.
+- CI runs `pnpm eval` on the EV14 paths.
+- New cases are appended from EVAL-106 by the owning tickets before baseline-v1.
+**Rejected.** Separate commands per suite as the only entry point (no single gate); running evals only at Stage 9 (EV14).
+
+## TP21 · Observability without third-party services — accepted
+**Decision.** pino JSON logs with a request ID and redaction; `/api/health` (db, ledger checkpoint age, key present, provider probes); `certificate.viewed` and `certificate.proof_failed` as structured log events; in M-003, a scheduled GitHub Actions probe of `/api/health` every 15 minutes that notifies the owner by failing.
+**Rejected.** Hosted analytics on the public certificate page (privacy, third-party requests); a paid uptime service (DISC12 free-only).
+
+## TP22 · Campfire is local-only; the cloud session keeps an execution ledger — accepted
+**Decision.** Campfire (`backlog/`, onboarded in Stage 6, TKT-01..29 → TASK-2..30) is edited only by the owner's local session. The cloud session records task status in `docs/exec/ledger.md` and never edits `backlog/`. The local session syncs Campfire, the vault and memory at each phase gate (technical-plan §21.3).
+**Rejected.** Editing `backlog/` from the cloud (merge conflicts with local Campfire edits and no running PWA there).
+
+## TP23 · Milestone 2 evaluation cases EVAL-093–105 added; dataset 0.2.0 — accepted
+**Context.** milestones.md requires M-002 EVAL cases to be added in Stage 6.
+**Decision.** Append EVAL-093–099 (settlement conditions, double settlement, unauthorised caller, bad quality signature), EVAL-100–102 (mass balance within, below and above band), EVAL-103–104 (proof suite on the EVM adapter; divergence detection) and EVAL-105 (M-002 screens meet the design gates). Add the schema feature value `contract-farming`. Activate EVAL-054 (TP5) and EVAL-068 (TP7). Dataset version 0.1.0 → 0.2.0 (minor: cases added; no class or verdict changed).
+**Rejected.** Deferring M-002 cases to M-002 start (milestones.md exit criteria reference them).
+
+## TP24 · EUDR GeoJSON follows the Commission's file description v1.5 with a pseudonymous ProducerName — accepted
+**Decision.**
+- The file is a FeatureCollection in WGS84 with [lon, lat] at 6 decimals and one Feature per plot.
+- A plot of 4 ha or more exports as a Polygon (outer ring, closed, no self-intersection); a smaller plot exports as a Point with a numeric `Area`.
+- EU properties: `ProducerName` = `producer_id` (EV16), `ProducerCountry` `IN`, `ProductionPlace` = district, Karnataka.
+- Udgam extras (ignored by the EU system): `commodity`, `hs_code` "0901 11", `quantity_kg_cherry`, `crop`, `batch_id`, `certificate_url`.
+- Sources: the EUDR GeoJson File Description v1.5 (5 May 2025) and Reg. 2023/1115 Art. 2(28).
+**Rejected.** Farmer names in `ProducerName` (EV16); a point at exactly 4 ha (allowed, but Solution-PRD says < 4 ha and a polygon is always accepted).
+
+## TP25 · EXIF time without a zone is read as IST — accepted
+**Decision.** `DateTimeOriginal` uses `OffsetTimeOriginal` when present; otherwise it is interpreted as +05:30, because the phones are in India. The evidence sentence reports the gap in the §7.4 format.
+**Rejected.** Reading it as UTC (every honest capture would be 5 h 30 min off and flagged).
+
+## TP26 · On-chain attestations use EIP-712 with server-held secp256k1 keys — accepted (M-002)
+**Context.** `ContractFarming` must check the buyer's quality grade and the operator's "all included events Verified" attestation on chain. Solidity checks secp256k1 signatures natively (`ecrecover`). Checking the P-256 signatures used everywhere else needs a precompile that Anvil may not provide reliably.
+**Decision.** For M-002 on-chain inputs only, the server holds a secp256k1 key per buyer organisation and one operator key (`DATA_DIR/keys/evm/`, mode 0600), and signs EIP-712 typed data that the contract verifies with `ecrecover`. The honest wording of TP15 applies: the server signs on behalf of the signed-in account. The operator key is the oracle for verification status, and the certificate and docs say so. Off-chain records keep P-256 (S9).
+**Rejected.** On-chain P-256 verification (unreliable precompile support on Anvil); an unsigned grade (DISC9 requires a buyer-signed grade).
+
+## TP27 · The four demo attacks are submitted from an in-app demo panel behind DEMO_MODE — accepted
+**Context.** S5 and EV12 require the live demo to run with no shell step and no manual database edit. F15 seeds the four attack cases "ready to submit", but no screen submits them.
+**Decision.** Add `/admin/demo`, rendered only when `DEMO_MODE=1` and only for admins. It lists the four staged attack captures (each pre-built and signed by a seeded demo device) and submits them through the real `/api/capture` path, so each gets a genuine verdict and anchor. It is composed from frozen components (TP17), labelled "Demo tools", and is absent from production builds unless the flag is set for rehearsals (EVAL-072).
+**Rejected.** A CLI script during the demo (a shell step breaks S5); a second phone faking attacks live (unreliable in front of evaluators and slower).
