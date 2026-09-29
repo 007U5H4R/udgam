@@ -93,9 +93,9 @@ describe('the harness never hides a case (TC-015, EVAL-092)', () => {
 
     const t = run.totals;
     // dataset 0.3.0: EVAL-110–113 (TKT-08) assert geofence/EXIF/movement checks, so they are not_yet_implemented here too;
-    // dataset 0.4.0: so are EVAL-106–108 (TKT-07, satellite checks).
+    // dataset 0.4.0: so are EVAL-106–108 (TKT-07, satellite checks); 0.5.0: and EVAL-114–121 (TKT-09).
     // + 7 harness-proof passes (EVAL-058–063, 066); EVAL-103 is not yet implemented.
-    expect(t).toMatchObject({ ok: true, active: 67, passed: 9, failed: 57, notYetImplemented: 57, errored: 1, skipped: 0 });
+    expect(t).toMatchObject({ ok: true, active: 75, passed: 9, failed: 65, notYetImplemented: 65, errored: 1, skipped: 0 });
     expect(t.active).toBe(t.passed + t.failed + t.errored);
     expect(run.cases).toHaveLength(t.active);
     expect(run.summary.exitCode).toBe(1);
@@ -106,7 +106,7 @@ describe('the harness never hides a case (TC-015, EVAL-092)', () => {
     const run = await evaluate({ seed: 1 });
     const ids = run.cases.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(run.totals.active).toBe(67); // 53 active + 3 stretch harness-verifier, 8 harness-proof (dataset 0.3.0: + EVAL-110–113; 0.4.0: + EVAL-106–108)
+    expect(run.totals.active).toBe(75); // 53 active + 3 stretch harness-verifier, 8 harness-proof (dataset 0.3.0: + EVAL-110–113; 0.4.0: + EVAL-106–108; 0.5.0: + EVAL-114–121)
     expect(run.totals.skipped).toBe(0);
     expect(run.totals.ok).toBe(true);
   }, 60_000);
@@ -146,7 +146,7 @@ describe('per-case watchdog', () => {
     });
     const c = run.cases.find((x) => x.id === 'EVAL-001')!;
     expect(c).toMatchObject({ outcome: 'errored', result: null, error: { class: 'CaseTimeout', message: 'timeout: the case did not settle within 2000 ms' } });
-    expect(run.totals).toMatchObject({ active: 59, errored: 1, skipped: 0, ok: true }); // harness-verifier, dataset 0.4.0
+    expect(run.totals).toMatchObject({ active: 67, errored: 1, skipped: 0, ok: true }); // harness-verifier, dataset 0.5.0
   });
 
   it('the limit is the case own max_latency_ms when it has one, else 30 s', () => {
@@ -332,15 +332,15 @@ describe('order independence (TC-014)', () => {
 });
 
 describe('runHarness writes results and a report derived from them', () => {
-  it('exit 1 now (most checks are not built), and both files land where --out says', async () => {
+  it('exit follows the gates (0 once all twelve checks are built, TKT-09), and both files land where --out says', async () => {
     const root = mkdtempSync(join(tmpdir(), 'udgam-run-'));
     const r = await runHarness({ seed: 2, out: 'formal', resultsDir: join(root, 'results'), reportsDir: join(root, 'reports') });
-    expect(r.exitCode).toBe(1);
+    expect(r.exitCode).toBe(0);
     expect(r.resultsPath).toMatch(/results\/eval-run-\d+\.\d+\.\d+-[0-9a-f]{7,}\.json$/);
     expect(r.reportPath).toMatch(/reports\/eval-report-\d+\.\d+\.\d+-[0-9a-f]{7,}\.md$/);
     const results = JSON.parse(readFileSync(r.resultsPath, 'utf8'));
-    expect(results.summary.overall).toBe('FAIL');
-    expect(readFileSync(r.reportPath, 'utf8')).toContain('**Overall: FAIL**');
+    expect(results.summary.overall).toBe('PASS');
+    expect(readFileSync(r.reportPath, 'utf8')).toContain('**Overall: PASS**');
   }, 60_000);
 
   it('never overwrites a report: an existing one keeps its bytes and the new report gets -rN', () => {

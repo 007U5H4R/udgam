@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { YIELD_REFERENCE_VERSION } from '../../src/lib/yield/reference-data';
 import { loadDataset } from './dataset';
 import { renderReport } from './report';
 import { writeResults } from './results';
@@ -34,7 +35,14 @@ describe('provenance (evaluation-plan §12)', () => {
       fixtures: { version: expect.any(String), sha256: expect.stringMatching(/^[0-9a-f]{64}$/), files: 42 },
       config: { version: 'cfg-1', hash: expect.stringMatching(/^[0-9a-f]{64}$/), mode: 'full', object: expect.any(Object) },
       provider: 'fixture',
-      yieldReference: { version: expect.any(String), source: 'placeholder', placeholder: true, row: { maxKgHa: 1000, cherryToCleanRatio: 0.2 } },
+      yieldReference: {
+        version: expect.any(String),
+        source: 'placeholder',
+        placeholder: true,
+        row: { maxKgHa: 1000, cherryToCleanRatio: 0.2 },
+        // TC-039: what the app seeds, printed beside the harness's synthetic U (TKT-09)
+        app: { version: YIELD_REFERENCE_VERSION, yields: 'Coffee Board', cherryRatio: 'industry estimate, unverified', maxKgHa: { arabica: 783, robusta: 1494 } },
+      },
       ledger: 'hashchain',
       node: process.version,
       os: { platform: expect.any(String), arch: expect.any(String) },
@@ -89,6 +97,7 @@ describe('the report derives from the results file only (TC-016)', () => {
     expect(md).toMatch(/EVAL-005 \| EVAL-026/);
     expect(md).toContain('EVAL-029');
     expect(md).toContain('EVAL-036');
+    expect(md).toMatch(/\| GAP-7 \(EVAL-049\) \| 4 \| Rejected \| Earlier captures in a season are not re-scored/); // TKT-09
     expect(md).toMatch(/Wilson/);
     expect(md).toMatch(/10\/10 .*72\.2 %/);
   });
