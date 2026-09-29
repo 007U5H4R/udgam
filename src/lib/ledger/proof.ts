@@ -259,7 +259,12 @@ function closureComplete(feed: ProofFeedV1, batch: FeedEntry): boolean {
  * signature; per entry (seq order) payloadHash, entryHash, Merkle path, payload signature; shortHash;
  * closure completeness. Keys must come from /.well-known/udgam-ledger-key, never from the feed.
  */
-export async function verifyFeed(feed: unknown, keys: VerifierKey[]): Promise<FeedOutcome> {
+export type VerifyFeedOptions = {
+  /** Called after each entry passes steps 4–7 (`done` of `total` entries); the certificate's progress line (TKT-16). */
+  onProgress?: (done: number, total: number) => void;
+};
+
+export async function verifyFeed(feed: unknown, keys: VerifierKey[], opts: VerifyFeedOptions = {}): Promise<FeedOutcome> {
   if (hasForbiddenKey(feed)) return fail('format');
   const parsed = ProofFeedV1Schema.safeParse(feed);
   if (!parsed.success) return fail('format');
@@ -286,6 +291,7 @@ export async function verifyFeed(feed: unknown, keys: VerifierKey[]): Promise<Fe
   for (const [i, entry] of f.entries.entries()) {
     const bad = await checkEntry(entry, canonical[i] ?? null,byId.get(entry.checkpointId));
     if (bad) return bad;
+    opts.onProgress?.(i + 1, f.entries.length);
   }
 
   const batches = f.entries.filter((e) => e.kind === 'batch_created' && e.payload.batchId === f.batchId);

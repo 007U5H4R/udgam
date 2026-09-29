@@ -212,6 +212,13 @@ test.describe('buyer list and detail (TSK-14.6, TC-060, EVAL-080)', () => {
     expect(feed.status()).toBe(200);
     expect((await feed.json()).shortHash).toBe(shortHash);
     await checkSurface(page);
+
+    // TKT-16 (carried from TKT-14 / QA-P4): the link opens the public certificate, and the buyer's own
+    // browser verifies its proof
+    await certificate.click();
+    await expect(page).toHaveURL(new RegExp(`/verify/${batchId}\\?h=${shortHash}$`));
+    await expect(page.locator('body')).toHaveAttribute('data-state', 'verified', { timeout: 20_000 });
+    await expect(page.getByText('Verified on this device just now')).toBeVisible();
   });
 
   test("buyer B does not see buyer A's batch, and opening it is a 404 (EVAL-080, TC-019)", async ({ page }) => {

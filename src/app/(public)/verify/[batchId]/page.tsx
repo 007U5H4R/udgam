@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { ProofPanel } from '../../../../components/ui/ProofPanel';
 import { certCopy, istRange, kgShort } from '../../../../lib/certificate/copy';
 import { FEED_ELEMENT_ID, serializeFeedForEmbed } from '../../../../lib/certificate/embed';
 import { buildCertificateView } from '../../../../lib/certificate/view-model';
@@ -41,7 +42,9 @@ export default async function CertificatePage({ params, searchParams }: Props) {
 
       <main className={c.wrap}>
         <div className={c.hero}>
-          <div className={c.proofCol} />
+          <div className={c.proofCol}>
+            <ProofPanel entryCount={view.entryCount} batchId={view.batchId} />
+          </div>
           <section className={c.intro} aria-labelledby="h1">
             <p className={c.eyebrow}>{certCopy.eyebrow(view.batchId)}</p>
             <h1 className={c.h1} id="h1">
