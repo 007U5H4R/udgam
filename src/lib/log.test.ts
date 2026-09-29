@@ -34,6 +34,27 @@ describe('logger redaction (technical-plan §15)', () => {
     expect(out).not.toContain('[redacted]');
   });
 
+  it('TSK-19.6 / TC-075: credentials, signatures, provider keys and env secrets are [Redacted]', () => {
+    const { stream, lines } = capture();
+    createLogger('info', stream).info({
+      authorization: 'Bearer x',
+      cookie: 'a=b',
+      signature: 'sig',
+      password: 'p',
+      gfw: { key: 'k' },
+      env: { BETTER_AUTH_SECRET: 's', GFW_API_KEY: 'g', CDSE_CLIENT_SECRET: 'c', ARCGIS_API_KEY: 'a', MAPTILER_KEY: 'm' },
+    });
+    const out = JSON.parse(lines.join('')) as Record<string, unknown>;
+    expect(out).toMatchObject({
+      authorization: '[Redacted]',
+      cookie: '[Redacted]',
+      signature: '[Redacted]',
+      password: '[Redacted]',
+      gfw: { key: '[Redacted]' },
+      env: { BETTER_AUTH_SECRET: '[Redacted]', GFW_API_KEY: '[Redacted]', CDSE_CLIENT_SECRET: '[Redacted]', ARCGIS_API_KEY: '[Redacted]', MAPTILER_KEY: '[Redacted]' },
+    });
+  });
+
   it('keeps ordinary fields', () => {
     const { stream, lines } = capture();
     createLogger('info', stream).info({ requestId: 'r1', req: { headers: { accept: 'json' } } }, 'hello');
