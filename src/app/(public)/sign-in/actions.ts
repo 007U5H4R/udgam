@@ -5,7 +5,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { HOME, isRole } from '../../../lib/auth/session';
 import { refusalInfo, signInFailure, type SignInFailure } from '../../../lib/auth/sign-in-error';
-import { recordSignInFailure, signInBlocked } from '../../../lib/auth/sign-in-limit';
+import { refundSignIn, reserveSignIn, type SignInReservation } from '../../../lib/auth/sign-in-limit';
 import { clientIp } from '../../../lib/client-ip';
 import { getDbReady } from '../../../lib/db/client';
 import { log } from '../../../lib/log';
@@ -21,9 +21,10 @@ export type SignInState = { error: SignInFailure | null };
  * `{ error: 'credentials' }` and the form shows one message for every cause (never which field was
  * wrong, TC-020). Any other Better Auth refusal (5xx, rate limit, a session it could not create)
  * answers `{ error: 'unavailable' }` and is logged by status and code. Anything else (the database
- * down, a bug) is rethrown. Credential failures are counted per email and per address (TKT-19): past
- * the limit every attempt answers `unavailable` without reaching Better Auth, whose own rate limiter
- * only sees HTTP requests, not this in-process call.
+ * down, a bug) is rethrown. Attempts are throttled per (email, address), per email and per address
+ * (TKT-19, fix round 1): each one reserves a slot atomically before Better Auth is called, and gives it
+ * back unless the credentials were wrong. Past a limit the attempt answers `unavailable` without reaching
+ * Better Auth, whose own rate limiter only sees HTTP requests, not this in-process call.
  */
 export async function signIn(_prev: SignInState, form: FormData): Promise<SignInState> {
   const email = String(form.get('email') ?? '').trim();
@@ -32,7 +33,8 @@ export async function signIn(_prev: SignInState, form: FormData): Promise<SignIn
   const requestHeaders = await headers();
   const ip = clientIp(requestHeaders);
   const db = await getDbReady();
-  if (await signInBlocked(db, email, ip)) {
+  const reservation = await reserveSignIn(db, email, ip);
+  if (!reservation.ok) {
     log.warn('auth.sign_in_throttled'); // never the email or the address
     return { error: 'unavailable' };
   }
@@ -42,12 +44,22 @@ export async function signIn(_prev: SignInState, form: FormData): Promise<SignIn
     role = res.user.role;
   } catch (err) {
     const failure = signInFailure(err);
+    if (failure !== 'credentials') await refund(reservation); // only wrong credentials count
     if (failure === null) throw err;
     if (failure === 'unavailable') log.error(refusalInfo(err as APIError), 'auth.sign_in_refused');
-    else await recordSignInFailure(db, email, ip);
     return { error: failure };
   }
+  await refund(reservation);
   redirect(isRole(role) ? HOME[role] : '/sign-in');
+}
+
+/** Give an attempt's reservation back. Never fails the sign-in: a lost refund only counts one attempt. */
+async function refund(reservation: SignInReservation): Promise<void> {
+  try {
+    await refundSignIn(await getDbReady(), reservation);
+  } catch (err) {
+    log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'auth.sign_in_refund_failed');
+  }
 }
 
 /** End the session (if any) and go to the sign-in page. */

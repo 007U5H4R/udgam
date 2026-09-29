@@ -12,7 +12,14 @@ import { log } from '../log';
 //
 // Framework-free (src/lib): the Next cookie plugin is passed in by src/app/_auth/auth.ts.
 
-let devSecret: string | undefined;
+/**
+ * The stand-in dev secret lives on globalThis, not in this module (TASK-20 fix round 1): `next start`
+ * instantiates this module once per Turbopack runtime (route handlers; pages and Server Actions), like
+ * src/lib/db/client.ts. A per-module secret would sign the cookie at sign-in (Server Action) with one
+ * key and verify it in /api/capture (route handler) with another.
+ */
+const DEV_SECRET_KEY = Symbol.for('udgam.auth.dev-secret');
+const processState = globalThis as Record<symbol, string | undefined>;
 
 /**
  * BETTER_AUTH_SECRET from env. Outside production a random per-process secret stands in (sessions
@@ -21,11 +28,12 @@ let devSecret: string | undefined;
 export function authSecret(): string {
   if (env.BETTER_AUTH_SECRET) return env.BETTER_AUTH_SECRET;
   if (env.NODE_ENV === 'production') throw new Error('BETTER_AUTH_SECRET is required when NODE_ENV=production');
-  if (!devSecret) {
-    devSecret = randomBytes(32).toString('hex');
+  let secret = processState[DEV_SECRET_KEY];
+  if (!secret) {
+    secret = processState[DEV_SECRET_KEY] = randomBytes(32).toString('hex');
     log.warn('auth.dev_secret'); // the name of the event only, never the value
   }
-  return devSecret;
+  return secret;
 }
 
 const WRITES = new Set(['insert', 'update', 'delete']);

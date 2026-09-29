@@ -6,12 +6,14 @@ import { outcome } from '../../../../tests/helpers/next';
 // password is not right" message. Other Better Auth refusals answer "unavailable" and are logged;
 // errors that are not refusals are rethrown.
 
-const h = vi.hoisted(() => ({ signInEmail: vi.fn(), error: vi.fn(), warn: vi.fn(), blocked: vi.fn(), record: vi.fn() }));
+const h = vi.hoisted(() => ({ signInEmail: vi.fn(), error: vi.fn(), warn: vi.fn(), reserve: vi.fn(), refund: vi.fn() }));
 vi.mock('next/headers', () => ({ headers: async () => new Headers({ 'x-forwarded-for': '203.0.113.5' }) }));
 vi.mock('../../_auth/auth', () => ({ appAuth: () => ({ api: { signInEmail: h.signInEmail } }) }));
 vi.mock('../../../lib/log', () => ({ log: { error: h.error, warn: h.warn } }));
 vi.mock('../../../lib/db/client', () => ({ getDbReady: async () => 'db' }));
-vi.mock('../../../lib/auth/sign-in-limit', () => ({ signInBlocked: h.blocked, recordSignInFailure: h.record }));
+vi.mock('../../../lib/auth/sign-in-limit', () => ({ reserveSignIn: h.reserve, refundSignIn: h.refund }));
+
+const RESERVED = { ok: true, keys: ['k'], windowStart: 0 } as const;
 
 const form = (email: string, password: string) => {
   const f = new FormData();
@@ -24,8 +26,8 @@ beforeEach(() => {
   h.signInEmail.mockReset();
   h.error.mockReset();
   h.warn.mockReset();
-  h.blocked.mockReset().mockResolvedValue(false);
-  h.record.mockReset().mockResolvedValue(undefined);
+  h.reserve.mockReset().mockResolvedValue(RESERVED);
+  h.refund.mockReset().mockResolvedValue(undefined);
 });
 
 describe('signIn action', () => {
@@ -63,30 +65,46 @@ describe('signIn action', () => {
     await expect(signIn({ error: null }, form('agent@a.test', 'pw'))).rejects.toThrow('database is down');
   });
 
-  it('TKT-19: a credential failure is counted against the email and the address', async () => {
+  it('TKT-19: every attempt reserves a slot for the email and the address before Better Auth; a credential failure keeps it', async () => {
     const { signIn } = await import('./actions');
-    h.signInEmail.mockRejectedValue(APIError.from('UNAUTHORIZED', { code: 'INVALID_EMAIL_OR_PASSWORD', message: 'Invalid email or password' }));
+    h.signInEmail.mockImplementation(() => {
+      expect(h.reserve).toHaveBeenCalledWith('db', 'agent@a.test', '203.0.113.5'); // reserved first
+      return Promise.reject(APIError.from('UNAUTHORIZED', { code: 'INVALID_EMAIL_OR_PASSWORD', message: 'Invalid email or password' }));
+    });
     await signIn({ error: null }, form('agent@a.test', 'wrong'));
-    expect(h.record).toHaveBeenCalledWith('db', 'agent@a.test', '203.0.113.5');
+    expect(h.signInEmail).toHaveBeenCalledTimes(1);
+    expect(h.refund).not.toHaveBeenCalled();
   });
 
   it('TKT-19: once throttled → { error: "unavailable" } without calling Better Auth, logged without the email', async () => {
     const { signIn } = await import('./actions');
-    h.blocked.mockResolvedValue(true);
+    h.reserve.mockResolvedValue({ ok: false });
     expect(await signIn({ error: null }, form('agent@a.test', 'right password'))).toEqual({ error: 'unavailable' });
-    expect(h.blocked).toHaveBeenCalledWith('db', 'agent@a.test', '203.0.113.5');
+    expect(h.reserve).toHaveBeenCalledWith('db', 'agent@a.test', '203.0.113.5');
     expect(h.signInEmail).not.toHaveBeenCalled();
+    expect(h.refund).not.toHaveBeenCalled();
     expect(h.warn).toHaveBeenCalledWith('auth.sign_in_throttled');
     expect(JSON.stringify(h.warn.mock.calls)).not.toContain('agent@a.test');
   });
 
-  it('TKT-19: a success or a server-side refusal is not counted', async () => {
+  it('TKT-19: a success, a server-side refusal or a thrown error gives the reservation back', async () => {
     const { signIn } = await import('./actions');
     h.signInEmail.mockRejectedValue(APIError.from('INTERNAL_SERVER_ERROR', { code: 'FAILED_TO_GET_SESSION', message: 'boom' }));
     await signIn({ error: null }, form('agent@a.test', 'pw'));
+    expect(h.refund).toHaveBeenLastCalledWith('db', RESERVED);
+    h.signInEmail.mockReset().mockRejectedValue(new Error('database is down'));
+    await expect(signIn({ error: null }, form('agent@a.test', 'pw'))).rejects.toThrow('database is down');
     h.signInEmail.mockReset().mockResolvedValue({ user: { role: 'agent' } });
-    await outcome(() => signIn({ error: null }, form('agent@a.test', 'pw')));
-    expect(h.record).not.toHaveBeenCalled();
+    expect(await outcome(() => signIn({ error: null }, form('agent@a.test', 'pw')))).toEqual({ redirect: '/field' });
+    expect(h.refund).toHaveBeenCalledTimes(3);
+  });
+
+  it('TKT-19: a failed refund is logged and never fails a successful sign-in', async () => {
+    const { signIn } = await import('./actions');
+    h.refund.mockRejectedValue(new Error('SQLITE_BUSY'));
+    h.signInEmail.mockResolvedValue({ user: { role: 'admin' } });
+    expect(await outcome(() => signIn({ error: null }, form('admin@a.test', 'pw')))).toEqual({ redirect: '/admin' });
+    expect(h.error).toHaveBeenCalledWith({ errClass: 'Error' }, 'auth.sign_in_refund_failed');
   });
 
   it('success → redirect to the role home', async () => {

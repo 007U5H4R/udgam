@@ -12,9 +12,16 @@ export const STATIC_SECURITY_HEADERS: readonly { key: string; value: string }[] 
 
 export type TileProvider = 'esri' | 'maptiler';
 
-/** The admin plot pages (`/admin/plots`, `/admin/plots/…`) are the only ones that load map tiles. */
-export function isAdminPlotsPath(pathname: string): boolean {
-  return pathname === '/admin/plots' || pathname.startsWith('/admin/plots/');
+/**
+ * The admin pages (`/admin`, `/admin/…`): the only ones whose policy allows map tiles (§16 "tile hosts
+ * allow-listed on admin pages only"). Only the plot pages draw a map, but a CSP belongs to the document:
+ * the admin Rail and "Add plot" are client navigations that keep the policy of whichever admin page was
+ * loaded first (usually /admin after sign-in), so every admin document must carry the tile host
+ * (TASK-20 fix round 1, candidate EXE; §22 TSK-19.5 said "only /admin/plots*"). Field, buyer and public
+ * pages never get it.
+ */
+export function isAdminPath(pathname: string): boolean {
+  return pathname === '/admin' || pathname.startsWith('/admin/');
 }
 
 /** The tile origin of the configured provider (tiles.ts builds its URLs from the same list). */
@@ -31,13 +38,13 @@ export function newNonce(): string {
 /**
  * The Content-Security-Policy for one HTML response. Scripts run only with this response's nonce
  * ('strict-dynamic' lets Next's nonce-bearing bootstrap load its chunks); images from self, data: and
- * blob: (photo previews), plus the configured tile host on the admin plot pages only; no framing.
+ * blob: (photo previews), plus the configured tile host on the admin pages only; no framing.
  * Styles allow 'unsafe-inline': Next renders style attributes (next/image, its error pages) and an
  * inline <style> on its not-found page that no nonce or hash can cover, and an inline style cannot run
  * script. `dev` adds 'unsafe-eval', which Next's development server needs (never in a production build).
  */
 export function contentSecurityPolicy(o: { nonce: string; pathname: string; tileProvider: TileProvider; dev?: boolean }): string {
-  const img = ["'self'", 'data:', 'blob:', ...(isAdminPlotsPath(o.pathname) ? [tileHost(o.tileProvider)] : [])];
+  const img = ["'self'", 'data:', 'blob:', ...(isAdminPath(o.pathname) ? [tileHost(o.tileProvider)] : [])];
   return [
     `default-src 'self'`,
     `script-src 'self' 'nonce-${o.nonce}' 'strict-dynamic'${o.dev ? ` 'unsafe-eval'` : ''}`,

@@ -1,5 +1,6 @@
 import { Writable } from 'node:stream';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { SECRET_ENV_NAMES } from './config/secret-names';
 import { createLogger } from './log';
 
 function capture() {
@@ -53,6 +54,19 @@ describe('logger redaction (technical-plan §15)', () => {
       gfw: { key: '[Redacted]' },
       env: { BETTER_AUTH_SECRET: '[Redacted]', GFW_API_KEY: '[Redacted]', CDSE_CLIENT_SECRET: '[Redacted]', ARCGIS_API_KEY: '[Redacted]', MAPTILER_KEY: '[Redacted]' },
     });
+  });
+
+  it('redacts every name of the one shared secret list (the bundle check uses the same list), top level and nested', () => {
+    const { stream, lines } = capture();
+    const v = 'w-'.repeat(8);
+    const all = Object.fromEntries(SECRET_ENV_NAMES.map((n) => [n, v]));
+    createLogger('info', stream).info({ ...all, env: all });
+    const out = JSON.parse(lines.join('')) as Record<string, unknown>;
+    for (const n of SECRET_ENV_NAMES) {
+      expect(out[n], n).toBe('[Redacted]');
+      expect((out.env as Record<string, unknown>)[n], `env.${n}`).toBe('[Redacted]');
+    }
+    expect(lines.join('')).not.toContain(v);
   });
 
   it('keeps ordinary fields', () => {
