@@ -81,12 +81,34 @@ try {
     },
   };
 
+  // Each tamper is checked as a verifier receives it: serialised, then parsed.
+  const asReceived = (f: unknown) => JSON.parse(JSON.stringify(f)) as unknown;
   const tampers = [];
   for (const variant of TAMPER_VARIANTS) {
     const t = await applyTamper(feed, keys.keys, variant);
-    const out = await verifyFeed(t.feed, keys.keys);
+    const out = await verifyFeed(asReceived(t.feed), keys.keys);
     if (out.ok || out.step !== t.expectedStep) throw new Error(`tamper ${variant}: expected ${t.expectedStep}, got ${out.ok ? 'ok' : out.step}`);
     tampers.push({ variant, description: TAMPER_DESCRIPTIONS[variant], expectedStep: t.expectedStep, feed: t.feed });
+  }
+
+  // An insider vector no outside forger can make: a second ledger, sealed by the same ledger key, whose
+  // batch_created lists a payloadHash that its member's harvest_event does not carry.
+  const second = createDb(`file:${join(dir, 'insider.db')}`);
+  try {
+    await second.ready;
+    await runMigrations(second.db, join(ROOT, 'src/lib/db/migrations'));
+    const w = await seedBatchWorld(second.db, { events: 2, plots: 1, devices: 1, misstateEventHash: true });
+    const misstated = await buildFeed(second.db, w.batchId);
+    const out = await verifyFeed(asReceived(misstated), keys.keys);
+    if (out.ok || out.step !== 'closure-incomplete') throw new Error(`batch_event_hash: expected closure-incomplete, got ${out.ok ? 'ok' : out.step}`);
+    tampers.push({
+      variant: 'batch_event_hash',
+      description: "a genuine ledger (same key) whose batch_created lists a payloadHash for its first member that the member's harvest_event does not carry; every hash, path and signature is valid",
+      expectedStep: 'closure-incomplete',
+      feed: misstated,
+    });
+  } finally {
+    second.client.close();
   }
 
   const vectors = {

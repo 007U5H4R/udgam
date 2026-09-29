@@ -44,6 +44,11 @@ export type BatchWorldOptions = {
   transfer?: boolean;
   /** An existing organisation to reuse (so two batches can share an FPO). */
   orgId?: string;
+  /**
+   * batch_created lists a wrong payloadHash for its first member (an insider's misstated batch, for
+   * the closure-incomplete vector): every hash, path and signature is otherwise genuine.
+   */
+  misstateEventHash?: boolean;
 };
 
 export type BatchWorld = {
@@ -159,7 +164,7 @@ export async function seedBatchWorld(db: Db, o: BatchWorldOptions): Promise<Batc
       batchId,
       orgId,
       crop: 'arabica',
-      events: sorted.map(({ eventId, payloadHash }) => ({ eventId, payloadHash })),
+      events: sorted.map(({ eventId, payloadHash }, i) => ({ eventId, payloadHash: o.misstateEventHash && i === 0 ? 'e'.repeat(64) : payloadHash })),
       quantityKg: members.reduce((n, m) => n + m.cherryKg, 0),
       integrityScore: Math.min(...members.map((m) => m.score)),
       adminId: admin.adminId,

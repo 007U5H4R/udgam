@@ -19,8 +19,17 @@ with a Merkle inclusion path to a signed checkpoint. A verifier recomputes every
 every signature itself.
 
 **What a successful verification proves.** The entries in the feed are exactly the ones that were
-checkpointed under the published ledger key, unchanged since then, and the feed contains every entry
-the batch's own records say it must.
+checkpointed under the published ledger key, unchanged since then, and the feed contains the entries
+that the anchored payloads themselves make derivable (§9.3): the batch, each listed member event with
+the payload hash the batch lists for it and at least one verification run, the registration of each
+member event's plot and the enrolment of its device, and a custody chain that starts at the batch's
+organisation.
+
+**What completeness cannot detect.** Nothing in the anchored payloads says how many of these exist,
+so a feed that leaves them out still verifies: a `device_revoked`, `plot_edited`, `attestation` or
+`admin_override` entry; verification runs of a member event beyond the first one present; and
+custody transfers after the last one present (a trailing transfer). The certificate page shows what
+the feed contains; it cannot show what a server withheld.
 
 **What it does not prove.** The verifier trusts the key published at
 `/.well-known/udgam-ledger-key` on the same server. A server operator who replaces both the records
@@ -51,8 +60,10 @@ The public certificate page `/verify/{batchId}?h=…` embeds the same feed as
 { "keys": [ { "kty": "EC", "crv": "P-256", "x": "<base64url>", "y": "<base64url>", "kid": "<base64url>", "use": "sig", "alg": "ES256" } ] }
 ```
 
-There is no private member (`d`). Verifiers MUST take keys from this document, never from the feed.
-The feed's `ledgerKey.kid` is only a hint for display.
+There is no private member (`d`). Verifiers MUST take keys from this document, fetched from the fixed
+path `/.well-known/udgam-ledger-key` of the origin they trust, never from the feed. The feed's
+`ledgerKey` (`kid` and `url`) is informational, for display only: it is not checked, and a verifier
+MUST NOT fetch keys from `ledgerKey.url`.
 
 ## 3. Encodings
 
@@ -91,8 +102,18 @@ Test vectors for these rules (key ordering, Unicode, `1e21`, `-0`, `0.1`, escape
 `sha256`.
 
 Every payload in a feed was produced by JSON-parsing canonical text, so re-canonicalising a parsed
-payload reproduces the original bytes. A verifier MUST hash the JCS of the payload **as received**;
-it MUST NOT hash any other serialisation.
+payload reproduces the original bytes. A verifier MUST hash the JCS of the payload **as received**:
+every member the JSON text gives the payload object, exactly as the parser returned it. It MUST NOT
+hash any other serialisation, and MUST NOT hash a copy made by a schema or model layer that may drop,
+rename or reinterpret members. Whatever is displayed MUST be exactly what was hashed.
+
+**Forbidden keys.** No object anywhere in a feed (top level, checkpoints, entries, payloads at any
+depth) may have a member named `__proto__`, `constructor` or `prototype`. JavaScript parsers turn
+`"__proto__"` into an ordinary own member, but many object-handling layers silently drop it or treat
+it as the prototype, so a member could be shown or ignored without having been hashed. A feed with
+such a key fails at step `format` (§10), before any hash is computed. Udgam never writes these keys.
+The `payload_proto_member` vector (§11) is a feed with an own `"__proto__"` member in a payload; read
+the vectors file with a parser that keeps it as an ordinary member (`JSON.parse` does).
 
 ## 4. The feed
 
@@ -137,7 +158,7 @@ it MUST NOT hash any other serialisation.
 | `format` | string | Exactly `udgam-proof-feed/1`. |
 | `batchId` | string | The batch this feed proves. |
 | `shortHash` | string, 12 lowercase hex | The first 12 characters of the `entryHash` of this batch's `batch_created` entry (§8). |
-| `ledgerKey` | object | `{ kid, url }`: the kid of the server's current ledger key and the path of the key document. A hint only. |
+| `ledgerKey` | object | `{ kid, url }`: the kid of the server's current ledger key and the path of the key document. Informational only, never checked or fetched (§2). |
 | `checkpoints` | array | The checkpoints that seal the entries below (only those; not the whole ledger's). |
 | `entries` | array | The batch's closure entries, sorted by `seq`, strictly ascending. |
 
@@ -279,7 +300,9 @@ equals it.
 
 The feed contains exactly one entry with `kind` `batch_created` whose `payload.batchId` equals the
 feed's `batchId`. `shortHash` MUST equal the first 12 characters of that entry's `entryHash`. The
-certificate link carries it as `h`, which ties the printed QR code to the anchored batch.
+certificate link carries it as `h`, which ties the printed QR code to the anchored batch. It is always
+lowercase hex: Udgam emits it lowercase and compares `h` exactly, so an uppercase `h` is a wrong `h`
+(`404`, §2).
 
 ## 9. The provenance closure
 
@@ -303,8 +326,10 @@ Payload members a verifier relies on (all others are informational and covered b
 | `batch_created` | `batchId`, `orgId`, `events` (array of `{ eventId, payloadHash }`), `kid`, `publicJwk`, `signature` |
 | `custody_transfer` | `batchId`, `fromOrg`, `toOrg`, `kid`, `publicJwk`, `signature` |
 | `admin_override` | `eventId`, `kid`, `publicJwk`, `signature` |
-| `harvest_event` | `eventId` |
+| `harvest_event` | `eventId`, `plotId`, `deviceId`, `payloadHash` (the hash of the signed capture) |
 | `verification_run` | `eventId` |
+| `plot_registered` | `plotId` |
+| `device_enrolled` | `deviceId` |
 
 For display: `harvest_event.payload.capture` is the exact object the phone signed (weight in
 `capture.cherryKg`), `verification_run.payload` carries `verdict`, `score` and the `checks` with their
@@ -324,7 +349,14 @@ statement = JCS(payload minus the members "kid", "publicJwk" and "signature")
 ```
 
 The signature is ES256 over the statement's UTF-8 bytes, P1363 `r ‖ s`, base64url (as §7.1), and
-verifies with `publicJwk`; `kid` MUST equal the RFC 7638 thumbprint of `publicJwk` (§7.2). These keys
+verifies with `publicJwk`; `kid` MUST equal the RFC 7638 thumbprint of `publicJwk` (§7.2), computed
+from its `x` and `y`.
+
+`publicJwk` MUST be an object with exactly the four members `kty`, `crv`, `x`, `y`, where `kty` is
+`"EC"`, `crv` is `"P-256"` and `x`, `y` are strings. Any other shape fails at step
+`payload-signature`: a missing or extra member (including a private `d`, or `use`/`alg`/`kid`), a
+different `kty` or `crv`, a non-object, a point that is not on the curve, or any error while importing
+the key or verifying. `kid` and `signature` MUST be strings, or the step fails. These keys
 attest which admin account made the decision; they are not published at a well-known URL, and their
 integrity comes from the ledger (the payload is under a signed checkpoint).
 
@@ -333,14 +365,22 @@ integrity comes from the ledger (the payload is under a signed checkpoint).
 Let `b` be the batch's `batch_created` entry. The feed is complete when:
 
 1. `b.payload.events` is a non-empty array, and for every element `ev`: the feed has a
-   `harvest_event` entry with `payload.eventId == ev.eventId` **and** at least one
-   `verification_run` entry with `payload.eventId == ev.eventId`;
-2. the `custody_transfer` entries, taken in `seq` order, all have `seq > b.seq` and
-   `payload.batchId == batchId`, the first has `payload.fromOrg == b.payload.orgId`, and each later one
-   has `payload.fromOrg ==` the previous one's `payload.toOrg`.
+   `harvest_event` entry `h` with `h.payload.eventId == ev.eventId`, **and** `ev.payloadHash` is a
+   string equal to `h.payload.payloadHash` (the hash of the capture the batch was built from), **and**
+   the feed has at least one `verification_run` entry with `payload.eventId == ev.eventId`;
+2. for **every** `harvest_event` entry in the feed: its `payload.plotId` and `payload.deviceId` are
+   strings, the feed has a `plot_registered` entry with that `payload.plotId`, and the feed has a
+   `device_enrolled` entry with that `payload.deviceId`;
+3. the `custody_transfer` entries **whose `payload.batchId == batchId`**, taken in `seq` order, all
+   have `seq > b.seq`, the first has `payload.fromOrg == b.payload.orgId`, and each later one has
+   `payload.fromOrg ==` the previous one's `payload.toOrg`. A `custody_transfer` entry for any other
+   batch id is ignored by this rule (the server never puts one in a feed, §9.1, but it is not by
+   itself a failure).
 
-Removing any member event's `harvest_event` or all of its runs is therefore detected even though the
-removed entries' hashes are simply absent.
+Removing any member event's `harvest_event`, all of its runs, its plot's `plot_registered` or its
+device's `device_enrolled` is therefore detected even though the removed entries' hashes are simply
+absent, and so is a batch that lists a capture hash its member event does not carry. The omissions
+that cannot be detected are listed in §1.
 
 ## 10. Verification steps
 
@@ -350,21 +390,34 @@ checker show them.
 
 | # | Step name | Check | Fails when |
 |---|---|---|---|
-| 1 | `format` | The document is JSON with the members of §4 and their types; `format == "udgam-proof-feed/1"`; hex members are lowercase hex of the stated length; `signature` members are base64url; `shortHash` is 12 lowercase hex; entries have strictly ascending `seq`; checkpoint `id`s are unique; every checkpoint has `fromSeq ≤ toSeq`. | anything malformed |
+| 1 | `format` | The document is JSON with the members of §4 and their types; no object at any depth has a member `__proto__`, `constructor` or `prototype` (§3.1); `format == "udgam-proof-feed/1"`; hex members are lowercase hex of the stated length; `signature` members are base64url; `shortHash` is 12 lowercase hex; entries have strictly ascending `seq`; checkpoint `id`s are unique; every checkpoint has `fromSeq ≤ toSeq`. | anything malformed, or a forbidden key |
 | 2 | `unknown-key` | For each checkpoint in feed order: a published key has `kid ==` the checkpoint's `kid`, and that key's recomputed thumbprint equals it. | no such key (report the `kid`) |
 | 3 | `checkpoint-signature` | The checkpoint's signature verifies over its statement (§7.1) with that key. | the signature does not verify |
-| 4 | `payload-hash` | For each entry in `seq` order: `hex(SHA-256(JCS(payload))) == payloadHash`. | mismatch, or the payload cannot be canonicalised |
+| 4 | `payload-hash` | For each entry in `seq` order: `hex(SHA-256(JCS(payload))) == payloadHash`, over the payload as received (§3.1). | mismatch, or the payload cannot be canonicalised |
 | 5 | `entry-hash` | `entryHash` recomputes (§5). | mismatch |
 | 6 | `merkle-path` | The feed has a checkpoint with `id == checkpointId`; `fromSeq ≤ seq ≤ toSeq`; `leafIndex == seq − fromSeq`; the root from `path` (§6.2) equals its `merkleRoot`. | any of these fails, including a path of the wrong length |
-| 7 | `payload-signature` | For the kinds of §9.2 only: the payload's own signature verifies. | missing members, wrong kid, or a bad signature |
+| 7 | `payload-signature` | For the kinds of §9.2 only: the payload's own signature verifies. | missing members, a `publicJwk` that is not exactly a P-256 public key (§9.2), wrong kid, or a bad signature |
 | 8 | `short-hash` | §8. (If there is not exactly one `batch_created` entry for `batchId`, report `closure-incomplete`.) | mismatch |
-| 9 | `closure-incomplete` | §9.3. | an event, its run, or a custody link is missing |
+| 9 | `closure-incomplete` | §9.3. | an event, its run, its listed payload hash, its plot's registration, its device's enrolment, or a custody link is missing or wrong |
 
 Steps 2–3 run for every checkpoint before steps 4–7 run for any entry. Steps 4–7 run for one entry
 before moving to the next.
 
 On success report `ok` with the number of entries verified. **Coverage** is entries verified ÷ entries
 in the feed; a successful run verifies all of them.
+
+**Result shape.** Udgam's verifiers report a result in this JSON shape, and the vectors' `expected`
+member (§11) uses the success form:
+
+```
+{ "ok": true, "entries": 16, "checkpoints": [{ "id": 1, "kid": "…" }, { "id": 2, "kid": "…" }] }
+{ "ok": false, "step": "…", "seq": 612, "checkpointId": 7, "kid": "…" }
+```
+
+`checkpoints` lists every checkpoint of the feed in feed order, each as `{ id, kid }`. On failure,
+`step` is one of the nine names above; `seq` (the entry), `checkpointId` (the checkpoint) and `kid` (for
+`unknown-key`, the kid that has no published key) are present only where they apply. An independent
+verifier need not use this shape; it MUST agree on `ok`, on `entries`, and on `step`.
 
 What each step catches (and the vector that shows it):
 
@@ -378,6 +431,10 @@ What each step catches (and the vector that shows it):
 | Two entries swapped, with every hash recomputed by the forger | `merkle-path` (`swap_adjacent`) |
 | A member event's entry removed | `closure-incomplete` (`drop_entry`) |
 | The link's short hash does not match the batch | `short-hash` (`short_hash`) |
+| An unhashed `"__proto__"` member added to a payload | `format` (`payload_proto_member`) |
+| The `device_enrolled` of a member event's device removed | `closure-incomplete` (`drop_device_enrolled`) |
+| The `plot_registered` of a member event's plot removed | `closure-incomplete` (`drop_plot_registered`) |
+| A batch that lists a capture hash its member event does not carry (a genuine, signed ledger) | `closure-incomplete` (`batch_event_hash`) |
 
 ## 11. Test vectors: `docs/proof-feed.vectors.json`
 
@@ -388,14 +445,18 @@ throwaway whose private half was never saved. Members:
 - `keys`: a key document exactly as served at `/.well-known/udgam-ledger-key`.
 - `feed`: an intact feed. Its 16 entries straddle two checkpoints (1–100, an automatic one, and
   101–108, made on demand), so it exercises paths under a 100-leaf tree and an 8-leaf tree.
-- `expected`: the result of verifying `feed` with `keys` (`ok`, entry count, checkpoints).
+- `expected`: the result of verifying `feed` with `keys`, in the success form of §10:
+  `{ "ok": true, "entries": 16, "checkpoints": [{ "id": 1, "kid": "…" }, { "id": 2, "kid": "…" }] }`.
 - `example`: every intermediate value for one entry, checkpoint, key and signed payload:
   `entry.payloadJcs` and `payloadHash`; `entry.entryHashInput` (the JCS text of §5) and `entryHash`;
   `entry.leafHash` (`SHA-256(0x00 ‖ entryHash bytes)`), `treeSize`, `leafIndex`, `path`, `merkleRoot`;
   `checkpoint.statement`, `statementSha256` (what the next checkpoint's `prevCheckpointHash` would be)
   and `signature`; `key.thumbprintInput` and `kid`; `signedPayload.statement` and `signature`.
 - `tampers`: one object per forgery, `{ variant, description, expectedStep, feed }`. Verify each `feed`
-  with the same `keys`; it MUST fail at `expectedStep`.
+  with the same `keys`; it MUST fail at `expectedStep`. Most are one change to `feed`.
+  `payload_proto_member` contains an own `"__proto__"` member (§3.1). `batch_event_hash` is a feed
+  from a second, genuine ledger sealed by the same key, whose `batch_created` lists a wrong capture
+  hash for one member: every hash, path and signature in it verifies, and only step 9 catches it.
 
 A verifier is correct for these vectors when it accepts `feed` (with the `expected` entry count) and
 rejects every tamper at its `expectedStep`.

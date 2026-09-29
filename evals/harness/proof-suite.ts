@@ -143,7 +143,7 @@ export async function runProofSuite(opts: ProofSuiteOptions = {}): Promise<Proof
   }
 }
 
-// `pnpm tsx evals/harness/proof-suite.ts` — a standalone run until TKT-03's runner registers the suite.
+// `pnpm tsx evals/harness/proof-suite.ts` — the suite alone; `pnpm eval` runs it as harness-proof (run.ts).
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   process.env.LOG_LEVEL ??= 'silent';
   const results = await runProofSuite();

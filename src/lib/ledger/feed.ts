@@ -78,6 +78,7 @@ export class FeedNotFound extends Error {
  * The proof feed of `batchId`: its provenance closure, every entry with its Merkle path under a signed
  * checkpoint. If any closure entry is after the last checkpoint, one is created first in a write
  * transaction (S7, EVAL-065); checkpointIfNeeded is idempotent. Throws FeedNotFound for an unknown batch.
+ * Call it outside a write transaction: it may open its own writeTx, and a nested writeTx rejects.
  */
 export async function buildFeed(db: Db, batchId: string, opts: { key?: LedgerKey } = {}): Promise<ProofFeedV1> {
   const seqs = await closureSeqs(db, batchId);
@@ -101,7 +102,7 @@ export async function buildFeed(db: Db, batchId: string, opts: { key?: LedgerKey
   return {
     format: PROOF_FEED_FORMAT,
     batchId,
-    shortHash: batchHash.slice(0, 12),
+    shortHash: shortHashOf(batchHash),
     ledgerKey: { kid: (opts.key ?? (await loadLedgerKey())).kid, url: LEDGER_KEY_URL },
     checkpoints: checkpoints.map(toFeedCheckpoint),
     entries,
@@ -119,6 +120,14 @@ export async function getProof(db: Db, seq: number): Promise<Proof> {
 }
 
 const SHORT_HASH_LENGTH = 12;
+
+/**
+ * A batch's short hash `h`: the first 12 hex of its batch_created entryHash, always emitted lowercase.
+ * `h` is compared exactly, so an uppercase `h` is a wrong `h` (404).
+ */
+export function shortHashOf(entryHash: string): string {
+  return entryHash.slice(0, SHORT_HASH_LENGTH).toLowerCase();
+}
 const DUMMY = Buffer.from('0'.repeat(SHORT_HASH_LENGTH));
 
 /** Constant-time equality of two strings; unequal lengths still spend one comparison. */
@@ -134,11 +143,12 @@ function sameSecret(given: string, expected: string): boolean {
 
 /**
  * The feed for a certificate link, or null — the same null for an unknown batch, a missing `h` and an
- * `h` that is not the batch's short hash (TP8, GAP-6). `h` is compared in constant time.
+ * `h` that is not the batch's short hash (TP8, GAP-6). `h` is compared exactly (lowercase, see
+ * shortHashOf) in constant time. Call it outside a write transaction (see buildFeed).
  */
 export async function resolveFeed(db: Db, batchId: string, h: string | null): Promise<ProofFeedV1 | null> {
   const batch = await batchCreatedEntry(db, batchId);
-  const expected = batch ? batch.entryHash.slice(0, SHORT_HASH_LENGTH) : DUMMY.toString('utf8');
+  const expected = batch ? shortHashOf(batch.entryHash) : DUMMY.toString('utf8');
   const matches = sameSecret(h ?? '', expected);
   if (!batch || !h || !matches) return null;
   return buildFeed(db, batchId);

@@ -93,6 +93,15 @@ describe('the report derives from the results file only (TC-016)', () => {
     expect(md).toMatch(/10\/10 .*72\.2 %/);
   });
 
+  it('shows the proof suite with a library column and the clean-room checker column (S6, TKT-15)', () => {
+    const md = renderReport(path);
+    expect(md).toContain('## Proof suite (S6)');
+    expect(md).toContain('| Case | Outcome | Library verifier | Clean-room checker |');
+    expect(md).toMatch(/\| EVAL-058 \| passed \| [^|]*closure entries[^|]* \| not_yet_implemented \|/);
+    expect(md).toMatch(/\| EVAL-063 \| passed \| drop_entry: closure-incomplete; swap_adjacent: merkle-path \| not_yet_implemented \|/);
+    expect(md).toMatch(/\| EVAL-103 \| not_yet_implemented \| — \| — \|/);
+  });
+
   it('the CLI prints the same report', () => {
     const out = execFileSync(join('node_modules', '.bin', 'tsx'), ['evals/harness/report.ts', path], { encoding: 'utf8' });
     expect(out).toBe(renderReport(path));

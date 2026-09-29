@@ -1,4 +1,5 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONFIG, CONFIG_HASH } from '../../src/lib/verification/config';
@@ -15,6 +16,7 @@ import { fixtureFiles, generateDeviceKeys, loadHarnessInputs, type DeviceKeys, t
 import { loadDataset, type EvalCase, type Suite } from './dataset';
 import { mulberry32 } from './fixtures';
 import { buildCase as realBuildCase, type BuiltCase } from './mutate';
+import { runProofSuite, type ProofCaseResult, type ProofSuiteOptions } from './proof-suite';
 import { provenance, REPO_ROOT, type Provenance } from './provenance';
 import { renderReportFromResults } from './report';
 import { isFileStem, REPORTS_DIR, RESULTS_DIR, reportPathFor, writeReport, writeResults, type Out } from './results';
@@ -88,6 +90,8 @@ export type RunOptions = {
   reportsDir?: string;
   /** Per-case watchdog when the case sets no max_latency_ms of its own (default CASE_TIMEOUT_MS). */
   caseTimeoutMs?: number;
+  /** The harness-proof suite (default runProofSuite, TKT-15); run at most once per evaluate(). */
+  proofSuite?: (o: ProofSuiteOptions) => Promise<ProofCaseResult[]>;
 };
 
 /** A case that has not settled after this long is recorded as errored (reason: timeout). */
@@ -111,6 +115,8 @@ type SuiteEnv = {
   registry: readonly Check[];
   enabled: CheckId[];
   buildCase: NonNullable<RunOptions['buildCase']>;
+  /** The proof suite's results, computed on first use and shared by every harness-proof case. */
+  proofResults: () => Promise<ProofCaseResult[]>;
 };
 export type SuiteRunner = (c: EvalCase, env: SuiteEnv) => Promise<Omit<CaseResult, keyof CaseMeta | 'durationMs'>>;
 type CaseMeta = Pick<CaseResult, 'id' | 'suite' | 'datasetStatus' | 'caseClass' | 'scenario' | 'priority' | 'criticalConditions' | 'pair' | 'tags' | 'expected' | 'faultInjected'>;
@@ -197,14 +203,65 @@ async function withWatchdog(body: Promise<SuiteBody>, ms: number): Promise<Suite
   }
 }
 
-const notBuilt =
-  (why: string): SuiteRunner =>
-  async () => ({ outcome: 'not_yet_implemented', missingChecks: [], result: null, assertions: [], detected: null, error: null, notes: [why] });
+const notBuilt = (why: string): SuiteBody => ({ outcome: 'not_yet_implemented', missingChecks: [], result: null, assertions: [], detected: null, error: null, notes: [why] });
 
-/** Suite runners by name. TKT-18 replaces harness-proof with the real proof suite. */
+/** harness-proof cases whose runner arrives with a later ticket: reported as not_yet_implemented, never dropped. */
+const PROOF_LATER: Record<string, string> = {
+  'EVAL-103': 'EVM anchoring (M-002) arrives with TKT-23 (TSK-24.8); the harness-proof suite does not run it yet',
+};
+
+/** One proof case's assertions: EVAL-058 coverage, each tamper variant's step, EVAL-066's vectors. */
+function proofAssertions(r: ProofCaseResult): CaseResult['assertions'] {
+  if (r.metrics) {
+    const m = r.metrics;
+    return [
+      { name: 'library verifier accepts the intact feed', pass: r.status === 'passed', detail: r.detail ?? '' },
+      { name: 'closure coverage = 100 %', pass: m.coverage === 1, detail: `${m.verified}/${m.closureEntries} closure entries verified under ${m.checkpoints} checkpoints` },
+    ];
+  }
+  if (r.variants.length > 0) {
+    return r.variants.map((v) => ({
+      name: `${v.variant} rejected at ${v.expectedStep}`,
+      pass: v.lib.rejected && v.stepMatches,
+      detail: `library verifier: ${v.lib.rejected ? `rejected at ${v.lib.step}` : 'ACCEPTED'}`,
+    }));
+  }
+  return [{ name: r.title, pass: r.status === 'passed', detail: r.detail ?? '' }];
+}
+
+/**
+ * harness-proof (TSK-15.8, evaluation-plan §4.6 S6-lib): runProofSuite runs once per evaluate() in a
+ * temporary ledger with a throwaway key (never ./data), and each case reads its own result. The
+ * library verifier decides the outcome; the clean-room checker column (TKT-18) is kept in `proof` and
+ * the notes as not_yet_implemented until then, never dropped.
+ */
+const proofSuite: SuiteRunner = async (c, env) => {
+  const later = PROOF_LATER[c.id];
+  if (later) return notBuilt(later);
+  let results: ProofCaseResult[];
+  try {
+    results = await env.proofResults();
+  } catch (e) {
+    return { outcome: 'errored', missingChecks: [], result: null, assertions: [], detected: null, error: errorOf(e), notes: ['the harness-proof suite failed before it produced results'] };
+  }
+  const r = results.find((x) => x.id === c.id);
+  if (!r) return notBuilt(`${c.id} has no harness-proof runner yet`);
+  return {
+    outcome: r.status === 'passed' ? 'passed' : 'failed',
+    missingChecks: [],
+    result: null,
+    assertions: proofAssertions(r),
+    detected: null,
+    error: null,
+    notes: [...(r.detail ? [`library: ${r.detail}`] : []), `clean-room checker: ${r.cleanRoom.status} (TKT-18)`],
+    proof: { metrics: r.metrics ?? null, variants: r.variants, cleanRoom: r.cleanRoom },
+  };
+};
+
+/** Suite runners by name. TKT-18 adds the clean-room checker column to harness-proof. */
 export const SUITES: Record<'harness-verifier' | 'harness-proof', SuiteRunner> = {
   'harness-verifier': verifierSuite,
-  'harness-proof': notBuilt('the harness-proof suite is registered but not built yet (TKT-15/TKT-18)'),
+  'harness-proof': proofSuite,
 };
 
 function metaOf(c: EvalCase): CaseMeta {
@@ -473,7 +530,10 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
   const dataset = loadDataset(opts.datasetPath);
   const inputs = loadHarnessInputs(dataset);
   const keys = await generateDeviceKeys(dataset);
-  const env: SuiteEnv = { inputs, keys, registry, enabled, buildCase: opts.buildCase ?? realBuildCase };
+  const runProof = opts.proofSuite ?? runProofSuite;
+  let proofRun: Promise<ProofCaseResult[]> | undefined;
+  const proofResults = () => (proofRun ??= runProof({ datasetPath: opts.datasetPath }));
+  const env: SuiteEnv = { inputs, keys, registry, enabled, buildCase: opts.buildCase ?? realBuildCase, proofResults };
 
   // Offline by construction (S7, EVAL-091): any fetch during the run is refused and recorded.
   const networkCalls: string[] = [];
@@ -656,14 +716,31 @@ export async function main(argv: string[], run: Runner = runHarness, io: Pick<Co
   return r.exitCode;
 }
 
+/**
+ * Point DATA_DIR, DATABASE_URL and LEDGER_KEY_PATH at a fresh temporary directory, so `pnpm eval` never
+ * reads or writes ./data (or an operator's DATA_DIR), and default LOG_LEVEL to warn so library info
+ * lines do not interleave with the summary. Call before anything reads the environment. Returns the dir.
+ */
+export function isolateDataDir(vars: Record<string, string | undefined> = process.env): string {
+  const dir = mkdtempSync(join(tmpdir(), 'udgam-eval-data-'));
+  vars.DATA_DIR = dir;
+  vars.DATABASE_URL = `file:${join(dir, 'udgam.db')}`;
+  vars.LEDGER_KEY_PATH = join(dir, 'keys', 'ledger.jwk');
+  vars.LOG_LEVEL ??= 'warn';
+  return dir;
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main(process.argv.slice(2)).then(
-    (code) => {
-      process.exitCode = code;
-    },
-    (e: unknown) => {
-      console.error(e instanceof Error ? (e.stack ?? e.message) : String(e));
-      process.exitCode = 2;
-    },
-  );
+  const scratch = isolateDataDir();
+  main(process.argv.slice(2))
+    .then(
+      (code) => {
+        process.exitCode = code;
+      },
+      (e: unknown) => {
+        console.error(e instanceof Error ? (e.stack ?? e.message) : String(e));
+        process.exitCode = 2;
+      },
+    )
+    .finally(() => rmSync(scratch, { recursive: true, force: true }));
 }

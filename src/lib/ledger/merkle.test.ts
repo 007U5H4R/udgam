@@ -51,6 +51,51 @@ describe('merkleRoot (TC-061)', () => {
   });
 });
 
+// The RFC 6962 test vectors of the Certificate Transparency reference implementation
+// (certificate-transparency merkle_tree_test.cc, also used by trillian): fixed literals, independent
+// of both the code under test and the reference mth() above.
+const CT_LEAVES = ['', '00', '10', '2021', '3031', '40414243', '5051525354555657', '606162636465666768696a6b6c6d6e6f'].map((h) => new Uint8Array(Buffer.from(h, 'hex')));
+const CT_ROOTS = [
+  '6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d',
+  'fac54203e7cc696cf0dfcb42c92a1d9dbaf70ad9e621f4bd8d98662f00e3c125',
+  'aeb6bcfe274b70a14fb067a5e5578264db0fa9b51af5e0ba159158f329e06e77',
+  'd37ee418976dd95753c1c73862b9398fa2a2cf9b4ff0fdfe8b30cd95209614b7',
+  '4e3bbb1f7b478dcfe71fb631631519a3bca12c9aefca1612bfce4c13a86264d4',
+  '76e67dadbcdf1e10e1b74ddc608abd2f98dfb16fbce75277b5232a127f2087ef',
+  'ddb89be403809e325750d3d263cd78929c2942b7942a34b77e122c9594a74c8c',
+  '5dc9da79a70659a9ad559cb701ded9a2ab9d823aad2f4960cfe370eff4604328',
+];
+/** [leafIndex (0-based), treeSize, audit path] from the same test file. */
+const CT_PATHS: [number, number, string[]][] = [
+  [0, 1, []],
+  [0, 8, ['96a296d224f285c67bee93c30f8a309157f0daa35dc5b87e410b78630a09cfc7', '5f083f0a1a33ca076a95279832580db3e0ef4584bdff1f54c8a360f50de3031e', '6b47aaf29ee3c2af9af889bc1fb9254dabd31177f16232dd6aab035ca39bf6e4']],
+  [5, 8, ['bc1a0643b12e4d2d7c77918f44e0f4f79a838b6cf9ec5b5c283e1f4d88599e6b', 'ca854ea128ed050b41b35ffc1b87b8eb2bde461e9e3b5596ece6b9d5975a0ae0', 'd37ee418976dd95753c1c73862b9398fa2a2cf9b4ff0fdfe8b30cd95209614b7']],
+  [2, 3, ['fac54203e7cc696cf0dfcb42c92a1d9dbaf70ad9e621f4bd8d98662f00e3c125']],
+  [1, 5, ['6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d', '5f083f0a1a33ca076a95279832580db3e0ef4584bdff1f54c8a360f50de3031e', 'bc1a0643b12e4d2d7c77918f44e0f4f79a838b6cf9ec5b5c283e1f4d88599e6b']],
+];
+
+describe('RFC 6962 / CT reference vectors (TC-061, quality #5)', () => {
+  it('gives the published root for every tree of 1..8 leaves', async () => {
+    for (let n = 1; n <= 8; n++) expect(hex(await merkleRoot(CT_LEAVES.slice(0, n))), `n=${n}`).toBe(CT_ROOTS[n - 1]);
+  });
+
+  it('gives the published audit paths, and each recomputes the published root', async () => {
+    for (const [i, n, path] of CT_PATHS) {
+      const leaves = CT_LEAVES.slice(0, n);
+      expect((await auditPath(leaves, i)).map(hex), `i=${i} n=${n}`).toEqual(path);
+      const bytes = path.map((h) => new Uint8Array(Buffer.from(h, 'hex')));
+      expect(hex(await rootFromPath(CT_LEAVES[i]!, i, n, bytes)), `i=${i} n=${n}`).toBe(CT_ROOTS[n - 1]);
+    }
+  });
+
+  it('verifies every leaf of every tree of 1..8 leaves against the published root', async () => {
+    for (let n = 1; n <= 8; n++) {
+      const tree = await merkleTree(CT_LEAVES.slice(0, n));
+      for (let i = 0; i < n; i++) expect(hex(await rootFromPath(CT_LEAVES[i]!, i, n, tree.path(i))), `i=${i} n=${n}`).toBe(CT_ROOTS[n - 1]);
+    }
+  });
+});
+
 describe('inclusion proofs (TC-061)', () => {
   it('matches the reference root and recomputes it from every leaf of every tree of 1..300 leaves', async () => {
     for (let n = 1; n <= 300; n++) {

@@ -31,7 +31,7 @@ export async function GET(): Promise<Response> {
     } catch (err) {
       // The database is down: the ping below reports it. Key presence does not need the database.
       log.error({ errClass: errClass(err) }, 'health.ledger_failed');
-      ledger = { lastSeq: null, lastCheckpointAgeSec: null, keyPresent: await ledgerKeyPresent() };
+      ledger = { lastSeq: null, lastCheckpointAgeSec: null, keyPresent: await ledgerKeyPresent(), keyMismatch: false };
     }
     if (!ledger.keyPresent) log.error('health.ledger_key_missing');
   }

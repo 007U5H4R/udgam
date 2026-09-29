@@ -33,7 +33,7 @@ describe('GET /api/health (TC-001)', () => {
     expect(body).toMatchObject({
       config: 'ok',
       db: 'ok',
-      ledger: { lastSeq: 0, lastCheckpointAgeSec: null, keyPresent: true },
+      ledger: { lastSeq: 0, lastCheckpointAgeSec: null, keyPresent: true, keyMismatch: false },
       providers: { gfw: 'fixture', sentinelHub: 'fixture' },
     });
     expect(typeof body.version).toBe('string');
@@ -70,6 +70,32 @@ describe('GET /api/health (TC-001)', () => {
     expect(body.db).toBe('unchecked');
     expect(error).toHaveBeenCalled();
     expect(JSON.stringify(error.mock.calls)).not.toContain('not-a-provider');
+  });
+
+  it('answers 503 with keyMismatch:true and logs ledger.key_mismatch when checkpoints were signed by a kid that is not published (quality #4)', async () => {
+    const error = vi.fn();
+    const quiet = vi.fn();
+    vi.doMock('../../../lib/log', () => ({ log: { error, warn: quiet, info: quiet, debug: quiet } }));
+    const { writeTx } = await import('../../../lib/db/client');
+    const { append } = await import('../../../lib/ledger/hashchain');
+    const { checkpointIfNeeded } = await import('../../../lib/ledger/checkpoint');
+    const { loadLedgerKey } = await import('../../../lib/ledger/keys');
+    const lost = await loadLedgerKey(join(t.dir, 'lost', 'ledger.jwk'));
+    await writeTx(t.db, async (tx) => {
+      await append(tx, 'harvest_event', { i: 1 });
+      await checkpointIfNeeded(tx, { key: lost });
+    });
+
+    const { GET } = await import('./route');
+    const res = await GET(); // first boot at LEDGER_KEY_PATH: a new key, while checkpoint 1 carries the lost kid
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { db: string; ledger: { keyPresent: boolean; keyMismatch: boolean } };
+    expect(body.db).toBe('ok');
+    expect(body.ledger).toMatchObject({ keyPresent: true, keyMismatch: true });
+    const logged = error.mock.calls.find((c) => c.includes('ledger.key_mismatch'));
+    expect(logged).toBeDefined();
+    expect(logged![0]).toMatchObject({ checkpointKids: [lost.kid] });
+    expect(JSON.stringify(error.mock.calls)).not.toContain('"d"');
   });
 
   it('answers 503 with keyPresent:false once the ledger key file is removed (TC-001 ledger part)', async () => {
