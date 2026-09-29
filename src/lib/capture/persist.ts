@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { Tx } from '../db/client';
 import { devices, harvestEvents, media, verificationRuns } from '../db/schema';
 import { newId } from '../ids';
@@ -6,6 +6,7 @@ import { append as ledgerAppend } from '../ledger/hashchain';
 import type { ExifFacts } from '../media/exif';
 import type { CapturePayloadV1, VerifyResult } from '../verification/types';
 import type { BoundaryDevice } from './boundary';
+import { findRejection } from './idempotency';
 
 // Capture writes (technical-plan §3.1 step 7, N7, TP14). Every function takes a transaction handle:
 // the provenance rows and their ledger entries commit together or not at all. Ledger payloads are
@@ -118,15 +119,12 @@ export type RejectedCapture = {
 /**
  * Anchor a boundary rejection as a rejected harvest_event (§3.1 step 2). The same refusal of the same
  * payload (payload_hash and reason) is anchored once (TP7); a different refusal of it, or its later
- * acceptance, is a new row (TKT-09: only an accepted payload is unique). Returns the event id, or null
- * when this refusal was already on record.
+ * acceptance, is a new row (TKT-09, EXE11: only an accepted payload is unique). Returns the new event id
+ * (`replayed: false`), or the id of the refusal already on record (`replayed: true`, nothing written).
  */
-export async function persistRejected(tx: Tx, c: RejectedCapture, append: AppendFn = ledgerAppend): Promise<string | null> {
-  const [existing] = await tx
-    .select({ id: harvestEvents.id })
-    .from(harvestEvents)
-    .where(and(eq(harvestEvents.payloadHash, c.payloadHash), eq(harvestEvents.boundaryStatus, 'rejected'), eq(harvestEvents.boundaryReason, c.reason)));
-  if (existing) return null;
+export async function persistRejected(tx: Tx, c: RejectedCapture, append: AppendFn = ledgerAppend): Promise<{ eventId: string; replayed: boolean }> {
+  const existing = await findRejection(tx, c.payloadHash, c.reason);
+  if (existing !== null) return { eventId: existing, replayed: true };
   const eventId = newId('HE-', 12);
   const p = c.payload;
   const anchor = await append(tx, 'harvest_event', {
@@ -158,5 +156,5 @@ export async function persistRejected(tx: Tx, c: RejectedCapture, append: Append
     boundaryReason: c.reason,
     anchorSeq: anchor.seq,
   });
-  return eventId;
+  return { eventId, replayed: false };
 }

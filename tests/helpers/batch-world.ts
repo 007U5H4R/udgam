@@ -203,9 +203,10 @@ export async function seedRejectedCapture(db: Db, plotId: string, deviceId: stri
     media: [{ sha256: newId('', 64).toLowerCase().replace(/[^0-9a-f]/g, '0'), size: 1, mime: 'image/jpeg' }],
   };
   const payloadString = jcs(payload);
-  return writeTx(db, async (tx) =>
+  const anchored = await writeTx(db, async (tx) =>
     persistRejected(tx, { payloadString, payloadHash: await sha256Hex(payloadString), signature: 'x', serverReceivedAt: new Date().toISOString(), reason: 'bad_signature', payload, device: null }),
   );
+  return anchored.replayed ? null : anchored.eventId;
 }
 
 /** A later custody transfer (for the on-demand checkpoint test): appended after everything else. */

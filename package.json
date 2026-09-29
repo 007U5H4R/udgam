@@ -15,6 +15,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:int": "vitest run --project integration",
+    "test:tz": "TZ=America/Los_Angeles vitest run && TZ=Asia/Kolkata vitest run",
     "test:e2e": "playwright test",
     "verify": "pnpm typecheck && pnpm lint && pnpm test",
     "eval": "tsx evals/harness/run.ts",

@@ -1,7 +1,7 @@
 import { and, count, desc, eq, inArray } from 'drizzle-orm';
 import { env } from '../config/env';
 import type { Db, Tx } from '../db/client';
-import { harvestEvents, media, type plots } from '../db/schema';
+import { devices, harvestEvents, media, type plots } from '../db/schema';
 import type { PlotPolygon } from '../geo/types';
 import { parseRegistrationChecks } from '../plots/registration';
 import { appRemoteSensing } from '../remote-sensing';
@@ -12,7 +12,8 @@ import { coffeeSeasonOf, seasonCherryKgBefore } from '../yield/season';
 import type { BoundaryDevice } from './boundary';
 
 // Builds the VerifyContext for a submission that passed the boundary (technical-plan §3.1 step 5).
-// Reads only: it runs before the write transaction opens.
+// Reads only: it runs before the write transaction opens; refreshUnderLock re-reads what a concurrent
+// commit can change, inside it.
 
 export type PlotRow = typeof plots.$inferSelect;
 
@@ -49,6 +50,58 @@ export async function seenMediaHashes(handle: Db | Tx, hashes: readonly string[]
   return new Set(rows.map((r) => r.sha256));
 }
 
+/** How many accepted events this agent has, on any phone (chain_continuity's re-enrolment rule). */
+async function agentAcceptedEvents(handle: Db | Tx, agentId: string): Promise<number> {
+  const [row] = await handle
+    .select({ n: count() })
+    .from(harvestEvents)
+    .where(and(eq(harvestEvents.agentId, agentId), eq(harvestEvents.boundaryStatus, 'accepted')));
+  return row?.n ?? 0;
+}
+
+/** The phone's latest accepted capture, where and when (movement_plausibility), or null. */
+async function previousEventOf(handle: Db | Tx, deviceId: string): Promise<VerifyContext['previousEvent']> {
+  const [previous] = await handle
+    .select({ lat: harvestEvents.lat, lng: harvestEvents.lng, capturedAt: harvestEvents.clientCapturedAt })
+    .from(harvestEvents)
+    .where(and(eq(harvestEvents.deviceId, deviceId), eq(harvestEvents.boundaryStatus, 'accepted')))
+    .orderBy(desc(harvestEvents.seq))
+    .limit(1);
+  return previous && previous.lat !== null && previous.lng !== null && previous.capturedAt !== null
+    ? { lat: previous.lat, lng: previous.lng, capturedAt: previous.capturedAt }
+    : null;
+}
+
+/**
+ * The context fields a concurrent commit can change, re-read inside the write transaction (step 7, under
+ * the lock): the seen photos (photo_uniqueness), the phone's chain head and the agent's accepted count
+ * (chain_continuity), the phone's previous accepted capture (movement_plausibility) and the plot's
+ * season kg (yield_plausibility). buildContext read them before media storage and verification, so
+ * captures in flight at once all saw the same stale values.
+ */
+export async function refreshUnderLock(
+  tx: Tx,
+  ctx: VerifyContext,
+  { payload, agentId, serverReceivedAt }: { payload: CapturePayloadV1; agentId: string; serverReceivedAt: string },
+): Promise<VerifyContext> {
+  const seen = await seenMediaHashes(
+    tx,
+    payload.media.map((m) => m.sha256),
+  );
+  const [head] = await tx.select({ lastSeq: devices.lastSeq, lastEventHash: devices.lastEventHash }).from(devices).where(eq(devices.id, ctx.device.id));
+  const prior = await agentAcceptedEvents(tx, agentId);
+  const previousEvent = await previousEventOf(tx, ctx.device.id);
+  const seasonKg = await seasonCherryKgBefore(tx, ctx.plot.id, coffeeSeasonOf(serverReceivedAt));
+  return {
+    ...ctx,
+    seenMediaHashes: seen,
+    device: head ? { ...ctx.device, lastSeq: head.lastSeq, lastEventHash: head.lastEventHash } : ctx.device,
+    agentPriorAcceptedEvents: prior,
+    previousEvent,
+    seasonCherryKgBefore: seasonKg,
+  };
+}
+
 /** The month the plot's registration read its NDVI history to (the cache bucket), if they are current. */
 function historyEndMonth(plot: PlotRow): { historyEndMonth?: string } {
   const reg = plot.registrationStale === 0 ? parseRegistrationChecks(plot.registrationChecks) : null;
@@ -71,32 +124,21 @@ export async function buildContext(
   },
   deps: { remoteSensing?: RemoteSensingProvider } = {},
 ): Promise<VerifyContext> {
-  const [seen, [prior], [previous], seasonKg, reference] = await Promise.all([
+  const [seen, prior, previousEvent, seasonKg, reference] = await Promise.all([
     seenMediaHashes(
       db,
       payload.media.map((m) => m.sha256),
     ),
-    db
-      .select({ n: count() })
-      .from(harvestEvents)
-      .where(and(eq(harvestEvents.agentId, device.agentId), eq(harvestEvents.boundaryStatus, 'accepted'))),
-    db
-      .select({ lat: harvestEvents.lat, lng: harvestEvents.lng, capturedAt: harvestEvents.clientCapturedAt })
-      .from(harvestEvents)
-      .where(and(eq(harvestEvents.deviceId, device.id), eq(harvestEvents.boundaryStatus, 'accepted')))
-      .orderBy(desc(harvestEvents.seq))
-      .limit(1),
+    agentAcceptedEvents(db, device.agentId),
+    previousEventOf(db, device.id),
     seasonCherryKgBefore(db, plot.id, coffeeSeasonOf(serverReceivedAt)),
     getYieldReference(db, plot.crop),
   ]);
 
   return {
     device: { id: device.id, publicJwk: device.publicJwk, revokedAt: device.revokedAt, lastSeq: device.lastSeq, lastEventHash: device.lastEventHash },
-    agentPriorAcceptedEvents: prior?.n ?? 0,
-    previousEvent:
-      previous && previous.lat !== null && previous.lng !== null && previous.capturedAt !== null
-        ? { lat: previous.lat, lng: previous.lng, capturedAt: previous.capturedAt }
-        : null,
+    agentPriorAcceptedEvents: prior,
+    previousEvent,
     plot: { id: plot.id, crop: plot.crop, polygon: JSON.parse(plot.geojson) as PlotPolygon, areaHa: plot.areaHa, ...historyEndMonth(plot) },
     seenMediaHashes: seen,
     // TP6: this plot's accepted, non-Rejected kg in the receipt season, and the crop's reference row

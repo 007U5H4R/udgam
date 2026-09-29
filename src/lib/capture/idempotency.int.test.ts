@@ -1,3 +1,4 @@
+import { Writable } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { P01_INSIDE, randomId, seedTracerWorld, type TracerWorld } from '../../../scripts/tracer-world';
 import { fakeJpeg } from '../../../tests/helpers/capture';
@@ -9,10 +10,11 @@ import { devices, harvestEvents } from '../db/schema';
 import { assignPlot, unassignPlot } from '../enrolment/assign';
 import { revokeDevice } from '../enrolment/enrol';
 import { append, verifyChain } from '../ledger/hashchain';
+import { createLogger } from '../log';
 import { localMediaStore, type MediaStore } from '../media/store';
 import type { CapturePayloadV1 } from '../verification/types';
 import { coffeeSeasonOf, seasonCherryKgBefore } from '../yield/season';
-import { findPriorOutcome, isUniqueViolation, winnerAfterUniqueViolation } from './idempotency';
+import { findRejection, isUniqueViolation, winnerAfterUniqueViolation } from './idempotency';
 import { runCapture, type CaptureDeps, type CaptureEvent } from './pipeline';
 
 // TC-040, EVAL-068, CF-14 (TSK-09.6, TP7, EV15, §3.1 step 3). An identical signed payload gets its original
@@ -89,6 +91,26 @@ const verdictOf = (events: CaptureEvent[]) => {
 };
 const log = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() });
 
+/**
+ * Both requests pass the boundary and the replay lookup before either commits: each pauses after storing
+ * its first photo until the other has too.
+ */
+function barrierStore(): MediaStore {
+  const real = localMediaStore(t.dir);
+  let arrived = 0;
+  let release!: () => void;
+  const bothStored = new Promise<void>((r) => (release = r));
+  return {
+    ...real,
+    put: async (...a) => {
+      const stored = await real.put(...a);
+      if (++arrived === 2) release();
+      await bothStored;
+      return stored;
+    },
+  };
+}
+
 describe('TC-040 · EVAL-068 an identical signed payload is idempotent', () => {
   it('the retry of an accepted capture gets the same event and verdict with idempotent:true, writes nothing, and the season counts the kg once', async () => {
     const first = await signedCapture();
@@ -124,11 +146,42 @@ describe('TC-040 · EVAL-068 an identical signed payload is idempotent', () => {
     const wrong = [fakeJpeg('not-what-was-signed'), s.photos[1]!];
     expect(await run(resend(s, wrong))).toEqual([{ t: 'rejected', reason: 'media_hash_mismatch', status: 409 }]);
     const after = await counts();
-    const prior = await findPriorOutcome(t.db, await sha256Hex(s.signed));
-    expect(prior).toMatchObject({ kind: 'rejected', reason: 'media_hash_mismatch' });
+    const prior = await findRejection(t.db, await sha256Hex(s.signed), 'media_hash_mismatch');
+    expect(prior).toMatch(/^HE-/);
     // the original refusal: its eventId, idempotent (owner decision, TKT-09)
-    expect(await run(resend(s, wrong))).toEqual([{ t: 'rejected', reason: 'media_hash_mismatch', status: 409, eventId: prior!.eventId, idempotent: true }]);
+    expect(await run(resend(s, wrong))).toEqual([{ t: 'rejected', reason: 'media_hash_mismatch', status: 409, eventId: prior, idempotent: true }]);
     expect(await counts()).toEqual(after);
+  });
+
+  it('EXE11 · refused for X, then for a different reason Y → a normal new rejection; X again → the original X, idempotent', async () => {
+    const s = await signedCapture({ label: 'xyx' });
+    const wrong = [fakeJpeg('not-what-was-signed'), s.photos[1]!];
+    const ledger = () => n('ledger_entries');
+
+    // X: media_hash_mismatch, anchored
+    let l0 = await ledger();
+    expect(await run(resend(s, wrong))).toEqual([{ t: 'rejected', reason: 'media_hash_mismatch', status: 409 }]);
+    expect(await ledger()).toBe(l0 + 1);
+    const x = await findRejection(t.db, await sha256Hex(s.signed), 'media_hash_mismatch');
+
+    // Y: the plot is un-assigned meanwhile → plot_not_assigned, a new anchored rejection, no idempotent
+    await unassignPlot(t.db, { agentId: world.agentId, plotId: world.plotId, orgId: world.orgId });
+    l0 = await ledger();
+    expect(await run(resend(s))).toEqual([{ t: 'rejected', reason: 'plot_not_assigned', status: 403 }]);
+    expect(await ledger()).toBe(l0 + 1);
+
+    // X again (plot assigned again, the same wrong photos) → the original X rejection, nothing new
+    await assignPlot(t.db, { agentId: world.agentId, plotId: world.plotId, orgId: world.orgId });
+    l0 = await ledger();
+    expect(await run(resend(s, wrong))).toEqual([{ t: 'rejected', reason: 'media_hash_mismatch', status: 409, eventId: x, idempotent: true }]);
+    expect(await ledger()).toBe(l0);
+
+    const rows = (await t.client.execute('SELECT id, boundary_status, boundary_reason FROM harvest_events ORDER BY anchor_seq')).rows.map((r) => ({ ...r }));
+    expect(rows).toEqual([
+      { id: x, boundary_status: 'rejected', boundary_reason: 'media_hash_mismatch' },
+      { id: expect.stringMatching(/^HE-/), boundary_status: 'rejected', boundary_reason: 'plot_not_assigned' },
+    ]);
+    expect(await verifyChain(t.db)).toEqual({ ok: true });
   });
 });
 
@@ -196,21 +249,7 @@ describe('replay of an accepted payload after later changes (boundary order: sig
 describe('the duplicate-resend race: the loser answers with the winner’s verdict', () => {
   it('two identical submissions in flight at once → exactly one event, both responses carry the same event and verdict', async () => {
     const s = await signedCapture();
-    // Both requests pass the boundary and the replay lookup before either commits: each pauses after
-    // storing its first photo until the other has too.
-    const real = localMediaStore(t.dir);
-    let arrived = 0;
-    let release!: () => void;
-    const bothStored = new Promise<void>((r) => (release = r));
-    const barrier: MediaStore = {
-      ...real,
-      put: async (...a) => {
-        const stored = await real.put(...a);
-        if (++arrived === 2) release();
-        await bothStored;
-        return stored;
-      },
-    };
+    const barrier = barrierStore();
     const [a, b] = await Promise.all([run(s.fd, deps({ media: barrier })), run(resend(s), deps({ media: barrier }))]);
     const va = verdictOf(a);
     const vb = verdictOf(b);
@@ -237,15 +276,59 @@ describe('the duplicate-resend race: the loser answers with the winner’s verdi
       violation = err;
     }
     expect(isUniqueViolation(violation)).toBe(true);
-    expect(await winnerAfterUniqueViolation(t.db, hash, violation)).toMatchObject({ kind: 'accepted', eventId: original.eventId, verdict: original.verdict, score: original.score });
+    // answered from the winner, logged with the request id (the request's child logger) and the event id
+    const lines: string[] = [];
+    const sink = new Writable({
+      write(chunk: Buffer, _enc, cb) {
+        lines.push(chunk.toString());
+        cb();
+      },
+    });
+    const requestLog = createLogger('debug', sink).child({ requestId: 'req-race-1' });
+    expect(await winnerAfterUniqueViolation(t.db, hash, violation, requestLog)).toMatchObject({
+      kind: 'accepted',
+      eventId: original.eventId,
+      verdict: original.verdict,
+      score: original.score,
+    });
+    const raced = lines.map((l) => JSON.parse(l) as Record<string, unknown>).filter((l) => l.msg === 'capture.idempotent_race');
+    expect(raced).toEqual([expect.objectContaining({ requestId: 'req-race-1', eventId: original.eventId })]);
 
+    const quiet = log();
     const other = new Error('disk I/O error');
     expect(isUniqueViolation(other)).toBe(false);
-    await expect(winnerAfterUniqueViolation(t.db, hash, other)).rejects.toBe(other);
-    await expect(winnerAfterUniqueViolation(t.db, 'f'.repeat(64), violation)).rejects.toBe(violation); // no winner on record
+    await expect(winnerAfterUniqueViolation(t.db, hash, other, quiet)).rejects.toBe(other);
+    await expect(winnerAfterUniqueViolation(t.db, 'f'.repeat(64), violation, quiet)).rejects.toBe(violation); // no winner on record
+    expect(quiet.warn).not.toHaveBeenCalled();
+  });
+
+  it('a unique violation from any other table is rethrown even though an accepted winner exists for the hash', async () => {
+    const s = await signedCapture();
+    verdictOf(await run(s.fd));
+    const hash = await sha256Hex(s.signed);
+    const refusedBy = async (sql: string): Promise<unknown> => {
+      try {
+        await writeTx(t.db, async (tx) => {
+          await tx.run(sql);
+        });
+      } catch (err) {
+        return err;
+      }
+      throw new Error(`expected ${sql} to be refused`);
+    };
+    // the devices no-replace trigger ("UNIQUE: …") and a plain UNIQUE index (ledger entry_hash)
+    const deviceReplace = await refusedBy(`INSERT INTO devices SELECT * FROM devices LIMIT 1`);
+    const ledgerDuplicate = await refusedBy(`INSERT INTO ledger_entries (seq, prev_hash, kind, payload, payload_hash, ts, entry_hash)
+      SELECT seq + 1000, prev_hash, kind, payload, payload_hash, ts, entry_hash FROM ledger_entries LIMIT 1`);
+    const quiet = log();
+    for (const err of [deviceReplace, ledgerDuplicate]) {
+      expect(String((err as Error).message) + String((err as Error).cause ?? '')).toMatch(/UNIQUE/);
+      expect(isUniqueViolation(err)).toBe(false);
+      await expect(winnerAfterUniqueViolation(t.db, hash, err, quiet)).rejects.toBe(err);
+    }
+    expect(quiet.warn).not.toHaveBeenCalled();
   });
 });
-
 
 // The owner's three guarantees (TKT-09 owner decision on idempotent replay), one test each.
 describe('owner guarantees for idempotent replay', () => {
@@ -260,19 +343,7 @@ describe('owner guarantees for idempotent replay', () => {
 
     // concurrent: two identical copies of a second capture in flight at once
     const b = await signedCapture({ label: 'conc', seq: 2, prevEventHash: await sha256Hex(a.signed), capturedAt: '2026-10-14T04:12:40.000Z' });
-    const real = localMediaStore(t.dir);
-    let arrived = 0;
-    let release!: () => void;
-    const bothStored = new Promise<void>((r) => (release = r));
-    const barrier: MediaStore = {
-      ...real,
-      put: async (...x) => {
-        const stored = await real.put(...x);
-        if (++arrived === 2) release();
-        await bothStored;
-        return stored;
-      },
-    };
+    const barrier = barrierStore();
     const [x, y] = await Promise.all([run(b.fd, deps({ media: barrier })), run(resend(b), deps({ media: barrier }))]);
     expect(verdictOf(x).eventId).toBe(verdictOf(y).eventId);
     expect(await seasonKg()).toBe(85);

@@ -253,6 +253,7 @@ export const harvestEvents = sqliteTable(
     index('harvest_events_device_idx').on(t.deviceId),
     index('harvest_events_plot_idx').on(t.plotId),
     uniqueIndex('harvest_events_accepted_payload_hash_unique').on(t.payloadHash).where(sql`boundary_status = 'accepted'`),
+    // One anchored refusal per (payload, reason): after X, Y, X the third answer is the original X rejection.
     uniqueIndex('harvest_events_rejected_payload_reason_unique').on(t.payloadHash, t.boundaryReason).where(sql`boundary_status = 'rejected'`),
   ],
 );

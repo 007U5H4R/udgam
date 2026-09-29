@@ -9,6 +9,7 @@ import { env } from '../../../lib/config/env';
 import { getDbReady } from '../../../lib/db/client';
 import { log, withRequestId } from '../../../lib/log';
 import { localMediaStore } from '../../../lib/media/store';
+import { requestIdFrom } from '../../../lib/request-id';
 import { requireSession, type Guarded } from '../../_auth/require';
 
 export const runtime = 'nodejs';
@@ -124,7 +125,7 @@ async function accept(req: Request, agent: Guarded, release: () => void, handOff
   void (async () => {
     try {
       // The request id rides on every capture log line (e.g. capture.idempotent_replay, TKT-09).
-      const requestLog = withRequestId(req.headers.get('x-request-id') ?? undefined);
+      const requestLog = withRequestId(requestIdFrom(req.headers.get('x-request-id')));
       await runCapture(form, { db, media: localMediaStore(env.DATA_DIR), agentId: agent.userId, log: requestLog }, emit);
     } catch (err) {
       // runCapture never rejects; this is the media store's configuration failing.

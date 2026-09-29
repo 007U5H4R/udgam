@@ -4,7 +4,8 @@ import { exifTimeToIso, extractExif } from './exif';
 import { sniffImage } from './sniff';
 
 // TC-035 (technical-plan §22 TSK-08.1; review focus 7, 8; TP25). Expected values are literals from the
-// fixture README, never recomputed. Run under TZ=UTC and TZ=America/Los_Angeles: the results must match.
+// fixture README, never recomputed. `pnpm test:tz` re-runs it under America/Los_Angeles and Asia/Kolkata:
+// the results must match.
 
 const fixture = (name: string) => new Uint8Array(readFileSync(`evals/fixtures/photos/${name}`));
 
