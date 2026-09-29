@@ -1,8 +1,10 @@
 # Secret scanning config (EVAL-083, TC-003). Extends gitleaks' built-in rules; nothing is disabled.
+# Needs gitleaks >= 8.25 for [[allowlists]] with targetRules; CI pins a newer release.
 [extend]
 useDefault = true
 
-[allowlist]
+[[allowlists]]
 description = "Crypto test vectors hold deliberately public, non-secret test keys"
-# The only exemption: this one fixture file (added by TKT-02), matched by path.
+# The only exemption: this one fixture file (added by TKT-02), for the generic-api-key rule only.
+targetRules = ["generic-api-key"]
 paths = ['''^evals/fixtures/crypto-vectors\.json$''']

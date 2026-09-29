@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { sql } from 'drizzle-orm';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 
 let t: TempDb | undefined;
@@ -20,5 +21,46 @@ describe('createDb', () => {
     } finally {
       await tx.rollback();
     }
+  });
+});
+
+describe('database singleton', () => {
+  afterEach(() => {
+    vi.doUnmock('@libsql/client');
+    vi.doUnmock('../log');
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it('getDbReady resolves to a usable database once the pragmas are in place', async () => {
+    t = await tempDb();
+    vi.resetModules();
+    vi.stubEnv('DATABASE_URL', t.url);
+    vi.stubEnv('DATA_DIR', '.');
+    const mod = await import('./client');
+    const db = await mod.getDbReady();
+    expect((await db.run(sql`PRAGMA journal_mode`)).rows[0]?.journal_mode).toBe('wal');
+    mod.closeDb();
+  });
+
+  it('logs and rethrows a failed pragma, never swallowing it', async () => {
+    vi.resetModules();
+    const error = vi.fn();
+    vi.doMock('../log', () => ({ log: { error } }));
+    vi.doMock('@libsql/client', () => ({
+      createClient: () => ({
+        execute: async () => {
+          throw new Error('pragma refused');
+        },
+        close() {},
+      }),
+    }));
+    vi.stubEnv('DATABASE_URL', 'file:./never-created.db');
+    vi.stubEnv('DATA_DIR', '.');
+    const mod = await import('./client');
+    await expect(mod.getDbReady()).rejects.toThrow('pragma refused');
+    await vi.waitFor(() => expect(error).toHaveBeenCalledTimes(1));
+    expect(JSON.stringify(error.mock.calls)).not.toContain('pragma refused'); // class name only
+    expect(error.mock.calls[0]?.[1]).toBe('db.pragma_failed');
   });
 });

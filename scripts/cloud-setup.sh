@@ -15,10 +15,14 @@ if [ "$(node_major)" -ge 22 ]; then
   ok "node >= 22"
 else
   if [ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]; then
+    # nvm is not written for `set -eu`; relax both while it runs.
+    set +eu
     # shellcheck disable=SC1091
     . "${NVM_DIR:-$HOME/.nvm}/nvm.sh"
     nvm install 22
     nvm use 22
+    set -eu
+    [ "$(node_major)" -ge 22 ] || { echo "error: nvm did not provide Node >= 22." >&2; exit 1; }
     did "node 22 installed with nvm"
   else
     echo "error: Node >= 22 is required and nvm was not found." >&2
@@ -28,7 +32,8 @@ else
 fi
 
 # --- pnpm (version pinned by package.json "packageManager") -------------------
-PNPM_PINNED="$(node -p 'require("./package.json").packageManager.split("@")[1]')"
+# Strip any `+sha512.…` integrity suffix corepack may append.
+PNPM_PINNED="$(node -p 'require("./package.json").packageManager.split("@")[1].split("+")[0]')"
 if command -v pnpm >/dev/null 2>&1 && [ "$(pnpm --version)" = "$PNPM_PINNED" ]; then
   ok "pnpm $PNPM_PINNED"
 else

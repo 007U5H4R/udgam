@@ -9,28 +9,31 @@ if (typeof window !== 'undefined') {
 
 const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
 
-const schema = z
-  .object({
-    NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-    DATA_DIR: z.string().min(1).default('./data'),
-    DATABASE_URL: z.string().min(1).optional(),
-    LEDGER_KEY_PATH: z.string().min(1).optional(),
-    BETTER_AUTH_SECRET: z.string().min(32).optional(),
-    BETTER_AUTH_URL: z.string().min(1).optional(),
-    PUBLIC_BASE_URL: z.string().min(1).default('http://localhost:3000'),
-    REMOTE_SENSING_PROVIDER: z.enum(['fixture', 'live']).default('fixture'),
-    GFW_API_KEY: z.string().min(1).optional(),
-    CDSE_CLIENT_ID: z.string().min(1).optional(),
-    CDSE_CLIENT_SECRET: z.string().min(1).optional(),
-    MAP_TILE_PROVIDER: z.enum(['esri', 'maptiler']).default('esri'),
-    ARCGIS_API_KEY: z.string().min(1).optional(),
-    MAPTILER_KEY: z.string().min(1).optional(),
-    LEDGER_ADAPTER: z.enum(['hashchain', 'evm']).default('hashchain'),
-    ANVIL_RPC_URL: z.string().min(1).optional(),
-    EVM_OPERATOR_KEY_PATH: z.string().min(1).optional(),
-    LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
-    DEMO_MODE: z.enum(['0', '1']).default('0'),
-  })
+const base = z.object({
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  DATA_DIR: z.string().min(1).default('./data'),
+  DATABASE_URL: z.string().min(1).optional(),
+  LEDGER_KEY_PATH: z.string().min(1).optional(),
+  BETTER_AUTH_SECRET: z.string().min(32).optional(),
+  BETTER_AUTH_URL: z.string().min(1).optional(),
+  PUBLIC_BASE_URL: z.string().min(1).default('http://localhost:3000'),
+  REMOTE_SENSING_PROVIDER: z.enum(['fixture', 'live']).default('fixture'),
+  GFW_API_KEY: z.string().min(1).optional(),
+  CDSE_CLIENT_ID: z.string().min(1).optional(),
+  CDSE_CLIENT_SECRET: z.string().min(1).optional(),
+  MAP_TILE_PROVIDER: z.enum(['esri', 'maptiler']).default('esri'),
+  ARCGIS_API_KEY: z.string().min(1).optional(),
+  MAPTILER_KEY: z.string().min(1).optional(),
+  LEDGER_ADAPTER: z.enum(['hashchain', 'evm']).default('hashchain'),
+  ANVIL_RPC_URL: z.string().min(1).optional(),
+  EVM_OPERATOR_KEY_PATH: z.string().min(1).optional(),
+  LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
+  DEMO_MODE: z.enum(['0', '1']).default('0'),
+});
+
+const VARIABLE_NAMES = Object.keys(base.shape);
+
+const schema = base
   .superRefine((v, ctx) => {
     if (v.REMOTE_SENSING_PROVIDER === 'live') {
       for (const name of ['GFW_API_KEY', 'CDSE_CLIENT_ID', 'CDSE_CLIENT_SECRET'] as const) {
@@ -57,7 +60,7 @@ const schema = z
     LEDGER_KEY_PATH: v.LEDGER_KEY_PATH ?? `${v.DATA_DIR}/keys/ledger.jwk`,
   }));
 
-export type Env = z.output<typeof schema>;
+export type Env = Readonly<z.output<typeof schema>>;
 
 /**
  * Validate a variable source. Empty strings count as unset (a copied `.env.example` has `NAME=`).
@@ -76,13 +79,21 @@ export function loadEnv(src: Record<string, string | undefined>): Env {
 }
 
 let cached: Env | undefined;
+const readOnly = (): never => {
+  throw new Error('env is read-only');
+};
 
 /**
  * Parsed once, on first access, so `next build` (which imports route modules with
  * NODE_ENV=production and no secrets) does not fail. Any property read validates.
+ *
+ * The proxy is deliberately not enumerable: `Object.keys(env)`, `{ ...env }` and JSON.stringify
+ * never reveal values (`toJSON` returns the variable names only), so `log.info({ env })` cannot leak a
+ * secret. It is also read-only.
  */
 export const env: Env = new Proxy({} as Env, {
   get(_t, prop) {
+    if (prop === 'toJSON') return () => VARIABLE_NAMES;
     cached ??= loadEnv(process.env);
     return cached[prop as keyof Env];
   },
@@ -90,13 +101,7 @@ export const env: Env = new Proxy({} as Env, {
     cached ??= loadEnv(process.env);
     return prop in cached;
   },
-  ownKeys() {
-    cached ??= loadEnv(process.env);
-    return Reflect.ownKeys(cached);
-  },
-  getOwnPropertyDescriptor(_t, prop) {
-    cached ??= loadEnv(process.env);
-    const d = Object.getOwnPropertyDescriptor(cached, prop);
-    return d ? { ...d, configurable: true } : undefined;
-  },
+  set: readOnly,
+  defineProperty: readOnly,
+  deleteProperty: readOnly,
 });

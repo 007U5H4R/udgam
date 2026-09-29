@@ -12,6 +12,9 @@ beforeEach(async () => {
   vi.stubEnv('LOG_LEVEL', 'silent');
 });
 afterEach(async () => {
+  // Same module registry as the route's (no reset since beforeEach): close the singleton it opened.
+  (await import('../../../lib/db/client')).closeDb();
+  vi.doUnmock('../../../lib/log');
   vi.unstubAllEnvs();
   await t.cleanup();
 });
@@ -45,5 +48,17 @@ describe('GET /api/health (TC-001)', () => {
     expect(text).not.toContain(authCanary);
     expect(text).not.toContain(gfwCanary);
     expect(text).not.toContain(t.url);
+  });
+
+  it('answers 503 with db:error and a log line when the environment is invalid', async () => {
+    const error = vi.fn();
+    vi.doMock('../../../lib/log', () => ({ log: { error } }));
+    vi.stubEnv('REMOTE_SENSING_PROVIDER', 'not-a-provider');
+    const { GET } = await import('./route');
+    const res = await GET();
+    expect(res.status).toBe(503);
+    expect(((await res.json()) as { db: string }).db).toBe('error');
+    expect(error).toHaveBeenCalled();
+    expect(JSON.stringify(error.mock.calls)).not.toContain('not-a-provider');
   });
 });

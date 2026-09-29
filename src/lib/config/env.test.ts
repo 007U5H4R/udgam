@@ -135,3 +135,47 @@ describe('browser guard', () => {
     await expect(import('./env')).rejects.toThrow(/browser/);
   });
 });
+
+describe('env proxy', () => {
+  const canary = 'canary-'.repeat(6); // low-entropy on purpose: not scan bait
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  async function load() {
+    vi.resetModules();
+    vi.stubEnv('GFW_API_KEY', canary);
+    vi.stubEnv('BETTER_AUTH_SECRET', canary);
+    return (await import('./env')).env;
+  }
+
+  it('reads validated values', async () => {
+    const env = await load();
+    expect(env.GFW_API_KEY).toBe(canary);
+    expect(env.DATA_DIR).toBe('./data');
+  });
+
+  it('is read-only with a clear error', async () => {
+    const env = await load();
+    expect(() => {
+      (env as { LOG_LEVEL: string }).LOG_LEVEL = 'debug';
+    }).toThrow(/env is read-only/);
+    expect(() => {
+      delete (env as { LOG_LEVEL?: string }).LOG_LEVEL;
+    }).toThrow(/env is read-only/);
+    expect(() => Object.defineProperty(env, 'X', { value: 1 })).toThrow(/env is read-only/);
+    expect(env.LOG_LEVEL).toBe('info'); // reads still work after the failed writes
+  });
+
+  it('never reveals values through JSON.stringify, spread or key enumeration', async () => {
+    const env = await load();
+    expect(JSON.stringify(env)).not.toContain(canary);
+    expect(JSON.stringify(env)).toContain('GFW_API_KEY'); // names only
+    expect(JSON.stringify({ ...env })).not.toContain(canary);
+    expect(Object.keys(env)).toEqual([]);
+    expect(Object.values(env)).toEqual([]);
+    expect(JSON.stringify({ nested: env })).not.toContain(canary);
+  });
+});

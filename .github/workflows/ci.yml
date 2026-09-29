@@ -3,6 +3,7 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -30,19 +31,24 @@ jobs:
   secrets:
     name: secrets (gitleaks, full history)
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
+    env:
+      # Pinned release; the SHA-256 is from gitleaks_8.30.0_checksums.txt in the same release.
+      GITLEAKS_VERSION: 8.30.0
+      GITLEAKS_SHA256: 79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      # Reads .gitleaks.toml at the repo root (extends the default rules).
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Only organisation accounts need a licence: set the GITLEAKS_LICENSE repository secret.
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+      - name: Install pinned gitleaks
+        shell: bash
+        run: |
+          archive="$RUNNER_TEMP/gitleaks.tar.gz"
+          curl -sSfL -o "$archive" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  ${archive}" | sha256sum --check --strict
+          tar -xzf "$archive" -C "$RUNNER_TEMP" gitleaks
+      # Scans every commit reachable from the checkout, on every event (extends the default rules).
+      - name: Scan full history
+        run: '"$RUNNER_TEMP/gitleaks" git --redact --config .gitleaks.toml --exit-code 1 .'
 
   audit:
     name: audit (production dependencies)
@@ -79,6 +85,7 @@ jobs:
       - name: First run
         run: bash scripts/cloud-setup.sh
       - name: Second run (each step must report ok)
+        shell: bash
         run: |
           bash scripts/cloud-setup.sh | tee "$RUNNER_TEMP/second-run.log"
           if grep -q '^did:' "$RUNNER_TEMP/second-run.log"; then
