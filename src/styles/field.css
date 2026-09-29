@@ -37,6 +37,15 @@ a {
 html[lang='kn'] body {
   line-height: 1.6;
 }
+/* TSK-11.7: body text that sets its own tighter line-height keeps 1.6 in Kannada, and labels may wrap to
+   two lines (no fixed-height text boxes; the boxes keep their minimum heights). */
+:lang(kn) :is(p, li, .lede, .facts, .greet, .ev-t, .v-sub, .kg-hint, .r-why, .help-row, .caption) {
+  line-height: 1.6;
+}
+:lang(kn) :is(.tab, .textbtn, .chip, .vchip, .back, .eyebrow, .s-name, .s-state, .c-state, .r-date) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .ic {
   width: 24px;
   height: 24px;

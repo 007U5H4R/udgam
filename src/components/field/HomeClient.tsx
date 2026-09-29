@@ -3,14 +3,12 @@
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { setPref } from '../../client/db';
 import { getDevice } from '../../client/device-key';
 import { distanceToEdgeM } from '../../lib/geo/distance';
 import { locate } from '../../lib/geo/geofence';
 import type { PlotPolygon } from '../../lib/geo/types';
-import { LANG_COOKIE, t, type Lang } from '../../lib/i18n';
+import { t, type Lang } from '../../lib/i18n';
 import type { Verdict } from '../../lib/verification/types';
-import { LanguageSheet } from '../../app/(agent)/enrol/LanguageSheet';
 import { GlassCard } from '../ui/GlassCard';
 import { Pill } from '../ui/Pill';
 import { PlotMap } from '../ui/PlotSvg';
@@ -19,6 +17,7 @@ import { TabBar } from '../ui/TabBar';
 import { VerdictChip } from '../ui/VerdictChip';
 import { HelpSheet, type HelpInfo } from './HelpSheet';
 import { Ic } from './icons';
+import { LanguageChip } from './LanguageChip';
 import { Lit } from './Lit';
 import { PendingList } from './PendingRow';
 import { useGps } from './useGps';
@@ -30,8 +29,6 @@ import { useGps } from './useGps';
 
 export type HomePlotView = { id: string; name: string; farmerName: string; facts: string; geojson: PlotPolygon };
 export type HomeRow = { eventId: string; date: string; kg: string; verdict: Verdict | null };
-
-const YEAR_S = 365 * 24 * 3600;
 
 export function HomeClient({
   lang,
@@ -88,13 +85,6 @@ export function HomeClient({
     if (helpOpen) router.replace('/field'); // leave the /field/help deep link
   }
 
-  function chooseLang(next: Lang) {
-    document.cookie = `${LANG_COOKIE}=${next}; path=/; max-age=${YEAR_S}; samesite=lax`;
-    setPref('lang', next).catch(() => undefined);
-    setLangOpen(false);
-    router.refresh();
-  }
-
   return (
     <main className="screen has-tabs" aria-labelledby="s1-h">
       <header className="top">
@@ -102,10 +92,7 @@ export function HomeClient({
           <Image src="/brand/cherry.svg" alt="" width={40} height={40} unoptimized />
           {tr('app.name')}
         </span>
-        <button className="chip" type="button" aria-haspopup="dialog" aria-label={tr('lang.label')} onClick={() => setLangOpen(true)}>
-          <Ic name="globe" />
-          {lang === 'kn' ? <span lang="en">{t('lang.en')}</span> : <span lang="kn">{t('lang.kn')}</span>}
-        </button>
+        <LanguageChip lang={lang} open={langOpen} onOpenChange={setLangOpen} />
       </header>
       <p className="greet">
         {tr('home.greeting', { greet: greeting.text })}
@@ -203,7 +190,6 @@ export function HomeClient({
           setLangOpen(true);
         }}
       />
-      <LanguageSheet open={langOpen} current={lang} onChoose={chooseLang} />
     </main>
   );
 }

@@ -4,8 +4,11 @@ import type { MessageKey } from './en';
 // language sheet (TKT-05) and later from the switch (TKT-11).
 //
 // PENDING REVIEW: every entry below is marked `// REVIEW: native speaker` and must be checked by a
-// native Kannada speaker before release (Design.md §20 assumption). Admin surfaces (`rail.*`,
-// `phones.*`) are English only and fall back to en.ts.
+// native Kannada speaker before release (Design.md §20 assumption). That includes all of the capture
+// app's copy added by TKT-10 and TKT-11 (Home, the record flow, verdicts and farmer evidence lines,
+// refusals, the saved-on-phone sheet and rows, Pickings and a picking's detail, Help, and the language
+// sheet); none of it has been reviewed yet. Admin surfaces (`rail.*`, `phones.*`) are English only and
+// fall back to en.ts.
 
 /** Keys every farmer- and agent-facing language must carry (admin keys excluded). */
 export const isFieldKey = (k: string): boolean => !k.startsWith('rail.') && !k.startsWith('phones.');

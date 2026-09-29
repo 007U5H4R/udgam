@@ -92,7 +92,7 @@ test.describe('enrolment (TKT-05)', () => {
     await expect(page.getByRole('heading', { level: 1 })).toContainText('ಫೋನ್');
     await expect(languageSheet(page)).toBeHidden();
     await expect(page.locator('html')).toHaveAttribute('lang', 'kn');
-    expect((await page.context().cookies()).find((c) => c.name === 'lang')?.value).toBe('kn');
+    expect((await page.context().cookies()).find((c) => c.name === 'udgam_lang')?.value).toBe('kn');
     expect(await storedPref(page, 'lang')).toBe('kn');
   });
 
