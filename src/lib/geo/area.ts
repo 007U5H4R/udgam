@@ -2,10 +2,12 @@ import { area } from '@turf/turf';
 import { jcs, sha256Hex } from '../crypto';
 import type { PlotPolygon } from './types';
 
-// Plot area and identity (TSK-06.2, TC-027). The area is geodesic (@turf/area on the WGS84 ellipsoid
-// approximation) and always computed on the server from the geometry, never taken from a client.
+// Plot area and identity (TSK-06.2, TC-027). The area comes from @turf/area, which measures on a sphere
+// (radius 6 371 008.8 m), not on the WGS84 ellipsoid: at Kodagu's latitude (about 12.4°N) it reads about
+// 0.39 % above the ellipsoidal area (TC-027 allows 0.5 %). It is always computed on the server from the
+// geometry, never taken from a client.
 
-/** Geodesic area in hectares, not rounded. */
+/** Spherical area in hectares, not rounded. */
 export function areaHa(g: PlotPolygon): number {
   return area(g) / 10_000;
 }

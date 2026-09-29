@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import { GlassCard } from '../../../../components/ui/GlassCard';
 import { getDbReady } from '../../../../lib/db/client';
+import { userName } from '../../../../lib/enrolment/phones';
 import { listPlots } from '../../../../lib/plots/plots';
 import { requireSession } from '../../../_auth/require';
-import { loadList, PlotsScreen } from './PlotsScreen';
+import { adminName, loadList, PlotsScreen } from './PlotsScreen';
 import { forcedState } from './state';
 import s from './plots.module.css';
 
@@ -13,11 +14,12 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Plots · Udgam' };
 
 export default async function PlotsPage({ searchParams }: { searchParams: Promise<{ state?: string | string[] }> }) {
-  const { orgId } = await requireSession('admin');
+  const { orgId, userId } = await requireSession('admin');
   const forced = forcedState((await searchParams).state);
   const list = await loadList(forced, async () => listPlots(await getDbReady(), orgId));
+  const me = await adminName(async () => userName(await getDbReady(), userId));
   return (
-    <PlotsScreen list={list} detailOpen={false} primaryAdd>
+    <PlotsScreen me={me} list={list} detailOpen={false} primaryAdd>
       {list.state === 'working' ? (
         <GlassCard as="section" className={s.hint} aria-label="No plot chosen">
           <p>

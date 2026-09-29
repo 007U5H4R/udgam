@@ -18,6 +18,9 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["exifr"],
   // Plot uploads go through Server Actions and are capped at 2 MB by the action itself (TKT-06), so the
   // framework's 1 MB default must not refuse them first; 3 MB leaves room for the form's other fields.
+  // Next 16 has no per-action limit: this applies to EVERY Server Action (sign-in, phones, …), and the
+  // body is read before an action's guard runs. Accepted for the MVP; TKT-19 (Stage 10 SEC) revisits,
+  // e.g. by moving uploads to a route handler with its own streaming cap.
   experimental: {
     serverActions: { bodySizeLimit: "3mb" },
   },

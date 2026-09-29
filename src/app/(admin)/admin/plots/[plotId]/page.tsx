@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { GlassCard } from '../../../../../components/ui/GlassCard';
 import { PlotSvg } from '../../../../../components/ui/PlotSvg';
 import { getDbReady } from '../../../../../lib/db/client';
+import { userName } from '../../../../../lib/enrolment/phones';
 import { formatHa } from '../../../../../lib/geo/area';
 import { tileLayerConfig } from '../../../../../lib/geo/tiles';
 import { getPlot, listPlots } from '../../../../../lib/plots/plots';
@@ -10,7 +11,7 @@ import { requireSession, scopedById } from '../../../../_auth/require';
 import { CROP_TEXT, STATUS_TEXT } from '../copy';
 import { EditBoundary } from '../EditBoundary';
 import { Icon, StatusMark } from '../marks';
-import { loadList, PlotsScreen } from '../PlotsScreen';
+import { adminName, loadList, PlotsScreen } from '../PlotsScreen';
 import { forcedState } from '../state';
 import s from '../plots.module.css';
 
@@ -27,14 +28,15 @@ export default async function PlotPage({
   params: Promise<{ plotId: string }>;
   searchParams: Promise<{ state?: string | string[] }>;
 }) {
-  const { orgId } = await requireSession('admin');
+  const { orgId, userId } = await requireSession('admin');
   const { plotId } = await params;
   const db = await getDbReady();
   const plot = scopedById(await getPlot(db, orgId, plotId));
   const list = await loadList(forcedState((await searchParams).state), () => listPlots(db, orgId));
+  const me = await adminName(() => userName(db, userId));
   const area = formatHa(plot.areaHa);
   return (
-    <PlotsScreen list={list} selectedId={plot.id} detailOpen primaryAdd={false}>
+    <PlotsScreen me={me} list={list} selectedId={plot.id} detailOpen primaryAdd={false}>
       <header>
         <p className={s.eyebrow}>
           Farm {plot.farmerName} · {plot.producerId}
