@@ -10,6 +10,7 @@ import type { ReviewDetail as Detail } from '../../lib/review/detail';
 import { GlassCard } from '../ui/GlassCard';
 import { VerdictChip, VerdictMark, verdictWord } from '../ui/VerdictChip';
 import { ChecksCard } from './ChecksCard';
+import { DecideForm } from './DecideForm';
 import { Icon } from './QueueList';
 
 // The review detail (TSK-12.3), ported from final/admin.html lines 492–551: the title with the verdict
@@ -237,7 +238,16 @@ export function ReviewDetail({ d, next, adminName, now = new Date() }: { d: Deta
       </div>
 
       <div className="d-actions">
-        {reviewable ? null /* the decide form and "Check again" arrive with TSK-12.4/12.6 */ : d.locked === 'hard_fail' ? (
+        {reviewable ? (
+          <DecideForm
+            key={d.run.id}
+            runId={d.run.id}
+            adminName={adminName}
+            unavailable={d.unavailableChecks.map((id) => CHECK_NAME[id])}
+            next={next}
+            decided={d.decision}
+          />
+        ) : d.locked === 'hard_fail' ? (
           <LockedLine>
             This one can&apos;t be changed: {hard.map((c) => `“${CHECK_NAME[c.id]}”`).join(', ')} failed ({hard.map((c) => c.evidence).join('; ')}).
           </LockedLine>

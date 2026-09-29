@@ -35,12 +35,12 @@ export type ReviewCapture = { eventId: string; runId: string; payloadHash: strin
 
 /**
  * One accepted capture on the world's plot with `checks` as run 1 (verdict and score from score() unless
- * given). `media` are the photos' hashes (stored rows; the files need not exist).
+ * given). `media` are the photos' hashes (stored rows; the files need not exist unless a `path` is given).
  */
 export async function seedReviewCapture(
   db: Db,
   w: FpoWorld,
-  o: { checks: CheckResult[]; verdict?: Verdict; score?: number; kg?: number; crop?: Crop; receivedAt?: string; media?: { sha256: string; exif?: StoredMedia['exif'] }[] },
+  o: { checks: CheckResult[]; verdict?: Verdict; score?: number; kg?: number; crop?: Crop; receivedAt?: string; media?: { sha256: string; exif?: StoredMedia['exif']; path?: string }[] },
 ): Promise<ReviewCapture> {
   const crop = o.crop ?? 'arabica';
   const d = w.device;
@@ -69,7 +69,7 @@ export async function seedReviewCapture(
       signature,
       serverReceivedAt,
       device: { id: d.id, agentId: w.agentId, publicJwk: d.publicJwk, revokedAt: null, lastSeq: d.seq, lastEventHash: d.last === 'genesis' ? null : d.last },
-      media: media.map((m) => ({ sha256: m.sha256, size: 1000, mime: 'image/jpeg', path: `media/${m.sha256.slice(0, 2)}/${m.sha256}`, exif: m.exif ?? { gps: null, takenAt: null, hadOffset: false } })),
+      media: media.map((m) => ({ sha256: m.sha256, size: 1000, mime: 'image/jpeg', path: m.path ?? `media/${m.sha256.slice(0, 2)}/${m.sha256}`, exif: m.exif ?? { gps: null, takenAt: null, hadOffset: false } })),
       result: {
         verdict: o.verdict ?? s.verdict,
         score: o.score ?? s.score,
