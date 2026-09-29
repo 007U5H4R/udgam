@@ -9,10 +9,12 @@ import { Timeline, type TimelineStep } from '../../../../components/ui/Timeline'
 import { certCopy, istDay, istRange, istToday, kg1, kgShort } from '../../../../lib/certificate/copy';
 import { FEED_ELEMENT_ID, serializeFeedForEmbed } from '../../../../lib/certificate/embed';
 import { resolveDevState } from '../../../../lib/certificate/dev-state';
+import { tamperedFeed, tamperFromSearchParams } from '../../../../lib/certificate/test-mode';
 import { buildCertificateView, type CertificateView, type EntryVerdict } from '../../../../lib/certificate/view-model';
 import { env } from '../../../../lib/config/env';
 import { getDbReady } from '../../../../lib/db/client';
 import { resolveFeed } from '../../../../lib/ledger/feed';
+import { publishedKeys } from '../../../../lib/ledger/keys';
 import c from './certificate.module.css';
 import { OriginMap } from './OriginMap';
 import { PrintButton } from './PrintButton';
@@ -78,8 +80,11 @@ function entryRows(view: CertificateView): EntryRow[] {
 export default async function CertificatePage({ params, searchParams }: Props) {
   const { batchId } = await params;
   const sp = await searchParams;
-  const feed = await resolveFeed(await getDbReady(), batchId, first(sp.h));
-  if (!feed) notFound();
+  const genuine = await resolveFeed(await getDbReady(), batchId, first(sp.h));
+  if (!genuine) notFound();
+  // Test-only (E2E=1, never in a deployment): embed a forged copy so e2e can watch the browser catch it.
+  const tamper = tamperFromSearchParams(sp, env);
+  const feed = tamper ? await tamperedFeed(genuine, (await publishedKeys()).keys, tamper) : genuine;
   const view = buildCertificateView(feed);
   const window = view.harvestWindow ? istRange(view.harvestWindow.from, view.harvestWindow.to) : null;
 
