@@ -397,3 +397,19 @@
 - **Consequences, stated in every eval report:** the S3 reference condition keeps its placeholders (3 × 4 MB photos, 10/5 Mbit/s, 80 ms) as assumptions, not measurements. The legitimate set's GPS-accuracy, EXIF-presence and EXIF-time jitter uses the values already in the dataset, not field data. S2 realism is therefore an unvalidated assumption.
 - The five manual demo-phone S3 runs (EV9) and the midday sunlight test are **not** waived.
 **Rejected.** Stock photos (licence terms and the Design.md anti-reference); leaving the seed without photos (the capture flow and admin review need them).
+
+## EXE1 · Owner waiver: Stage 7 runs through every phase gate and the M-001 gate without stopping — accepted (owner, 2026-09-29)
+**Context.** CLAUDE.md and technical-plan §21.2 stop the cloud session after each §20 phase and at the M-001 gate for owner approval.
+**Decision.** On 2026-09-29, in the Stage 7 cloud session, the owner waived these stops. The session completes M-001 (P1–P9, including TKT-30 = TASK-31) and then M-002 (TKT-22 spike, TKT-23 design addendum, TKT-24, TKT-25, TKT-26) without waiting. Every quality gate still runs: per-task TDD with a spec-compliance review and a code-quality review; per phase `pnpm typecheck && pnpm lint && pnpm test`, `pnpm eval` (from P3) and `pnpm test:e2e` (UI phases), plus an independent QA pass. Each gate report is written to `docs/exec/ledger.md`, and `build/stage7` is pushed after each phase. The TKT-23 addendum is recorded as a D# decision "approved under the owner's blanket waiver, pending owner review at Stage 8". M-003 (TKT-27–29) is out of scope: it needs an Oracle instance, a domain and provider keys, and it follows the Stage 10 gate. Owner review items HR1, HR2 and HR6 are prepared in `docs/exec/` without waiting for them. A fix loop that hits its cap writes a `BLOCKED` ledger row, and work moves to the next unblocked ticket. Unchanged: no threshold, weight, expected verdict or case class is lowered, `cfg-1` is not moved after baseline-v1, no Design Freeze item changes, `backlog/` is not edited, and no secret is printed.
+**Rejected.** Stopping at each gate as CLAUDE.md prescribes, which the owner overrode for this session.
+
+## EXE2 · TKT-01 toolchain adjustments for pnpm 12 and the cloud VM — accepted
+**Context.** Implementing TKT-01 (TASK-2) in the claude.ai/code VM surfaced tool behaviour the plan did not anticipate.
+**Decision.**
+- **pnpm.** `packageManager` is `pnpm@12.6.0` (the corepack default). A `pnpm-workspace.yaml` lists `allowBuilds` for esbuild, sharp and unrs-resolver, set to `false`, because pnpm 12 refuses to install with unreviewed build scripts. All three ship prebuilt binaries.
+- **Playwright.** `@playwright/test` 1.63.0 expects Chromium revision 1243; the VM ships 1194 at `/opt/pw-browsers`. `playwright.config.ts` uses `PW_CHROMIUM_PATH`, else `/opt/pw-browsers/chromium` when it exists outside CI, else Playwright's own browser. `playwright install` is never run in the VM; CI installs normally.
+- **Playwright webServer.** Uses `next start` directly, because `pnpm start` under pnpm 12 outlives Playwright's teardown.
+- **Env and logger are lazy.** They are parsed on first use, so `next build` succeeds without production secrets. The `window` guard stays eager.
+- **`.gitleaks.toml`.** Uses a path-scoped `[allowlist]` (older-gitleaks syntax) instead of the plan's path+rule form.
+- **Build-time injection.** `commit` in `/api/health` comes from `git rev-parse --short HEAD` at build.
+**Rejected.** Downgrading `@playwright/test` to match the VM's Chromium, because the §0 pins stay.
