@@ -2,18 +2,15 @@
 
 import type { VerdictView } from '../../client/capture-client';
 import { t, type Lang, type MessageKey } from '../../lib/i18n';
-import { farmerLines, refusalCopy, retryWait, type FarmerLine } from '../../lib/i18n/farmer-evidence';
+import { farmerLines, refusalCopy, type FarmerLine } from '../../lib/i18n/farmer-evidence';
 import { EvidenceList } from '../ui/EvidenceList';
-import { Pill } from '../ui/Pill';
-import { Sheet } from '../ui/Sheet';
 import { VerdictChip } from '../ui/VerdictChip';
 import { VerdictScreen } from '../ui/VerdictScreen';
-import { Ic } from './icons';
 import { streamedResult } from './verdict-result';
 
 // The verdict step (TSK-10.11): Verified (#s5), Needs a check (#s6) and Not accepted (the D5 template)
-// on one VerdictScreen, with the farmer copy layer's evidence lines; and the "saved on this phone"
-// state when the send could not finish (the amber sheet of #s7; TKT-11 grows it into the full retry).
+// on one VerdictScreen, with the farmer copy layer's evidence lines. "Couldn't send" (#s7) is
+// SavedSheet (TKT-11).
 
 function Kg({ kg }: { kg: string }) {
   return <b>{kg}</b>;
@@ -109,57 +106,5 @@ export function VerdictStep({
     >
       <EvidenceList tone="bad" label={tr('v.evidence.bad')} lines={lines} />
     </VerdictScreen>
-  );
-}
-
-/**
- * Could not send (#s7): the amber sheet over the weight screen says what happened and that nothing is
- * lost, with Try again (the identical saved copy) and Try later. A 429 or a busy 503 also says how long
- * to wait (its Retry-After), in plain words.
- */
-export function SavedStep({
-  cause,
-  reason,
-  retryAfterSec,
-  lang,
-  photos,
-  kg,
-  onRetry,
-  onLater,
-}: {
-  cause: 'offline' | 'server';
-  reason?: string;
-  retryAfterSec?: number;
-  lang: Lang;
-  photos: number;
-  kg: number;
-  onRetry: () => void;
-  onLater: () => void;
-}) {
-  const tr = (k: MessageKey, v: Record<string, string | number> = {}) => t(k, v, lang);
-  const refusal = reason && reason !== 'no_fix' ? refusalCopy(reason, lang, { retryAfterSec }) : null;
-  const title = refusal ? refusal.happened : reason === 'no_fix' ? tr('rec.noFix') : tr(cause === 'offline' ? 'rec.saved.offline' : 'rec.saved.server');
-  const body =
-    reason === 'no_fix'
-      ? null
-      : tr('rec.saved.body', { photos: photos === 1 ? tr('rec.photos1') : tr('rec.photosN', { n: photos }), kg: tr('v.kg', { kg }) });
-  return (
-    <main className="screen" aria-labelledby="saved-h">
-      <h1 className="vh">{title}</h1>
-      <Sheet open onClose={onLater} labelledBy="saved-h2" tone="amber" testId="saved-sheet">
-        <h2 id="saved-h2">{title}</h2>
-        {refusal ? <p>{refusal.todo}</p> : null}
-        {body ? <p>{body}</p> : null}
-        {/* A busy server's Retry-After (503); a 429's wait is in the rate_limited copy above. */}
-        {!refusal && retryAfterSec !== undefined ? <p data-testid="saved-wait">{retryWait(retryAfterSec, lang)}</p> : null}
-        <Pill variant="amber" icon={<Ic name="retry" />} onClick={onRetry}>
-          {tr('rec.saved.retry')}
-        </Pill>
-        <button className="textbtn" type="button" onClick={onLater}>
-          <Ic name="clock" />
-          {tr('rec.saved.later')}
-        </button>
-      </Sheet>
-    </main>
   );
 }

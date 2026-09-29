@@ -1100,8 +1100,147 @@ html[lang='kn'] body {
   }
 }
 
+/* ── s7 Couldn't send · amber sheet over dimmed weight (TKT-11, index.html lines 244–254) ── */
+.s7 {
+  overflow: hidden;
+}
+.under {
+  position: absolute;
+  inset: 0;
+  padding: 0 var(--pad);
+  display: flex;
+  flex-direction: column;
+  opacity: 0.5;
+  filter: saturate(0.7);
+  pointer-events: none;
+}
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 5, 4, 0.55);
+  z-index: 3;
+}
+.sheet-panel {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 4;
+  padding: 12px 22px calc(22px + env(safe-area-inset-bottom));
+  border-radius: 34px;
+  text-align: center;
+  background:
+    linear-gradient(180deg, rgba(242, 184, 75, 0.3), rgba(242, 184, 75, 0.1) 42%, rgba(242, 184, 75, 0.04)),
+    rgba(24, 22, 18, 0.88);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 214, 150, 0.2);
+  box-shadow:
+    0 -10px 60px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 230, 180, 0.14);
+}
+/* The mockup's global .grabber; the Sheet component carries its own copy. */
+.sheet-panel .grabber {
+  width: 40px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+  margin: 0 auto 18px;
+}
+.sheet-ic {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 203, 107, 0.55);
+  background: rgba(242, 184, 75, 0.12);
+  color: var(--check-ink);
+  box-shadow: 0 0 30px rgba(242, 184, 75, 0.25);
+}
+.sheet-ic .ic {
+  width: 32px;
+  height: 32px;
+}
+.sheet-panel .h1 {
+  font-size: clamp(26px, 7vw, 30px);
+}
+.sheet-panel p {
+  margin-top: 8px;
+}
+.sheet-panel .pill {
+  margin-top: 22px;
+}
+.sheet-panel .textbtn {
+  margin-top: 6px;
+  width: 100%;
+}
+
+/* ── s8 Pickings list (TKT-11, index.html lines 257–265) ── */
+.month {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 10px 0 12px;
+}
+.month h2 {
+  font-size: 21px;
+  font-weight: 700;
+}
+.month span {
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.row.tall {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.row .r-why {
+  flex-basis: 100%;
+  margin-top: -2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+  color: var(--ink);
+}
+.row .r-why details {
+  margin-top: 4px;
+}
+.row .r-why summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  color: #b9f5d2;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+  list-style: none;
+  border-radius: 8px;
+}
+.row .r-why summary::-webkit-details-marker {
+  display: none;
+}
+.row .r-why details p {
+  padding-bottom: 4px;
+}
+
+/* ── Help sheet rows (TKT-11, index.html lines 283–284) ── */
+.help-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 4px 2px;
+}
+.help-row .ic {
+  margin-top: 2px;
+  color: #b9f5d2;
+}
+
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .tabbar {
+  .tabbar,
+  .sheet-panel {
     background: #1b201d !important;
   }
 }

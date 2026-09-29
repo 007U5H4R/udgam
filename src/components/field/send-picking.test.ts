@@ -76,12 +76,12 @@ describe('sendPicking + settleAction', () => {
     expect(held.current).toBeNull();
   });
 
-  it('429 → the saved screen with reason rate_limited and the wait; a busy 503 → saved with its wait', async () => {
+  it('429 → the saved screen with reason rate_limited and the wait the phone will use (≤ 60 s); a busy 503 → saved with its wait', async () => {
     const held: HeldCopy = { current: null };
     const limited = await sendPicking(held, draft, {
       fetchImpl: async () => new Response(nd({ t: 'rejected', reason: 'rate_limited', status: 429, retryAfterSec: 120 }), { status: 429, headers: { 'Retry-After': '120' } }),
     });
-    expect(reduce(checking(), settleAction(limited))).toMatchObject({ step: 'saved', error: { kind: 'server', reason: 'rate_limited', retryAfterSec: 120 } });
+    expect(reduce(checking(), settleAction(limited))).toMatchObject({ step: 'saved', error: { kind: 'server', reason: 'rate_limited', retryAfterSec: 60 } });
     expect(held.current).not.toBeNull();
     const busy = await sendPicking({ current: null }, draft, { fetchImpl: async () => new Response(nd({ t: 'error', retryable: true }), { status: 503, headers: { 'Retry-After': '5' } }) });
     expect(settleAction(busy)).toEqual({ type: 'fail', kind: 'server', retryAfterSec: 5 });
@@ -94,6 +94,14 @@ describe('sendPicking + settleAction', () => {
     expect(held.current).toBeNull();
     const auth = await sendPicking(held, draft, { fetchImpl: async () => Response.json({ error: 'unauthenticated' }, { status: 401 }) });
     expect(settleAction(auth)).toEqual({ type: 'fail', kind: 'server', reason: 'unauthenticated' });
+    expect(held.current).not.toBeNull();
+  });
+
+  it.each(['forbidden', 'device_not_owned', 'length_required'])('TKT-11: %s → the saved screen naming it, and the copy is kept to retry after signing in again', async (reason) => {
+    const held: HeldCopy = { current: null };
+    const body = reason === 'forbidden' ? JSON.stringify({ error: reason }) : nd({ t: 'rejected', reason, status: reason === 'length_required' ? 411 : 403 });
+    const r = await sendPicking(held, draft, { fetchImpl: async () => new Response(body, { status: reason === 'length_required' ? 411 : 403 }) });
+    expect(reduce(checking(), settleAction(r))).toMatchObject({ step: 'saved', error: { kind: 'server', reason } });
     expect(held.current).not.toBeNull();
   });
 

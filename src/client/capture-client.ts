@@ -75,11 +75,18 @@ const APP_REFUSAL: Record<AppRefusal, true> = {
 };
 const isAppRefusal = (reason: unknown): reason is AppRefusal => typeof reason === 'string' && Object.hasOwn(APP_REFUSAL, reason);
 
+/** The longest a phone waits on a server's Retry-After before it sends an outbox copy again (N6). */
+export const MAX_RETRY_WAIT_SEC = 60;
+
+/**
+ * A 429: retry later. The wait is capped at MAX_RETRY_WAIT_SEC, the longest the phone will actually
+ * wait before sending again, so the saved screen never promises a longer wait than it keeps (TKT-11).
+ */
 const rateLimited = (retryAfterSec: number | undefined): SendResult => ({
   kind: 'retryable',
   cause: 'server',
   reason: 'rate_limited',
-  ...(retryAfterSec !== undefined ? { retryAfterSec } : {}),
+  ...(retryAfterSec !== undefined ? { retryAfterSec: Math.min(retryAfterSec, MAX_RETRY_WAIT_SEC) } : {}),
 });
 
 /** A terminal line's outcome, or null for a check line / anything the app did not send. */
@@ -102,9 +109,6 @@ function outcome(line: Line): SendResult | null {
       return null;
   }
 }
-
-/** The longest a phone waits on a server's Retry-After before it sends an outbox copy again (N6). */
-export const MAX_RETRY_WAIT_SEC = 60;
 
 /** A Retry-After header in whole seconds (the delay form), or undefined when absent or not positive. */
 function retryAfter(res: Response): number | undefined {

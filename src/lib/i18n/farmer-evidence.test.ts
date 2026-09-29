@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEMO_DATA_SUFFIX, evidence, sourced } from '../verification/evidence';
 import type { CheckId, CheckResult, CheckStatus, Verdict, VerifyResult } from '../verification/types';
 import { en } from './en';
-import { farmerLines, FIXTURE_MARK, refusalCopy, retryWait } from './farmer-evidence';
+import { farmerLines, FIXTURE_MARK, refusalCopy, refusalKeepsOutbox, retryWait } from './farmer-evidence';
 import { kn } from './kn';
 
 // TSK-10.1: the farmer copy layer. The verifier's evidence sentences are rewritten in plain words for
@@ -229,6 +229,26 @@ describe('refusalCopy', () => {
       expect(`${c.happened} ${c.todo}`, reason).not.toMatch(FORBIDDEN);
       expect(refusalCopy(reason, 'kn', { retryAfterSec: 120 }).happened.length).toBeGreaterThan(0);
     }
+  });
+
+  it('TKT-11: forbidden, device_not_owned and length_required keep the picking and say to sign in again or try again', () => {
+    expect(refusalCopy('forbidden', 'en')).toEqual({
+      happened: 'You are signed in with an account that cannot send pickings.',
+      todo: 'Sign in with your field account, then try again.',
+      nothingLost: true,
+    });
+    expect(refusalCopy('device_not_owned', 'en')).toEqual({
+      happened: 'This phone is set up for another person.',
+      todo: 'Sign in with your own account, then try again. Or ask the office to set up this phone for you.',
+      nothingLost: true,
+    });
+    expect(refusalCopy('length_required', 'en')).toEqual({
+      happened: 'The picking could not be sent in one piece.',
+      todo: 'Try again. If it happens again, tell the office.',
+      nothingLost: true,
+    });
+    for (const r of ['forbidden', 'device_not_owned', 'length_required', 'rate_limited', 'unauthenticated']) expect(refusalKeepsOutbox(r), r).toBe(true);
+    for (const r of ['plot_not_assigned', 'device_revoked', 'unknown_device', 'bad_signature', 'media_hash_mismatch']) expect(refusalKeepsOutbox(r), r).toBe(false);
   });
 
   it('rate_limited says how long to wait, in whole minutes, and that nothing is lost', () => {

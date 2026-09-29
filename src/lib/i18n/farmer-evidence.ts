@@ -193,11 +193,17 @@ const REFUSALS = [
   'bad_form',
   'rate_limited',
   'unauthenticated',
+  'forbidden',
 ] as const;
 type Refusal = (typeof REFUSALS)[number];
 
-/** Refusals that retrying can fix, so the signed picking stays saved on the phone. */
-const KEEPS_OUTBOX: ReadonlySet<string> = new Set<Refusal>(['rate_limited', 'unauthenticated']);
+/**
+ * Refusals that retrying can fix, so the signed picking stays saved on the phone. `forbidden` and
+ * `device_not_owned` depend on who is signed in (everyone who signs in on this phone shares its store),
+ * so they are "retry after signing in again"; `length_required` (411) comes from a proxy that dropped
+ * the length, not from the picking (TKT-11, candidate EXE).
+ */
+const KEEPS_OUTBOX: ReadonlySet<string> = new Set<Refusal>(['rate_limited', 'unauthenticated', 'forbidden', 'device_not_owned', 'length_required']);
 
 export type RefusalCopy = { happened: string; todo: string; nothingLost: boolean };
 
