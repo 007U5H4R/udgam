@@ -3,3 +3,13 @@
 export { jcs } from './jcs';
 export { sha256Hex, sha256Bytes, utf8, toArrayBufferView, bytesToHex, hexToBytes } from './hash';
 export { b64uEncode, b64uDecode } from './base64url';
+export {
+  generateKeyPair,
+  generateDeviceKey,
+  importPublicJwk,
+  publicMembers,
+  sign,
+  verify,
+  jwkThumbprint,
+  type PublicJwk,
+} from './ecdsa';

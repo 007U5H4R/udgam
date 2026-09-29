@@ -199,5 +199,42 @@
       "canonical": "{\"capturedAt\":\"2026-10-14T04:12:33.120Z\",\"cherryKg\":42.5,\"deviceId\":\"DV-7K2M9Q4D\",\"gps\":{\"accuracyM\":8.3,\"lat\":12.4210987,\"lng\":75.7391234},\"media\":[{\"mime\":\"image/jpeg\",\"sha256\":\"9f2c6b1e5a3d4c7b8e9f0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f\",\"size\":48213}],\"plotId\":\"PL-P01\",\"prevEventHash\":\"genesis\",\"seq\":1,\"v\":1}",
       "sha256": "035b15d6c247dee4ff581cf1344db51161aa54762329668a41dde7be50e7b780"
     }
-  ]
+  ],
+  "ecdsa": {
+    "note": "Node-made P-256 key pair (node:crypto). Signatures are IEEE P1363 (r||s, 64 bytes), base64url without padding, over the UTF-8 bytes of the canonical string. The private JWK is TEST-ONLY and deliberately public.",
+    "publicJwk": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "y-aD066MRer52z_3IBvHq2CsM_gkLosHnRpFaS6Rs5Y",
+      "y": "chBS9fvnd867BA2O-hw3BfLrIJz5AJWA59PNeVe8mp8"
+    },
+    "testOnlyPrivateJwk": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "y-aD066MRer52z_3IBvHq2CsM_gkLosHnRpFaS6Rs5Y",
+      "y": "chBS9fvnd867BA2O-hw3BfLrIJz5AJWA59PNeVe8mp8",
+      "d": "ZcqAWOFDheirlHzntpH2Ic-YxuW3xjcxZIY8Q13rQxc"
+    },
+    "thumbprint": {
+      "input": "{\"crv\":\"P-256\",\"kty\":\"EC\",\"x\":\"y-aD066MRer52z_3IBvHq2CsM_gkLosHnRpFaS6Rs5Y\",\"y\":\"chBS9fvnd867BA2O-hw3BfLrIJz5AJWA59PNeVe8mp8\"}",
+      "sha256B64u": "G06HMe6j2AyMlwz10N0CpMM4uZHO6DlStqMgOqUZY_o"
+    },
+    "signatures": [
+      {
+        "name": "capture-payload-permuted",
+        "message": "{\"capturedAt\":\"2026-10-14T04:12:33.120Z\",\"cherryKg\":42.5,\"deviceId\":\"DV-7K2M9Q4D\",\"gps\":{\"accuracyM\":8.3,\"lat\":12.4210987,\"lng\":75.7391234},\"media\":[{\"mime\":\"image/jpeg\",\"sha256\":\"9f2c6b1e5a3d4c7b8e9f0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f\",\"size\":48213}],\"plotId\":\"PL-P01\",\"prevEventHash\":\"genesis\",\"seq\":1,\"v\":1}",
+        "signature": "2S5QZmZMY2Gy6t8BJTiS3P8sy4lfi5mMWotydA9KuGdiX6FDh5cvqaOgM5b26XcAtJxsRtdXbVTDtyLcqcXaHA"
+      },
+      {
+        "name": "rfc8785-3.2.3-sorting-utf16",
+        "message": "{\"\\r\":\"Carriage Return\",\"1\":\"One\",\"\":\"Control\",\"ö\":\"Latin Small Letter O With Diaeresis\",\"€\":\"Euro Sign\",\"😀\":\"Emoji: Grinning Face\",\"דּ\":\"Hebrew Letter Dalet With Dagesh\"}",
+        "signature": "ZdRHdM3Nxix9vmXw3Sim9kBt9vS41mpmpJatlNjeIoUxt3ewRtc-WxULdf0q954IM2OsrafEMS5kCtYbW4vykg"
+      },
+      {
+        "name": "emoji-and-names",
+        "message": "{\"emoji\":\"😀☕\",\"name\":\"Kāveri Devaiah\"}",
+        "signature": "J_0Get2yFD2INXYfyfRITgje-y3KtufQWipyrJJ9MY3UDB5lsumfBwlXrH3GlQVtXDpBAR4SFAc42UJVgFgacg"
+      }
+    ]
+  }
 }
