@@ -120,7 +120,7 @@ describe('checkpoints (TC-062)', () => {
     await expect(t.client.execute(`UPDATE ledger_checkpoints SET merkle_root = '${'0'.repeat(64)}' WHERE id = 1`)).rejects.toThrow(/append-only/);
     await expect(t.client.execute('DELETE FROM ledger_checkpoints WHERE id = 1')).rejects.toThrow(/append-only/);
     const triggers = await t.client.execute(`SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'ledger_checkpoints' ORDER BY name`);
-    expect(triggers.rows.map((r) => r.name)).toEqual(['ledger_checkpoints_no_delete', 'ledger_checkpoints_no_update']);
+    expect(triggers.rows.map((r) => r.name)).toEqual(['ledger_checkpoints_no_delete', 'ledger_checkpoints_no_replace', 'ledger_checkpoints_no_update']);
   });
 
   it('checkpointIfNeeded on an empty ledger creates nothing', async () => {

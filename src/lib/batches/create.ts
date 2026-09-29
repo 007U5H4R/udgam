@@ -24,6 +24,21 @@ export class BatchError extends Error {
 }
 
 export type CreateBatchInput = { orgId: string; adminId: string; crop: Crop; eventIds: string[] };
+
+/** Event ids are `HE-` + 12 base32; anything much longer is not one of ours. */
+export const MAX_EVENT_ID_LENGTH = 64;
+
+/** Kilograms in whole half-kg units, or null when not a multiple of 0.5 kg (the capture rule). */
+const halfKg = (kg: number): number | null => (Number.isSafeInteger(kg * 2) ? kg * 2 : null);
+
+/**
+ * A database refusal of a member insert (UNIQUE event_id or a membership trigger). Inside one process
+ * writeTx serialises creation; this is another process having batched a picking after our read.
+ */
+const isMembershipRefusal = (err: unknown): boolean =>
+  /UNIQUE constraint failed: batch_events\.event_id|batch member|batch is locked|batch not found/.test(
+    err instanceof Error ? `${err.message} ${String((err as { cause?: unknown }).cause ?? '')}` : '',
+  );
 export type CreatedBatch = { batchId: string; shortHash: string; anchorSeq: number; quantityKg: number; integrityScore: number };
 
 /**
@@ -36,6 +51,7 @@ export async function createBatch(db: Db, input: CreateBatchInput, now: () => Da
   const { orgId, adminId, crop } = input;
   const eventIds = [...new Set(input.eventIds)];
   if (eventIds.length === 0) throw new BatchError('empty');
+  if (eventIds.some((id) => id.length > MAX_EVENT_ID_LENGTH)) throw new BatchError('not_eligible');
   // Load (or create) the admin's key before taking the write lock.
   await getUserPublicKey(adminId);
 
@@ -45,7 +61,13 @@ export async function createBatch(db: Db, input: CreateBatchInput, now: () => Da
     if (rows.some((r) => r.crop !== crop)) throw new BatchError('mixed_crop');
 
     const members = rows.sort((a, b) => (a.eventId < b.eventId ? -1 : a.eventId > b.eventId ? 1 : 0));
-    const quantityKg = members.reduce((sum, m) => sum + m.cherryKg, 0);
+    // Sum in whole half-kg units, so the anchored total is exact and compares exactly with SQLite's
+    // SUM (which uses compensated summation and can differ from a naive float sum). Captures are
+    // multiples of 0.5 kg (capture/payload.ts); anything else cannot go in a batch.
+    const halves = members.map((m) => halfKg(m.cherryKg));
+    if (halves.some((h) => h === null)) throw new BatchError('not_eligible');
+    const totalHalves = halves.reduce<number>((sum, h) => sum + h!, 0);
+    const quantityKg = totalHalves / 2;
     const integrityScore = Math.min(...members.map((m) => m.score));
     const batchId = newId('B-');
     const ts = now().toISOString();
@@ -65,10 +87,15 @@ export async function createBatch(db: Db, input: CreateBatchInput, now: () => Da
     const shortHash = shortHashOf(anchor.entryHash);
 
     await tx.insert(batches).values({ id: batchId, orgId, crop, shortHash, anchorSeq: anchor.seq, createdAt: ts });
-    await tx.insert(batchEvents).values(members.map((m) => ({ batchId, eventId: m.eventId })));
+    try {
+      await tx.insert(batchEvents).values(members.map((m) => ({ batchId, eventId: m.eventId })));
+    } catch (err) {
+      if (isMembershipRefusal(err)) throw new BatchError('not_eligible'); // rolls everything back
+      throw err;
+    }
 
     const [row] = await tx.select({ quantityKg: batches.quantityKg, integrityScore: batches.integrityScore }).from(batches).where(eq(batches.id, batchId));
-    if (row?.quantityKg !== quantityKg || row.integrityScore !== integrityScore) {
+    if (!row || Math.round(row.quantityKg * 2) !== totalHalves || row.integrityScore !== integrityScore) {
       throw new Error('createBatch: the database aggregates differ from the anchored statement');
     }
     return { batchId, shortHash, anchorSeq: anchor.seq, quantityKg, integrityScore };

@@ -1,4 +1,4 @@
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { Writable } from 'node:stream';
@@ -117,6 +117,22 @@ describe('signAsUser (TP15)', () => {
       await expect(signAsUser(bad, 'm'), bad).rejects.toThrow(/user id/);
       await expect(getUserPublicKey(bad), bad).rejects.toThrow(/user id/);
     }
+  });
+
+  it('tightens a looser key file and directory to 0600 / 0700 on load, with a warning (fix round 1)', async () => {
+    const first = await (await mod()).signAsUser('USR-ADMIN-1', 'm');
+    chmodSync(keyFile('USR-ADMIN-1'), 0o644);
+    chmodSync(dirname(keyFile('USR-ADMIN-1')), 0o755);
+    vi.resetModules();
+    lines.length = 0;
+    const again = await (await mod()).signAsUser('USR-ADMIN-1', 'm');
+    expect(again.kid).toBe(first.kid);
+    expect(statSync(keyFile('USR-ADMIN-1')).mode & 0o777).toBe(0o600);
+    expect(statSync(dirname(keyFile('USR-ADMIN-1'))).mode & 0o777).toBe(0o700);
+    const text = lines.join('');
+    expect(text).toContain('auth.signing_key_mode_tightened');
+    expect(text).toContain('auth.signing_key_dir_mode_tightened');
+    expect(text).not.toContain('"d":');
   });
 
   it('refuses a key file that is not a P-256 private JWK', async () => {

@@ -49,7 +49,8 @@ async function expectCode(p: Promise<unknown>, code: string) {
 describe('createBatch', () => {
   it('three Verified arabica pickings → one batch with Σ kg and the minimum score, anchored and signed', async () => {
     const caps = [await seedCapture(t.db, w, { kg: 40, score: 91.5 }), await seedCapture(t.db, w, { kg: 42.5, score: 84 }), await seedCapture(t.db, w, { kg: 46, score: 97 })];
-    const out = await createBatch(t.db, { orgId: w.orgId, adminId: w.adminId, crop: 'arabica', eventIds: caps.map((c) => c.eventId) });
+    const now = () => new Date('2026-10-01T05:30:00.000Z');
+    const out = await createBatch(t.db, { orgId: w.orgId, adminId: w.adminId, crop: 'arabica', eventIds: caps.map((c) => c.eventId) }, now);
 
     expect(out.batchId).toMatch(/^B-[0-9A-HJKMNP-TV-Z]{8}$/);
     expect(out.quantityKg).toBe(128.5);
@@ -69,7 +70,7 @@ describe('createBatch', () => {
       quantityKg: 128.5,
       integrityScore: 84,
       adminId: w.adminId,
-      ts: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/),
+      ts: '2026-10-01T05:30:00.000Z',
       kid: expect.any(String),
       publicJwk: expect.any(Object),
       signature: expect.any(String),
@@ -82,7 +83,7 @@ describe('createBatch', () => {
     expect(await verify(admin.publicJwk, payloadStatement(payload), payload.signature as string)).toBe(true);
 
     const [row] = await t.db.select().from(batches);
-    expect(row).toMatchObject({ id: out.batchId, orgId: w.orgId, crop: 'arabica', status: 'open', quantityKg: 128.5, integrityScore: 84, shortHash: out.shortHash, anchorSeq: out.anchorSeq });
+    expect(row).toMatchObject({ id: out.batchId, orgId: w.orgId, crop: 'arabica', status: 'open', quantityKg: 128.5, integrityScore: 84, shortHash: out.shortHash, anchorSeq: out.anchorSeq, createdAt: '2026-10-01T05:30:00.000Z' });
     expect((await t.db.select().from(batchEvents)).map((m) => m.eventId).sort()).toEqual(sorted.map((c) => c.eventId));
   });
 
@@ -129,6 +130,25 @@ describe('createBatch', () => {
     const a = await seedCapture(t.db, w, { kg: 40 });
     const out = await createBatch(t.db, { orgId: w.orgId, adminId: w.adminId, crop: 'arabica', eventIds: [a.eventId, a.eventId] });
     expect(out.quantityKg).toBe(40);
+  });
+
+  it('an over-long event id is refused (not dropped), with nothing persisted (fix round 1)', async () => {
+    const a = await seedCapture(t.db, w, { kg: 40 });
+    const before = await counts();
+    await expectCode(createBatch(t.db, { orgId: w.orgId, adminId: w.adminId, crop: 'arabica', eventIds: [a.eventId, 'HE-'.padEnd(65, 'X')] }), 'not_eligible');
+    expect(await counts()).toEqual(before);
+  });
+
+  it('kilograms are summed exactly in half-kg units; a picking that is not a multiple of 0.5 kg cannot go in a batch (fix round 1)', async () => {
+    // 0.5-kg steps are the capture rule (capture/payload.ts); a JS float sum of such values is exact
+    const halves = [await seedCapture(t.db, w, { kg: 0.5 }), await seedCapture(t.db, w, { kg: 20.5 }), await seedCapture(t.db, w, { kg: 147 })];
+    const out = await createBatch(t.db, { orgId: w.orgId, adminId: w.adminId, crop: 'arabica', eventIds: halves.map((c) => c.eventId) });
+    expect(out.quantityKg).toBe(168);
+    // written outside the capture boundary: 73.8 + 33.1 + 61.2 sums differently in JS and SQLite
+    const odd = [await seedCapture(t.db, w, { kg: 73.8 }), await seedCapture(t.db, w, { kg: 33.1 }), await seedCapture(t.db, w, { kg: 61.2 })];
+    const before = await counts();
+    await expectCode(createBatch(t.db, { orgId: w.orgId, adminId: w.adminId, crop: 'arabica', eventIds: odd.map((c) => c.eventId) }), 'not_eligible');
+    expect(await counts()).toEqual(before);
   });
 
   it('concurrent batches over the same picking: exactly one wins, the other is not_eligible', async () => {

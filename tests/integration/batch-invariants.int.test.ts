@@ -241,3 +241,109 @@ describe('lock after transfer (TC-059, TC-060, EVAL-077)', () => {
     }
   });
 });
+
+// Fix round 1 (quality review finding 1): INSERT OR REPLACE resolves a key conflict by deleting the old
+// row, and with recursive_triggers off that implicit delete fires no DELETE trigger. Existence guards
+// in BEFORE INSERT triggers (migration *_batch_replace_guards.sql) close the gap.
+describe('INSERT OR REPLACE and upserts cannot bypass the batch invariants (TC-059, EVAL-077)', () => {
+  async function transferredBatch() {
+    await event('HE-1', 'PL-A-AR', 40, [['Verified', 91]]);
+    await batch('B-1');
+    await member('B-1', 'HE-1');
+    await custody('B-1');
+    await exec(`UPDATE batches SET status = 'transferred' WHERE id = 'B-1'`);
+  }
+
+  it('REPLACE of a transferred (or open) batch row is refused and the row is unchanged', async () => {
+    await transferredBatch();
+    const seq = await anchor();
+    await expect(
+      exec(`INSERT OR REPLACE INTO batches (id, org_id, crop, short_hash, anchor_seq, created_at) VALUES ('B-1', 'ORG-B', 'robusta', 'zzz', ?, ?)`, [seq, TS]),
+    ).rejects.toThrow(/already exists/);
+    expect(await one(`SELECT org_id, crop, status, quantity_kg, integrity_score, short_hash FROM batches WHERE id = 'B-1'`)).toMatchObject({
+      org_id: 'ORG-A',
+      crop: 'arabica',
+      status: 'transferred',
+      quantity_kg: 40,
+      integrity_score: 91,
+      short_hash: 'abcdef012345',
+    });
+    await batch('B-2');
+    await expect(exec(`REPLACE INTO batches (id, org_id, crop, short_hash, anchor_seq, created_at) VALUES ('B-2', 'ORG-A', 'arabica', 'x', ?, ?)`, [seq, TS])).rejects.toThrow(
+      /already exists/,
+    );
+  });
+
+  it('an upsert that updates a transferred batch is refused', async () => {
+    await transferredBatch();
+    await expect(
+      exec(`INSERT INTO batches (id, org_id, crop, short_hash, anchor_seq, created_at) VALUES ('B-1', 'ORG-A', 'arabica', 'x', 1, ?) ON CONFLICT(id) DO UPDATE SET status = 'open'`, [TS]),
+    ).rejects.toThrow(/already exists|locked after transfer/);
+    expect((await aggregates('B-1')).status).toBe('transferred');
+  });
+
+  it('REPLACE cannot move a member out of a transferred batch into another', async () => {
+    await transferredBatch();
+    await batch('B-2');
+    await expect(exec(`INSERT OR REPLACE INTO batch_events (batch_id, event_id) VALUES ('B-2', 'HE-1')`)).rejects.toThrow(/UNIQUE/);
+    expect((await exec(`SELECT batch_id FROM batch_events WHERE event_id = 'HE-1'`)).rows.map((r) => r.batch_id)).toEqual(['B-1']);
+    expect(await aggregates('B-1')).toMatchObject({ quantity_kg: 40, integrity_score: 91 });
+  });
+
+  it('REPLACE cannot rewrite a custody row', async () => {
+    await transferredBatch();
+    await batch('B-2');
+    const [ct] = (await exec(`SELECT id FROM custody_transfers WHERE batch_id = 'B-1'`)).rows;
+    await expect(
+      exec(
+        `INSERT OR REPLACE INTO custody_transfers (id, batch_id, from_org, to_org, admin_id, transferred_at, signature, key_id, anchor_seq) VALUES (?, 'B-2', 'ORG-A', 'ORG-BUY', 'AD-1', ?, 'sig2', 'kid', ?)`,
+        [ct!.id as string, TS, await anchor()],
+      ),
+    ).rejects.toThrow(/append-only/);
+    expect(await one(`SELECT batch_id, signature FROM custody_transfers WHERE id = ?`, [ct!.id as string])).toMatchObject({ batch_id: 'B-1', signature: 'sig' });
+  });
+
+  it('a batch has at most one custody row, and custody goes only to a buyer organisation', async () => {
+    await batch('B-1');
+    await expect(custody('B-1', 'ORG-A', 'ORG-B')).rejects.toThrow(/buyer/); // an FPO
+    await expect(custody('B-1', 'ORG-A', 'ORG-A')).rejects.toThrow(/buyer/); // itself
+    await custody('B-1');
+    await expect(custody('B-1')).rejects.toThrow(/already has a custody transfer/); // still open: a second row
+    expect(Number((await one(`SELECT COUNT(*) AS n FROM custody_transfers WHERE batch_id = 'B-1'`)).n)).toBe(1);
+  });
+});
+
+// Fix round 1 (quality minor 3, spec minor 2): what a batch anchored cannot drift under it.
+describe("a batched event's facts are frozen (TC-059, EVAL-077)", () => {
+  async function batched() {
+    await event('HE-1', 'PL-A-AR', 40, [['Verified', 91]]);
+    await event('HE-2', 'PL-A-AR', 30, [['Verified', 80]]);
+    await batch('B-1');
+    await member('B-1', 'HE-1');
+  }
+
+  it('its cherry_kg and final_verdict cannot change', async () => {
+    await batched();
+    await expect(exec(`UPDATE harvest_events SET cherry_kg = 999 WHERE id = 'HE-1'`)).rejects.toThrow(/frozen/);
+    await expect(exec(`UPDATE harvest_events SET final_verdict = 'Rejected' WHERE id = 'HE-1'`)).rejects.toThrow(/frozen/);
+    // an unbatched event is not affected by this guard
+    await exec(`UPDATE harvest_events SET cherry_kg = 31 WHERE id = 'HE-2'`);
+    expect(await aggregates('B-1')).toMatchObject({ quantity_kg: 40, integrity_score: 91 });
+  });
+
+  it("its runs' score and verdict cannot change", async () => {
+    await batched();
+    await expect(exec(`UPDATE verification_runs SET score = 1 WHERE event_id = 'HE-1'`)).rejects.toThrow(/frozen/);
+    await expect(exec(`UPDATE verification_runs SET verdict = 'Rejected' WHERE event_id = 'HE-1'`)).rejects.toThrow(/frozen/);
+    await exec(`UPDATE verification_runs SET score = 81 WHERE event_id = 'HE-2'`);
+  });
+
+  it("its plot's crop cannot change", async () => {
+    await batched();
+    await expect(exec(`UPDATE plots SET crop = 'robusta' WHERE id = 'PL-A-AR'`)).rejects.toThrow(/frozen/);
+    // a plot with no batched events can still be corrected
+    await exec(`UPDATE plots SET crop = 'arabica' WHERE id = 'PL-A-RO'`);
+    // other plot columns are not frozen
+    await exec(`UPDATE plots SET registration_stale = 1 WHERE id = 'PL-A-AR'`);
+  });
+});

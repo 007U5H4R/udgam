@@ -57,6 +57,13 @@
       "when": 1790671881231,
       "tag": "0007_batch_invariants",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1790679440700,
+      "tag": "0008_batch_replace_guards",
+      "breakpoints": true
     }
   ]
 }
