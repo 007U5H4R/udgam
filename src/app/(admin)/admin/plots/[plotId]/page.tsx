@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { GlassCard } from '../../../../../components/ui/GlassCard';
 import { PlotSvg } from '../../../../../components/ui/PlotSvg';
 import { getDbReady } from '../../../../../lib/db/client';
+import { listAttestations } from '../../../../../lib/attestations/attach';
 import { userName } from '../../../../../lib/enrolment/phones';
 import { formatHa } from '../../../../../lib/geo/area';
 import { tileLayerConfig } from '../../../../../lib/geo/tiles';
@@ -16,9 +17,10 @@ import { adminName, loadList, PlotsScreen } from '../PlotsScreen';
 import { RegistrationCard } from '../RegistrationCard';
 import { forcedState } from '../state';
 import s from '../plots.module.css';
+import { AttestationCard } from './attestation/AttestationCard';
 
 // /admin/plots/[plotId] (TKT-06): one plot's outline (PlotSvg), area in hectares, registration status,
-// the registration checks with "Check again" (TKT-07) and the boundary editor. Another org's plot ID is a 404, like an unknown one (TC-019). The tile key
+// the registration checks with "Check again" (TKT-07), the organic certificate attestation (TKT-13) and the boundary editor. Another org's plot ID is a 404, like an unknown one (TC-019). The tile key
 // is read on the server and handed only to this admin page's editor (TP19).
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Plot · Udgam' };
@@ -37,6 +39,7 @@ export default async function PlotPage({
   const list = await loadList(forcedState((await searchParams).state), () => listPlots(db, orgId));
   const me = await adminName(() => userName(db, userId));
   const area = formatHa(plot.areaHa);
+  const certificates = await listAttestations(db, orgId, plot.id);
   return (
     <PlotsScreen me={me} list={list} selectedId={plot.id} detailOpen primaryAdd={false}>
       <header>
@@ -77,6 +80,7 @@ export default async function PlotPage({
           </figure>
         </GlassCard>
         <RegistrationCard plotId={plot.id} checks={toRegistrationChecks(plot.registrationChecks)} stale={plot.registrationStale} />
+        <AttestationCard plotId={plot.id} records={certificates} today={istDate(new Date().toISOString())} />
         <GlassCard as="section" className={[s.sectionCard, s.wide].join(' ')} aria-labelledby="edit-h">
           <h3 className={s.secH} id="edit-h">
             Boundary
