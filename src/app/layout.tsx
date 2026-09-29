@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Figtree, Noto_Sans_Kannada } from "next/font/google";
+import { connection } from "next/server";
 import type { ReactNode } from "react";
 import "./globals.css";
 
@@ -30,7 +31,10 @@ export const viewport: Viewport = {
   colorScheme: "dark",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // Every page renders per request: src/proxy.ts sets a fresh CSP nonce, and Next can put it on its
+  // bootstrap scripts only when it renders the page (a prerendered page would carry none; TSK-19.5).
+  await connection();
   return (
     <html lang="en" className={`${figtree.variable} ${notoSansKannada.variable}`}>
       <body>{children}</body>

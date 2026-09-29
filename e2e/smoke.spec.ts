@@ -25,12 +25,15 @@ test('health endpoint answers 200 with the database ok', async ({ request }) => 
 test('tile hosts are stubbed and geolocation is pinned', async ({ page, context }) => {
   await stubTiles(page);
   await mockGeolocation(context, { lat: 12.42, lng: 75.74, accuracy: 8 });
-  await page.goto('/');
+  // The app's CSP (connect-src 'self', TKT-19) refuses cross-origin fetches from its pages, so the stub
+  // is probed from a blank page; the geolocation pin is checked on the app's origin.
+  await page.goto('about:blank');
   const tile = await page.evaluate(async () => {
     const r = await fetch('https://server.arcgisonline.com/tile/1/2/3');
     return { status: r.status, type: r.headers.get('content-type') };
   });
   expect(tile).toEqual({ status: 200, type: 'image/png' });
+  await page.goto('/');
   const fix = await page.evaluate(
     () =>
       new Promise<{ lat: number; lng: number; accuracy: number }>((resolve, reject) =>

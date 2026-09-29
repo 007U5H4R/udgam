@@ -110,12 +110,17 @@ describe('proxy: redirects signed-out navigation only; it is not the security bo
     }
   });
 
-  it('matches only /field, /admin and /buyer: /verify, /api/*, /.well-known and /sign-in never redirect', async () => {
-    const { config } = await import('../proxy');
+  it('redirects only /field, /admin and /buyer: /, /sign-in, /verify and look-alike paths never redirect; /api/* and /.well-known never reach it', async () => {
+    const { config, proxy } = await import('../proxy');
+    // TSK-19.5: the proxy now runs on every page (it sets the CSP), so the redirect decision is its own
     for (const url of ['/field', '/field/pickings/HE-1', '/admin', '/admin/review/VR-1', '/buyer', '/buyer/batches/B-1']) {
       expect(unstable_doesMiddlewareMatch({ config, url }), url).toBe(true);
+      expect(proxy(new NextRequest(`http://localhost${url}`)).status, url).toBe(307);
     }
-    for (const url of ['/', '/sign-in', '/verify/B-XYZ', '/verify/anything?h=abc', '/api/verify/B-1', '/api/health', '/api/auth/sign-in/email', '/api/capture', '/.well-known/udgam-ledger-key', '/fieldwork', '/administrator']) {
+    for (const url of ['/', '/sign-in', '/verify/B-XYZ', '/verify/anything?h=abc', '/fieldwork', '/administrator']) {
+      expect(proxy(new NextRequest(`http://localhost${url}`)).headers.get('location'), url).toBeNull();
+    }
+    for (const url of ['/api/verify/B-1', '/api/health', '/api/auth/sign-in/email', '/api/capture', '/.well-known/udgam-ledger-key']) {
       expect(unstable_doesMiddlewareMatch({ config, url }), url).toBe(false);
     }
   });
