@@ -86,6 +86,11 @@ function gatedDecoder() {
 }
 
 describe('thumbnail limits', () => {
+  it('turns sharp\'s operation cache off (repeated large thumbnails otherwise plateau at ~1.26 GB)', () => {
+    const c = sharp.cache();
+    expect([c.memory.max, c.files.max, c.items.max]).toEqual([0, 0, 0]);
+  });
+
   it('uses a 50 MP input limit and allows 2 decodes at once', () => {
     expect(THUMB_MAX_INPUT_PIXELS).toBe(50_000_000);
     expect(MAX_THUMB_DECODES).toBe(2);
