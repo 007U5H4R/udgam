@@ -1,12 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from 'react';
 import { sendOutboxItem, submitCapture, type OutboxSend, type SubmitResult } from '../../client/capture-client';
 import { hashFile } from '../../client/hash-file';
 import { refusalKeepsOutbox } from '../../lib/i18n/farmer-evidence';
 import type { CheckId, CheckStatus } from '../../lib/verification/types';
 import { t, type Lang } from '../../lib/i18n';
+import { CheckingStep } from './CheckingStep';
 import { PhotosStep, SLOTS } from './PhotosStep';
 import { initialFlow, kgValue, reduce, usedPhotos, type FlowAction, type Slot } from './record-flow';
 import { ReviewStep } from './ReviewStep';
@@ -21,6 +22,24 @@ import { WeightStep } from './WeightStep';
 
 export type RecordPlot = { id: string; name: string };
 
+const REDUCED = '(prefers-reduced-motion: reduce)';
+
+/** prefers-reduced-motion as React state (Design.md §15). */
+function useReducedMotion(): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      const mq = window.matchMedia(REDUCED);
+      mq.addEventListener('change', cb);
+      return () => mq.removeEventListener('change', cb);
+    },
+    () => window.matchMedia(REDUCED).matches,
+    () => false,
+  );
+}
+
+/** Auto-advance from the finished checking screen to the verdict (motion allowed). */
+const ADVANCE_MS = 600;
+
 export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lang: Lang; range?: { min: number; max: number } | null }) {
   const router = useRouter();
   const [flow, dispatch] = useReducer(reduce, plot.id, initialFlow);
@@ -28,6 +47,17 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
   const gps = useGps();
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
   const sent = useRef<OutboxSend | null>(null);
+  const reduced = useReducedMotion();
+  // The verdict whose screen is showing; until then the finished checking screen stays up.
+  const [seenFor, setSeenFor] = useState<string | null>(null);
+  const resultId = flow.step === 'verdict' ? (flow.result?.eventId ?? null) : null;
+  const holdChecking = resultId !== null && seenFor !== resultId;
+
+  useEffect(() => {
+    if (resultId === null || reduced) return;
+    const timer = setTimeout(() => setSeenFor(resultId), ADVANCE_MS);
+    return () => clearTimeout(timer);
+  }, [resultId, reduced]);
 
   // Show the farmer's own photos from memory; release them when they change or the flow closes.
   const [f0, f1, f2] = flow.photos.map((p) => p.file);
@@ -41,10 +71,11 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
   useEffect(() => () => Object.values(previews).forEach((u) => URL.revokeObjectURL(u)), [previews]);
 
   // Each screen change starts at the top with focus on its heading.
+  const screen = holdChecking ? 'checking' : flow.step;
   useEffect(() => {
     window.scrollTo(0, 0);
     document.querySelector<HTMLElement>('main h1')?.focus({ preventScroll: true });
-  }, [flow.step]);
+  }, [screen]);
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -160,6 +191,17 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
           onKey={(k) => dispatch({ type: 'key', k })}
           onBack={() => dispatch({ type: 'back' })}
           onSend={() => void send()}
+        />
+      ) : null}
+      {screen === 'checking' ? (
+        <CheckingStep
+          checks={flow.checks}
+          complete={flow.step === 'verdict'}
+          lang={lang}
+          plotName={plot.name}
+          kg={String(kgValue(flow.kg) ?? flow.kg)}
+          photos={usedPhotos(flow).length}
+          onSeeResult={() => resultId && setSeenFor(resultId)}
         />
       ) : null}
     </>

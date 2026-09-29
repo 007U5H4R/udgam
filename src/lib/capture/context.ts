@@ -20,6 +20,24 @@ export const REMOTE_SENSING_STUB: RemoteSensingProvider = {
 };
 
 /**
+ * Test-only (technical-plan §1, TSK-10.10): with `E2E=1` and `E2E_FIXTURE_DELAY_MS=<ms>`, every NDVI
+ * call of `provider` answers that much later, so the e2e can watch the satellite groups tick after the
+ * local ones (TC-045). Without `E2E=1` the variable is ignored and the provider is returned unchanged.
+ */
+export function withE2eDelay(provider: RemoteSensingProvider, vars: Record<string, string | undefined> = process.env): RemoteSensingProvider {
+  if (vars.E2E !== '1') return provider;
+  const ms = Number(vars.E2E_FIXTURE_DELAY_MS);
+  if (!Number.isFinite(ms) || ms <= 0) return provider;
+  const later = <T>(call: () => Promise<T>) => new Promise<void>((r) => setTimeout(r, ms)).then(call);
+  return {
+    name: provider.name,
+    forestLoss: (plot, o) => provider.forestLoss(plot, o),
+    ndviHistory: (plot, endMonth, o) => later(() => provider.ndviHistory(plot, endMonth, o)),
+    ndviWindow: (plot, centreDate, days, o) => later(() => provider.ndviWindow(plot, centreDate, days, o)),
+  };
+}
+
+/**
  * Placeholder until TKT-09 seeds `crop_yield_reference` (technical-plan §6.6: Coffee Board of India
  * July 2024 district maxima; 6:1 cherry-to-clean, unverified). No yield check runs yet.
  */
@@ -63,6 +81,6 @@ export async function buildContext(
     seenMediaHashes: new Set(seenRows.map((r) => r.sha256)),
     seasonCherryKgBefore: 0, // TP6 season window arrives with TKT-09
     yieldReference: YIELD_PLACEHOLDER[plot.crop],
-    remoteSensing: REMOTE_SENSING_STUB,
+    remoteSensing: withE2eDelay(REMOTE_SENSING_STUB),
   };
 }
