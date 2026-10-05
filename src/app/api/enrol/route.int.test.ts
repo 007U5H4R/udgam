@@ -35,12 +35,43 @@ async function jwk() {
   return publicMembers(await globalThis.crypto.subtle.exportKey('jwk', pair.publicKey)); // what the phone sends
 }
 
-/** A request as the reverse proxy forwards it: whatever the client sent in X-Forwarded-For, then its address last. */
-function post(body: unknown, cookie: string | null, ip = '203.0.113.5', extra: Record<string, string> = {}) {
-  const headers: Record<string, string> = { 'content-type': 'application/json', 'x-forwarded-for': `10.9.9.9, ${ip}`, ...extra };
+/**
+ * A request as the reverse proxy forwards it: whatever the client sent in X-Forwarded-For, then its
+ * address last. It declares its Content-Length, as a browser's fetch of a string body does; `extra` may
+ * override it, or drop it with null.
+ */
+function post(body: unknown, cookie: string | null, ip = '203.0.113.5', extra: Record<string, string | null> = {}) {
+  const text = typeof body === 'string' ? body : JSON.stringify(body);
+  const merged: Record<string, string | null> = {
+    'content-type': 'application/json',
+    'content-length': String(new TextEncoder().encode(text).length),
+    'x-forwarded-for': `10.9.9.9, ${ip}`,
+    ...extra,
+  };
+  const headers: Record<string, string> = {};
+  for (const [k, v] of Object.entries(merged)) if (v !== null) headers[k] = v;
   if (cookie) headers.cookie = cookie;
-  return new Request('http://localhost/api/enrol', { method: 'POST', headers, body: typeof body === 'string' ? body : JSON.stringify(body) });
+  return new Request('http://localhost/api/enrol', { method: 'POST', headers, body: text });
 }
+
+/** A streamed body of 64-byte chunks that never ends on its own; counts the chunks the route pulled. */
+function endless(cookie: string, headers: Record<string, string>): { req: Request; pulled: () => number } {
+  let pulled = 0;
+  const chunk = new TextEncoder().encode('x'.repeat(64));
+  const body = new ReadableStream<Uint8Array>(
+    {
+      pull(controller) {
+        pulled++;
+        controller.enqueue(chunk);
+      },
+    },
+    { highWaterMark: 0 },
+  );
+  const init = { method: 'POST', body, headers: { 'content-type': 'application/json', 'x-forwarded-for': '203.0.113.5', cookie, ...headers }, duplex: 'half' };
+  return { req: new Request('http://localhost/api/enrol', init as RequestInit), pulled: () => pulled };
+}
+
+const deviceCount = async () => (await t.client.execute('SELECT COUNT(*) AS n FROM devices')).rows[0]!.n;
 
 describe('POST /api/enrol', () => {
   it('enrols the phone for the signed-in agent: 200 {deviceId}', async () => {
@@ -82,5 +113,91 @@ describe('POST /api/enrol', () => {
       body: { error: 'rate_limited' },
     });
     expect(await answer(await POST(post({ code: 'YYYYYY', publicJwk: await jwk() }, cookie, '198.51.100.8')))).toEqual({ status: 400, body: { error: 'invalid' } });
+  });
+});
+
+describe('POST /api/enrol body bound (final branch review finding 2)', () => {
+  // A legitimate body is a 6-character code and a P-256 public JWK: about 200 bytes. The cap is 4 KiB.
+  it('the largest legitimate body is well under the 4096-byte cap', async () => {
+    const body = JSON.stringify({ code: 'ZZZZZZ', publicJwk: await jwk() });
+    expect(new TextEncoder().encode(body).length).toBeLessThan(400);
+  });
+
+  it.each([
+    ['no Content-Length', null],
+    ['a non-numeric Content-Length', 'abc'],
+    ['a negative Content-Length', '-1'],
+    ['an empty Content-Length', ''],
+  ])('refuses %s with 411 and enrols nothing', async (_name, length) => {
+    const { code } = await issueCode(t.db, { agentId: 'U-AGENT', adminId: 'U-ADMIN', orgId: 'ORG-A' });
+    const { POST } = await import('./route');
+    const res = await POST(post({ code, publicJwk: await jwk() }, await cookieFor('agent@a.test'), '203.0.113.5', { 'content-length': length }));
+    expect(res.status).toBe(411);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(await res.json()).toEqual({ error: 'length_required' });
+    expect(await deviceCount()).toBe(0);
+  });
+
+  it('refuses a chunked body (no Content-Length) with 411 without reading it', async () => {
+    const { POST } = await import('./route');
+    const { req, pulled } = endless(await cookieFor('agent@a.test'), {});
+    const res = await POST(req);
+    expect(res.status).toBe(411);
+    expect(await res.json()).toEqual({ error: 'length_required' });
+    expect(pulled()).toBe(0);
+  });
+
+  it('refuses a declared length over 4096 bytes with 413 before reading the body', async () => {
+    const { POST } = await import('./route');
+    const { req, pulled } = endless(await cookieFor('agent@a.test'), { 'content-length': '4097' });
+    const res = await POST(req);
+    expect(res.status).toBe(413);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(await res.json()).toEqual({ error: 'body_too_large' });
+    expect(pulled()).toBe(0);
+  });
+
+  it('refuses a 60 MB declared body with 413', async () => {
+    const { POST } = await import('./route');
+    const { req, pulled } = endless(await cookieFor('agent@a.test'), { 'content-length': '62914560' });
+    expect((await POST(req)).status).toBe(413);
+    expect(pulled()).toBe(0);
+  });
+
+  it('stops reading a streamed body that runs past 4096 bytes, whatever it declared: 413 within 66 chunks of 64 bytes', async () => {
+    const { POST } = await import('./route');
+    const { req, pulled } = endless(await cookieFor('agent@a.test'), { 'content-length': '300' });
+    const res = await POST(req);
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual({ error: 'body_too_large' });
+    expect(pulled()).toBeLessThanOrEqual(66);
+    expect(await deviceCount()).toBe(0);
+  });
+
+  it('refuses a padded JSON body of 4097 bytes that declares its length with 413; enrols nothing', async () => {
+    const { code } = await issueCode(t.db, { agentId: 'U-AGENT', adminId: 'U-ADMIN', orgId: 'ORG-A' });
+    const { POST } = await import('./route');
+    const base = JSON.stringify({ code, publicJwk: await jwk(), pad: '' });
+    const padded = base.replace('"pad":""', `"pad":"${'x'.repeat(4097 - base.length)}"`);
+    expect(new TextEncoder().encode(padded).length).toBe(4097);
+    const res = await POST(post(padded, await cookieFor('agent@a.test')));
+    expect(res.status).toBe(413);
+    expect(await deviceCount()).toBe(0);
+  });
+
+  it('accepts a body of exactly 4096 bytes (the extra member is ignored)', async () => {
+    const { code } = await issueCode(t.db, { agentId: 'U-AGENT', adminId: 'U-ADMIN', orgId: 'ORG-A' });
+    const { POST } = await import('./route');
+    const base = JSON.stringify({ code, publicJwk: await jwk(), pad: '' });
+    const padded = base.replace('"pad":""', `"pad":"${'x'.repeat(4096 - base.length)}"`);
+    expect(new TextEncoder().encode(padded).length).toBe(4096);
+    const res = await POST(post(padded, await cookieFor('agent@a.test')));
+    expect(res.status).toBe(200);
+    expect(await deviceCount()).toBe(1);
+  });
+
+  it('a signed-out caller is 401 whatever the body declares', async () => {
+    const { POST } = await import('./route');
+    expect((await POST(post('{}', null, '203.0.113.5', { 'content-length': null }))).status).toBe(401);
   });
 });

@@ -27,6 +27,15 @@ export const ENROL_STATUS: Record<EnrolFailure, 400 | 409 | 429> = {
   rate_limited: 429,
 };
 
+/**
+ * POST /api/enrol body cap (final branch review finding 2). A legitimate body is a 6-character code and
+ * a P-256 public JWK, about 200 bytes; 4 KiB leaves wide margin and bounds what a caller can make the
+ * server buffer and parse.
+ */
+export const ENROL_MAX_BYTES = 4096;
+/** How long the body may take to arrive before the read is cancelled. */
+export const ENROL_READ_DEADLINE_MS = 5_000;
+
 const COORD = /^[A-Za-z0-9_-]{43}$/;
 const MEMBERS = ['crv', 'kty', 'x', 'y'];
 
