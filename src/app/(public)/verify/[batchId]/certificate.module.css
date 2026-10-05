@@ -385,6 +385,10 @@
 .limits p {
   max-width: 70ch;
 }
+/* DES-203: the certificate QR code and URL are for paper only (print.css shows them) */
+.printOnly {
+  display: none;
+}
 .siteFoot {
   margin: 44px 0 40px;
   padding-top: 18px;

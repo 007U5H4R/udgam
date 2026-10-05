@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { preload } from 'react-dom';
 import { AttestationLine } from '../../../../components/ui/AttestationLine';
+import { BatchQr } from '../../../../components/ui/BatchQr';
 import { CertIcon } from '../../../../components/ui/CertIcon';
 import { EntryList, type EntryRow } from '../../../../components/ui/EntryList';
 import { OriginTable } from '../../../../components/ui/OriginTable';
@@ -205,6 +206,11 @@ export default async function CertificatePage({ params, searchParams }: Props) {
               <PrintButton label={certCopy.files.print} />
             </div>
           </section>
+        </div>
+
+        {/* DES-203 (EXE40): on paper, the QR code and URL that lead back to this live check (print.css shows it). */}
+        <div className={c.printOnly} data-print-only data-testid="print-qr">
+          <BatchQr batchId={view.batchId} shortHash={genuine.shortHash} />
         </div>
 
         <section className={`${c.block} ${c.limits}`} id="limits" aria-labelledby="limits-h">
