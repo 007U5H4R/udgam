@@ -18,8 +18,9 @@ export function seedAccounts(): void {
 /** Sign in through the sign-in screen and wait until the browser has left it. */
 export async function signIn(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/sign-in');
-  await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  // By id, not by label: the screen speaks the `udgam_lang` language (DES-015), so a Kannada test signs in in Kannada.
+  await page.locator('#email').fill(email);
+  await page.locator('#password').fill(password);
+  await page.locator('form button[type="submit"]').click();
   await expect(page).not.toHaveURL(/\/sign-in$/);
 }

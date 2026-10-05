@@ -3,12 +3,13 @@ import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { preload } from 'react-dom';
 import { AttestationLine } from '../../../../components/ui/AttestationLine';
+import { BatchQr } from '../../../../components/ui/BatchQr';
 import { CertIcon } from '../../../../components/ui/CertIcon';
 import { EntryList, type EntryRow } from '../../../../components/ui/EntryList';
 import { OriginTable } from '../../../../components/ui/OriginTable';
 import { ProofPanel } from '../../../../components/ui/ProofPanel';
 import { Timeline, type TimelineStep } from '../../../../components/ui/Timeline';
-import { certCopy, istDay, istRange, istToday, kgShort } from '../../../../lib/certificate/copy';
+import { certCopy, istDay, istRange, istToday, kgShort, publicEvidence } from '../../../../lib/certificate/copy';
 import { kg1 } from '../../../../lib/format';
 import { FEED_ELEMENT_ID, serializeFeedForEmbed } from '../../../../lib/certificate/embed';
 import { resolveDevState } from '../../../../lib/certificate/dev-state';
@@ -34,6 +35,9 @@ import './print.css';
 // verify (no second fetch, S4). Dynamic: every page carries its own CSP nonce (src/proxy.ts).
 
 export const dynamic = 'force-dynamic';
+
+/** DES-207: past this many entries the headline carries a link down to the files and the limits. */
+const LONG_BATCH = 10;
 
 type SearchParams = Record<string, string | string[] | undefined>;
 type Props = { params: Promise<{ batchId: string }>; searchParams: Promise<SearchParams> };
@@ -99,7 +103,7 @@ function entryRows(view: CertificateView): EntryRow[] {
     farm: e.producerId,
     kg: kg1(e.kg),
     verdict: VERDICT[e.verdict],
-    evidence: e.evidence,
+    evidence: e.evidence.map(publicEvidence),
     ...(e.override ? { override: { word: VERDICT[e.override.verdict].word, reason: e.override.reason } } : {}),
     seqs: e.seqs,
   }));
@@ -133,6 +137,12 @@ export default async function CertificatePage({ params, searchParams }: Props) {
               {certCopy.headline(kgShort(view.headline.quantityKg), view.headline.crop, view.headline.farmCount, view.headline.district)}
             </h1>
             <p className={c.meta}>{certCopy.meta(view.headline.region, harvestRange)}</p>
+            {/* DES-207: a long batch puts the files and the limits thousands of pixels down; one link reaches them */}
+            {view.entries.length > LONG_BATCH ? (
+              <p className={c.skip} data-screen-only>
+                <a href="#dl-block">{certCopy.files.skip}</a>
+              </p>
+            ) : null}
           </section>
         </div>
 
@@ -194,9 +204,22 @@ export default async function CertificatePage({ params, searchParams }: Props) {
                 </div>
               </div>
             </section>
-          ) : null}
+          ) : (
+            // DES-214: "none on record" is said, so it cannot be mistaken for "not shown"
+            <section className={c.block} aria-labelledby="org-h">
+              <h2 id="org-h">{certCopy.organic.heading}</h2>
+              <div className={`${c.glass} ${c.organic}`} data-testid="organic-none">
+                <CertIcon name="seal" className={c.ic} />
+                <p className={c.organicText}>{certCopy.organic.none}</p>
+              </div>
+            </section>
+          )}
           <section className={c.block} id="dl-block" aria-labelledby="dl-h">
             <h2 id="dl-h">{certCopy.files.heading}</h2>
+            {/* DES-215: shown only in mismatch (certificate.module.css), beside files that come from the unconfirmed page */}
+            <p className={c.filesNote} data-testid="files-unconfirmed">
+              {certCopy.files.unconfirmed}
+            </p>
             <div className={c.downloads}>
               <a className={c.pill} id="geojson" href={`/api/verify/${encodeURIComponent(view.batchId)}/geojson?h=${view.shortHash}`} download={`udgam-${view.batchId}-eudr.geojson`}>
                 <CertIcon name="download" className={c.ic} />
@@ -205,6 +228,11 @@ export default async function CertificatePage({ params, searchParams }: Props) {
               <PrintButton label={certCopy.files.print} />
             </div>
           </section>
+        </div>
+
+        {/* DES-203 (EXE40): on paper, the QR code and URL that lead back to this live check (print.css shows it). */}
+        <div className={c.printOnly} data-print-only data-testid="print-qr">
+          <BatchQr batchId={view.batchId} shortHash={genuine.shortHash} />
         </div>
 
         <section className={`${c.block} ${c.limits}`} id="limits" aria-labelledby="limits-h">

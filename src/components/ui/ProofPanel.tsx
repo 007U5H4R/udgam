@@ -162,6 +162,12 @@ export function ProofPanel({ entryCount, batchId, forced = null }: Props) {
         <div role="status" aria-live="polite">
           <Body state={state} />
         </div>
+        {/* DES-206: without JavaScript the check never runs; say so instead of "Checking…" forever */}
+        <noscript>
+          <p className={s.noscript} data-testid="proof-noscript">
+            {certCopy.proof.noScript}
+          </p>
+        </noscript>
         {state.status === 'mismatch' || state.status === 'unavailable' ? (
           <div className={s.actions}>
             <button className={`${s.pill}${state.status === 'unavailable' ? ` ${s.ghost}` : ''}`} type="button" id="check-again" onClick={() => void verify()}>
@@ -177,8 +183,9 @@ export function ProofPanel({ entryCount, batchId, forced = null }: Props) {
           </p>
         ) : null}
       </section>
-      {state.status === 'mismatch' ? (
-        <p className={s.unconfirmed}>
+      {/* DES-210: "Could not check yet" leaves the details as unconfirmed as a mismatch does, so it says so too (neutral, not red) */}
+      {state.status === 'mismatch' || state.status === 'unavailable' ? (
+        <p className={`${s.unconfirmed}${state.status === 'unavailable' ? ` ${s.neutral}` : ''}`} data-testid="proof-unconfirmed">
           <b>{certCopy.proof.unconfirmedLead}</b>
           {certCopy.proof.unconfirmedRest}
         </p>

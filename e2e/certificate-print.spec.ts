@@ -2,6 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 import { TAMPER_VARIANTS } from '../src/lib/ledger/testing/tamper';
 import { certificateUrl, proofFinalState, seedCertificate, type SeededCertificate } from './helpers/certificate';
 
+// Stage 8 (EXE40): DES-203 adds the print-only QR code and URL, DES-212 prints every check without the
+// on-screen disclosure controls.
+
 // TSK-17.4 · TC-071 · @eval EVAL-087 (print) · Design.md §12 print row: printed, the certificate is a light
 // document. White ground and #111 ink; the warning colours (--check #7a4b00, --bad #9b2217) at 7.4:1 or
 // more on white; no buttons, downloads or "check again"; no glow or blur on any element; the one lit word
@@ -101,6 +104,39 @@ test.describe('printed certificate (TC-071, @eval EVAL-087 print)', () => {
     // fixture evidence keeps its label on paper (EXE12, CF-11)
     expect(await page.locator('body').innerText()).toContain('(demo data)');
     expect(violations).toEqual([]);
+  });
+
+  test('DES-203 (EXE40): the paper copy carries the certificate QR code and its URL as text; the screen does not', async ({ page }) => {
+    await page.goto(certificateUrl(seeded));
+    expect(await proofFinalState(page)).toBe('verified');
+    const block = page.getByTestId('print-qr');
+    const link = new RegExp(`https?://\\S+/verify/${seeded.batchId}\\?h=${seeded.shortHash}`);
+    // on screen: nothing new (every rule for it is print-only)
+    await expect(block).toBeHidden();
+    expect(await page.locator('main').innerText()).not.toMatch(link);
+
+    await page.emulateMedia({ media: 'print' });
+    await expect(block).toBeVisible();
+    const code = block.locator('[role="img"] svg');
+    await expect(code).toBeVisible();
+    const box = (await code.boundingBox())!;
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(96); // big enough to scan from paper
+    await expect(block.locator('[role="img"]')).toHaveAttribute('aria-label', link);
+    expect(await page.locator('main').innerText()).toMatch(link);
+    expect(await glowOrBlur(page)).toEqual([]);
+  });
+
+  test('DES-212: paper shows every check, with no "See all checks" or chevron, and no "Public certificate" chip', async ({ page }) => {
+    await page.goto(certificateUrl(seeded));
+    expect(await proofFinalState(page)).toBe('verified');
+    await page.emulateMedia({ media: 'print' });
+    // the closed disclosures print their content, and their summaries ("See all checks …") are not printed
+    const closed = page.locator('.e-table-wrap details:not([open]) li');
+    expect(await closed.count()).toBeGreaterThan(0);
+    expect(await closed.evaluateAll((els) => els.filter((e) => !e.checkVisibility()).length)).toBe(0);
+    expect(await page.locator('main').innerText()).not.toMatch(/See all checks|Hide checks/);
+    expect(new Set(await displayOf(page, '.proof details summary svg'))).toEqual(new Set(['none']));
+    expect(await displayOf(page, '[data-kind-chip]')).toEqual(['none']);
   });
 
   test('a failed proof prints without "Check again"', async ({ page }) => {

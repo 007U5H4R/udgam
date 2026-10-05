@@ -24,6 +24,8 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'signIn.working': 'ಸೈನ್ ಇನ್ ಆಗುತ್ತಿದೆ…', // REVIEW: native speaker
   'signIn.error': 'ಇಮೇಲ್ ಅಥವಾ ಪಾಸ್‌ವರ್ಡ್ ಸರಿಯಿಲ್ಲ.', // REVIEW: native speaker
   'signIn.unavailable': 'ಈಗ ಸೈನ್ ಇನ್ ಮಾಡಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', // REVIEW: native speaker
+  'signIn.errorHelp': 'ಮರೆತಿದ್ದರೆ, ನಿಮ್ಮ ಖಾತೆ ಮಾಡಿದ ಕಚೇರಿಯನ್ನು ಕೇಳಿ.', // REVIEW: native speaker
+  'signIn.certificateHint': 'ಕಾಫಿ ಪ್ರಮಾಣಪತ್ರ ಹುಡುಕುತ್ತಿದ್ದೀರಾ? ನಿಮಗೆ ನೀಡಿದ ಲಿಂಕ್ ಅಥವಾ QR ಕೋಡ್ ತೆರೆಯಿರಿ.', // REVIEW: native speaker
   'signOut':'ಸೈನ್ ಔಟ್', // REVIEW: native speaker
 
   'shell.field.title': 'ಮುಖಪುಟ', // REVIEW: native speaker

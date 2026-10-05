@@ -57,6 +57,38 @@ test.describe('TC-020 sign-in', () => {
     await noSeriousAxeViolations(page); // the error state
   });
 
+  test('DES-209 / DES-025: after a refusal the email stays, focus returns to it, and the error says what to do next', async ({ page }) => {
+    await page.goto('/sign-in');
+    // (the processor account: its refusals stay out of the admin's per-email throttle bucket, TKT-19)
+    await page.getByLabel('Email').fill(DEMO_ACCOUNTS.processorA.email);
+    await page.getByLabel('Password').fill('not the password');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.locator('#sign-in-error')).toHaveText('Email or password is not right.');
+    await expect(page.locator('#sign-in-help')).toHaveText('If you have forgotten it, ask the office that set up your account.');
+    await expect(page.getByLabel('Email')).toHaveValue(DEMO_ACCOUNTS.processorA.email);
+    await expect(page.getByLabel('Email')).toBeFocused();
+    await expect(page.getByLabel('Email')).toHaveAttribute('aria-describedby', 'sign-in-error sign-in-help');
+    // the kept email signs in with the right password
+    await page.getByLabel('Password').fill(SEED_PASSWORD);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page).toHaveURL(/\/processor$/);
+  });
+
+  test('DES-015: with ಕನ್ನಡ chosen the sign-in screen speaks Kannada and <html lang> says so; DES-220: the certificate hint', async ({ page, context }) => {
+    await page.goto('/sign-in');
+    await expect(page.getByTestId('certificate-hint')).toHaveText('Looking for a coffee certificate? Open the link or QR code you were given.');
+    await expect(page).toHaveTitle('Sign in · Udgam');
+    await context.addCookies([{ name: 'udgam_lang', value: 'kn', url: test.info().project.use.baseURL! }]);
+    await page.goto('/sign-in');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'kn');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Udgam ಗೆ ಸೈನ್ ಇನ್ ಮಾಡಿ');
+    await expect(page.getByLabel('ಇಮೇಲ್')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'ಸೈನ್ ಇನ್' })).toBeVisible();
+    await expect(page).toHaveTitle('ಸೈನ್ ಇನ್ · Udgam');
+    await noHorizontalScroll(page);
+    await noSeriousAxeViolations(page);
+  });
+
   test('sign-out clears the session', async ({ page, context }) => {
     await signIn(page, DEMO_ACCOUNTS.adminA.email, SEED_PASSWORD);
     await expect(page).toHaveURL(/\/admin$/);

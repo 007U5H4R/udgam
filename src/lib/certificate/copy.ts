@@ -43,6 +43,7 @@ export const certCopy = {
     checkAgain: 'Check again',
     unconfirmedLead: 'The details below are what the seller published.',
     unconfirmedRest: ' Until the check passes, they are not confirmed.',
+    noScript: 'This page checks its records in your browser and needs JavaScript. Nothing here is confirmed until it runs.',
     unavailableTitle: 'Could not check yet',
     unavailableLine: 'Your browser could not fetch Udgam’s public key, so nothing on this page is confirmed yet. Check your connection and try again.',
     how: 'How this was checked',
@@ -72,7 +73,8 @@ export const certCopy = {
 
   map: {
     heading: 'Where it was grown',
-    label: (n: number, place: string) => `Map of the ${n} farm ${plural(n, 'plot', 'plots')} in this batch in ${place}. Each plot is drawn by its boundary line.`,
+    label: (n: number, place: string, numbered = false) =>
+      `Map of the ${n} farm ${plural(n, 'plot', 'plots')} in this batch in ${place}. Each plot is drawn by its boundary line${numbered ? ' and numbered as in the farm list below' : ''}.`,
     farms: 'Farms in this batch',
     farm: (producerId: string) => `Farm ${producerId}`,
     pickings: (n: number, kg: string) => `${n} ${plural(n, 'picking', 'pickings')} · ${kg} kg`,
@@ -123,6 +125,7 @@ export const certCopy = {
     total: 'Total',
     kg: (kg: string) => `${kg} kg`,
     seeAll: (n: number) => `See all checks (${n} more)`,
+    hideChecks: 'Hide checks',
     override: (word: string) => `Decided by the office: ${word}`,
     reason: 'Reason',
     checking: 'Checking',
@@ -134,12 +137,15 @@ export const certCopy = {
     heading: 'Organic',
     partOf: (plots: string) => `Covers ${plots} only, not every farm in this batch.`,
     notChecked: 'Not checked by satellite.',
+    none: 'No organic certificate on record for this batch.',
   },
 
   files: {
     heading: 'Files',
     geojson: 'Download EUDR map file (GeoJSON)',
     print: 'Print certificate',
+    skip: 'Go to the EUDR map file and what this can’t prove',
+    unconfirmed: 'These files come from this page as published, which did not match its seal. Do not rely on them.',
   },
 
   limits: {
@@ -198,6 +204,18 @@ export const kgShort = (kg: number): string => (Number.isInteger(kg) ? String(kg
 
 /** Hectares with one decimal ("1.8 ha"). */
 export const ha1 = (ha: number | null): string => (ha === null ? '' : `${(Math.round(ha * 10) / 10).toFixed(1)} ha`);
+
+/**
+ * A recorded evidence sentence in the certificate's public words (Stage 8, DES-208 / DES-213): the chain
+ * check without the phone's sequence numbers (they read against the table's own "#" column), and "limit"
+ * for the verifier's "hard fail" limits. Every other sentence, and any "(demo data)" label (EXE12), is
+ * shown as recorded. Display only: the feed and the signed payloads are unchanged.
+ */
+export function publicEvidence(line: string): string {
+  const chain = /^Entry (\d+) follows entry \d+ from this phone$/.exec(line);
+  if (chain) return chain[1] === '1' ? 'First entry from this phone' : 'Follows the previous entry from this phone';
+  return line.replace(/\(hard fail at /g, '(limit ').replace(/, hard fail above /g, ', limit ');
+}
 
 /** The first 8 characters of a key id (the fingerprint shown on the page). */
 export const kid8 = (kid: string): string => kid.slice(0, 8);

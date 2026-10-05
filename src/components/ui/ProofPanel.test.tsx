@@ -157,6 +157,25 @@ describe('<ProofPanel> (TSK-16.3, TC-065)', () => {
     expect(await sent()).toEqual([VIEWED]);
   });
 
+  it('DES-210: "Could not check yet" says the details below are only what the seller published (neutral note); verified does not', async () => {
+    mount(FEED, async () => new Response('{"error":"unavailable"}', { status: 503 }));
+    await settle(() => container.textContent!.includes('Could not check yet'));
+    const note = container.querySelector('[data-testid="proof-unconfirmed"]');
+    expect(note?.textContent).toBe('The details below are what the seller published. Until the check passes, they are not confirmed.');
+    act(() => root.unmount());
+    resetProofState();
+    mount(FEED);
+    await settle(final);
+    expect(container.querySelector('[data-testid="proof-unconfirmed"]')).toBeNull();
+  });
+
+  it('DES-206: the server render carries a no-JavaScript line in the proof card', async () => {
+    const { renderToString } = await import('react-dom/server');
+    const html = renderToString(<ProofPanel entryCount={16} batchId={FEED.batchId} />);
+    expect(html).toMatch(/<noscript><p[^>]*data-testid="proof-noscript"[^>]*>This page checks its records in your browser and needs JavaScript\. Nothing here is confirmed until it runs\.<\/p><\/noscript>/);
+    mount(FEED); // afterEach unmounts
+  });
+
   it('removes body[data-state] when it unmounts', async () => {
     mount(FEED);
     await settle(final);

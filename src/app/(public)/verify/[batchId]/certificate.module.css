@@ -26,6 +26,14 @@
 :global(body[data-state='loading']) .page {
   --pill-glow: none;
 }
+/* DES-210: until the visitor's own browser has verified the proof (checking, could not check, or no
+   JavaScript, when body has no state at all) the map and the journey draw in mismatch's neutral set: no
+   mint glow and no ✓ (Timeline.module.css), so nothing looks confirmed before it is. */
+:global(body:not([data-state='verified'])) .where {
+  --accent: #f3f6f4;
+  --accent-glow: rgba(243, 246, 244, 0);
+  --accent-soft: rgba(255, 255, 255, 0.08);
+}
 
 .page h1,
 .page h2,
@@ -46,8 +54,11 @@
   font: inherit;
   color: inherit;
 }
+/* DES-205: links are underlined, as verify.html draws them (Tailwind's preflight removes the browser's
+   underline), so they are not told apart by colour alone. The pills and the wordmark are not text links. */
 .page a {
   color: var(--accent);
+  text-decoration: underline;
   text-underline-offset: 3px;
   font-weight: 600;
 }
@@ -96,6 +107,14 @@
   font-size: 24px;
   font-weight: 800;
   letter-spacing: -0.03em;
+}
+/* DES-220: the wordmark is a link home, drawn as the wordmark (not as a text link), at least 48 px tall */
+.page a.wordmark {
+  min-height: 48px;
+  color: inherit;
+  font-weight: 800;
+  text-decoration: none;
+  border-radius: 12px;
 }
 .wordmark img {
   width: 38px;
@@ -147,6 +166,7 @@
 }
 .page a.pill {
   color: #fff;
+  text-decoration: none;
 }
 .pill:hover {
   background: var(--pill-glow), rgba(255, 255, 255, 0.12);
@@ -236,8 +256,7 @@
   stroke-width: 2.6;
   stroke-linejoin: round;
 }
-:global(body[data-state='mismatch']) .mLine,
-:global(body[data-state='loading']) .mLine {
+:global(body:not([data-state='verified'])) .mLine {
   stroke-dasharray: 10 8;
 }
 .mLabel {
@@ -252,6 +271,63 @@
   fill: rgba(243, 246, 244, 0.72);
   font: 700 22px var(--font);
   letter-spacing: 0.12em;
+}
+/* DES-200: a ring around a plot drawn too small to see, and a number badge where the ID does not fit (the
+   same number leads the plot's row in the farm list). Drawn with the map's own line and label values. */
+.mRing {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.6;
+  stroke-dasharray: 5 5;
+}
+.mBadge circle {
+  fill: rgba(10, 14, 12, 0.78);
+  stroke: var(--accent);
+  stroke-width: 2.6;
+}
+.mBadge text {
+  fill: #f3f6f4;
+  font: 700 18px var(--font);
+}
+.rowBadge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  margin-right: 8px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1.5px solid var(--accent);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: 1px;
+}
+/* DES-217: in forced colours the map keeps its outlines, rings, badges and words in system colours. */
+@media (forced-colors: active) {
+  .mLine,
+  .mRing,
+  .mBadge circle {
+    stroke: CanvasText;
+  }
+  .mFill,
+  .mBadge circle {
+    fill: Canvas;
+  }
+  .mGlow,
+  .mContour,
+  .mStream {
+    stroke: transparent;
+  }
+  .mLabel,
+  .mSub,
+  .mPlace,
+  .mBadge text {
+    fill: CanvasText;
+  }
+  .rowBadge {
+    border-color: CanvasText;
+  }
 }
 .farms {
   display: grid;
@@ -308,6 +384,27 @@
   display: grid;
   gap: 12px;
 }
+/* DES-215: in mismatch, one line above the downloads says they come from the unconfirmed page */
+.filesNote {
+  display: none;
+  margin-bottom: 12px;
+  padding: 14px 18px;
+  border-radius: 22px;
+  border: 1px dashed rgba(255, 140, 126, 0.5);
+  background: rgba(239, 106, 91, 0.08);
+}
+:global(body[data-state='mismatch']) .filesNote {
+  display: block;
+}
+/* DES-207: the link from a long batch's headline down to the files */
+.skip {
+  margin-top: 10px;
+}
+.skip a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+}
 @media (min-width: 640px) {
   .downloads {
     grid-template-columns: 1fr 1fr;
@@ -319,6 +416,10 @@
 }
 .limits p {
   max-width: 70ch;
+}
+/* DES-203: the certificate QR code and URL are for paper only (print.css shows them) */
+.printOnly {
+  display: none;
 }
 .siteFoot {
   margin: 44px 0 40px;

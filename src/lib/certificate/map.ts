@@ -53,3 +53,55 @@ export function originMapPaths(plots: { plotId: string; polygon: PlotPolygon }[]
     return { plotId: p.plotId, d: mine.join(' '), label };
   });
 }
+
+/** DES-200: a plot drawn smaller than this (its box's longer side, in view units) also gets a ring marker. */
+export const MIN_MARK = 24;
+/** The ring marker's radius in view units: 36 across, so the smallest plot still reads as a place. */
+export const RING_R = 18;
+/** A number badge's radius in view units. */
+export const BADGE_R = 14;
+/** The full label's sizes (verify.html `.m-label` 26 px, `.m-sub` 22 px) and the share of a plot's box it may use. */
+const MAIN_PX = 26;
+const SUB_PX = 22;
+const LABEL_ROOM = 0.8;
+
+type Fit = { textLength?: number };
+
+/**
+ * How one plot is marked on the map (DES-200). `n` is its 1-based number, shared with its row in the farm
+ * list. `ring` is drawn around a plot smaller than MIN_MARK. The label is the producer ID (and the area when
+ * there is room) inside the outline, as verify.html draws it, squeezed at most to 60 %; when the ID does
+ * not fit, a number badge in the plot, or beside it when the plot is smaller than the badge.
+ */
+export type PlotMark = {
+  plotId: string;
+  n: number;
+  ring: { x: number; y: number; r: number } | null;
+  label: { kind: 'full'; x: number; y: number; main: Fit; sub: Fit | null } | { kind: 'badge'; x: number; y: number };
+};
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+const r1 = (n: number) => Math.round(n * 10) / 10;
+
+/** The marks of the drawn plots (originMapPaths' output, in its order), given each plot's producer ID and area text. */
+export function plotMarks(paths: MapPlot[], plots: { plotId: string; producerId: string; area: string }[], box: Box = MAP_BOX): PlotMark[] {
+  const byId = new Map(plots.map((p) => [p.plotId, p]));
+  return paths.map((p, i): PlotMark => {
+    const plot = byId.get(p.plotId);
+    const { x, y, w, h } = p.label;
+    const ring = Math.max(w, h) < MIN_MARK ? { x, y, r: RING_R } : null;
+    const room = w * LABEL_ROOM;
+    const main = plot && h >= 32 ? fitLabel(plot.producerId, MAIN_PX, room) : null;
+    if (plot && main) {
+      const sub = h >= 64 && plot.area ? fitLabel(plot.area, SUB_PX, room) : null;
+      return { plotId: p.plotId, n: i + 1, ring, label: { kind: 'full', x, y, main, sub } };
+    }
+    // Inside a plot that can hold it; otherwise just above the plot (or its ring), or below it when there is
+    // no room above, and always inside the view box.
+    const inside = w >= 2 * BADGE_R + 4 && h >= 2 * BADGE_R + 4;
+    const reach = Math.max(h / 2, ring ? ring.r : 0) + BADGE_R + 4;
+    const by = inside ? y : y - reach >= BADGE_R + 2 ? y - reach : y + reach;
+    const label = { kind: 'badge' as const, x: r1(clamp(x, BADGE_R + 2, box.w - BADGE_R - 2)), y: r1(clamp(by, BADGE_R + 2, box.h - BADGE_R - 2)) };
+    return { plotId: p.plotId, n: i + 1, ring, label };
+  });
+}

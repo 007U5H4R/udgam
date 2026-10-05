@@ -87,6 +87,19 @@
   font-weight: 600;
   color: var(--bad-ink);
 }
+/* DES-025 (2): what to do next, under the refusal, in the lede's ink */
+.help {
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--ink);
+}
+/* DES-220: a certificate visitor who lands here is pointed back to the link or QR code */
+.hint {
+  margin: 22px 0 0;
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+  text-align: center;
+}
 
 /* Short phones (Design.md §16): the decorative cherry shrinks so the pill stays in view at 320 × 568. */
 @media (max-height: 700px) {

@@ -53,7 +53,8 @@ test.describe('certificate hero, origin map and journey (TSK-16.4, @eval EVAL-08
       await expect(farms.nth(i)).toContainText(`Farm ${producerId} · 2.0 ha`);
       await expect(farms.nth(i)).toContainText('1 picking');
       // EXE12 / CF-11: fixture satellite data is labelled, and the label is shown as recorded
-      await expect(farms.nth(i).getByTestId('forest-line')).toHaveText('0.0% of plot area lost since 2021 (hard fail at 10.0%) (demo data)');
+      // (DES-213: "limit", not the verifier's "hard fail", on the public page)
+      await expect(farms.nth(i).getByTestId('forest-line')).toHaveText('0.0% of plot area lost since 2021 (limit 10.0%) (demo data)');
     }
   });
 
@@ -111,7 +112,7 @@ test.describe('certificate entries, organic line, files and limits (TSK-16.5)', 
     await expect(more.locator('li').first()).toBeHidden();
     await more.locator('summary').click();
     // the rest, with the fixture satellite lines labelled "(demo data)" exactly as recorded (EXE12)
-    await expect(more).toContainText('0.0% of plot area lost since 2021 (hard fail at 10.0%) (demo data)');
+    await expect(more).toContainText('0.0% of plot area lost since 2021 (limit 10.0%) (demo data)');
     await expect(more).toContainText('Living canopy around the picking date: NDVI 0.71 (needs ≥ 0.45) (demo data)');
   });
 
@@ -148,7 +149,8 @@ test.describe('certificate entries, organic line, files and limits (TSK-16.5)', 
     expect(await proofFinalState(page)).toBe('verified');
     await expect(page.getByTestId('override-reason').filter({ visible: true })).toHaveText('Decided by the office: Verified · Reason: Scale photo checked by the office');
     await expect(page.getByTestId('attestation-line')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Organic' })).toHaveCount(0);
+    // Stage 8 DES-214: no certificate is said, not left out, so "none" cannot read as "not shown"
+    await expect(page.getByTestId('organic-none')).toHaveText('No organic certificate on record for this batch.');
   });
 });
 
@@ -185,6 +187,7 @@ test.describe('certificate responsive and accessibility gates (TSK-16.11, @eval 
       const r = await page.evaluate(() => {
         const a = document.activeElement;
         if (!a || a === document.body) return 'none';
+        if (a.closest('header')) return 'header'; // Stage 8 DES-220: the wordmark links home
         if (a.closest('.proof')) return 'proof';
         if (a.closest('#origin-map')) return 'map';
         if (a.closest('section[aria-labelledby="entries-h"]')) return 'entries';
@@ -194,7 +197,7 @@ test.describe('certificate responsive and accessibility gates (TSK-16.11, @eval 
       if (regions.at(-1) !== r) regions.push(r);
       if (r === 'downloads' && (await page.evaluate(() => document.activeElement?.id)) === 'print') break;
     }
-    expect(regions.filter((r) => r !== 'none')).toEqual(['proof', 'entries', 'downloads']);
+    expect(regions.filter((r) => r !== 'none')).toEqual(['header', 'proof', 'entries', 'downloads']);
   });
 
   test('the page runs under its CSP with no violation (TC-076 on the certificate)', async ({ page }) => {

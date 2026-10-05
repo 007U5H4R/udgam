@@ -116,6 +116,34 @@
   #origin-map text {
     fill: #111 !important;
   }
+  /* DES-200's number badges: ink on white */
+  #origin-map [data-badge] circle {
+    fill: #fff !important;
+    stroke: #111 !important;
+  }
+
+  /* DES-203 (EXE40): the QR code and the certificate URL, so the paper leads back to this live check. The
+     block is display:none on screen (certificate.module.css); BatchQr's own "Print QR" button stays hidden
+     with every other button. */
+  body:has(#proof-feed) [data-print-only] {
+    display: block !important;
+    margin-top: 8mm;
+    break-inside: avoid;
+  }
+
+  /* DES-212: on paper every check is shown and nothing looks pressable: the closed disclosures print their
+     content (::details-content; PrintButton also opens them on beforeprint), their "See all checks"
+     summaries and the "How this was checked" chevron are not printed, nor is the "Public certificate" chip. */
+  body:has(#proof-feed) details::details-content {
+    content-visibility: visible;
+    display: block;
+  }
+  body:has(#proof-feed) [data-screen-only],
+  body:has(#proof-feed) .e-table-wrap details > summary,
+  body:has(#proof-feed) .proof details > summary svg,
+  body:has(#proof-feed) [data-kind-chip] {
+    display: none !important;
+  }
 
   /* entries: the table, with every check, rather than the phone list */
   body:has(#proof-feed) .e-list,
