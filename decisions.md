@@ -910,3 +910,178 @@ The freeze rule counts only active attack cases. Config-change rows in HTML comm
 - **R-6:** a config-changes row citing an EV/TP decision whose heading says "Rejected" still authorises. It matters only after baseline-v1, when a config change is proposed, and an owner reviews any such change. To tighten later: require the decision's heading to read "accepted".
 - **Repeated harness run:** a formal `pnpm eval` harness run can be repeated at the same HEAD (it writes `-r2`). The default seed makes the run deterministic, so a repeat can't seed-shop.
 - **Edit-plus-hash forgery:** editing a report together with its run record's SHA-256 can't be detected without signing.
+
+## EXE37 · Accepted implementation deviations for TKT-11, TKT-12, TKT-16, TKT-17, TKT-22, TKT-24 and TKT-30 — accepted (orchestrator under the owner's waiver, 2026-10-05; reviews PASS)
+**Context.** The implementers of these 7 tickets listed candidate deviations, and the spec and quality reviewers accepted them. None was in decisions.md. Items already recorded are left out: the closure-incomplete step (EXE15), the batched-run refusal (EXE16), re-run by check (EXE18), OD-8 and the certificate budget (EXE24), the staged re-hash rule (EXE25), the MultiPoint, MultiPolygon and ring-collapse export rules (EXE26), district outlines and organisation IDs (EXE28), and `DEFAULT_MILESTONE` (EXE23, OD-9). Report paths are in the session scratchpad. No threshold, weight, expected verdict, case class or cfg-1 value changes (CF-13).
+
+**TKT-11 (TASK-12)**
+- **Keep policy.** `forbidden`, `device_not_owned` and `length_required` keep the signed outbox copy, because they depend on the session or the proxy, not the picking. This narrows plan §9's "4xx refusals delete the copy" (TASK-12-impl.md D1; spec review accepted).
+- **429 wait.** `retryAfterSec` is capped at 60 s at the source, so the saved sheet never promises a longer wait than the phone keeps (D2; tested in fix round 1).
+- **Same-seq pickings.** A second offline picking signed with the same seq stays Verified, with only `chain_continuity` flagged (87.5 under cfg-1). It is not Needs Review: a lone chain flag does not cap under EV7. This corrects the P5 ledger note. Changing it would be an EV/TP decision on cfg-1 (D3; spec review: "not a defect").
+- **No office-phone migration.** `organisations.office_phone` already exists from migration 0000 (D4).
+- **Route groups.** `/field` and `/field/pickings` sit in `(home)` and `(list)` groups, so another agent's picking answers a real 404. One `field/error.tsx` at the `field/` level covers record, help and detail (D5; fix round 1).
+- **Language cookie.** It is renamed `lang` → `udgam_lang`, as TSK-11.7 says. It is not httpOnly, and it is Secure in production. A legacy `lang` cookie is ignored (D7; fix round 1).
+- **i18n key sets.** `en` and `kn` match except for the English-only admin prefixes `rail.*` and `phones.*` (TP18). The test asserts that these are the only exceptions (D8).
+- **Test names.** DB-backed query tests are `*.int.test.ts` (D9).
+- **Fix round 1 additions.**
+  - `?state=throw` is a test-only surface, honoured only outside production or with E2E=1.
+  - `listPickings` returns the newest 200, with no pagination UI yet.
+  - The outbox queue runs under the Web Lock `udgam-outbox` when the browser has one.
+  - New copy: `pend.unreadable` (Kannada pending native review) and `certCopy.qrLabel`.
+
+  (TASK-12-impl.md fix round 1, "Candidate EXE entries"; spec and quality r2 PASS.)
+- **Follow-up.** Each queued send times out after 120 s (`QUEUE_SEND_TIMEOUT_MS`), and the lock wait is bounded by the caller's signal (P5-followup-impl.md item 14, 856b67f).
+- **Left for the owner:** the visibility of `device_not_owned` on a shared phone (quality finding 15).
+
+**TKT-12 (TASK-13)**
+- **Schema commit.** The schema has its own commit, ahead of TSK-12.1 (TASK-13-impl.md D1). Migrations are 0017/0018, then 0021 (fix round 1) and 0033 (follow-up).
+- **Extra guards.**
+  - A run that is superseded, or that belongs to an event an admin decided, is refused.
+  - `admin_id` has a real FK to `user`.
+  - Extra error codes: `batched` (409), `reason_too_long` and `reason_has_control` (400).
+
+  (D2, D7; spec review: "stricter, not weaker".)
+- **Runs are immutable once written (0021).** This supersedes 0008's batched-only run freeze, so one TKT-14 test now expects the refusal. 0021 also:
+  - folds the override insert guards into one ordered trigger;
+  - allows overrides of Needs Review runs only;
+  - freezes a decided event's `final_verdict` to the override.
+
+  (fix round 1 candidates 2–3; quality r2 N4.)
+- **No new run after a hard-failed run (0033, CF-06).** This closes the raw two-statement bypass (quality r2 N3; P5-followup-impl.md item 11).
+- **No `(review)/layout.tsx`.** Next layouts get no `searchParams`. Each page renders through a shared `ReviewScreen.tsx`. The queue sits in a `(queue)` group, so another org's run is a real 404. The TKT-04 placeholder `/admin` page is deleted, and its Sign out moves to a pill under the queue (D3; spec review accepted).
+- **As-of re-run context.** It is built from events anchored before the capture's own seq: photos, kg, chain head, previous capture, agent count and revocation. The plot is the current row, so a later boundary edit is not rolled back. The season kg uses earlier events' current final verdicts, which can only lower the total. The re-run payload adds `rerunOf` (D5; fix round 1 Major 2; quality review nit 7).
+- **Reason rules.**
+  - Refused:
+    - control and format characters (newline allowed);
+    - phone numbers in any script's digits, joined across 1–3 separators, in mobile or landline shape;
+    - text with fewer than 10 visible characters.
+  - Accepted: dates, times and decimals.
+  - ZWJ and ZWNJ are allowed only between 2 Kannada characters.
+  - Lengths count code points, up to 1000.
+
+  The same rules apply in the app and the DB (D7; fix round 1 Major 1; P5-followup-impl.md item 11).
+- **Copy and map.**
+  - The English-only words live in `src/lib/review/copy.ts`, with no new `en.ts` keys.
+  - The review map's 25 m band is drawn in `ReviewDetail.tsx`, and the shared `PlotSvg` is untouched.
+  - The rail gains an `admin-rail` class.
+
+  (D8, D9; fix round 1.)
+- **Commit slicing.** The Check-again button landed with TSK-12.6 (D11).
+
+**TKT-16 (TASK-17)**
+- **Certificate wording.** It lives in `src/lib/certificate/copy.ts`, not `en.ts`. The certificate is English-only, and its words stay on the HR2 list (TASK-17-impl.md D1; spec finding 4).
+- **Test surfaces.** `?__tamper=` and `?state=` are gated on E2E=1, as `/__test__/*` is. There is no `UDGAM_TEST_ROUTES` (D2).
+- **No `?__key=test`.** The `other-key` tamper re-signs and must report `unknown-key` against the real published key (EVAL-062) (D3; spec nit 15).
+- **EVAL-064 on the page.** Raw 404 bytes are compared on the feed route. On the page, the rendered DOM is compared, and the raw bodies are checked for batch data, because a per-request CSP nonce makes raw identity impossible (D5; spec nit 11).
+- **QR PNG.** sharp decodes it instead of pngjs. The QR uses scale 8, error correction M and a 4-module quiet zone (D6).
+- **Non-additive `proof.ts` changes (TKT-15's file).**
+  - Entries are verified in windows of 32 with `Promise.all`.
+  - `zod/mini` replaces `zod`.
+  - Progress is reported in feed order, only up to the first failure.
+
+  The outcome and step order are unchanged, and the vectors and harness proof suite are green. Verification fell from about 2.0 s to 0.5 s, and the page chunk from 100 KB to 25 KB gzip. The page preloads the ledger key (D7; spec finding 5; spec r2 nit 3).
+- **Perf runner.**
+  - It seeds into the target server's `DATA_DIR`, and refuses `--only=s3` (TKT-29).
+  - The S4 fixture carries EVAL-058's override.
+  - Each run reports `serverMs`, `htmlMs` and `verifyMs`. These are report-only; S4's pass is still < 3 s.
+
+  (D8, D13; fix round 1 spec items.)
+- **Telemetry beacon.**
+  - The request needs a numeric Content-Length, at most 512 bytes, read within 5 s.
+  - Each IP gets 30 per 10 min.
+  - One `certificate.viewed` beacon is sent per page view.
+  - `proof_failed` has its own bucket at `/api/telemetry?e=proof_failed`.
+
+  Each certificate view writes one rate-limit row (fix round 1 Q1–Q3; P5-followup-impl.md item 18).
+- **Page details.**
+  - Entry chips follow the visitor's own proof.
+  - A key-fetch failure is `unavailable`, never a mismatch.
+  - Print QR opens a popup with a `window.print()` fallback.
+  - Map labels shrink to fit or are left out.
+  - The override reason is wrapped in `<bdi>`.
+
+  (D11, D12; fix round 1.)
+- **District outlines.** The Dakshina Kannada outline was pulled back out of Kasaragod, Kerala (quality r2 N1; d0ec2df). EXE28 stands.
+
+**TKT-17 (TASK-18)**
+- **ProductionPlace.** It is "District, Karnataka" without the plot ID. TP24 and §12 govern over the TSK-17.1 wording (TASK-18-impl.md D1; spec A1).
+- **The 4 ha test.** It uses the area at 2 decimals: `round2(area) ≥ 4.00` exports a Polygon, so a plot shown as "4.00 ha" is never a Point. The schema caps a Point's `Area` at 3.99 (D2; fix round 1 Q2, Q3).
+- **Coordinates** are written with exactly 6 decimals on the wire. The serializer writes geometry by hand, with no regex over the JSON (D3; fix round 1 Q4).
+- **Concave plots** get a guaranteed interior point: the midpoint of the widest horizontal chord when turf's point is not strictly inside (D4).
+- **`quantity_kg_cherry`** is the batch total, repeated on every Feature, per §12 (D5).
+- **Files.** The metadata helper is `link-preview.ts`, because of Next's page-export rule, and there is a second e2e spec for no-JS tags. Test files are `*.int.test.ts` (D6, D7; spec A5, A6).
+- **Shared changes.**
+  - `generateMetadata` and the page share one feed build per request through `cache(resolveFeed)`; this touches TKT-16's render line.
+  - Both verify routes share `responses.ts`.
+
+  (D8; fix round 1 Q5; spec A5.)
+- **Print sheet.** `print.css` is global, scoped with `:has(#proof-feed)`. ProofPanel gains one additive `data-lit` attribute. `tfoot` and `break-after` rules keep the printed entry table honest (D9; fix round 1 Q6).
+- **Ring orientation.** Every exported ring follows RFC 7946: exteriors counter-clockwise, holes clockwise (fix round 1 Q1).
+
+**TKT-22 (TASK-23)**
+- **Checksum file.** The sidecar is `foundry_v1.8.3_linux_<arch>.sha256`, not `<tarball>.sha256`, which returns 404 (TASK-23-impl.md D1).
+- **solc.** solc 0.8.37 is installed from the sha256-pinned GitHub release into `~/.svm/0.8.37/`, because `binaries.soliditylang.org` is blocked. TKT-24 pins `solc_version` and `offline = true` (D2; spec A-2).
+- **Messages.** The second run prints `ok: … already satisfied`, as TC-002 words it (D3).
+- **Download failure.** It warns and exits 0, and a checksum mismatch is always fatal. CI sets `CLOUD_SETUP_STRICT=1`, which makes a failed download fatal (D4; P5-followup-impl.md item 7).
+- **Sigstore.** The bundle was not verified, because the attestation hosts are blocked. The digests were cross-checked against GitHub's published asset digests (D6).
+- **The TSK-22.4 verify step** is `~/.foundry/bin/forge --version`; the block does not touch PATH (spec A-1).
+- **arm64.** The arm64 execution check is deferred to TSK-27.1 (TKT-27).
+
+**TKT-24 (TASK-25)**
+- **viem 2.56.9** is a new production dependency, pinned exactly. technical-plan §0 gains the row `viem | 2.56.9` (TSK-24.4; TASK-25-impl.md D6; spec nit 7).
+- **Callers stay on `hashchain.append`.** Every anchoring pass first backfills a pending `evm_anchors` row for any entry that lacks one, in seq order. Anchoring runs:
+  - at boot;
+  - then every 5 s, single-flight;
+  - before each proof, waiting at most 3 s (`ANCHOR_WAIT_MS`).
+
+  Concurrent callers coalesce into one running pass plus one queued pass (D1; fix round 1 Major 1).
+- **The `evm` proof field.**
+  - It has a `status` discriminant: `anchored`, `pending` or `failed`.
+  - A `failed` seq halts later anchoring until an operator runs `pnpm ledger:evm:resolve`. This records 1 immutable resolution (migrations 0024/0025), and the seq stays `failed` in proofs and audit.
+  - `verifyFeed` strips `evm`: the field is not verified.
+
+  (D2; fix round 1 deviation 1; docs/proof-feed.md §13.)
+- **Tests and harness.**
+  - The `evm` vitest project runs only on request (`pnpm test:evm`). It fails loudly without Foundry and never skips.
+  - Under `--ledger=evm`, the harness lets only its own loopback RPC through and counts those calls (`localChainRpcCalls`).
+
+  (D3, D4.)
+- **Operator key.**
+  - The key is a 0600 file.
+  - It is funded from Anvil's unlocked account on local chain 31337 only.
+  - It reaches `forge script` through the child environment, never through argv.
+  - A `deployment.json` whose registry is not live is refused.
+
+  (D7.)
+- **Deployment and audit.**
+  - `deployment.json` carries `confirmations`: 1 on 31337, 12 elsewhere. This avoids a new env var.
+  - `checkFeedAnchors` gains an additive `failures` field.
+  - `ANVIL_RPC_URL` is treated as a secret name.
+
+  (fix round 1 deviations 2–4.)
+- **BatchRegistry details.** `nextSeq` starts at 1, `seq` is indexed in `EntryAnchored`, and it reverts on a zero hash or zero operator (D8).
+- **CI and tests.**
+  - The contracts CI job runs the full `pnpm eval --ledger=evm --milestone=M2`.
+  - 2 tests that asserted the old EVAL-103 placeholder note were updated. No case or results file changed.
+
+  (D9, D11.)
+- **Follow-up.**
+  - The receipt timeout grows with `confirmations`.
+  - §13.2's step 0 says the registry comes from an out-of-band announcement.
+
+  (P5-followup-impl.md item 13.)
+
+**TKT-30 (TASK-31)**
+- **Schema commit.** The schema has its own commit. Migrations were merged as 0022/0023 (TASK-31-impl.md D1).
+- **Phone scoping.** `staged_media` has `device_id`, and the stage route needs `X-Udgam-Device` for a phone that is enrolled to the agent and not revoked. The binding is advisory within one agent's phones. An unexpired staged row keeps its first phone (D2; quality finding 4; P5-followup-impl.md item 12).
+- **Interfaces and limits beyond the plan.**
+  - `stagePhoto` takes `deviceId` and `mime`.
+  - Separate stage slots: 4 per process, 2 per agent.
+  - A per-address limit of 180 per 10 min.
+
+  (D4, D5; spec finding 4.)
+- **`media_not_staged`.** It replays an accepted payload's verdict before answering 409. A 409 refunds the device and per-address tokens (D6; quality finding 5; P5-followup-impl.md item 12).
+- **Sweeps.** Staging is swept on stage calls, after every capture and at boot. The orphan cutoff is `STAGE_TTL_MS` by file mtime (P5-followup-impl.md item 12).
+- **Shared files.** `src/app/api/capture/route.ts` and `read-form.ts` were touched outside the owned files; the changes are small and additive (D7; spec finding 3).
+- **e2e.** The spec re-sets the emulated GPS fix just before Send (D8).
+- **Commit history.** The TSK-30.4 commit's spec fails on its own and is fixed in the TSK-30.5 commit. Interactive rebase is unavailable (D9; spec finding 2).

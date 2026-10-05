@@ -212,7 +212,7 @@ Branch `build/stage7` (from `main` @ `b397c08`). Protocol: technical-plan.md §2
     - "150 m" and "(demo data)" wrap;
     - the Not accepted halo (known).
 - **Ledger notes:**
-  - Two offline pickings signed with the same seq → the second is Needs Review (§9); TKT-11's queue handles it.
+  - Two offline pickings signed with the same seq → the second is Needs Review (§9); TKT-11's queue handles it. *(Corrected by EXE37: the second stays Verified, with only the chain check flagged, per the TKT-11 reviews.)*
   - A plot geometry edit during an in-flight capture is not re-read.
   - CI does not run `pnpm test:tz`.
   - Per-instance state (throttles, capture slots, dev secret) assumes one app instance (TKT-27 runs one).

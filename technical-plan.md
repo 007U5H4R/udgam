@@ -36,6 +36,7 @@ Checked with `npm view` on 2026-09-29 (research notes: Stage 6). TKT-01 pins the
 | pino | 10.3.1 | ajv | 8.20.0 |
 | vitest | 5.0.2 | @playwright/test / @axe-core/playwright | 1.63.0 / 4.13.0 |
 | Node | 22 LTS | Foundry (M-002) | v1.8.3 (publishes `linux_arm64` binaries) |
+| viem (M-002, EXE37) | 2.56.9 | solc (M-002) | 0.8.37 |
 `leaflet-draw` has been unmaintained since 2022. It stays because TKT-06's acceptance criteria and Solution-PRD §3.1 name it. If it fails with react-leaflet 5, the fallback is `@geoman-io/leaflet-geoman-free` 2.20.2, recorded as an `EXE#` decision. i18n uses no library (TP18), so `next-intl` is not a dependency.
 
 ## 1. Global constraints (every task implicitly includes these)
