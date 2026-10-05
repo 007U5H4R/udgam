@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { areaHa } from '../geo/area';
 import type { MultiPolygon, Polygon, Position } from '../geo/types';
 import type { ProofFeedV1 } from '../ledger/proof';
-import { buildEudrGeoJson, orientRings, serializeEudrGeoJson, type EudrFeature } from './geojson';
+import { buildEudrGeoJson, EudrGeometryError, orientRings, serializeEudrGeoJson, type EudrFeature } from './geojson';
 
 // TSK-17.1 · TC-070 (builder half) · EVAL-078 · TP24: the EUDR geolocation file is built from the proof
 // feed's payloads alone (TP16). The fixture feed (evals/fixtures/feeds/batch-3-events.json, three 2.0 ha
@@ -65,12 +65,13 @@ const TP24_KEYS = ['ProducerName', 'ProducerCountry', 'ProductionPlace', 'Area',
 function positions(f: EudrFeature): number[][] {
   const g = f.geometry;
   if (g.type === 'Point') return [g.coordinates];
+  if (g.type === 'MultiPoint') return g.coordinates;
   if (g.type === 'Polygon') return g.coordinates.flat();
   return g.coordinates.flat(2);
 }
 function rings(f: EudrFeature): number[][][] {
   const g = f.geometry;
-  if (g.type === 'Point') return [];
+  if (g.type === 'Point' || g.type === 'MultiPoint') return [];
   if (g.type === 'Polygon') return g.coordinates;
   return g.coordinates.flat();
 }
@@ -282,6 +283,105 @@ describe('RFC 7946 §3.1.6 ring orientation (exterior counter-clockwise, holes c
   });
 });
 
+describe('winding decided relative to the first vertex (Q8)', () => {
+  it('a tiny counter-clockwise ring far from the origin stays as it is', () => {
+    const ne: Position[] = [
+      [179.999998, 89.999998],
+      [179.999999, 89.999998],
+      [179.999999, 89.999999],
+      [179.999998, 89.999998],
+    ];
+    const sw: Position[] = [
+      [-179.999998, -89.999998],
+      [-179.999997, -89.999998],
+      [-179.999997, -89.999997],
+      [-179.999998, -89.999998],
+    ];
+    expect(orientRings([ne])).toEqual([ne]);
+    expect(orientRings([sw])).toEqual([sw]);
+    expect(orientRings([[...ne].reverse()])).toEqual([ne]);
+  });
+});
+
+describe('a multi-part plot under 4 ha exports one point per part (EXE26)', () => {
+  // Two separate squares in Kodagu; the plot is 1.5 ha in total as registered.
+  const WEST: Position[][] = [
+    [
+      [75.8, 12.5],
+      [75.802, 12.5],
+      [75.802, 12.502],
+      [75.8, 12.502],
+      [75.8, 12.5],
+    ],
+  ];
+  const EAST: Position[][] = [
+    [
+      [75.81, 12.51],
+      [75.811, 12.51],
+      [75.811, 12.511],
+      [75.81, 12.511],
+      [75.81, 12.51],
+    ],
+  ];
+  const TWO_PARTS: MultiPolygon = { type: 'MultiPolygon', coordinates: [WEST, EAST] };
+
+  it('a 2-part 1.5 ha plot gives a MultiPoint of 2 points, in part order, each strictly inside its own part, Area 1.5', () => {
+    const fc = buildEudrGeoJson(withPlot0(TWO_PARTS, 1.5), BASE);
+    const f = byProducer(fc, 'PR-0PDMRFJ3');
+    expect(f.geometry).toEqual({
+      type: 'MultiPoint',
+      coordinates: [
+        [75.801, 12.501],
+        [75.8105, 12.5105],
+      ],
+    });
+    expect(f.properties.Area).toBe(1.5);
+    const pts = (f.geometry as { coordinates: Position[] }).coordinates;
+    expect(booleanPointInPolygon(pts[0]!, { type: 'Polygon', coordinates: WEST }, { ignoreBoundary: true })).toBe(true);
+    expect(booleanPointInPolygon(pts[1]!, { type: 'Polygon', coordinates: EAST }, { ignoreBoundary: true })).toBe(true);
+    expect(booleanPointInPolygon(pts[0]!, { type: 'Polygon', coordinates: EAST }, { ignoreBoundary: true })).toBe(false);
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(SCHEMA);
+    expect(validate(fc), JSON.stringify(validate.errors)).toBe(true);
+    expect(serializeEudrGeoJson(fc)).toContain('"geometry":{"type":"MultiPoint","coordinates":[[75.801000,12.501000],[75.810500,12.510500]]}');
+  });
+
+  it('a concave part (P04, L-shaped) still gets a point strictly inside that part', () => {
+    const p04 = fixture('P04');
+    const multi: MultiPolygon = { type: 'MultiPolygon', coordinates: [EAST, p04.coordinates] };
+    const f = byProducer(buildEudrGeoJson(withPlot0(multi, 1.3), BASE), 'PR-0PDMRFJ3');
+    const pts = (f.geometry as { type: string; coordinates: Position[] }).coordinates;
+    expect(f.geometry.type).toBe('MultiPoint');
+    expect(pts).toHaveLength(2);
+    expect(booleanPointInPolygon(pts[1]!, p04, { ignoreBoundary: true })).toBe(true);
+  });
+
+  it('a single-part plot under 4 ha is still a Point', () => {
+    const one: MultiPolygon = { type: 'MultiPolygon', coordinates: [WEST] };
+    expect(byProducer(buildEudrGeoJson(withPlot0(one, 0.49), BASE), 'PR-0PDMRFJ3').geometry).toEqual({ type: 'Point', coordinates: [75.801, 12.501] });
+    expect(byProducer(buildEudrGeoJson(withPlot0({ type: 'Polygon', coordinates: WEST }, 0.49), BASE), 'PR-0PDMRFJ3').geometry).toEqual({
+      type: 'Point',
+      coordinates: [75.801, 12.501],
+    });
+  });
+
+  it('the same two parts at 4 ha or more stay a MultiPolygon with no Area', () => {
+    const f = byProducer(buildEudrGeoJson(withPlot0(TWO_PARTS, 4), BASE), 'PR-0PDMRFJ3');
+    expect(f.geometry.type).toBe('MultiPolygon');
+    expect('Area' in f.properties).toBe(false);
+  });
+
+  it('the schema refuses a MultiPoint whose Area is 4 or more, or that has no Area', () => {
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(SCHEMA);
+    const fc = buildEudrGeoJson(withPlot0(TWO_PARTS, 1.5), BASE);
+    expect(validate(fc)).toBe(true);
+    const f0 = byProducer(fc, 'PR-0PDMRFJ3');
+    f0.properties.Area = 4;
+    expect(validate(fc)).toBe(false);
+    delete f0.properties.Area;
+    expect(validate(fc)).toBe(false);
+  });
+});
+
 describe('the 4 ha line, on the area at two decimals (Q2, Q3)', () => {
   it('3.994 ha (shown as 3.99 ha) is a Point with Area 3.99', () => {
     const f = byProducer(buildEudrGeoJson(withPlot0(fixture('P03'), 3.994), BASE), 'PR-0PDMRFJ3');
@@ -308,6 +408,16 @@ describe('the 4 ha line, on the area at two decimals (Q2, Q3)', () => {
       ],
     };
     expect(() => buildEudrGeoJson(withPlot0(tiny, 4.5), BASE)).toThrow('EUDR export: plot PL-QZE72CD2 is 4.5 ha but a ring has fewer than 4 positions after rounding to 6 decimals');
+    // its own class, so the route's class-only log (eudr_geojson.failed) tells it apart from a DB failure (Q9)
+    let thrown: unknown;
+    try {
+      buildEudrGeoJson(withPlot0(tiny, 4.5), BASE);
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown).toBeInstanceOf(EudrGeometryError);
+    expect((thrown as Error).constructor.name).toBe('EudrGeometryError');
+    expect((thrown as Error).name).toBe('EudrGeometryError');
   });
 
   it('the schema refuses a Point whose Area is 4 or more', () => {

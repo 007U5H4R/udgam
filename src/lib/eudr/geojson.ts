@@ -13,7 +13,8 @@ import type { ProofFeedV1 } from '../ledger/proof';
 //   - [longitude, latitude] at 6 decimals, consecutive duplicates removed after rounding;
 //   - rings follow RFC 7946's right-hand rule: an exterior ring counter-clockwise (a hole clockwise);
 //   - a plot of 4 ha or more is its Polygon (outer ring only, closed); a smaller plot is a Point on its
-//     surface with its `Area` in hectares;
+//     surface with its `Area` in hectares, or, when it was anchored as several parts, a MultiPoint with
+//     one interior point per part, in part order (EXE26);
 //   - EU properties ProducerName (the pseudonymous producer ID, never a name: EV16), ProducerCountry,
 //     ProductionPlace (district, Karnataka) and Area; Udgam's extras, which the EU system ignores.
 // Built from the proof feed's payloads alone, through the certificate's view model (TP16): each plot's
@@ -30,6 +31,7 @@ export const PRODUCER_COUNTRY = 'IN';
 
 export type EudrGeometry =
   | { type: 'Point'; coordinates: Position }
+  | { type: 'MultiPoint'; coordinates: Position[] }
   | { type: 'Polygon'; coordinates: Position[][] }
   | { type: 'MultiPolygon'; coordinates: Position[][][] };
 
@@ -37,7 +39,7 @@ export type EudrProperties = {
   ProducerName: string;
   ProducerCountry: typeof PRODUCER_COUNTRY;
   ProductionPlace: string;
-  /** Hectares, two decimals; Points only. */
+  /** Hectares, two decimals; Points and MultiPoints only. */
   Area?: number;
   commodity: typeof COMMODITY;
   hs_code: typeof HS_CODE;
@@ -57,10 +59,24 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 const pos6 = (p: Position): Position => [round6(p[0]!), round6(p[1]!)];
 const samePos = (a: Position, b: Position) => a[0] === b[0] && a[1] === b[1];
 
-/** Twice the signed area of a closed ring in lon/lat (shoelace): positive when counter-clockwise. */
+/** A plot's geometry that cannot be exported under TP24 (a registered plot cannot reach it); the route logs its class. */
+export class EudrGeometryError extends Error {
+  override name = 'EudrGeometryError';
+}
+
+/**
+ * Twice the signed area of a closed ring in lon/lat (shoelace): positive when counter-clockwise. Every
+ * position is taken relative to the first, so a small ring far from (0, 0) keeps its sign instead of
+ * cancelling away in terms of the size of the absolute coordinates (Q8).
+ */
 function signedArea2(ring: Position[]): number {
+  const [x0, y0] = ring[0] as [number, number];
   let sum = 0;
-  for (let i = 1; i < ring.length; i++) sum += ring[i - 1]![0]! * ring[i]![1]! - ring[i]![0]! * ring[i - 1]![1]!;
+  for (let i = 1; i < ring.length; i++) {
+    const [ax, ay] = [ring[i - 1]![0]! - x0, ring[i - 1]![1]! - y0];
+    const [bx, by] = [ring[i]![0]! - x0, ring[i]![1]! - y0];
+    sum += ax * by - bx * ay;
+  }
   return sum;
 }
 
@@ -126,20 +142,27 @@ export function interiorPoint(g: PlotPolygon): Position {
 /**
  * The plot's geometry under TP24: at 4 ha or more (on the area at two decimals, as the product shows it) a
  * Polygon, or a MultiPolygon for a plot anchored as several parts, each with its outer ring only, oriented
- * counter-clockwise; else a Point on its surface and its area. A plot of 4 ha or more is never downgraded
- * to a Point: a ring that collapses under rounding is an impossible state for a registered plot, so it throws.
+ * counter-clockwise; else a Point on its surface and its area, or for a plot anchored as several parts a
+ * MultiPoint with one interior point per part, in part order, and the plot's area (EXE26: every parcel is
+ * located). A plot of 4 ha or more is never downgraded to a Point: a ring that collapses under rounding is
+ * an impossible state for a registered plot, so it throws an EudrGeometryError.
  */
 function geometryOf(plot: CertPlot): { geometry: EudrGeometry; area?: number } {
   const area = round2(plot.areaHa ?? areaHa(plot.polygon));
   if (area >= POLYGON_FROM_HA) {
     const rings = outerRings(plot.polygon).map(cleanRing);
     if (!rings.every((r): r is Position[] => r !== null)) {
-      throw new Error(`EUDR export: plot ${plot.plotId} is ${area} ha but a ring has fewer than 4 positions after rounding to ${COORD_DECIMALS} decimals`);
+      throw new EudrGeometryError(`EUDR export: plot ${plot.plotId} is ${area} ha but a ring has fewer than 4 positions after rounding to ${COORD_DECIMALS} decimals`);
     }
     const parts = rings.map((r) => orientRings([r]));
     return parts.length === 1 ? { geometry: { type: 'Polygon', coordinates: parts[0]! } } : { geometry: { type: 'MultiPolygon', coordinates: parts } };
   }
-  return { geometry: { type: 'Point', coordinates: interiorPoint(plot.polygon) }, area };
+  const g = plot.polygon;
+  if (g.type === 'MultiPolygon' && g.coordinates.length > 1) {
+    const points = g.coordinates.map((coordinates) => interiorPoint({ type: 'Polygon', coordinates }));
+    return { geometry: { type: 'MultiPoint', coordinates: points }, area };
+  }
+  return { geometry: { type: 'Point', coordinates: interiorPoint(g) }, area };
 }
 
 /** "Kodagu, Karnataka" (district only, never a village); "Karnataka" for a plot outside the listed districts. */
