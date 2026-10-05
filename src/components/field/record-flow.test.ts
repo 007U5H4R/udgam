@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { VerdictView } from '../../client/capture-client';
 import { MAX_PHOTO_BYTES } from '../../lib/capture/limits';
-import { initialFlow, photoProblem, reduce, usedPhotos, type FlowAction, type FlowState, type Slot } from './record-flow';
+import { initialFlow, kgOutOfRange, photoProblem, reduce, usedPhotos, type FlowAction, type FlowState, type Slot } from './record-flow';
 
 // TSK-10.6: the record flow (photos → review → weight → checking → verdict | saved) as a pure reducer.
 
@@ -173,5 +173,58 @@ describe('send, checks and the verdict', () => {
     expect(again.step).toBe('checking');
     expect(again.checks.size).toBe(0);
     expect(again.error).toBeUndefined();
+  });
+});
+
+describe('DES-019: a refused key or an unlikely weight is never silent', () => {
+  it('a refused key sets kgRefused; the next accepted key clears it', () => {
+    let s = keys(atWeight(), '.', '3');
+    expect(s.kg).toBe('0.');
+    expect(s.kgRefused).toBe(true);
+    s = keys(s, '5');
+    expect(s.kg).toBe('0.5');
+    expect(s.kgRefused).toBe(false);
+    expect(keys(atWeight(), '5', '0', '1').kgRefused).toBe(true); // over 500
+    expect(keys(atWeight(), '4', '.', '5', '5').kgRefused).toBe(true); // one decimal only
+    expect(keys(atWeight(), '4', '.', '.').kgRefused).toBe(true); // one decimal point only
+  });
+
+  it('Delete is never a refusal, even on an empty number', () => {
+    expect(keys(atWeight(), '⌫').kgRefused).toBe(false);
+    expect(keys(atWeight(), '4', '⌫').kgRefused).toBe(false);
+  });
+
+  it('kgOutOfRange: more than twice the last pickings, or under half of them; never without a range', () => {
+    const range = { min: 38, max: 44 };
+    expect(kgOutOfRange(42.5, range)).toBe(false);
+    expect(kgOutOfRange(88, range)).toBe(false);
+    expect(kgOutOfRange(88.5, range)).toBe(true);
+    expect(kgOutOfRange(499, range)).toBe(true);
+    expect(kgOutOfRange(19, range)).toBe(false);
+    expect(kgOutOfRange(18.5, range)).toBe(true);
+    expect(kgOutOfRange(499, null)).toBe(false);
+    expect(kgOutOfRange(null, range)).toBe(false);
+  });
+});
+
+describe('DES-006: Try again from the saved sheet', () => {
+  const saved = () => run(keys(atWeight(), '4'), { type: 'send' }, { type: 'fail', kind: 'offline' });
+
+  it('the first failure is not marked again; a failed Try again is', () => {
+    expect(saved().error).toEqual({ kind: 'offline' });
+    const again = run(saved(), { type: 'send' }, { type: 'fail', kind: 'offline' });
+    expect(again).toMatchObject({ step: 'saved', error: { kind: 'offline', again: true } });
+  });
+
+  it('while Try again runs, the sheet it came from is kept as `retry` until the first check arrives', () => {
+    const trying = reduce(saved(), { type: 'send' });
+    expect(trying).toMatchObject({ step: 'checking', retry: { kind: 'offline' } });
+    const checking = reduce(trying, { type: 'check', id: 'geofence', status: 'ok' });
+    expect(checking.retry).toBeUndefined();
+    expect(reduce(trying, { type: 'verdict', v: verdict }).retry).toBeUndefined();
+  });
+
+  it('a first Send from the weight step has no retry', () => {
+    expect(run(keys(atWeight(), '4'), { type: 'send' }).retry).toBeUndefined();
   });
 });

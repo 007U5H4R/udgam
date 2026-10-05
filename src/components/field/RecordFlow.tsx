@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from 'react';
 import { finishAnswered, type OutboxSend } from '../../client/capture-client';
+import { getDevice } from '../../client/device-key';
 import { hashFile } from '../../client/hash-file';
 import { stagePhoto } from '../../client/stage-client';
 import type { CheckId, CheckStatus } from '../../lib/verification/types';
@@ -14,6 +15,7 @@ import { hydratedAttr, useHydrated } from './useHydrated';
 import { initialFlow, kgValue, photoProblem, reduce, usedPhotos, type Slot } from './record-flow';
 import { ReviewStep } from './ReviewStep';
 import { sendPicking, settleAction } from './send-picking';
+import { whenOnline } from './offline';
 import { useGps } from './useGps';
 import { SavedSheet } from './SavedSheet';
 import { VerdictStep } from './VerdictStep';
@@ -68,6 +70,20 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
     void finishAnswered();
   }, []);
 
+  // DES-013: a phone with no key cannot send a picking: it goes to set-up before any photo is taken
+  // (Home gates its Record pill the same way; this covers a link or bookmark straight to the flow).
+  useEffect(() => {
+    let live = true;
+    getDevice()
+      .then((d) => {
+        if (live && d === null) router.replace('/enrol');
+      })
+      .catch(() => undefined); // an unreadable store is caught at Send (the set-up sheet)
+    return () => {
+      live = false;
+    };
+  }, [router]);
+
   // The verdict (or refusal) has rendered on the checking screen: marked before the 600 ms auto-advance
   // hold and before "See result" under reduced motion, so the hold is reported as its own split. EV9's t1
   // (the verdict card visible) is marked by VerdictScreen.
@@ -96,7 +112,9 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
   useEffect(() => () => Object.values(previews).forEach((u) => URL.revokeObjectURL(u)), [previews]);
 
   // Each screen change starts at the top with focus on its heading.
-  const screen = holdChecking ? 'checking' : flow.step;
+  // DES-006: a Try again keeps its sheet up, busy, until the first check arrives (or it fails again).
+  const screen = holdChecking ? 'checking' : flow.step === 'checking' && flow.retry ? 'saved' : flow.step;
+  const sheetError = flow.retry ?? flow.error;
   useEffect(() => {
     window.scrollTo(0, 0);
     document.querySelector<HTMLElement>('main h1')?.focus({ preventScroll: true });
@@ -154,26 +172,30 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
 
   return (
     <>
-      {SLOTS.map((s, i) => (
-        <input
-          key={s.kind}
-          ref={(el) => {
-            inputs.current[i] = el;
-          }}
-          className="vh"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          tabIndex={-1}
-          aria-label={t(s.name, {}, lang)}
-          {...hydratedAttr(hydrated)}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            e.target.value = ''; // the same photo can be chosen again after Take again
-            if (file) dispatch({ type: 'take', slot: i as Slot, file });
-          }}
-        />
-      ))}
+      {/* DES-020: the camera inputs are opened only by "Open camera" / "Take again" (tabIndex -1), so they
+          are kept out of the accessibility tree instead of sitting outside every landmark. */}
+      <div aria-hidden="true">
+        {SLOTS.map((s, i) => (
+          <input
+            key={s.kind}
+            ref={(el) => {
+              inputs.current[i] = el;
+            }}
+            className="vh"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            tabIndex={-1}
+            aria-label={t(s.name, {}, lang)}
+            {...hydratedAttr(hydrated)}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = ''; // the same photo can be chosen again after Take again
+              if (file) dispatch({ type: 'take', slot: i as Slot, file });
+            }}
+          />
+        ))}
+      </div>
       {flow.step === 'photos' ? (
         <PhotosStep
           flow={flow}
@@ -181,7 +203,7 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
           plotName={plot.name}
           gps={gps.state}
           previews={previews}
-          onBack={() => router.push('/field')}
+          onBack={() => whenOnline(() => router.push('/field'))}
           onCamera={openCamera}
           onContinue={() => dispatch({ type: 'continue' })}
         />
@@ -201,6 +223,7 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
       {flow.step === 'weight' ? (
         <WeightStep
           kg={flow.kg}
+          refused={flow.kgRefused}
           photos={usedPhotos(flow).length}
           plotName={plot.name}
           range={range}
@@ -230,20 +253,23 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
           plotName={plot.name}
           kg={kgValue(flow.kg) ?? 0}
           motion={!reduced}
-          onDone={() => router.push('/field')}
+          onDone={() => whenOnline(() => router.push('/field'))}
         />
       ) : null}
-      {screen === 'saved' && flow.error && flow.error.kind !== 'rejected' ? (
+      {screen === 'saved' && sheetError && sheetError.kind !== 'rejected' ? (
         <SavedSheet
-          cause={flow.error.kind}
-          reason={flow.error.reason}
-          retryAfterSec={flow.error.retryAfterSec}
+          cause={sheetError.kind}
+          reason={sheetError.reason}
+          retryAfterSec={sheetError.retryAfterSec}
+          busy={flow.step === 'checking'}
+          again={sheetError.again === true}
           lang={lang}
           photos={usedPhotos(flow).length}
           kg={kgValue(flow.kg) ?? 0}
           plotName={plot.name}
           onRetry={() => void send()}
-          onLater={() => router.push('/field')}
+          onSetUp={() => whenOnline(() => router.push('/enrol'))}
+          onLater={() => whenOnline(() => router.push('/field'))}
         />
       ) : null}
     </>

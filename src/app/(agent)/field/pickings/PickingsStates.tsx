@@ -46,7 +46,8 @@ export function PickingsEmpty({ lang }: { lang: Lang }) {
 export function PickingsError({ lang, onRetry }: { lang: Lang; onRetry?: () => void }) {
   return (
     <PickingsFrame lang={lang}>
-      <GlassCard as="article" className="plot-card" role="alert">
+      {/* DES-020: role="alert" is not allowed on an <article>: the card is a <div>. */}
+      <GlassCard className="plot-card" role="alert">
         <p className="h1 plot-h">{t('home.error.title', {}, lang)}</p>
         <p className="facts">{t('home.error.body', {}, lang)}</p>
       </GlassCard>

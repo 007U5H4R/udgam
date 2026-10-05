@@ -6,6 +6,7 @@ import { LanguageSheet } from '../../app/(agent)/enrol/LanguageSheet';
 import { setPref } from '../../client/db';
 import { t, type Lang } from '../../lib/i18n';
 import { Ic } from './icons';
+import { isOffline, showOffline } from './offline';
 
 // The header's language chip (final/index.html `.chip.lang-btn`, TSK-11.7): it names the other language
 // in its own script and opens the language sheet — the first-run sheet of /enrol (TKT-05), not a second
@@ -18,6 +19,7 @@ export function LanguageChip({ lang, open, onOpenChange }: { lang: Lang; open: b
     onOpenChange(false);
     setPref('lang', next).catch(() => undefined); // the cookie alone is enough
     if (next === lang) return;
+    if (isOffline()) return showOffline(); // DES-002: the new language needs the page from the server
     const r = await setLanguage(next).catch(() => ({ ok: false }));
     if (r.ok) router.refresh();
   }

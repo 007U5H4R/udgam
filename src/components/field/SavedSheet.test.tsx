@@ -39,3 +39,40 @@ describe('the saved sheet after a 429 (Retry-After capped at 60 s)', () => {
     expect(html).not.toContain('2 minutes');
   });
 });
+
+describe('DES-006: Try again shows that it ran', () => {
+  const sheet = (o: { busy?: boolean; again?: boolean; cause?: 'offline' | 'server' }) =>
+    renderToStaticMarkup(<SavedSheet cause={o.cause ?? 'offline'} busy={o.busy} again={o.again} lang="en" photos={3} kg={42.5} plotName="Plot 1" onRetry={() => undefined} onLater={() => undefined} />);
+
+  it('while Try again runs the pill is disabled, busy and reads "Trying…"', () => {
+    const html = sheet({ busy: true, again: false });
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*aria-busy="true"[^>]*>.*Trying…<\/button>/);
+    expect(html).not.toContain('Still no network');
+  });
+
+  it('a failed Try again says "Still no network. Nothing is lost." and offers Try again again', () => {
+    const html = sheet({ again: true });
+    expect(html).toContain('Still no network. Nothing is lost.');
+    expect(html).toMatch(/<button[^>]*>.*Try again<\/button>/);
+    expect(html).not.toMatch(/disabled=""/);
+    expect(sheet({ again: true, cause: 'server' })).toContain('Still couldn&#x27;t send. Nothing is lost.');
+  });
+
+  it('the first failure has no "Still" line', () => {
+    expect(sheet({})).not.toContain('Still');
+  });
+});
+
+describe('DES-013: a phone that is not set up', () => {
+  it('says so in the sheet\'s words, offers Set up this phone, and never says Not accepted or that the picking is saved', () => {
+    const html = renderToStaticMarkup(
+      <SavedSheet cause="server" reason="no_device" lang="en" photos={1} kg={42.5} plotName="Plot 1" onRetry={() => undefined} onSetUp={() => undefined} onLater={() => undefined} />,
+    );
+    expect(html).toContain('This phone is not set up for pickings yet.');
+    expect(html).toContain('Ask the office for a code to set up this phone.');
+    expect(html).toMatch(/<button[^>]*>.*Set up this phone<\/button>/);
+    expect(html).not.toContain('Try again');
+    expect(html).not.toContain('Not accepted');
+    expect(html).not.toContain('saved on this phone');
+  });
+});

@@ -125,6 +125,9 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'rec.kg.delete': 'ಅಳಿಸಿ', // REVIEW: native speaker
   'rec.kg.send': '{kg} ಕೆಜಿ ಕಳುಹಿಸಿ', // REVIEW: native speaker
   'rec.kg.type': 'ತೂಕ ನಮೂದಿಸಿ', // REVIEW: native speaker
+  'rec.kg.rule': 'ಅರ್ಧ ಕಿಲೋ ಲೆಕ್ಕದಲ್ಲಿ (.0 ಅಥವಾ .5), 500 ಕೆಜಿ ವರೆಗೆ.', // REVIEW: native speaker
+  'rec.kg.check': '{kg} ಕೆಜಿ ನಿಮ್ಮ ಇತ್ತೀಚಿನ ಕೊಯ್ಲುಗಳಿಗಿಂತ ({min}–{max} ಕೆಜಿ) ತುಂಬಾ ಬೇರೆ. ಕಳುಹಿಸುವ ಮೊದಲು ಸಂಖ್ಯೆಯನ್ನು ಪರಿಶೀಲಿಸಿ.', // REVIEW: native speaker
+  'rec.kg.sendCheck': 'ಹೌದು, {kg} ಕೆಜಿ ಕಳುಹಿಸಿ', // REVIEW: native speaker
   'rec.chk.title': 'ನಿಮ್ಮ ಕೊಯ್ಲನ್ನು ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ', // REVIEW: native speaker
   'rec.chk.sub1': '{kg} ಕೆಜಿ · {plot} · 1 ಫೋಟೋ', // REVIEW: native speaker
   'rec.chk.subN': '{kg} ಕೆಜಿ · {plot} · {n} ಫೋಟೋಗಳು', // REVIEW: native speaker
@@ -161,6 +164,9 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'rec.saved.waitSec': '{sec} ಸೆಕೆಂಡುಗಳ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಬಹುದು.', // REVIEW: native speaker
   'rec.saved.wait1': '1 ನಿಮಿಷದ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಬಹುದು.', // REVIEW: native speaker
   'rec.saved.waitMin': '{min} ನಿಮಿಷಗಳ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಬಹುದು.', // REVIEW: native speaker
+  'rec.saved.trying': 'ಪ್ರಯತ್ನಿಸುತ್ತಿದೆ…', // REVIEW: native speaker
+  'rec.saved.still.offline': 'ಇನ್ನೂ ನೆಟ್‌ವರ್ಕ್ ಇಲ್ಲ. ಏನೂ ಕಳೆದುಹೋಗಿಲ್ಲ.', // REVIEW: native speaker
+  'rec.saved.still.server': 'ಇನ್ನೂ ಕಳುಹಿಸಲಾಗಲಿಲ್ಲ. ಏನೂ ಕಳೆದುಹೋಗಿಲ್ಲ.', // REVIEW: native speaker
   'rec.photos1': '1 ಫೋಟೋ', // REVIEW: native speaker
   'rec.photosN': '{n} ಫೋಟೋಗಳು', // REVIEW: native speaker
   'rec.noDevice': 'ಈ ಫೋನ್ ಇನ್ನೂ ಕೊಯ್ಲುಗಳಿಗೆ ಸಿದ್ಧವಾಗಿಲ್ಲ.', // REVIEW: native speaker
@@ -170,6 +176,7 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'pend.sending': 'ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
   'pend.kept': 'ಏನೂ ಕಳೆದುಹೋಗಿಲ್ಲ: ನಿಮ್ಮ ಕೊಯ್ಲುಗಳು ಇನ್ನೂ ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಲಾಗಿವೆ.', // REVIEW: native speaker
   'pend.unreadable': 'ಉಳಿಸಿದ ಈ ಕೊಯ್ಲನ್ನು ಕಳುಹಿಸಲಾಗುವುದಿಲ್ಲ. ಈ ಫೋನನ್ನು ಕಚೇರಿಗೆ ತೋರಿಸಿ.', // REVIEW: native speaker
+  'offline.body': 'ಈ ಪರದೆಗೆ ನೆಟ್‌ವರ್ಕ್ ಬೇಕು. ಏನೂ ಕಳೆದುಹೋಗಿಲ್ಲ: ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಿದ ಕೊಯ್ಲುಗಳು ನೀವು ಕಳುಹಿಸುವವರೆಗೆ ಇಲ್ಲೇ ಇರುತ್ತವೆ.', // REVIEW: native speaker
   'pk.title': 'ನಿಮ್ಮ ಕೊಯ್ಲುಗಳು', // REVIEW: native speaker
   'pk.loading': 'ನಿಮ್ಮ ಕೊಯ್ಲುಗಳನ್ನು ತೆರೆಯಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
   'pk.emptyBody': 'ನೀವು ಕಳುಹಿಸಿದ ಕೊಯ್ಲುಗಳು ಕಚೇರಿ ಕಂಡದ್ದರೊಂದಿಗೆ ಇಲ್ಲಿ ಕಾಣುತ್ತವೆ.', // REVIEW: native speaker
@@ -178,10 +185,12 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'pk.noKg': 'ತೂಕ ಇಲ್ಲ', // REVIEW: native speaker
   'pk.why.check': '{reason} ಕಚೇರಿ ಇದನ್ನು ಪರಿಶೀಲಿಸುತ್ತಿದೆ.', // REVIEW: native speaker
   'pk.whatCanIDo': 'ನಾನು ಏನು ಮಾಡಬಹುದು?', // REVIEW: native speaker
+  'pk.limit': 'ನಿಮ್ಮ ಕೊನೆಯ {n} ಕೊಯ್ಲುಗಳನ್ನು ತೋರಿಸಲಾಗಿದೆ. ಹಿಂದಿನವುಗಳಿಗೆ ಕಚೇರಿಯನ್ನು ಕೇಳಿ.', // REVIEW: native speaker
   'dt.back': 'ಕೊಯ್ಲುಗಳಿಗೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
   'dt.title': '{kg} · {plot}', // REVIEW: native speaker
   'dt.received': 'ಕಚೇರಿ ಸ್ವೀಕರಿಸಿದ ಸಮಯ', // REVIEW: native speaker
   'dt.photo': 'ಫೋಟೋ {n}', // REVIEW: native speaker
+  'dt.photoMissing': 'ಫೋಟೋ ಲಭ್ಯವಿಲ್ಲ', // REVIEW: native speaker
   'dt.seeAll': 'ಎಲ್ಲಾ ಪರಿಶೀಲನೆಗಳನ್ನು ನೋಡಿ', // REVIEW: native speaker
   'dt.state.ok': 'ಸರಿಯಾಗಿದೆ', // REVIEW: native speaker
   'dt.state.flag': 'ಒಮ್ಮೆ ನೋಡಬೇಕು', // REVIEW: native speaker
@@ -197,11 +206,14 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'help.rejected': 'ಕೊಯ್ಲನ್ನು ಸ್ವೀಕರಿಸಲಾಗಲಿಲ್ಲ. ಏಕೆ ಮತ್ತು ಏನು ಮಾಡಬೇಕು ಎಂದು ಪರದೆ ಹೇಳುತ್ತದೆ.', // REVIEW: native speaker
   'help.call': 'ಕೊಯ್ಲಿನ ಬಗ್ಗೆ ಪ್ರಶ್ನೆಗಳಿವೆಯೇ? {org} ಕಚೇರಿಗೆ ಕರೆ ಮಾಡಿ:', // REVIEW: native speaker
   'help.callLink': '{phone}', // REVIEW: native speaker
+  'help.callPill': 'ಕಚೇರಿಗೆ ಕರೆ ಮಾಡಿ', // REVIEW: native speaker
   'help.language': 'ಭಾಷೆ:', // REVIEW: native speaker
   'help.thisPhone': 'ಈ ಫೋನ್:', // REVIEW: native speaker
   'help.phoneLoading': 'ಹುಡುಕಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
   'help.phoneSetUp': '{id}, {date} ರಂದು ಸಿದ್ಧಪಡಿಸಲಾಗಿದೆ', // REVIEW: native speaker
   'help.phoneId': '{id}', // REVIEW: native speaker
+  'help.more': 'ಭಾಷೆ, ಈ ಫೋನ್, ಸೈನ್ ಔಟ್', // REVIEW: native speaker
+  'help.signOutNote': 'ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಿದ ಕೊಯ್ಲುಗಳು ಇಲ್ಲೇ ಇರುತ್ತವೆ.', // REVIEW: native speaker
   'lang.kannada': 'Kannada', // REVIEW: native speaker (the language sheet names English words in English)
   'lang.sheet.kn': 'ಭಾಷೆ', // REVIEW: native speaker
   'lang.sheet.en': 'Language', // REVIEW: native speaker (the language sheet names English words in English)
@@ -224,6 +236,8 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'fe.photos.new1': '1 ಹೊಸ ಫೋಟೋ', // REVIEW: native speaker
   'fe.photos.new1Today': '1 ಹೊಸ ಫೋಟೋ, ಇಂದು ತೆಗೆದದ್ದು', // REVIEW: native speaker
   'fe.photos.used': '{n} ರಲ್ಲಿ {k} ಫೋಟೋಗಳು ಮೊದಲೇ ಬಳಕೆಯಾಗಿವೆ.', // REVIEW: native speaker
+  'fe.photos.usedOne': 'ಈ ಫೋಟೋ ಮೊದಲೇ ಬಳಕೆಯಾಗಿದೆ.', // REVIEW: native speaker
+  'fe.photos.used1': '{n} ರಲ್ಲಿ 1 ಫೋಟೋ ಮೊದಲೇ ಬಳಕೆಯಾಗಿದೆ.', // REVIEW: native speaker
   'fe.seal.ok': 'ಈ ಫೋನಿನಿಂದ ಮುದ್ರೆ ಹಾಕಲಾಗಿದೆ', // REVIEW: native speaker
   'fe.seal.bad': 'ಈ ಫೋನಿನ ಮುದ್ರೆ ಕೊಯ್ಲಿಗೆ ಹೊಂದಿಕೆಯಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
   'fe.seal.revoked': 'ಕಚೇರಿ {date} ರಂದು ಈ ಫೋನನ್ನು ಕೊಯ್ಲುಗಳಿಗೆ ನಿಲ್ಲಿಸಿದೆ.', // REVIEW: native speaker
@@ -245,7 +259,7 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'fe.threw': 'ಒಂದು ಪರಿಶೀಲನೆ ನಡೆಯಲಿಲ್ಲ. ಕಚೇರಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸುತ್ತದೆ.', // REVIEW: native speaker
   'fe.demo': ' (ಡೆಮೊ\u00a0ಡೇಟಾ)', // REVIEW: native speaker (EXE12 "(demo data)" label; starts with a space)
   'fe.office': 'ಕಚೇರಿ ಇದನ್ನು ನೋಡುತ್ತದೆ. ಉತ್ತರವನ್ನು ನೀವು ಕೊಯ್ಲುಗಳು ಪುಟದಲ್ಲಿ ನೋಡುತ್ತೀರಿ. ನೀವು ಏನೂ ಮಾಡಬೇಕಿಲ್ಲ.', // REVIEW: native speaker (EXE24 OD-5 draft)
-  'fe.todo.photos': 'ಇಂದಿನ ಕೊಯ್ಲಿನ ಹೊಸ ಫೋಟೋಗಳನ್ನು ತೆಗೆದು ಮತ್ತೆ ದಾಖಲಿಸಿ.', // REVIEW: native speaker
+  'fe.todo.photos': 'ಇಂದಿನ ಕೊಯ್ಲಿನ ಹೊಸ ಫೋಟೋಗಳನ್ನು ತೆಗೆದು ಮತ್ತೆ ದಾಖಲಿಸಿ. ಈ ಫೋಟೋಗಳು ಹೊಸದಾಗಿದ್ದರೆ, ಕಚೇರಿಗೆ ತಿಳಿಸಿ.', // REVIEW: native speaker
   'fe.todo.seal': 'ಈ ಫೋನನ್ನು ಮತ್ತೆ ಸಿದ್ಧಪಡಿಸಲು ಕಚೇರಿಗೆ ಕೇಳಿ.', // REVIEW: native speaker
   'fe.todo.location': '{plot} ಒಳಗೆ ನಿಂತು ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ. ನೀವು ಒಳಗೇ ಇದ್ದರೆ, ಕಚೇರಿಗೆ ತಿಳಿಸಿ.', // REVIEW: native speaker
   'fe.todo.office': 'ಕಚೇರಿಯೊಂದಿಗೆ ಮಾತನಾಡಿ. ಅವರು ಇದನ್ನು ಮತ್ತೆ ನೋಡಬಹುದು.', // REVIEW: native speaker

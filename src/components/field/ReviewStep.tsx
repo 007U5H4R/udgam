@@ -7,7 +7,8 @@ import { SLOTS } from './PhotosStep';
 import type { PhotoProblem, Slot } from './record-flow';
 
 // Review a photo (final/index.html #s3) after the phone's camera: the photo itself, "Is the photo
-// clear?" with the three things to check, then "Use this photo" (hashes it) or "Take again".
+// clear?" with the three things to check, then "Use this photo" (hashes it) or "Take again". A photo that
+// cannot be sent says why in the inline error style (--bad-ink + icon, DES-018).
 
 const CHECKS: MessageKey[] = ['rec.review.focus', 'rec.review.seen', 'rec.review.dark'];
 /** Why this photo cannot be used, in the farmer's words (TASK-11 fix round 1). */
@@ -63,7 +64,8 @@ export function ReviewStep({
         ))}
       </ul>
       {error ? (
-        <p className="note" role="alert" data-testid="photo-error">
+        <p className="photo-error" role="alert" data-testid="photo-error">
+          <Ic name="alert" />
           {tr(PROBLEM[error])}
         </p>
       ) : null}

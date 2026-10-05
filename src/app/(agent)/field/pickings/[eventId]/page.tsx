@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CHECK_GROUPS, type GroupKey } from '../../../../../components/field/check-groups';
+import { DetailThumb } from '../../../../../components/field/DetailThumb';
 import { istDayTime } from '../../../../../components/field/format';
 import { kg1 } from '../../../../../lib/format';
 import { Ic } from '../../../../../components/field/icons';
@@ -83,7 +83,7 @@ export default async function PickingDetailPage({
             {d.photos.map((id, i) => (
               <GlassCard as="li" card={false} className="slot" data-state="filled" key={id}>
                 <div className="thumb">
-                  <Image src={`/api/media/${encodeURIComponent(id)}/thumb`} alt={tr('dt.photo', { n: i + 1 })} width={320} height={320} unoptimized />
+                  <DetailThumb src={`/api/media/${encodeURIComponent(id)}/thumb`} missing={tr('dt.photoMissing')} />
                 </div>
                 <span className="s-name">{tr('dt.photo', { n: i + 1 })}</span>
               </GlassCard>
@@ -98,7 +98,10 @@ export default async function PickingDetailPage({
         <GlassCard as="div" card={false} className="row tall">
           <div className="r-why">
             <details data-testid="all-checks">
-              <summary>{tr('dt.seeAll')}</summary>
+              <summary>
+                {tr('dt.seeAll')}
+                <Ic name="chevron" className="ic chev" />
+              </summary>
               <ul className="checks">
                 {groups.map((g) => {
                   const mark = MARK[g.state];

@@ -72,10 +72,17 @@
   color: var(--ink);
   text-align: center;
 }
+/* DES-025 (1): the form fills the column and its submit pill sits at the bottom, in the thumb zone, as
+   on the record screens (Design.md §16). The keyboard's own Go key still submits while it is open. */
 .form {
+  flex: 1 1 auto;
   display: grid;
+  grid-template-rows: auto auto 1fr;
   gap: 10px;
   margin-top: 22px;
+}
+.form > :last-child {
+  align-self: end;
 }
 .card {
   display: grid;
@@ -100,8 +107,11 @@
   font-weight: 600;
   color: var(--bad-ink);
 }
+/* DES-025 (1): "Go to Home" at the bottom of the column, not under the lede. */
 .done {
+  flex: 1 1 auto;
   display: grid;
+  align-content: end;
   gap: 10px;
   margin-top: 22px;
 }

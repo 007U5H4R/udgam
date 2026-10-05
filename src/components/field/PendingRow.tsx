@@ -8,6 +8,7 @@ import { t, type Lang, type MessageKey } from '../../lib/i18n';
 import { refusalCopy, refusalKeepsOutbox, retryWait } from '../../lib/i18n/farmer-evidence';
 import { GlassCard } from '../ui/GlassCard';
 import { kg1 } from '../../lib/format';
+import { isOffline, showOffline } from './offline';
 
 // Pickings saved on this phone and not sent yet (TSK-11.3): one frosted row each ("Saved on this phone",
 // the kg) with a "Send now" text button, listed above the sent entries on Home and Pickings. The row is
@@ -77,13 +78,22 @@ export function PendingList({ lang }: { lang: Lang }) {
 
   async function sendNow() {
     if (busy) return;
+    // DES-002 (EXE40): offline, Send now stays on this page (a refresh would hand it to the browser's
+    // offline page): the note and the saved-on-phone sheet say nothing is lost.
+    if (isOffline()) {
+      setNote(`${t('rec.saved.offline', {}, lang)}. ${t('pend.kept', {}, lang)}`);
+      showOffline();
+      return;
+    }
     setBusy(true);
     setNote(null);
     try {
       const results = await sendPending({ keepOnRefusal: refusalKeepsOutbox });
       setNote(stopNote(results, lang));
       await load();
-      router.refresh(); // the server's verdicts appear in the sent list
+      const last = results.at(-1)?.result;
+      if (isOffline() || (last?.kind === 'retryable' && last.cause === 'offline')) showOffline();
+      else router.refresh(); // the server's verdicts appear in the sent list
     } finally {
       setBusy(false);
     }

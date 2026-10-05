@@ -22,7 +22,11 @@ export type IconName =
   | 'delete'
   | 'retry'
   | 'ring'
-  | 'trend';
+  | 'trend'
+  | 'chevron'
+  | 'phone'
+  | 'alert'
+  | 'signOut';
 
 const PATHS: Record<IconName, ReactNode> = {
   camera: (
@@ -121,6 +125,22 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M4 18.5h16" />
       <path d="M5.5 15l4-4.5 3.5 3 5.5-6.5" />
       <path d="M14.5 7h4v4" />
+    </>
+  ),
+  // Stage 8 (DES-014, DES-016, DES-018, DES-021): drawn in the same line style.
+  chevron: <path d="M6.5 9.5 12 15l5.5-5.5" />,
+  phone: <path d="M6.6 3.8h2.6l1.5 4-2 1.4a10.6 10.6 0 0 0 6.1 6.1l1.4-2 4 1.5v2.6a1.8 1.8 0 0 1-1.9 1.8A15.6 15.6 0 0 1 4.8 5.7a1.8 1.8 0 0 1 1.8-1.9z" />,
+  alert: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.8v5" />
+      <path d="M12 16.2v.01" />
+    </>
+  ),
+  signOut: (
+    <>
+      <path d="M14 4.5H6a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h8" />
+      <path d="M10.5 12h9.5M16.5 8.5 20 12l-3.5 3.5" />
     </>
   ),
 };

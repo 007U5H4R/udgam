@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { monthYear } from '../../../../../components/field/format';
 import { PendingList } from '../../../../../components/field/PendingRow';
 import { PickingRow } from '../../../../../components/field/PickingRow';
+import { pickingsLimitNote } from '../../../../../components/field/pickings-limit';
 import { getDbReady } from '../../../../../lib/db/client';
 import { getHelpInfo, type HelpInfo } from '../../../../../lib/db/queries/field-help';
 import { listPickings, type PickingMonth } from '../../../../../lib/db/queries/pickings';
@@ -46,6 +47,7 @@ export default async function Pickings({ searchParams }: { searchParams: Promise
     }
   }
   if (!months || !help) return <PickingsError lang={lang} />;
+  const limit = pickingsLimitNote(months, lang); // DES-022: never stop silently at the bound
 
   return (
     <PickingsFrame lang={lang} help={help}>
@@ -64,6 +66,11 @@ export default async function Pickings({ searchParams }: { searchParams: Promise
           </ul>
         </section>
       ))}
+      {limit ? (
+        <p className="caption" data-testid="pickings-limit">
+          {limit}
+        </p>
+      ) : null}
     </PickingsFrame>
   );
 }

@@ -22,10 +22,19 @@ export type FlowState = {
   /** Why the reviewed photo cannot be used (TASK-11 fix round 1): not a camera JPEG/HEIC, too large, or unreadable. */
   photoError?: PhotoProblem;
   kg: string;
+  /** DES-019: the last key was refused (a third decimal, a decimal other than .0/.5, over 500): the screen says the rule. */
+  kgRefused?: boolean;
   checks: Map<CheckId, CheckStatus>;
   result?: VerdictView;
-  error?: { kind: 'offline' | 'server' | 'rejected'; reason?: string; retryAfterSec?: number };
+  /** `again`: this failure followed a Try again (DES-006: "Still no network"). */
+  error?: FlowError;
+  /** DES-006: a Try again is running and no check has arrived yet: the saved sheet it came from stays up, busy. */
+  retry?: FlowError;
+  /** How many times Send or Try again ran. */
+  sends?: number;
 };
+
+export type FlowError = { kind: 'offline' | 'server' | 'rejected'; reason?: string; retryAfterSec?: number; again?: boolean };
 
 export type PhotoProblem = 'type' | 'size' | 'read';
 
@@ -72,6 +81,15 @@ export function kgValue(kg: string): number | null {
 }
 
 const withPhoto = (photos: FlowPhoto[], slot: Slot, p: FlowPhoto) => photos.map((x) => (x.slot === slot ? p : x));
+
+/**
+ * DES-019: a weight far from the farmer's own last pickings (more than twice the most, or under half the
+ * least) is likely mistyped (425 for 42.5): the screen asks to check it before sending. Never without a range.
+ */
+export function kgOutOfRange(kg: number | null, range: { min: number; max: number } | null): boolean {
+  if (kg === null || range === null) return false;
+  return kg > range.max * 2 || kg < range.min / 2;
+}
 
 /** The weight keypad: digits, '.', '⌫'; one decimal that is .0 or .5 (cherryKg is a multiple of 0.5), at most 500. */
 function typeKey(kg: string, k: string): string {
@@ -123,27 +141,43 @@ export function reduce(s: FlowState, a: FlowAction): FlowState {
     case 'continue':
       if (s.step !== 'photos') return s;
       return usedPhotos(s).length === 0 ? { ...s, needOne: true } : { ...s, step: 'weight', needOne: false };
-    case 'key':
+    case 'key': {
       if (s.step !== 'weight') return s;
-      return { ...s, kg: typeKey(s.kg, a.k) };
+      const kg = typeKey(s.kg, a.k);
+      return { ...s, kg, kgRefused: kg === s.kg && a.k !== '⌫' };
+    }
     case 'send':
       if ((s.step !== 'weight' && s.step !== 'saved') || kgValue(s.kg) === null || usedPhotos(s).length === 0) return s;
-      return { ...s, step: 'checking', checks: new Map(), result: undefined, error: undefined };
+      return {
+        ...s,
+        step: 'checking',
+        checks: new Map(),
+        result: undefined,
+        error: undefined,
+        retry: s.step === 'saved' ? s.error : undefined,
+        sends: (s.sends ?? 0) + 1,
+      };
     case 'check': {
       if (s.step !== 'checking') return s;
       const checks = new Map(s.checks);
       checks.set(a.id, a.status);
-      return { ...s, checks };
+      return { ...s, checks, retry: undefined };
     }
     case 'verdict':
       if (s.step !== 'checking') return s;
-      return { ...s, step: 'verdict', result: a.v };
+      return { ...s, step: 'verdict', result: a.v, retry: undefined };
     case 'fail':
       if (s.step !== 'checking') return s;
       return {
         ...s,
         step: a.kind === 'rejected' ? 'verdict' : 'saved',
-        error: { kind: a.kind, ...(a.reason !== undefined ? { reason: a.reason } : {}), ...(a.retryAfterSec !== undefined ? { retryAfterSec: a.retryAfterSec } : {}) },
+        retry: undefined,
+        error: {
+          kind: a.kind,
+          ...(a.reason !== undefined ? { reason: a.reason } : {}),
+          ...(a.retryAfterSec !== undefined ? { retryAfterSec: a.retryAfterSec } : {}),
+          ...((s.sends ?? 0) > 1 ? { again: true } : {}),
+        },
       };
     case 'back':
       if (s.step === 'weight') return { ...s, step: 'photos' };

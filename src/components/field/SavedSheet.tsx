@@ -12,6 +12,9 @@ import { Ic } from './icons';
 // answer) or "Couldn't send" (the server answered without a result). A refusal that signing in again
 // or waiting can fix (rate_limited, unauthenticated, forbidden, device_not_owned, length_required)
 // names itself instead; a 429 or a busy 503 also says how long the phone will wait (at most 60 s).
+// DES-006: while Try again runs the pill is disabled and reads "Trying…"; a Try again that fails again
+// adds "Still no network. Nothing is lost." so the farmer can tell the retry ran. A phone that is not set
+// up (`no_device`, DES-013: nothing was signed or judged) says so and offers Set up this phone instead.
 
 /** `t(key)` with each `{name}` in `bold` drawn in <b>, as the mockup bolds the photo count and the kg. */
 function Rich({ k, vars, bold, lang }: { k: MessageKey; vars: Record<string, string>; bold: string[]; lang: Lang }) {
@@ -29,28 +32,44 @@ export function SavedSheet({
   cause,
   reason,
   retryAfterSec,
+  busy = false,
+  again = false,
   lang,
   photos,
   kg,
   plotName,
   onRetry,
+  onSetUp,
   onLater,
 }: {
   cause: 'offline' | 'server';
   /** A refusal the phone keeps the copy for, or `no_fix` (no GPS fix yet: nothing was signed). */
   reason?: string;
   retryAfterSec?: number;
+  /** A Try again is running. */
+  busy?: boolean;
+  /** This sheet follows a Try again that failed too. */
+  again?: boolean;
   lang: Lang;
   photos: number;
   kg: number;
   plotName: string;
   onRetry: () => void;
+  /** `no_device`: go to /enrol. */
+  onSetUp?: () => void;
   onLater: () => void;
 }) {
   const tr = (k: MessageKey, v: Record<string, string | number> = {}) => t(k, v, lang);
-  const noFix = reason === 'no_fix';
+  const noDevice = reason === 'no_device';
+  const noFix = reason === 'no_fix' || noDevice; // nothing was signed, so nothing is saved
   const refusal = reason && !noFix ? refusalCopy(reason, lang, { retryAfterSec }) : null;
-  const title = refusal ? refusal.happened : noFix ? tr('rec.noFix') : tr(cause === 'offline' ? 'rec.saved.offline' : 'rec.saved.server');
+  const title = refusal
+    ? refusal.happened
+    : noDevice
+      ? tr('rec.noDevice')
+      : noFix
+        ? tr('rec.noFix')
+        : tr(cause === 'offline' ? 'rec.saved.offline' : 'rec.saved.server');
   const photoWord = photos === 1 ? tr('rec.photos1') : tr('rec.photosN', { n: photos });
   const eyebrow = photos === 1 ? tr('rec.kg.eyebrow1', { plot: plotName }) : tr('rec.kg.eyebrowN', { plot: plotName, n: photos });
   return (
@@ -76,6 +95,7 @@ export function SavedSheet({
           {title}
         </h1>
         {refusal ? <p>{refusal.todo}</p> : null}
+        {noDevice ? <p>{refusalCopy('unknown_device', lang).todo}</p> : null}
         {noFix ? null : (
           <p data-testid="saved-body">
             <Rich k="rec.saved.body" vars={{ photos: photoWord, kg: tr('v.kg', { kg }) }} bold={['photos', 'kg']} lang={lang} />
@@ -83,9 +103,18 @@ export function SavedSheet({
         )}
         {/* A busy server's Retry-After (503); a 429's wait is in the rate_limited copy above. */}
         {!refusal && retryAfterSec !== undefined ? <p data-testid="saved-wait">{retryWait(retryAfterSec, lang)}</p> : null}
-        <Pill variant="amber" icon={<Ic name="retry" />} onClick={onRetry}>
-          {tr('rec.saved.retry')}
-        </Pill>
+        <p className="still" role="status" data-testid="saved-still">
+          {again && !busy ? tr(cause === 'offline' ? 'rec.saved.still.offline' : 'rec.saved.still.server') : ''}
+        </p>
+        {noDevice ? (
+          <Pill variant="amber" icon={<Ic name="seal" />} onClick={onSetUp}>
+            {tr('home.setUp')}
+          </Pill>
+        ) : (
+          <Pill variant="amber" icon={<Ic name="retry" />} onClick={onRetry} disabled={busy} aria-busy={busy || undefined}>
+            {tr(busy ? 'rec.saved.trying' : 'rec.saved.retry')}
+          </Pill>
+        )}
         <button className="textbtn" type="button" onClick={onLater}>
           <Ic name="clock" />
           {tr('rec.saved.later')}

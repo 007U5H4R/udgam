@@ -72,6 +72,20 @@ export function PlotSvg({ geometry, label, idBase }: { geometry: PlotPolygon; la
   );
 }
 
+/** How high the "You" label sits above its dot, in view units (≈ its 30 px offset at the card's width). */
+const TAG_ABOVE = 44;
+
+/**
+ * Where the "You" label goes beside its dot: above and to the right, flipped left near the right edge,
+ * and below when the dot is near the top of the map, so it never leaves the map and meets the line
+ * above the card's map (DES-024).
+ */
+export function youTagTransform(dot: Dot, box: Box): string {
+  const x = dot.x > box.w * 0.7 ? 'calc(-100% - 12px)' : '12px';
+  const y = dot.y < TAG_ABOVE ? '12px' : '-30px';
+  return `translate(${x}, ${y})`;
+}
+
 /**
  * The Home plot card's map (index.html `.plot-map`): the outline and, when there is a fix, the "You" dot
  * with a pulse ring (static under reduced motion). A dot beyond the view's edge is drawn at the edge,
@@ -96,11 +110,7 @@ export function PlotMap({
   const { path, dot } = projectToBox(geometry, box, point ?? undefined);
   const shown = dot ? { x: Math.min(box.w - 10, Math.max(10, dot.x)), y: Math.min(box.h - 10, Math.max(10, dot.y)) } : undefined;
   const tag: CSSProperties | undefined = shown
-    ? {
-        left: `${(shown.x / box.w) * 100}%`,
-        top: `${(shown.y / box.h) * 100}%`,
-        transform: shown.x > box.w * 0.7 ? 'translate(calc(-100% - 12px), -30px)' : 'translate(12px, -30px)',
-      }
+    ? { left: `${(shown.x / box.w) * 100}%`, top: `${(shown.y / box.h) * 100}%`, transform: youTagTransform(shown, box) }
     : undefined;
   return (
     <div className="plot-map">
