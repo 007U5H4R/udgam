@@ -5,7 +5,10 @@ import { writeTx, type Db } from '../db/client';
 import { ledgerCheckpoints, ledgerEntries } from '../db/schema';
 import { checkpointIfNeeded, type Checkpoint } from './checkpoint';
 import { batchCreatedEntry, closureSeqs } from './closure';
+import { evmFieldsFor, type EvmProofField } from './evm/adapter';
+import { ledgerFor, type Ledger } from './index';
 import { loadLedgerKey, type LedgerKey } from './keys';
+import { log } from '../log';
 import { merkleTree } from './merkle';
 import { LEDGER_KEY_URL, PROOF_FEED_FORMAT, type FeedCheckpoint, type FeedEntry, type Proof, type ProofFeedV1 } from './proof';
 
@@ -68,6 +71,39 @@ function toFeedEntry(e: EntryRow, cp: Checkpoint, path: string[]): FeedEntry {
   };
 }
 
+/** An entry as served: under the EVM adapter it carries the optional `evm` member (docs/proof-feed.md §13). */
+export type ServedFeedEntry = FeedEntry & { evm?: EvmProofField };
+export type ServedFeed = Omit<ProofFeedV1, 'entries'> & { entries: ServedFeedEntry[] };
+
+/** Which ledger adapter serves the feed (default: LEDGER_ADAPTER); only its name and anchorPending are used. */
+export type FeedLedger = Pick<Ledger, 'adapter' | 'anchorPending'>;
+
+/**
+ * How long building a proof waits for pending anchors before answering with `evm: {status:'pending'}`
+ * (the anchoring run carries on in the background). Keeps a slow or dead chain off the page's latency.
+ */
+export const ANCHOR_WAIT_MS = 3_000;
+
+/** Under the EVM adapter, anchor what is pending before a proof is built (TSK-24.6), within ANCHOR_WAIT_MS. */
+async function anchorBeforeProof(ledger: FeedLedger): Promise<void> {
+  if (ledger.adapter !== 'evm') return;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const run = ledger.anchorPending().catch((e: unknown) => {
+    log.warn({ errClass: e instanceof Error ? e.constructor.name : 'unknown' }, 'evm.anchor_before_proof_failed');
+  });
+  await Promise.race([run, new Promise<void>((r) => (timer = setTimeout(r, ANCHOR_WAIT_MS)))]);
+  clearTimeout(timer);
+}
+
+async function withEvm(db: Db, ledger: FeedLedger, entries: FeedEntry[]): Promise<ServedFeedEntry[]> {
+  if (ledger.adapter !== 'evm') return entries;
+  const fields = await evmFieldsFor(
+    db,
+    entries.map((e) => e.seq),
+  );
+  return entries.map((e) => ({ ...e, evm: fields.get(e.seq) ?? { status: 'pending' } }));
+}
+
 export class FeedNotFound extends Error {
   constructor() {
     super('not_found');
@@ -80,9 +116,11 @@ export class FeedNotFound extends Error {
  * transaction (S7, EVAL-065); checkpointIfNeeded is idempotent. Throws FeedNotFound for an unknown batch.
  * Call it outside a write transaction: it may open its own writeTx, and a nested writeTx rejects.
  */
-export async function buildFeed(db: Db, batchId: string, opts: { key?: LedgerKey } = {}): Promise<ProofFeedV1> {
+export async function buildFeed(db: Db, batchId: string, opts: { key?: LedgerKey; ledger?: FeedLedger } = {}): Promise<ServedFeed> {
   const seqs = await closureSeqs(db, batchId);
   if (seqs.length === 0) throw new FeedNotFound();
+  const ledger = opts.ledger ?? ledgerFor(db);
+  await anchorBeforeProof(ledger);
   if (seqs[seqs.length - 1]! > (await lastCheckpointedSeq(db))) await writeTx(db, (tx) => checkpointIfNeeded(tx, opts));
 
   const rows = await db.select().from(ledgerEntries).where(inArray(ledgerEntries.seq, seqs)).orderBy(asc(ledgerEntries.seq));
@@ -105,18 +143,24 @@ export async function buildFeed(db: Db, batchId: string, opts: { key?: LedgerKey
     shortHash: shortHashOf(batchHash),
     ledgerKey: { kid: (opts.key ?? (await loadLedgerKey())).kid, url: LEDGER_KEY_URL },
     checkpoints: checkpoints.map(toFeedCheckpoint),
-    entries,
+    entries: await withEvm(db, ledger, entries),
   };
 }
 
-/** One entry's proof: the entry, the checkpoint that seals it, and its path. Throws if not yet sealed. */
-export async function getProof(db: Db, seq: number): Promise<Proof> {
+/**
+ * One entry's proof: the entry, the checkpoint that seals it, and its path. Throws if not yet sealed.
+ * Under the EVM adapter the entry also carries `evm` (anchored with tx and block, or pending).
+ */
+export async function getProof(db: Db, seq: number, opts: { ledger?: FeedLedger } = {}): Promise<Proof & { entry: ServedFeedEntry }> {
+  const ledger = opts.ledger ?? ledgerFor(db);
+  await anchorBeforeProof(ledger);
   const [entry] = await db.select().from(ledgerEntries).where(inArray(ledgerEntries.seq, [seq]));
   if (!entry) throw new RangeError(`proof: no ledger entry ${seq}`);
   const [cp] = await coveringCheckpoints(db, [seq]);
   if (!cp) throw new RangeError(`proof: entry ${seq} is not under a checkpoint yet`);
   const pathOf = await pathsUnder(db, cp);
-  return { entry: toFeedEntry(entry, cp, pathOf(seq)), checkpoint: toFeedCheckpoint(cp) };
+  const [served] = await withEvm(db, ledger, [toFeedEntry(entry, cp, pathOf(seq))]);
+  return { entry: served!, checkpoint: toFeedCheckpoint(cp) };
 }
 
 const SHORT_HASH_LENGTH = 12;
@@ -146,7 +190,7 @@ function sameSecret(given: string, expected: string): boolean {
  * `h` that is not the batch's short hash (TP8, GAP-6). `h` is compared exactly (lowercase, see
  * shortHashOf) in constant time. Call it outside a write transaction (see buildFeed).
  */
-export async function resolveFeed(db: Db, batchId: string, h: string | null): Promise<ProofFeedV1 | null> {
+export async function resolveFeed(db: Db, batchId: string, h: string | null): Promise<ServedFeed | null> {
   const batch = await batchCreatedEntry(db, batchId);
   const expected = batch ? shortHashOf(batch.entryHash) : DUMMY.toString('utf8');
   const matches = sameSecret(h ?? '', expected);
