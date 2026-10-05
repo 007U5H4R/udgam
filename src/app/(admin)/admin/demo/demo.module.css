@@ -70,3 +70,37 @@
 .form {
   margin: 0;
 }
+/* The verdict chip (word + mark + colour), ported from admin.css ".review .vchip" / ".review .mk": this page
+   is not a `.review` screen, so without these rules the mark's SVG has no size and fills the card (DES-100). */
+.chip {
+  display: flex;
+}
+.chip :global(.vchip) {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 4px 12px 4px 7px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.chip :global(.vchip .mk) {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+.chip :global(.vchip.ok) {
+  background: var(--ok-tint);
+  color: var(--ok-ink);
+}
+.chip :global(.vchip.check) {
+  background: var(--check-tint);
+  color: var(--check-ink);
+}
+.chip :global(.vchip.bad) {
+  background: var(--bad-tint);
+  color: var(--bad-ink);
+}

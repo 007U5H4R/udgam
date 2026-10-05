@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { GlassCard } from '../../../../components/ui/GlassCard';
 import { Pill } from '../../../../components/ui/Pill';
 import { RailShell } from '../../../../components/ui/Rail';
-import { MARK_OF, VerdictMark } from '../../../../components/ui/VerdictChip';
+import { VerdictChip, verdictWord } from '../../../../components/ui/VerdictChip';
 import { env } from '../../../../lib/config/env';
 import { getDbReady } from '../../../../lib/db/client';
 import { userName } from '../../../../lib/enrolment/phones';
@@ -65,13 +65,13 @@ export default async function DemoPage({ searchParams }: { searchParams: Promise
                     <h3 className={s.title}>{a.title}</h3>
                     <p className={s.muted}>{a.story}</p>
                     <p className={s.muted}>
-                      Should be caught by: {CHECK_NAMES[a.expected.check] ?? a.expected.check} ({a.expected.verdict})
+                      Should be caught by: {CHECK_NAMES[a.expected.check] ?? a.expected.check} ({verdictWord(a.expected.verdict)})
                     </p>
                     {st ? (
                       <div className={s.result} data-testid="attack-result">
-                        <span className={`vchip ${MARK_OF[st.verdict]}`} data-verdict={st.verdict}>
-                          <VerdictMark kind={MARK_OF[st.verdict]} />
-                          {st.verdict}
+                        {/* The shared chip: the D5 word with its mark (DES-112); the system state stays in data-verdict. */}
+                        <span className={s.chip}>
+                          <VerdictChip verdict={st.verdict} />
                         </span>
                         {st.catching ? (
                           <p className={s.evidence} data-testid="attack-evidence" data-check={st.catching.id}>
