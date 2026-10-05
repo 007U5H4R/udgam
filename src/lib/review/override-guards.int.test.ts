@@ -112,3 +112,66 @@ describe('admin_overrides invariants (§4.2, CF-06)', () => {
     await expect(override('AO-1', 'VR-1', 'INSERT', 'Needs Review')).rejects.toThrow(/CHECK/);
   });
 });
+
+// Fix round 1 (quality minor 3, major 1): defence in depth for what the app never writes.
+describe('admin decision update guards (TKT-12 fix round 1)', () => {
+  const reasonInsert = (reason: string) =>
+    exec(`INSERT INTO admin_overrides (id, run_id, admin_id, new_verdict, reason, signature, key_id, created_at, anchor_seq)
+      VALUES ('AO-1', 'VR-1', 'AD-1', 'Verified', '${reason}', 'sig', 'kid', '${TS}', 1)`);
+
+  it("a decided event's final verdict cannot be rewritten; the override's own trigger still sets it", async () => {
+    await event('HE-1', 1);
+    await run('VR-1', 'HE-1', 1, 'Needs Review', [OK]);
+    await override('AO-1', 'VR-1', 'INSERT', 'Rejected');
+    expect(await one(`SELECT final_verdict FROM harvest_events WHERE id = 'HE-1'`)).toEqual({ final_verdict: 'Rejected' });
+    await expect(exec(`UPDATE harvest_events SET final_verdict = 'Verified' WHERE id = 'HE-1'`)).rejects.toThrow('decided by an admin');
+    await expect(exec(`UPDATE harvest_events SET final_verdict = NULL WHERE id = 'HE-1'`)).rejects.toThrow('decided by an admin');
+    expect(await one(`SELECT final_verdict FROM harvest_events WHERE id = 'HE-1'`)).toEqual({ final_verdict: 'Rejected' });
+    // an undecided event is not affected by this guard
+    await event('HE-2', 2);
+    await exec(`UPDATE harvest_events SET final_verdict = 'Needs Review' WHERE id = 'HE-2'`);
+  });
+
+  it("a verification run is immutable once written: its checks, score, verdict, run_no and event can't change", async () => {
+    await event('HE-1', 1);
+    await event('HE-2', 2);
+    await run('VR-1', 'HE-1', 1, 'Rejected', [OK, HARD]);
+    for (const set of [`checks = '[]'`, 'score = 99', `verdict = 'Needs Review'`, 'run_no = 7', `event_id = 'HE-2'`]) {
+      await expect(exec(`UPDATE verification_runs SET ${set} WHERE id = 'VR-1'`), set).rejects.toThrow('frozen once written');
+    }
+    // so a hard fail can't be cleared and then overridden in two raw statements (CF-06)
+    await expect(override('AO-1', 'VR-1')).rejects.toThrow('hard-failed run cannot be overridden');
+    expect(await one(`SELECT checks, score, verdict FROM verification_runs WHERE id = 'VR-1'`)).toEqual({ checks: JSON.stringify([OK, HARD]), score: 64, verdict: 'Rejected' });
+  });
+
+  it('only a Needs Review run can be overridden', async () => {
+    await event('HE-1', 1);
+    await run('VR-1', 'HE-1', 1, 'Verified', [OK]);
+    await expect(override('AO-1', 'VR-1', 'INSERT', 'Rejected')).rejects.toThrow('only a Needs Review run');
+    expect(await one(`SELECT COUNT(*) AS n FROM admin_overrides`)).toEqual({ n: 0 });
+    expect(await one(`SELECT final_verdict FROM harvest_events WHERE id = 'HE-1'`)).toEqual({ final_verdict: 'Verified' });
+  });
+
+  it('a decided, batched event: a new run and a second override name the batch first', async () => {
+    await event('HE-1', 1);
+    await run('VR-1', 'HE-1', 1, 'Needs Review', [OK]);
+    await override('AO-1', 'VR-1');
+    await t.client.executeMultiple(`
+      INSERT INTO batches (id, org_id, crop, short_hash, anchor_seq, created_at) VALUES ('B-1', 'ORG-A', 'arabica', 'abc', 1, '${TS}');
+      INSERT INTO batch_events (batch_id, event_id) VALUES ('B-1', 'HE-1');
+    `);
+    await expect(run('VR-2', 'HE-1', 2, 'Verified', [OK])).rejects.toThrow('event is in a batch');
+    await expect(override('AO-2', 'VR-1', 'INSERT', 'Rejected')).rejects.toThrow('event is in a batch');
+  });
+
+  it('a reason with hidden or control characters is refused (zero-width spaces, bidi override, separators)', async () => {
+    await event('HE-1', 1);
+    await run('VR-1', 'HE-1', 1, 'Needs Review', [OK]);
+    for (const reason of ['\u200B'.repeat(12), 'Checked in person \u202Eenoz', 'Checked in\u2028person', 'Checked\tin person', 'Checked in\uFEFF person']) {
+      await expect(reasonInsert(reason), JSON.stringify(reason)).rejects.toThrow('hidden or control characters');
+    }
+    expect(await one(`SELECT COUNT(*) AS n FROM admin_overrides`)).toEqual({ n: 0 });
+    await reasonInsert('Scale photo retaken.\nChecked in person.'); // a newline is allowed
+    expect(await one(`SELECT COUNT(*) AS n FROM admin_overrides`)).toEqual({ n: 1 });
+  });
+});

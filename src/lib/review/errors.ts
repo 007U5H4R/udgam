@@ -17,6 +17,7 @@ export const REVIEW_STATUS: Record<ReviewErrorCode, number> = {
   reason_too_short: 400,
   reason_too_long: 400,
   reason_has_phone: 400,
+  reason_has_control: 400,
 };
 
 export class ReviewError extends Error {
@@ -39,12 +40,14 @@ function messages(err: unknown): string {
   return out.join(' | ');
 }
 
-/** The refusal a database guard (admin_override_guards, batch invariants) raised, or null for anything else. */
+/** The refusal a database guard (admin_override_guards, admin_decision_update_guards, batch invariants) raised, or null for anything else. */
 export function refusalFromDb(err: unknown): ReviewErrorCode | null {
   const m = messages(err);
   if (m.includes('hard-failed run cannot be overridden')) return 'hard_fail_final';
   if (m.includes('event is in a batch')) return 'batched';
   if (m.includes('decided by an admin') || m.includes('override already exists') || m.includes('admin_overrides.run_id')) return 'already_decided';
-  if (m.includes('only the latest run') || m.includes('verification run already exists') || m.includes('verification_runs.event_id')) return 'not_reviewable';
+  if (m.includes('only the latest run') || m.includes('only a Needs Review run') || m.includes('verification run already exists') || m.includes('verification_runs.event_id'))
+    return 'not_reviewable';
+  if (m.includes('hidden or control characters')) return 'reason_has_control';
   return null;
 }

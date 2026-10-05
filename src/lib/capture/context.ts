@@ -120,8 +120,11 @@ function historyEndMonth(plot: PlotRow): { historyEndMonth?: string } {
 }
 
 /**
- * TP6's season total as of a stored capture: this plot's accepted, non-Rejected kg in the season,
- * anchored before it (so never its own kg, and never a later capture's).
+ * TP6's season total for a stored capture: this plot's accepted kg in the season from the captures
+ * anchored before it (so never its own kg, and never a later capture's). Which of those count is read
+ * from each one's CURRENT final verdict, not its verdict at this capture's time: an earlier picking that
+ * was Rejected since (by a re-run or an admin) drops out of the total. That can only lower the total, so
+ * the re-run is never stricter than the original run on this account.
  */
 async function seasonKgAsOf(handle: Db | Tx, plotId: string, serverReceivedAt: string, asOf: AsOf): Promise<number> {
   const season = coffeeSeasonOf(serverReceivedAt);

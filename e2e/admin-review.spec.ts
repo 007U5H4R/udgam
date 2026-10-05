@@ -139,6 +139,54 @@ test.describe('review detail (TSK-12.3, TC-054)', () => {
     await checkSurface(page);
   });
 
+  test('keyboard: Tab follows the visual order to Accept, Not accepted, Check again, with a visible focus ring (TC-081)', async ({ page }) => {
+    const s = seedReview();
+    await signIn(page, s.adminEmail, s.testOnlyAdminPassword);
+    await page.goto(`/admin/review/${s.cloudy}`);
+    await expect(page.locator('section.detail .d-title')).toBeVisible();
+    expect(await page.locator('[tabindex]').evaluateAll((els) => els.filter((e) => Number(e.getAttribute('tabindex')) > 0).length)).toBe(0);
+
+    type Stop = { key: string; inDetail: boolean; inActions: boolean; y: number; x: number; ring: boolean };
+    const stops: Stop[] = [];
+    for (let i = 0; i < 80 && stops.at(-1)?.key !== '#btn-again'; i++) {
+      await page.keyboard.press('Tab');
+      const stop = await page.evaluate((): Stop | null => {
+        const el = document.activeElement as HTMLElement | null;
+        if (!el || el === document.body) return null;
+        // the layout position inside the element's scrolling column, so scrolling to it does not move it
+        let scrolled = 0;
+        for (let p = el.parentElement; p; p = p.parentElement) scrolled += p.scrollTop;
+        const r = el.getBoundingClientRect();
+        const cs = getComputedStyle(el);
+        return {
+          // a scrolling column is a Tab stop of its own in Chromium (keyboard-focusable scrollers)
+          key: el.id ? `#${el.id}` : (el.getAttribute('href') ?? `${el.tagName.toLowerCase()}.${[...el.classList].join('.')}`),
+          inDetail: !!el.closest('section.detail'),
+          inActions: !!el.closest('.d-actions'),
+          y: Math.round(r.top + scrolled),
+          x: Math.round(r.left),
+          ring: el.matches(':focus-visible') && cs.outlineStyle === 'solid' && parseFloat(cs.outlineWidth) >= 2,
+        };
+      });
+      if (!stop) break;
+      stops.push(stop);
+    }
+    const detail = stops.filter((st) => st.inDetail);
+    // the decision controls close the detail's order, in their visual order (TC-081)
+    expect(detail.slice(-3).map((st) => st.key)).toEqual(['#btn-accept', '#btn-reject', '#btn-again']);
+    expect(detail.slice(0, -3).some((st) => st.inActions)).toBe(false);
+    // Back to list is the detail's first link below 1100 px
+    if (!isDesktop(page)) expect(detail.find((st) => st.key.startsWith('/'))?.key).toBe('/admin');
+    // inside the scrolling body, each stop is below (or on the same row and right of) the one before
+    const body = detail.filter((st) => !st.inActions);
+    for (let i = 1; i < body.length; i++) {
+      const [a, b] = [body[i - 1]!, body[i]!];
+      expect(b.y > a.y || (b.y === a.y && b.x > a.x), `${a.key} → ${b.key}`).toBe(true);
+    }
+    // every stop shows the focus ring
+    expect(stops.filter((st) => !st.ring).map((st) => st.key)).toEqual([]);
+  });
+
   test('another organisation’s picking is a 404', async ({ page }) => {
     const s = seedReview();
     await signIn(page, DEMO_ACCOUNTS.adminA.email, SEED_PASSWORD);
@@ -206,6 +254,29 @@ test.describe('decisions (TSK-12.4, TSK-12.6, TC-055, TC-056, EVAL-075, EVAL-076
     for (const id of ['#btn-accept', '#btn-reject', '#btn-again']) await expect(page.locator(id)).toHaveCount(0);
     await expect(page.locator('form.decide')).toHaveCount(0);
     await checkSurface(page);
+  });
+
+  test('a batched picking explains that its result is fixed and offers no accept, reject or check-again control (EXE16)', async ({ page }) => {
+    const s = seedReview();
+    await signIn(page, s.adminEmail, s.testOnlyAdminPassword);
+    await page.goto(`/admin/review/${s.batched}`);
+    await expect(page.locator('.d-title .vchip')).toHaveText('Verified');
+    await expect(page.getByTestId('locked')).toHaveText(`This picking is in batch ${s.batchId}. Its result was fixed when the batch was made, so it can't be checked again or changed.`);
+    for (const id of ['#btn-accept', '#btn-reject', '#btn-again']) await expect(page.locator(id)).toHaveCount(0);
+    await expect(page.locator('form.decide')).toHaveCount(0);
+    await checkSurface(page);
+  });
+
+  test('the Sign out pill keeps the queue column’s width in the empty and error states', async ({ page }) => {
+    const s = seedReview();
+    await signIn(page, s.adminEmail, s.testOnlyAdminPassword);
+    for (const state of ['empty', 'error']) {
+      await page.goto(`/admin?state=${state}`);
+      const pill = page.locator('.q-foot').getByRole('button', { name: 'Sign out' });
+      await expect(pill).toBeVisible();
+      const width = (await pill.boundingBox())!.width;
+      expect(width, state).toBeLessThanOrEqual(360);
+    }
   });
 
   test('"Check again" is off with nothing to retry, and re-runs the check that could not run', async ({ page }) => {

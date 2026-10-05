@@ -4,7 +4,8 @@ import { seedFpo, type FpoWorld } from '../../../tests/helpers/batch-fixtures';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 import { addOverride, addRun, checksWith, seedReviewCapture } from '../../../tests/helpers/review-world';
 import { seedYieldReference } from '../db/seed/yield-reference';
-import { harvestEvents, ledgerEntries, verificationRuns } from '../db/schema';
+import { writeTx } from '../db/client';
+import { devices, harvestEvents, ledgerEntries, verificationRuns } from '../db/schema';
 import { verifyChain } from '../ledger/hashchain';
 import type { RemoteSensingProvider } from '../remote-sensing/types';
 import type { CheckResult } from '../verification/types';
@@ -128,6 +129,36 @@ describe('rerunUnavailable (TC-057, EVAL-069)', () => {
     expect(checks.find((x) => x.id === 'photo_uniqueness')).toMatchObject({ status: 'ok', hardFail: false, evidence: '1 of 1 photos are new' });
     // (2000 + 8000) kg × 1/6 ÷ 2 ha ÷ 783 kg/ha = 1.06× (own kg twice: 1.92×; with the later 3000 kg: 1.38×)
     expect(checks.find((x) => x.id === 'yield_plausibility')).toMatchObject({ status: 'ok', evidence: expect.stringContaining('Season total 1.06x') });
+    expect(provider.ndviWindow).not.toHaveBeenCalled(); // local checks only
+  });
+
+  it('rebuilds the phone as of the capture: its chain head, its previous capture, and a revocation made since', async () => {
+    // Three captures from one phone a day apart at the same spot; the phone is revoked after the third.
+    // The middle one's signature, chain and movement checks could not run. As of its capture the phone
+    // was live, its head was entry 1, and its previous capture was entry 1, a day earlier and 0 m away.
+    await seedReviewCapture(t.db, a, { checks: checksWith(), receivedAt: '2026-10-05T04:00:00.000Z' });
+    const c = await seedReviewCapture(t.db, a, {
+      checks: checksWith({
+        signature_valid: { status: 'unavailable', evidence: 'Check could not run: TypeError' },
+        chain_continuity: { status: 'unavailable', evidence: 'Check could not run: TypeError' },
+        movement_plausibility: { status: 'unavailable', evidence: 'Check could not run: TypeError' },
+      }),
+      receivedAt: '2026-10-06T04:00:00.000Z',
+    });
+    await seedReviewCapture(t.db, a, { checks: checksWith(), receivedAt: '2026-10-07T04:00:00.000Z' });
+    await writeTx(t.db, (tx) => tx.update(devices).set({ revokedAt: '2026-10-08T04:00:00.000Z' }).where(eq(devices.id, a.device.id)).then(() => undefined));
+
+    const provider = spyProvider();
+    const r = await rerunUnavailable(t.db, { orgId: a.orgId, runId: c.runId, provider });
+    const checks = await storedChecks(r.runId);
+    expect(checks.find((x) => x.id === 'signature_valid')).toMatchObject({ status: 'ok', hardFail: false, evidence: `Signed by enrolled phone ${a.device.id}` });
+    expect(checks.find((x) => x.id === 'chain_continuity')).toMatchObject({ status: 'ok', hardFail: false, evidence: 'Entry 2 follows entry 1 from this phone' });
+    expect(checks.find((x) => x.id === 'movement_plausibility')).toMatchObject({
+      status: 'ok',
+      hardFail: false,
+      evidence: 'Implied speed 0 km/h from the previous entry 0 m away 1440 min earlier (limit 120 km/h)',
+    });
+    expect(r).toMatchObject({ runNo: 2, verdict: 'Verified', score: 100 });
     expect(provider.ndviWindow).not.toHaveBeenCalled(); // local checks only
   });
 

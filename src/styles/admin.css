@@ -310,6 +310,7 @@
 }
 .review .q-foot {
   margin-top: 28px;
+  max-width: 360px; /* the queue column's width: in the empty and error states the queue spans the main area */
 }
 
 /* skeletons (loading) */
@@ -1162,7 +1163,7 @@
   }
   /* admin.html `body.detail-open .rail{display:none}`: an open detail hides the floating tab bar, so the
      sticky decision controls sit at the bottom edge (the Back button returns to the list and the bar). */
-  body:has(.review.detail-open) nav[aria-label='Admin sections'] {
+  body:has(.review.detail-open) .admin-rail {
     display: none;
   }
   .review .act-row {

@@ -2,8 +2,9 @@
 // makes its OWN FPO ("E2E FPO …") with an admin who can sign in (a random per-run TEST password), so
 // parallel workers never share a queue. Four pickings, oldest first: a cloud-blocked harvest window
 // (Needs Review, three real photos stored under DATA_DIR/media), a boundary fail, a high-harvest flag, and
-// a hard-failed reused photo ("Not accepted by the checks"). Prints one JSON line: IDs and the test-only
-// password, never key material.
+// a hard-failed reused photo ("Not accepted by the checks"). Plus, older still, a Verified picking put in
+// a batch (its detail is locked with the batch's explanation, EXE16); it is in neither list. Prints one
+// JSON line: IDs and the test-only password, never key material.
 //
 // Usage: NODE_ENV=test DATA_DIR=.e2e-data pnpm exec tsx e2e/helpers/seed-review.ts
 import { randomBytes } from 'node:crypto';
@@ -12,6 +13,7 @@ import { sha256Hex } from '../../src/lib/crypto';
 import { closeDb, getDbReady } from '../../src/lib/db/client';
 import { prepareDatabase } from '../../src/lib/db/migrate';
 import { newId } from '../../src/lib/ids';
+import { createBatch } from '../../src/lib/batches/create';
 import { localMediaStore } from '../../src/lib/media/store';
 import { env } from '../../src/lib/config/env';
 import { seedFpo } from '../../tests/helpers/batch-fixtures';
@@ -26,6 +28,9 @@ export type SeededReview = {
   outside: string;
   harvest: string;
   final: string;
+  /** A Verified picking's run whose event is in batch `batchId`. */
+  batched: string;
+  batchId: string;
 };
 
 const DAY = 86_400_000;
@@ -46,6 +51,8 @@ try {
 
   const password = randomBytes(18).toString('base64url');
   const w = await seedFpo(db, { orgName: `E2E FPO ${newId('')}`, adminPassword: password });
+  const inBatch = await seedReviewCapture(db, w, { checks: checksWith(), kg: 40, receivedAt: ago(5) });
+  const batch = await createBatch(db, { orgId: w.orgId, adminId: w.adminId, crop: 'arabica', eventIds: [inBatch.eventId] });
   const cloudy = await seedReviewCapture(db, w, {
     checks: checksWith({ ndvi_harvest_window: { status: 'unavailable', evidence: 'Satellite view blocked by cloud for ±30 days (demo data)' } }),
     kg: 38.5,
@@ -75,6 +82,8 @@ try {
     outside: outside.runId,
     harvest: harvest.runId,
     final: final.runId,
+    batched: inBatch.runId,
+    batchId: batch.batchId,
   };
   console.log(JSON.stringify(out));
 } finally {
