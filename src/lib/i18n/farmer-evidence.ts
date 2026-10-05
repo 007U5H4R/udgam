@@ -81,8 +81,12 @@ function findingLine(c: CheckResult, tr: Tr, ctx: Ctx): string | null {
     case 'movement_plausibility':
       if (/did not advance/.test(e)) return tr('fe.move.clock');
       return tr('fe.move.far', { m: unit(grab(e, /entry (\d+ m) away/)) ?? '', min: grab(e, /away (-?\d+) min/) ?? '' });
-    case 'photo_uniqueness':
-      return tr('fe.photos.used', { k: grab(e, /^(\d+) of/) ?? '', n: grab(e, /of (\d+)/) ?? '' });
+    case 'photo_uniqueness': {
+      // DES-004: "This photo was used before." / "1 of 3 photos was used before." / "2 of 3 photos were …"
+      const k = grab(e, /^(\d+) of/) ?? '';
+      const n = grab(e, /of (\d+)/) ?? '';
+      return tr(n === '1' ? 'fe.photos.usedOne' : k === '1' ? 'fe.photos.used1' : 'fe.photos.used', { k, n });
+    }
     case 'deforestation_overlap':
       if (c.status === 'unavailable') return tr('fe.forest.down');
       return sensed(c, 'fe.forest.loss', tr, { pct: grab(e, /^([\d.]+%)/) ?? '', year: grab(e, /since (\d{4})/) ?? '' });

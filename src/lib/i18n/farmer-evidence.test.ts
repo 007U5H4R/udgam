@@ -96,8 +96,18 @@ describe('farmerLines', () => {
   it('Rejected (photo seen before): names the reason and what to do', () => {
     const r = result('Rejected', [...clean.filter((c) => c.id !== 'photo_uniqueness'), check('photo_uniqueness', 'fail', evidence.photo_uniqueness.fail({ k: 1, n: 2 }), true)], ['anyFail']);
     const lines = farmerLines(r, 'en');
-    expect(lines[0]).toEqual({ icon: 'camera', text: '1 of 2 photos were used before.' });
-    expect(lines[1]!.text).toBe("Take new photos of today's picking and record it again.");
+    expect(lines[0]).toEqual({ icon: 'camera', text: '1 of 2 photos was used before.' });
+    expect(lines[1]!.text).toBe("Take new photos of today's picking and record it again. If these photos are new, tell the office.");
+  });
+
+  it('DES-004: the used-photo line agrees in number, and the what-to-do line names the office', () => {
+    const used = (k: number, n: number) => {
+      const r = result('Rejected', [...clean.filter((c) => c.id !== 'photo_uniqueness'), check('photo_uniqueness', 'fail', evidence.photo_uniqueness.fail({ k, n }), true)], ['anyFail']);
+      return farmerLines(r, 'en')[0]!.text;
+    };
+    expect(used(1, 1)).toBe('This photo was used before.');
+    expect(used(1, 3)).toBe('1 of 3 photos was used before.');
+    expect(used(2, 3)).toBe('2 of 3 photos were used before.');
   });
 
   it('never says fraud, fake, cheat or Rejected, in any verdict and any language', () => {

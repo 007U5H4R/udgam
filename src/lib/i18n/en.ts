@@ -307,6 +307,8 @@ export const en = {
   'fe.photos.new1': '1 new photo',
   'fe.photos.new1Today': '1 new photo, taken today',
   'fe.photos.used': '{k} of {n} photos were used before.',
+  'fe.photos.usedOne': 'This photo was used before.',
+  'fe.photos.used1': '1 of {n} photos was used before.',
   'fe.seal.ok': 'Sealed by this phone',
   'fe.seal.bad': "This phone's seal did not match the picking.",
   'fe.seal.revoked': 'The office switched this phone off for pickings on {date}.',
@@ -329,7 +331,7 @@ export const en = {
   // EXE12: appended to a line derived from fixture (demo) satellite or forest data. Starts with a space.
   'fe.demo': ' (demo\u00a0data)', // no-break space inside: the label never wraps in two (QA-P5-8)
   'fe.office': "The office will look at this. You'll see the answer in Pickings. You don't need to do anything.", // EXE24 OD-5
-  'fe.todo.photos': "Take new photos of today's picking and record it again.",
+  'fe.todo.photos': "Take new photos of today's picking and record it again. If these photos are new, tell the office.",
   'fe.todo.seal': 'Ask the office to set up this phone again.',
   'fe.todo.location': 'Stand inside {plot} and record the picking again. If you were inside, tell the office.',
   'fe.todo.office': 'Talk to the office. They can look at it again.',

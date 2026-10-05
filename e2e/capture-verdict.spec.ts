@@ -127,7 +127,8 @@ test('TC-048 Not accepted (a photo reused from an earlier picking): the reason, 
   await expect(page.locator('#verdict-h .lit')).toHaveCount(0);
   await expect(page.locator('.v-sub')).toHaveText('Your 42.5 kg from Plot 1 could not be accepted.');
   const lines = page.getByTestId('evidence').locator('li');
-  await expect(lines).toHaveText(['1 of 1 photos were used before.', "Take new photos of today's picking and record it again."]);
+  // DES-004: number agreement, and the office path on the screen where "Not accepted" lands
+  await expect(lines).toHaveText(['This photo was used before.', "Take new photos of today's picking and record it again. If these photos are new, tell the office."]);
   await expect(page.getByTestId('cherry')).toHaveClass(/\bnone\b/);
   await expect(page.getByTestId('cherry')).not.toHaveClass(/green|amber|rise/);
   expect(await greenText(page)).toEqual([]);
