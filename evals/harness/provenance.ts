@@ -87,6 +87,8 @@ export type ProvenanceInput = {
   startedAt: Date;
   durationMs: number;
   environment?: 'local' | 'ci';
+  /** The ledger adapter the harness-proof suite ran on (default hashchain; --ledger=evm, TSK-24.8). */
+  ledger?: 'hashchain' | 'evm';
 };
 
 export function provenance(i: ProvenanceInput): Provenance {
@@ -117,7 +119,7 @@ export function provenance(i: ProvenanceInput): Provenance {
         },
       },
     },
-    ledger: 'hashchain',
+    ledger: i.ledger ?? 'hashchain',
     node: process.version,
     os: { platform: platform(), arch: arch() },
     suites: i.suites,

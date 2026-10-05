@@ -1,0 +1,9 @@
+forge-std, vendored as a plain copy (not a submodule) so forge never fetches it at test time
+(docs/spikes/foundry.md §7.3; TKT-24 / TASK-25).
+
+  repository: https://github.com/foundry-rs/forge-std
+  tag:        v1.17.0
+  commit:     f3dae6e6ee381f25eb6a246f7da9b85c91a68219
+  copied:     src/, LICENSE-APACHE, LICENSE-MIT (unmodified)
+
+To move the pin, copy the same three paths from the new tag and update this file in the same commit.

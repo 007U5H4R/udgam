@@ -542,3 +542,61 @@ rejects every tamper at its `expectedStep`.
 - RFC 7517 (JWK), RFC 7518 §3.4 (ES256), RFC 7638 (JWK thumbprint), RFC 4648 §5 (base64url).
 - Server implementation: `src/lib/ledger/{proof,merkle,checkpoint,feed,closure}.ts`. An independent
   verifier MUST NOT be written from it; this document is the specification.
+
+## 13. EVM extension (milestone 2, optional)
+
+A deployment running the EVM ledger adapter (`LEDGER_ADAPTER=evm`) also writes every entry's
+`entryHash` to a `BatchRegistry` contract on an EVM chain, after the entry is committed to the
+hash-chain store. The extension is **additive and optional**: the format name stays
+`udgam-proof-feed/1`, nothing in §5–§10 changes, and a verifier that ignores unknown members (§4.3)
+verifies such a feed exactly as before. The hash-chain store remains the system of record for payloads;
+the chain only holds hashes.
+
+### 13.1 The `evm` member of an entry
+
+When the server runs the EVM adapter, every entry carries an `evm` object. It is **not** covered by
+`entryHash`, a Merkle path or a checkpoint signature: it is a pointer to evidence held elsewhere (the
+chain), to be checked there (§13.2).
+
+| `evm.status` | Other members | Meaning |
+|---|---|---|
+| `anchored` | `chainId` (integer), `contract` (0x address, lowercase), `txHash` (0x + 64 hex), `blockNumber` (integer) | The registry at `contract` on chain `chainId` holds this entry's `entryHash` at its `seq`, written by transaction `txHash`, mined in block `blockNumber`. |
+| `pending` | — | Not on chain yet. The chain transaction cannot be part of the database transaction, so anchoring runs after the commit, in strict `seq` order; it can lag briefly, or longer while the chain is unreachable (it is retried). |
+| `failed` | — | The registry already holds a **different** hash at this `seq`. Anchoring stops at this entry until an operator resolves it. |
+
+```jsonc
+{ "seq": 612, "…": "…", "entryHash": "3f9a…",
+  "evm": { "status": "anchored", "chainId": 31337, "contract": "0x5fbd…0aa3",
+           "txHash": "0x8c1e…", "blockNumber": 640 } }
+```
+
+A feed from a server running only the hash-chain adapter has no `evm` members.
+
+### 13.2 Checking an anchor on chain (needs RPC access to that chain)
+
+`BatchRegistry` (Solidity, `contracts/src/BatchRegistry.sol`) exposes
+`entryHash(uint64 seq) → bytes32`, `nextSeq() → uint64`, `operator() → address` and the event
+`EntryAnchored(uint64 indexed seq, bytes32 entryHash)`. Only the operator can append, only at
+`seq == nextSeq` (starting at 1), and there is no update path, so an anchored hash is never overwritten.
+
+For an entry whose `evm.status` is `anchored`, after the entry has passed §10:
+
+1. Connect to an RPC endpoint of chain `chainId` (`eth_chainId` must return it).
+2. Call `entryHash(seq)` on `contract`. It MUST equal `0x` + the entry's `entryHash`.
+3. Fetch the receipt of `txHash`: it MUST have succeeded, be in block `blockNumber`, and contain an
+   `EntryAnchored` log from `contract` whose `seq` and `entryHash` are the entry's.
+
+If step 2 fails, the stored ledger and the chain disagree about that entry: someone changed one of
+them after anchoring. The server's own audit (`pnpm ledger:audit`) runs the same comparison over the
+whole ledger, also recomputing each entry hash from the stored payload.
+
+### 13.3 Scope and limits
+
+- **The demo chain is local.** The demo runs the contract on Anvil, a local development chain on the
+  server, not a public blockchain (mainnet is out of scope, Solution-PRD §10). Its RPC is not
+  published, so a third party cannot run §13.2 against the demo, and the certificate page does
+  **not** check anchors in the browser. What the page verifies is §10, unchanged.
+- **What an anchor adds.** It lets anyone with RPC access to the chain see that the entry's hash was
+  fixed at a given block, independently of the server's database and of the ledger key. It does not
+  prove the payload is true (that is §9 and the verification checks), and a `pending` anchor proves
+  nothing yet.

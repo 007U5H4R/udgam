@@ -535,3 +535,35 @@ export const cropYieldReference = sqliteTable(
     check('crop_yield_reference_values_check', sql`${t.maxKgHa} > 0 AND ${t.cherryToCleanRatio} > 0 AND ${t.cherryToCleanRatio} <= 1`),
   ],
 );
+
+/**
+ * On-chain anchoring state of each ledger entry under the EVM adapter (technical-plan TSK-24.5, TKT-24).
+ * A row is inserted 'pending' in the same transaction as its ledger entry (or backfilled), and becomes
+ * 'anchored' once BatchRegistry holds its entry hash; 'failed' means the chain holds a different hash.
+ * Guards in the evm_anchors_guards migration: inserted pending only, never replaced or deleted, tx_hash
+ * immutable once set (anchored is terminal), failed is terminal.
+ */
+export const evmAnchors = sqliteTable(
+  'evm_anchors',
+  {
+    seq: integer('seq')
+      .primaryKey()
+      .references(() => ledgerEntries.seq),
+    status: text('status', { enum: ['pending', 'anchored', 'failed'] }).notNull(),
+    chainId: integer('chain_id'),
+    contract: text('contract'),
+    txHash: text('tx_hash'),
+    blockNumber: integer('block_number'),
+    attempts: integer('attempts').notNull().default(0),
+    lastError: text('last_error'),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [
+    check('evm_anchors_status_check', sql`${t.status} IN ('pending','anchored','failed')`),
+    check(
+      'evm_anchors_anchored_check',
+      sql`(${t.status} = 'anchored') = (${t.chainId} IS NOT NULL AND ${t.contract} IS NOT NULL AND ${t.txHash} IS NOT NULL AND ${t.blockNumber} IS NOT NULL)`,
+    ),
+    check('evm_anchors_attempts_check', sql`${t.attempts} >= 0`),
+  ],
+);

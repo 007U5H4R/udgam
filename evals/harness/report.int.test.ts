@@ -117,7 +117,7 @@ describe('the report derives from the results file only (TC-016)', () => {
     const md = renderReport(path);
     expect(md).toContain('Milestone scope: `M1`.');
     expect(md).toContain('## Out of milestone scope');
-    expect(md).toMatch(/\| EVAL-103 \| harness-proof \| M2 \| not_yet_implemented \| [^|]*TKT-23[^|]* \|/);
+    expect(md).toMatch(/\| EVAL-103 \| harness-proof \| M2 \| not_yet_implemented \| [^|]*--ledger=evm[^|]* \|/);
   });
 
   it('the CLI prints the same report', () => {
