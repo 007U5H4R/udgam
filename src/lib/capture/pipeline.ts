@@ -176,8 +176,8 @@ const LOCK_SENSITIVE = [chainContinuity, photoUniqueness, movementPlausibility, 
  * movement): the context read the seen photos, the phone's chain head, the agent's accepted count, the
  * phone's previous accepted capture and the plot's season kg before media storage and verification, so
  * captures in flight at once all saw the same values — two 400 kg captures could each pass yield at
- * 0.85x where one after the other the second flags at 1.70x. Re-read them inside the write transaction, re-run those (local, pure) checks against the fresh
- * values and re-score if any result changed. Remote checks do not read these values and are not re-run.
+ * 0.85x where one after the other the second flags at 1.70x. Re-read them inside the write transaction,
+ * re-run those (local, pure) checks against the fresh values and re-score if any result changed. Remote checks do not read these values and are not re-run.
  * Returns the result to commit: its verdict, checks and evidence are what is stored and anchored.
  *
  * The `check` lines already streamed for these checks may then be stale (e.g. yield said `ok`; the

@@ -1,6 +1,7 @@
 import { Writable } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { P01_INSIDE, randomId, seedTracerWorld, type TracerWorld } from '../../../scripts/tracer-world';
+import { barrierStore as sharedBarrier } from '../../../tests/helpers/barrier-store';
 import { fakeJpeg } from '../../../tests/helpers/capture';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 import { makeDevice, type TestDevice } from '../../../tests/helpers/verify';
@@ -95,21 +96,7 @@ const log = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() });
  * Both requests pass the boundary and the replay lookup before either commits: each pauses after storing
  * its first photo until the other has too.
  */
-function barrierStore(): MediaStore {
-  const real = localMediaStore(t.dir);
-  let arrived = 0;
-  let release!: () => void;
-  const bothStored = new Promise<void>((r) => (release = r));
-  return {
-    ...real,
-    put: async (...a) => {
-      const stored = await real.put(...a);
-      if (++arrived === 2) release();
-      await bothStored;
-      return stored;
-    },
-  };
-}
+const barrierStore = (): MediaStore => sharedBarrier(t.dir, 2);
 
 describe('TC-040 · EVAL-068 an identical signed payload is idempotent', () => {
   it('the retry of an accepted capture gets the same event and verdict with idempotent:true, writes nothing, and the season counts the kg once', async () => {

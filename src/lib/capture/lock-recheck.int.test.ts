@@ -1,13 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { P01_INSIDE, seedTracerWorld, type TracerWorld } from '../../../scripts/tracer-world';
+import { P01_INSIDE, randomId, seedTracerWorld, type TracerWorld } from '../../../scripts/tracer-world';
+import { barrierStore as sharedBarrier } from '../../../tests/helpers/barrier-store';
 import { fakeJpeg } from '../../../tests/helpers/capture';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
-import { makeDevice, type TestDevice } from '../../../tests/helpers/verify';
-import { jcs, sha256Hex, sign } from '../crypto';
-import { verifyChain } from '../ledger/hashchain';
-import { localMediaStore, type MediaStore } from '../media/store';
+import { makeContext, makeDevice, type TestDevice } from '../../../tests/helpers/verify';
+import { jcs, jwkThumbprint, publicMembers, sha256Hex, sign } from '../crypto';
+import { writeTx } from '../db/client';
+import { devices } from '../db/schema';
+import { append, verifyChain } from '../ledger/hashchain';
+import type { MediaStore } from '../media/store';
 import type { CapturePayloadV1 } from '../verification/types';
 import { coffeeSeasonOf, seasonCherryKgBefore } from '../yield/season';
+import { refreshUnderLock } from './context';
 import { runCapture, type CaptureEvent } from './pipeline';
 
 // TKT-09 fix round 1 (quality review #1): the checks that read what a concurrent commit changes — the
@@ -35,12 +39,12 @@ afterEach(async () => {
 });
 
 /** A 400 kg capture at seq 1 from genesis, with its own photos (each label distinct). */
-async function capture400(label: string, capturedAt: string, o: { gps?: { lat: number; lng: number }; cherryKg?: number } = {}) {
+async function capture400(label: string, capturedAt: string, o: { gps?: { lat: number; lng: number }; cherryKg?: number; phone?: TestDevice } = {}) {
   const photos = [fakeJpeg(`${label}-1`), fakeJpeg(`${label}-2`)];
   const payload: CapturePayloadV1 = {
     v: 1,
     plotId: world.plotId,
-    deviceId: world.deviceId,
+    deviceId: o.phone?.id ?? world.deviceId,
     seq: 1,
     prevEventHash: 'genesis',
     capturedAt,
@@ -51,26 +55,25 @@ async function capture400(label: string, capturedAt: string, o: { gps?: { lat: n
   const signed = jcs(payload);
   const fd = new FormData();
   fd.set('payload', signed);
-  fd.set('signature', await sign(dev.pair.privateKey, signed));
+  fd.set('signature', await sign((o.phone ?? dev).pair.privateKey, signed));
   photos.forEach((b, i) => fd.set(`photo${i}`, new File([b], `p${i}.jpg`, { type: 'image/jpeg' })));
   return { fd, hash: await sha256Hex(signed) };
 }
 
 /** Every request pauses after storing its first photo until `k` requests have: all pass verification before any commits. */
-function barrierStore(k: number): MediaStore {
-  const real = localMediaStore(t.dir);
-  let arrived = 0;
-  let release!: () => void;
-  const allStored = new Promise<void>((r) => (release = r));
-  return {
-    ...real,
-    put: async (...a) => {
-      const stored = await real.put(...a);
-      if (++arrived === k) release();
-      await allStored;
-      return stored;
-    },
-  };
+const barrierStore = (k: number): MediaStore => sharedBarrier(t.dir, k);
+
+/** Another phone enrolled to the world's agent (the device row and its device_enrolled anchor). */
+async function enrolPhone(): Promise<TestDevice> {
+  const phone = await makeDevice(randomId('DV-'));
+  const jwk = publicMembers(phone.publicJwk);
+  const kid = await jwkThumbprint(jwk);
+  const ts = RECEIVED.toISOString();
+  await writeTx(t.db, async (tx) => {
+    const a = await append(tx, 'device_enrolled', { deviceId: phone.id, agentId: world.agentId, kid, publicJwk: jwk, enrolledAt: ts });
+    await tx.insert(devices).values({ id: phone.id, agentId: world.agentId, publicKeyJwk: JSON.stringify(jwk), keyThumbprint: kid, enrolledAt: ts, anchorSeq: a.seq });
+  });
+  return phone;
 }
 
 async function run(fd: FormData, media: MediaStore) {
@@ -187,6 +190,31 @@ describe('different captures in flight at once are re-checked under the write lo
     expect(await verifyChain(t.db)).toEqual({ ok: true });
   });
 
+  it("one agent's two fresh phones, first captures in flight at once → one chain ok, the other the new-phone flag (re-read accepted count, N1)", async () => {
+    const phoneA = await enrolPhone();
+    const phoneB = await enrolPhone();
+    const a = await capture400('a', '2026-10-14T04:12:33.000Z', { cherryKg: 10, phone: phoneA });
+    const b = await capture400('b', '2026-10-14T04:12:33.000Z', { cherryKg: 10, phone: phoneB });
+    const media = barrierStore(2);
+    const verdicts = await Promise.all([run(a.fd, media), run(b.fd, media)]);
+
+    const NEW_PHONE = 'First entry from a new phone; this agent has 1 earlier entries on another phone';
+    const chains = verdicts.map((v) => check(v, 'chain_continuity'));
+    const okAt = chains.findIndex((c) => c?.status === 'ok');
+    expect(okAt).toBeGreaterThanOrEqual(0);
+    const won = verdicts[okAt]!;
+    const lost = verdicts[1 - okAt]!;
+    expect(check(won, 'chain_continuity')).toMatchObject({ status: 'ok', evidence: 'Entry 1 follows entry 0 from this phone' });
+    expect(check(lost, 'chain_continuity')).toMatchObject({ status: 'flag', evidence: NEW_PHONE });
+
+    // the stored runs say the same, in commit order
+    const rows = await stored();
+    expect(rows.map((r) => r.id)).toEqual([won.eventId, lost.eventId]);
+    expect(rows[0]!.checks.find((c) => c.id === 'chain_continuity')).toMatchObject({ status: 'ok' });
+    expect(rows[1]!.checks.find((c) => c.id === 'chain_continuity')).toMatchObject({ status: 'flag', evidence: NEW_PHONE });
+    expect(await verifyChain(t.db)).toEqual({ ok: true });
+  });
+
   it('two captures in flight on one phone, 33 m apart at the same capture time → one passes movement, the other fails it (time did not advance)', async () => {
     // P01_INSIDE and a point 0.0003° of latitude north of it (both inside P01): 33.36 m apart. The same
     // client capturedAt: whichever commits second has an unbounded implied speed from the first (§6.3).
@@ -214,5 +242,43 @@ describe('different captures in flight at once are re-checked under the write lo
       { eventId: won.eventId, verdict: 'Verified' },
       { eventId: lost.eventId, verdict: 'Needs Review' },
     ]);
+  });
+});
+
+describe('refreshUnderLock (TKT-09 re-review N2, N3)', () => {
+  const refresh = (deviceId: string, payload: CapturePayloadV1) =>
+    writeTx(t.db, (tx) =>
+      refreshUnderLock(tx, makeContext({ ...dev, id: deviceId }, { plot: { ...makeContext(dev).plot, id: world.plotId } }), {
+        payload,
+        agentId: world.agentId,
+        serverReceivedAt: RECEIVED.toISOString(),
+      }),
+    );
+  const payload = (deviceId: string): CapturePayloadV1 => ({
+    v: 1,
+    plotId: world.plotId,
+    deviceId,
+    seq: 2,
+    prevEventHash: 'genesis',
+    capturedAt: '2026-10-14T04:20:00.000Z',
+    gps: { ...P01_INSIDE, accuracyM: 8 },
+    cherryKg: 10,
+    media: [],
+  });
+
+  it('after a fork (two accepted seq 1 rows on one phone) the previous capture is the one committed last', async () => {
+    const at = '2026-10-14T04:12:33.000Z';
+    const a = await capture400('a', at, { cherryKg: 12.5 });
+    const b = await capture400('b', at, { cherryKg: 12.5, gps: { lat: 12.4214, lng: 75.7392 } });
+    const media = barrierStore(2);
+    await Promise.all([run(a.fd, media), run(b.fd, media)]);
+    const forks = (await t.client.execute({ sql: 'SELECT seq, lat FROM harvest_events WHERE device_id = ? ORDER BY anchor_seq', args: [world.deviceId] })).rows;
+    expect(forks.map((r) => Number(r.seq))).toEqual([1, 1]);
+    const ctx = await refresh(world.deviceId, payload(world.deviceId));
+    expect(ctx.previousEvent?.lat).toBe(Number(forks[1]!.lat));
+  });
+
+  it('a device row missing under the lock throws a clear error instead of keeping the stale head', async () => {
+    await expect(refresh('DV-GONE0001', payload('DV-GONE0001'))).rejects.toThrow('device DV-GONE0001 vanished under the lock');
   });
 });

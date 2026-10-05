@@ -70,13 +70,17 @@ async function agentAcceptedEvents(handle: Db | Tx, agentId: string, asOf?: AsOf
   return row?.n ?? 0;
 }
 
-/** The phone's latest accepted capture, where and when (movement_plausibility), or null. */
+/**
+ * The phone's latest accepted capture, where and when (movement_plausibility), or null. Two accepted rows
+ * at one seq (a fork after captures in flight at once, a known flagged state) tie on seq: the one
+ * committed last (the higher anchor) is the previous one.
+ */
 async function previousEventOf(handle: Db | Tx, deviceId: string, asOf?: AsOf): Promise<VerifyContext['previousEvent']> {
   const [previous] = await handle
     .select({ lat: harvestEvents.lat, lng: harvestEvents.lng, capturedAt: harvestEvents.clientCapturedAt })
     .from(harvestEvents)
     .where(and(eq(harvestEvents.deviceId, deviceId), eq(harvestEvents.boundaryStatus, 'accepted'), before(asOf)))
-    .orderBy(desc(harvestEvents.seq))
+    .orderBy(desc(harvestEvents.seq), desc(harvestEvents.anchorSeq))
     .limit(1);
   return previous && previous.lat !== null && previous.lng !== null && previous.capturedAt !== null
     ? { lat: previous.lat, lng: previous.lng, capturedAt: previous.capturedAt }
@@ -100,13 +104,15 @@ export async function refreshUnderLock(
     payload.media.map((m) => m.sha256),
   );
   const [head] = await tx.select({ lastSeq: devices.lastSeq, lastEventHash: devices.lastEventHash }).from(devices).where(eq(devices.id, ctx.device.id));
+  // lateRefusal refuses a missing device under this same lock first, so a missing row is a broken invariant
+  if (!head) throw new Error(`device ${ctx.device.id} vanished under the lock`);
   const prior = await agentAcceptedEvents(tx, agentId);
   const previousEvent = await previousEventOf(tx, ctx.device.id);
   const seasonKg = await seasonCherryKgBefore(tx, ctx.plot.id, coffeeSeasonOf(serverReceivedAt));
   return {
     ...ctx,
     seenMediaHashes: seen,
-    device: head ? { ...ctx.device, lastSeq: head.lastSeq, lastEventHash: head.lastEventHash } : ctx.device,
+    device: { ...ctx.device, lastSeq: head.lastSeq, lastEventHash: head.lastEventHash },
     agentPriorAcceptedEvents: prior,
     previousEvent,
     seasonCherryKgBefore: seasonKg,
