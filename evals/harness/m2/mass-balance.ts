@@ -1,4 +1,5 @@
 import { eq } from 'drizzle-orm';
+import { buildCertificateView, type CertificateView } from '../../../src/lib/certificate/view-model';
 import type { Db } from '../../../src/lib/db/client';
 import { ledgerEntries, processingSteps } from '../../../src/lib/db/schema';
 import { buildFeed } from '../../../src/lib/ledger/feed';
@@ -34,6 +35,8 @@ export type MassBalanceFlow = {
   feed: ProofFeedV1;
   /** The feed as served, checked by the certificate's verifier with the published ledger key. */
   feedOk: boolean;
+  /** The certificate's view model of the feed (TP16): its journey shows the step. */
+  view: CertificateView;
 };
 
 /** Run one case's flow on `db` (a migrated database; DATA_DIR and LEDGER_KEY_PATH set by the caller). */
@@ -45,5 +48,5 @@ export async function runMassBalanceFlow(db: Db, id: MassBalanceCaseId): Promise
   const [e] = await db.select({ kind: ledgerEntries.kind, payload: ledgerEntries.payload }).from(ledgerEntries).where(eq(ledgerEntries.seq, step.anchorSeq));
   const feed = (await buildFeed(db, world.batchId)) as ProofFeedV1;
   const verdict = await verifyFeed(feed, (await publishedKeys()).keys);
-  return { world, step, row: row!, entry: { kind: e!.kind, payload: JSON.parse(e!.payload) as Record<string, unknown> }, feed, feedOk: verdict.ok };
+  return { world, step, row: row!, entry: { kind: e!.kind, payload: JSON.parse(e!.payload) as Record<string, unknown> }, feed, feedOk: verdict.ok, view: buildCertificateView(feed) };
 }

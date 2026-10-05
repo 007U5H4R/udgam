@@ -89,6 +89,13 @@ export const certCopy = {
     by: (org: string) => `By ${org}`,
     handed: 'Handed to buyer',
     to: (org: string) => `To ${org}`,
+    // M-002 processing step (TKT-26, Design.md §28.1 screen 7, §28.7)
+    processed: { pulping: 'Pulped', drying: 'Dried', hulling_parchment: 'Hulled', hulling_dry_cherry: 'Hulled' } as Record<string, string>,
+    processedFallback: 'Processed',
+    at: (processor: string, inKg: number, outKg: number, ratio: number) => `At ${processor} · ${kg1(inKg)} kg in, ${kg1(outKg)} kg out (${ratio.toFixed(1)}%)`,
+    processWords: { pulping: 'pulping', drying: 'drying', hulling_parchment: 'hulling parchment', hulling_dry_cherry: 'hulling dry cherry' } as Record<string, string>,
+    flagged: (min: number, max: number, process: string, placeholder: boolean) =>
+      `Flagged: ${min}–${max}% is expected for ${process}${placeholder ? ' (placeholder range, to be confirmed)' : ''}`,
   },
 
   origin: {

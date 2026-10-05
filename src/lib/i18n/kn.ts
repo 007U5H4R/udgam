@@ -340,14 +340,17 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'batches.detail.certificate': 'ಪ್ರಮಾಣಪತ್ರ ತೆರೆಯಿರಿ', // REVIEW: native speaker
   'batches.detail.certificateNote': 'ಈ ಲಿಂಕ್ ಇರುವ ಯಾರಾದರೂ ಬ್ಯಾಚನ್ನು ಲೆಡ್ಜರ್‌ನೊಂದಿಗೆ ಪರಿಶೀಲಿಸಬಹುದು.', // REVIEW: native speaker
   'batches.transfer.title': 'ಸ್ವಾಧೀನ ವರ್ಗಾಯಿಸಿ', // REVIEW: native speaker
-  'batches.transfer.buyer': 'ಖರೀದಿದಾರ', // REVIEW: native speaker
-  'batches.transfer.choose': 'ಖರೀದಿದಾರನನ್ನು ಆರಿಸಿ', // REVIEW: native speaker
+  'batches.transfer.buyer': 'ಯಾರಿಗೆ ಒಪ್ಪಿಸಬೇಕು', // REVIEW: native speaker (M-002 T4: "Hand to")
+  'batches.transfer.choose': 'ಖರೀದಿದಾರ ಅಥವಾ ಸಂಸ್ಕರಣಕಾರರನ್ನು ಆರಿಸಿ', // REVIEW: native speaker
+  'batches.transfer.hint': 'ಸಂಸ್ಕರಣಕಾರರು ಸಂಸ್ಕರಣೆಯ ಹಂತವನ್ನು ದಾಖಲಿಸಿ, ನಂತರ ಬ್ಯಾಚ್ ಅನ್ನು ಖರೀದಿದಾರರಿಗೆ ಒಪ್ಪಿಸುತ್ತಾರೆ.', // REVIEW: native speaker
+  'batches.transfer.group.buyers': 'ಖರೀದಿದಾರರು', // REVIEW: native speaker
+  'batches.transfer.group.processors': 'ಸಂಸ್ಕರಣಕಾರರು', // REVIEW: native speaker
   'batches.transfer.note': 'ಇದಕ್ಕೆ ಸಹಿ ಹಾಕಿ ಶಾಶ್ವತವಾಗಿ ದಾಖಲಿಸಲಾಗುತ್ತದೆ. ಸರ್ವರ್ ನಿಮ್ಮ ಖಾತೆಯ ಪರವಾಗಿ ಸಹಿ ಹಾಕುತ್ತದೆ, ಮತ್ತು ಬ್ಯಾಚ್ ಲಾಕ್ ಆಗುತ್ತದೆ.', // REVIEW: native speaker
   'batches.transfer.submit': 'ಸಹಿ ಹಾಕಿ ವರ್ಗಾಯಿಸಿ', // REVIEW: native speaker
   'batches.transfer.working': 'ಸಹಿ ಹಾಕಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
-  'batches.transfer.noBuyers': 'ಇನ್ನೂ ಯಾವುದೇ ಖರೀದಿದಾರ ಸಂಸ್ಥೆ ಸಿದ್ಧವಾಗಿಲ್ಲ.', // REVIEW: native speaker
+  'batches.transfer.noBuyers': 'ಇನ್ನೂ ಯಾವುದೇ ಖರೀದಿದಾರ ಅಥವಾ ಸಂಸ್ಕರಣಕಾರ ಸಂಸ್ಥೆ ಸಿದ್ಧವಾಗಿಲ್ಲ.', // REVIEW: native speaker
   'batches.transfer.error.not_open': 'ಈ ಬ್ಯಾಚ್ ಈಗಾಗಲೇ ವರ್ಗಾಯಿಸಲಾಗಿದೆ. ಬೇರೆ ಏನೂ ದಾಖಲಾಗಿಲ್ಲ.', // REVIEW: native speaker
-  'batches.transfer.error.not_buyer': 'ಪಟ್ಟಿಯಿಂದ ಒಬ್ಬ ಖರೀದಿದಾರನನ್ನು ಆರಿಸಿ.', // REVIEW: native speaker
+  'batches.transfer.error.not_buyer': 'ಪಟ್ಟಿಯಿಂದ ಖರೀದಿದಾರ ಅಥವಾ ಸಂಸ್ಕರಣಕಾರರನ್ನು ಆರಿಸಿ.', // REVIEW: native speaker
   'batches.custody.title': 'ಸ್ವಾಧೀನ', // REVIEW: native speaker
   'batches.custody.link': '{from} → {to}', // REVIEW: native speaker
   'batches.custody.when': '{when} ರಂದು ವರ್ಗಾಯಿಸಲಾಗಿದೆ · ನಿರ್ವಾಹಕರ ಪರವಾಗಿ ಸಹಿ', // REVIEW: native speaker

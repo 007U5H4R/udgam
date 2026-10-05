@@ -7,7 +7,7 @@ import screen from '../buyer/BatchScreen.module.css';
 import { Pill } from '../ui/Pill';
 import s from './TransferForm.module.css';
 
-// Custody transfer (TSK-14.5, TC-060): choose a buyer and confirm, in admin.html's signed-decision panel
+// Custody transfer (TSK-14.5, TC-060; M-002 T4: or a processor, under its own option group): choose and confirm, in admin.html's signed-decision panel
 // (".decide"). The note says it plainly: the server signs it on behalf of the admin's account and the
 // record is permanent (TP15 honest wording).
 
@@ -15,6 +15,10 @@ export type TransferLabels = {
   title: string;
   buyer: string;
   choose: string;
+  /** M-002 T4: what a processor does with the batch (shown under the select). */
+  hint: string;
+  /** M-002 T4: the option groups ("Buyers", "Processors"). */
+  groups: { buyer: string; processor: string };
   note: string;
   submit: string;
   working: string;
@@ -22,7 +26,7 @@ export type TransferLabels = {
   errors: Record<NonNullable<TransferState['error']>, string>;
 };
 
-export function TransferForm({ batchId, buyers, labels }: { batchId: string; buyers: { id: string; name: string }[]; labels: TransferLabels }) {
+export function TransferForm({ batchId, buyers, labels }: { batchId: string; buyers: { id: string; name: string; type?: 'buyer' | 'processor' }[]; labels: TransferLabels }) {
   const [state, action, pending] = useActionState<TransferState, FormData>(transferBatchAction, { error: null });
   const [toOrgId, setToOrgId] = useState('');
   return (
@@ -42,15 +46,25 @@ export function TransferForm({ batchId, buyers, labels }: { batchId: string; buy
             onChange={(e) => setToOrgId(e.currentTarget.value)}
             required
             disabled={pending}
-            aria-describedby="transfer-note"
+            aria-describedby="transfer-hint transfer-note"
           >
             <option value="">{labels.choose}</option>
-            {buyers.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
+            {(['buyer', 'processor'] as const).map((type) => {
+              const group = buyers.filter((b) => (b.type ?? 'buyer') === type);
+              return group.length ? (
+                <optgroup key={type} label={labels.groups[type]}>
+                  {group.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null;
+            })}
           </select>
+          <p className={screen.note} id="transfer-hint">
+            {labels.hint}
+          </p>
         </>
       )}
       <p className={screen.decNote} id="transfer-note">

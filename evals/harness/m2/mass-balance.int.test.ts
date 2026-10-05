@@ -10,7 +10,7 @@ import { runMassBalanceFlow } from './mass-balance';
 // EVAL-100–102 (milestone M2, suite integration; TC-086): the mass-balance flows through the processing
 // action (technical-plan TSK-26.4). Each test is titled with its EVAL ID and asserts the case's expected
 // behaviour and every failure condition in evals/eval-dataset.json. The certificate-journey half of
-// EVAL-100 is asserted here on the view model and end to end in e2e/m2-processing.spec.ts.
+// EVAL-100 is asserted here on the certificate's view model and end to end in e2e/m2-processing.spec.ts.
 
 const dataDir = mkdtempSync(join(tmpdir(), 'udgam-m2-mb-'));
 vi.stubEnv('DATA_DIR', dataDir);
@@ -38,6 +38,10 @@ describe('M2 mass balance (TSK-26.4)', () => {
     expect(f.entry.payload).toMatchObject({ batchId: f.world.batchId, status: 'ok', ratio: 42, band: [35, 50], signature: f.row.signature, kid: f.row.keyId });
     expect(f.feed.entries.some((e) => e.kind === 'processing_step' && e.seq === f.step.anchorSeq)).toBe(true);
     expect(f.feedOk).toBe(true);
+    // "the certificate journey shows the step", between Batched and the hand-on, with no flag
+    const kinds = f.view.journey.map((j) => j.kind);
+    expect(kinds).toEqual(['harvested', 'checked', 'batched', 'processed']);
+    expect(f.view.journey.at(-1)).toMatchObject({ kind: 'processed', process: 'pulping', processor: 'Processor C-03', inputKg: 1000, outputKg: 420, ratio: 42, status: 'ok', placeholder: true });
   }, 60_000);
 
   it('EVAL-101: output below the band is flagged with the ratio and the band', async () => {
@@ -47,6 +51,7 @@ describe('M2 mass balance (TSK-26.4)', () => {
     expect(f.row.evidence).toBe('Output 420.0 kg is 70.0% of input 600.0 kg (expected 75–85% for hulling parchment).');
     expect(f.entry.payload).toMatchObject({ status: 'flag', evidence: f.row.evidence });
     expect(f.feedOk).toBe(true); // a flagged step is recorded and verifies: nothing is refused
+    expect(f.view.journey.find((j) => j.kind === 'processed')).toMatchObject({ status: 'flag', ratio: 70, band: [75, 85] });
   }, 60_000);
 
   it('EVAL-102: output above input is flagged as a gain, and the batch cannot be presented as unflagged', async () => {

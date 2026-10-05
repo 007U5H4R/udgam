@@ -112,6 +112,38 @@ describe('buildCertificateView (TSK-16.1)', () => {
     ]);
   });
 
+  // M-002 (TKT-26, TSK-26.5, Design.md §28.4): the processing step is one journey item between Batched and
+  // Handed to buyer. The FPO's hand to the processor is folded into it ("At Processor C-03").
+  const withStep = (step: Record<string, unknown>) => {
+    const f = copy();
+    const last = f.entries.at(-1)!;
+    const processor = 'ORG-1H3Q2PVQ'; // the fixture's transfer goes here; it plays the processor
+    f.entries.push(
+      { ...last, seq: last.seq + 1, kind: 'processing_step', payload: { v: 1, batchId: f.batchId, processorOrg: processor, processorName: 'Processor C-03', process: 'hulling_parchment', inputKg: 600, outputKg: 480, ratio: 80, band: [75, 85], status: 'ok', evidence: 'e', ts: '2026-10-01T04:35:00.000Z', ...step } },
+      { ...last, seq: last.seq + 2, kind: 'custody_transfer', payload: { v: 1, batchId: f.batchId, fromOrg: processor, toOrg: 'ORG-BUYER-B07', ts: '2026-10-01T04:50:00.000Z' } },
+    );
+    return f;
+  };
+
+  it('journey with a processing step: batched, the step at the processor, then handed to the buyer', () => {
+    const v = buildCertificateView(withStep({}));
+    expect(v.journey.slice(2)).toEqual([
+      { kind: 'batched', at: '2026-09-29T18:56:32.317Z', org: 'ORG-0H3TE0Z3' },
+      { kind: 'processed', at: '2026-10-01T04:35:00.000Z', process: 'hulling_parchment', processor: 'Processor C-03', inputKg: 600, outputKg: 480, ratio: 80, band: [75, 85], status: 'ok', placeholder: false },
+      { kind: 'transferred', at: '2026-10-01T04:50:00.000Z', from: 'ORG-1H3Q2PVQ', org: 'ORG-BUYER-B07' },
+    ]);
+    expect(v.unknownKinds).toBe(0);
+  });
+
+  it('a flagged step keeps its flag and band; a placeholder band is said so; another batch\'s step is ignored', () => {
+    const v = buildCertificateView(withStep({ outputKg: 420, ratio: 70, status: 'flag' }));
+    expect(v.journey.find((j) => j.kind === 'processed')).toMatchObject({ status: 'flag', ratio: 70, band: [75, 85] });
+    const p = buildCertificateView(withStep({ process: 'pulping', band: [35, 50], evidence: 'Output … (expected 35–50% for pulping; placeholder range, to be confirmed).' }));
+    expect(p.journey.find((j) => j.kind === 'processed')).toMatchObject({ process: 'pulping', placeholder: true });
+    const o = buildCertificateView(withStep({ batchId: 'B-OTHER' }));
+    expect(o.journey.some((j) => j.kind === 'processed')).toBe(false);
+  });
+
   it('the organic line appears only when an attestation payload exists', () => {
     expect(buildCertificateView(FEED).organic).toEqual({ issuer: 'INDOCERT', validFrom: '2026-01-01', validTo: '2027-12-31', plotIds: ['PL-QZE72CD2'], allPlots: false });
     const f = copy();

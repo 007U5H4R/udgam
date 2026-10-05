@@ -8,7 +8,7 @@ import { BatchQr } from '../../../../../components/ui/BatchQr';
 import { GlassCard } from '../../../../../components/ui/GlassCard';
 import { RailShell } from '../../../../../components/ui/Rail';
 import { formatKg, formatScore, istDateTime } from '../../../../../lib/batches/format';
-import { getOrgBatch, listBuyerOrgs, listOrgBatches } from '../../../../../lib/batches/read';
+import { getOrgBatch, listOrgBatches, listRecipientOrgs } from '../../../../../lib/batches/read';
 import { getDbReady } from '../../../../../lib/db/client';
 import { userName } from '../../../../../lib/enrolment/phones';
 import { t } from '../../../../../lib/i18n';
@@ -29,7 +29,7 @@ export default async function BatchDetailPage({ params }: Props) {
   const { batchId } = await params;
   const db = await getDbReady();
   const batch = scopedById(await getOrgBatch(db, me.orgId, batchId));
-  const [batches, buyers, name] = await Promise.all([listOrgBatches(db, me.orgId), batch.status === 'open' ? listBuyerOrgs(db) : [], userName(db, me.userId)]);
+  const [batches, buyers, name] = await Promise.all([listOrgBatches(db, me.orgId), batch.status === 'open' ? listRecipientOrgs(db) : [], userName(db, me.userId)]);
   const certificate = `/verify/${encodeURIComponent(batch.batchId)}?h=${batch.shortHash}`;
 
   return (
@@ -90,6 +90,8 @@ export default async function BatchDetailPage({ params }: Props) {
                   title: t('batches.transfer.title'),
                   buyer: t('batches.transfer.buyer'),
                   choose: t('batches.transfer.choose'),
+                  hint: t('batches.transfer.hint'),
+                  groups: { buyer: t('batches.transfer.group.buyers'), processor: t('batches.transfer.group.processors') },
                   note: t('batches.transfer.note'),
                   submit: t('batches.transfer.submit'),
                   working: t('batches.transfer.working'),

@@ -1,0 +1,231 @@
+/* The processor surface (TKT-26, TSK-26.5), ported from .design/exploration/final/contract.html screen 6
+   ("Processor · Record a step, hand on"). The screen is admin.html's list → detail composition, so the
+   <main> carries `review` (src/styles/admin.css: queue, rows, detail, check rows, decide panel, outcome,
+   skeletons, state cards) plus `proc` for the addendum's composition rules below. Every value here is
+   copied verbatim from contract.html's "M-002 addendum composition" block, which itself only reuses
+   values from admin.html / verify.html (Design.md §28, TP17): no new colour, radius, type size, shadow,
+   icon or motion. Not ported: the prototype banner and the "Screens" dialog. */
+
+.proc a.q-item {
+  color: inherit;
+  text-decoration: none;
+}
+.proc .q-bub.ok {
+  background: var(--ok-tint);
+  color: var(--ok-ink);
+}
+.proc .q-bub.na {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.proc .q-why.ok {
+  color: var(--ok-ink);
+}
+.proc .q-why.na {
+  color: var(--ink-2);
+}
+.proc .vchip.na {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.proc .d-body > * + .glass,
+.proc .d-body > * + .decide,
+.proc .d-body > .outcome {
+  margin-top: 16px;
+}
+.proc .c-ev .again {
+  display: block;
+  margin-top: 4px;
+  font-weight: 700;
+  color: var(--check-ink);
+}
+
+/* forms: the .decide textarea recipe applied to inputs and selects */
+.proc .form-card {
+  padding: 18px 20px 20px;
+  display: grid;
+  gap: 16px;
+}
+.proc .field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  align-content: start;
+}
+.proc .field label,
+.proc .field legend {
+  font-weight: 700;
+  padding: 0;
+}
+.proc .field fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+.proc .field input[type='text'],
+.proc .field select {
+  display: block;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--ink);
+  font: inherit;
+  font-size: 17px;
+  line-height: 1.45;
+  color-scheme: dark;
+  font-variant-numeric: tabular-nums;
+}
+.proc .field input:focus-visible,
+.proc .field select:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+.proc .field input:disabled,
+.proc .field select:disabled {
+  color: var(--ink-2);
+}
+.proc .hint {
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+}
+.proc .f-row {
+  display: grid;
+  gap: 16px;
+}
+@container (min-width: 720px) {
+  .proc .f-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.proc .opts {
+  display: grid;
+  gap: 6px;
+}
+.proc .opt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 18px;
+  border-radius: 18px;
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.proc .opt:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.proc .opt:has(input:checked) {
+  border-color: rgba(185, 245, 210, 0.55);
+  background: rgba(127, 227, 193, 0.1);
+}
+.proc .opt input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  flex: none;
+  accent-color: var(--ok);
+}
+.proc .opt .o-txt {
+  flex: 1;
+  min-width: 0;
+}
+.proc .opt .o-txt span {
+  display: block;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+/* field check (Design.md §28.7): word + mark + colour under the field; the field keeps its value */
+.proc .field input[aria-invalid='true'],
+.proc .field select[aria-invalid='true'] {
+  border-color: var(--check);
+}
+.proc .f-err {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--check-ink);
+}
+.proc .f-err .mk {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+}
+.proc .band-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: var(--fs-small);
+  color: var(--ink);
+}
+.proc .band-line .ic {
+  width: 20px;
+  height: 20px;
+  color: #b9f5d2;
+  margin-top: 1px;
+}
+.proc .inline-err {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: var(--r-row);
+  border: 1px solid rgba(255, 214, 150, 0.22);
+  background:
+    linear-gradient(180deg, rgba(242, 184, 75, 0.22), rgba(242, 184, 75, 0.06) 55%),
+    rgba(24, 22, 18, 0.72);
+}
+.proc .inline-err .ic {
+  color: var(--check-ink);
+  margin-top: 1px;
+}
+.proc .inline-err b {
+  display: block;
+}
+.proc .pill .ic.spin {
+  animation: review-spin 1.4s linear infinite;
+}
+.proc .handed {
+  display: grid;
+  gap: 8px;
+}
+
+/* the processor's rail has one item and is hidden on phones (contract.html `.rail[data-n="1"]`) */
+@media (max-width: 699.98px) {
+  .proc-shell .admin-rail {
+    display: none;
+  }
+  /* no floating tab bar to leave room for */
+  .proc-shell > :last-child {
+    padding-bottom: 0;
+  }
+  .proc.review .queue {
+    padding-bottom: 32px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .proc .pill .ic.spin {
+    animation: none !important;
+  }
+}
+
+/* Design.md §28.8: when the detail is the whole screen (< 1100 px) the list's h1 is hidden, so the detail
+   repeats it as a visually hidden h1; side by side (≥ 1100 px) the list's h1 is the page's one h1. */
+@media (min-width: 1100px) {
+  .proc .d-h1 {
+    display: none;
+  }
+}

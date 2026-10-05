@@ -109,6 +109,19 @@ export async function getOrgBatch(db: Db, orgId: string, batchId: string): Promi
   return { ...toSummary(row), orgName: names.get(orgId) ?? orgId, members, custody };
 }
 
+/**
+ * Organisations an admin can hand a batch to (M-002 T4, Design.md §28): buyers, then processors, each by
+ * name. A processor records a processing step and then hands the batch on to a buyer (TKT-26).
+ */
+export async function listRecipientOrgs(db: Db): Promise<{ id: string; name: string; type: 'buyer' | 'processor' }[]> {
+  const rows = await db
+    .select({ id: organisations.id, name: organisations.name, type: organisations.type })
+    .from(organisations)
+    .where(inArray(organisations.type, ['buyer', 'processor']))
+    .orderBy(asc(organisations.type), asc(organisations.name), asc(organisations.id));
+  return rows.filter((r): r is { id: string; name: string; type: 'buyer' | 'processor' } => r.type === 'buyer' || r.type === 'processor');
+}
+
 /** Buyer organisations an admin can transfer to, by name. */
 export async function listBuyerOrgs(db: Db): Promise<{ id: string; name: string }[]> {
   return db.select({ id: organisations.id, name: organisations.name }).from(organisations).where(eq(organisations.type, 'buyer')).orderBy(asc(organisations.name), asc(organisations.id));
