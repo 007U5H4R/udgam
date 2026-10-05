@@ -650,7 +650,7 @@ export const stagedMedia = sqliteTable(
 // anchored (agreement_created, agreement_funded, agreement_refunded, quality_attestation, settlement).
 // Guards in the agreements custom migration: never replaced or deleted; an agreement's terms never
 // change; its status moves only created → funded → settled | refunded, each step with its own anchor;
-// attestations and settlements are append-only; at most one released settlement per agreement.
+// attestations and settlements are append-only; at most one released settlement per agreement and per batch.
 
 /** A grade on the fixed five-label scale (Design.md §28.3): Excellent 90 · Very good 80 · Good 70 · Fair 60 · Low 40. */
 const GRADE_VALUES = sql`(90,80,70,60,40)`;
@@ -786,6 +786,10 @@ export const settlements = sqliteTable(
     index('settlements_batch_idx').on(t.batchId),
     uniqueIndex('settlements_one_release_idx')
       .on(t.agreementId)
+      .where(sql`${t.outcome} = 'released'`),
+    // A delivered batch pays out at most once, across every agreement (TKT-25 review fix).
+    uniqueIndex('settlements_one_release_per_batch_idx')
+      .on(t.batchId)
       .where(sql`${t.outcome} = 'released'`),
   ],
 );

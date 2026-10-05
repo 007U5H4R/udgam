@@ -2,6 +2,7 @@
 
 import { startTransition, useActionState, useRef, useState, type FormEvent } from 'react';
 import type { ActionState } from '../../lib/agreements/actions';
+import { failureCopy } from '../../lib/agreements/failure-copy';
 import { FIELD_MESSAGES } from '../../lib/agreements/format';
 import { GRADES, gradeDisplay, parseGrade } from '../../lib/agreements/grades';
 import { t } from '../../lib/i18n';
@@ -88,7 +89,7 @@ export function GradeForm({
       <p className="hint" id="gr-n">
         {t('agreements.grade.hint', { min: gradeDisplay(minGrade as (typeof GRADES)[number]['value']) })}
       </p>
-      {failed ? <InlineErrView title={t('agreements.grade.errTitle')} body={t('agreements.grade.errBody')} /> : null}
+      {failed ? <InlineErrView {...failureCopy(failed, { noAnswer: { title: t('agreements.grade.errTitle'), body: t('agreements.grade.errBody') } })} /> : null}
       <p className="dec-note">
         <Icon name="seal" />
         <span>{t('agreements.grade.note')}</span>

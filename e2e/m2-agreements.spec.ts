@@ -210,7 +210,7 @@ test.describe('buyer agreements (Design.md §28.1 screens 1–4)', () => {
     for (const id of [seeded.created.id, 'AG-NOSUCH00']) {
       const res = await page.goto(`/buyer/agreements/${id}`);
       expect(res?.status()).toBe(404);
-      await expect(page.getByText('There’s no such agreement for your account.')).toBeVisible();
+      await expect(page.getByText(`There’s no agreement ${id} for your account.`)).toBeVisible();
     }
     await checkSurface(page);
   });
@@ -256,6 +256,26 @@ test.describe('FPO admin agreements and settlement (Design.md §28.1 screen 5)',
     await checkSurface(page);
   });
 
+  test('ready: the ledger turns the settle away → its own words, nothing judged, chip stays Ready to settle', async ({ page }) => {
+    await asAdmin(page, seeded.ready.adminEmail);
+    await page.goto(`/admin/agreements/${seeded.ready.id}?state=turned-away`);
+    await expect(page.getByRole('alert').filter({ hasText: 'Couldn’t settle.' })).toContainText(
+      'The ledger turned the request away before judging the conditions, so nothing moved. Try again; if it happens again, tell the Udgam team.',
+    );
+    await expect(page.locator('.d-title .vchip')).toHaveText('Ready to settle');
+    await expect(page.getByTestId('action-pill')).toHaveText('Try again');
+    await expect(page.locator('[data-outcome]')).toHaveCount(0);
+    await checkSurface(page);
+  });
+
+  test('T3: a batch delivered under an agreement shows its card before it is graded', async ({ page }) => {
+    await asAdmin(page, seeded.toGrade.adminEmail);
+    await page.goto(`/admin/batches/${seeded.toGrade.batchId}`);
+    await expect(page.getByTestId('agreement-card')).toContainText(`${seeded.toGrade.id} with ${seeded.buyerOrgName}`);
+    await expect(page.getByTestId('agreement-card')).toContainText('Waiting for the grade');
+    await checkSurface(page);
+  });
+
   test('released (--ok) and not released (--check naming the condition)', async ({ page }) => {
     await asAdmin(page, seeded.released.adminEmail);
     await page.goto(`/admin/agreements/${seeded.released.id}`);
@@ -286,7 +306,7 @@ test.describe('FPO admin agreements and settlement (Design.md §28.1 screen 5)',
     await asAdmin(page, seeded.ready.adminEmail);
     const res = await page.goto(`/admin/agreements/${seeded.released.id}`);
     expect(res?.status()).toBe(404);
-    await expect(page.getByText('There’s no such agreement for your account.')).toBeVisible();
+    await expect(page.getByText(`There’s no agreement ${seeded.released.id} for your account.`)).toBeVisible();
     await checkSurface(page);
   });
 });

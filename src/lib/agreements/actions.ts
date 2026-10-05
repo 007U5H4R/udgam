@@ -16,8 +16,12 @@ import { settleBatch } from './settle';
 
 export type Actor = { orgId: string; userId: string };
 
-/** Why an action did not go through: the ledger did not answer, or turned the request away first. */
-export type Failure = 'no_answer' | 'turned_away';
+/**
+ * Why an action did not go through: the ledger did not answer; the ledger turned the request away first;
+ * or the agreement changed since the screen was drawn (a stale screen or a double click), so the server
+ * refused before sending anything.
+ */
+export type Failure = 'no_answer' | 'turned_away' | 'changed';
 
 export type ActionState = {
   /** Field checks (same rules and words as the browser). */
@@ -34,9 +38,9 @@ const text = (v: FormDataEntryValue | null): string => (typeof v === 'string' ? 
 function failureOf(e: unknown, action: string): ActionOutcome {
   if (e instanceof AgreementError) {
     if (e.code === 'not_found') return { ok: false, notFound: true };
-    // A stale screen (already funded, deadline moved past, no grade yet…): nothing moved; the page reloads.
+    // A stale screen (already funded, deadline moved past, grade already recorded…): nothing was sent.
     log.info({ action, code: e.code }, 'agreements.action_refused');
-    return { ok: false, state: { failure: e.code === 'bad_signature' ? 'turned_away' : 'no_answer' } };
+    return { ok: false, state: { failure: e.code === 'bad_signature' ? 'turned_away' : 'changed' } };
   }
   if (e instanceof ChainError) {
     log.warn({ action, kind: e.kind, reason: e.reason }, 'agreements.chain_failed');

@@ -56,8 +56,13 @@ contract ContractFarming {
     IERC20Minimal public immutable token;
 
     mapping(bytes32 id => Agreement) public agreements;
+    /// @notice Batches already paid out: one delivered batch releases at most one escrow, across agreements.
+    mapping(bytes32 batchIdHash => bool) public batchReleased;
 
-    event AgreementCreated(bytes32 indexed id, address indexed buyer, address fpoPayee, uint256 agreedGrams, uint8 minGrade, uint256 amount, uint64 deadline);
+    /// @notice `termsHash` = termsHash(agreedGrams, minGrade, amount, deadline): the terms are not emitted in
+    /// plaintext (Design.md §28.4). They are still in this contract's storage, readable by anyone who can
+    /// query the chain, so they are private only as far as the chain's access is.
+    event AgreementCreated(bytes32 indexed id, address indexed buyer, address fpoPayee, bytes32 termsHash);
     event Funded(bytes32 indexed id, uint256 amount);
     event Settled(bytes32 indexed id, bytes32 indexed batchIdHash, address fpoPayee, uint256 amount);
     event SettlementRejected(bytes32 indexed id, bytes32 indexed batchIdHash, uint8 reasons);
@@ -72,6 +77,7 @@ contract ContractFarming {
     error DeadlinePassed();
     error BadGradeSignature();
     error TransferFailed();
+    error BatchAlreadyReleased();
 
     constructor(address operator_, address token_) {
         if (operator_ == address(0) || token_ == address(0)) revert ZeroAddress();
@@ -100,14 +106,20 @@ contract ContractFarming {
         if (buyer == address(0) || buyerAttestor == address(0) || fpoPayee == address(0)) revert ZeroAddress();
         if (agreedGrams == 0 || minGrade > 100 || amount == 0 || deadline <= block.timestamp) revert BadTerms();
         agreements[id] = Agreement(buyer, buyerAttestor, fpoPayee, agreedGrams, minGrade, amount, deadline, Status.Created);
-        emit AgreementCreated(id, buyer, fpoPayee, agreedGrams, minGrade, amount, deadline);
+        emit AgreementCreated(id, buyer, fpoPayee, termsHash(agreedGrams, minGrade, amount, deadline));
     }
 
-    /// @notice Move the agreed amount from the buyer into escrow (the buyer approves it first).
+    /// @notice The hash of an agreement's terms, as emitted in AgreementCreated.
+    function termsHash(uint256 agreedGrams, uint8 minGrade, uint256 amount, uint64 deadline) public pure returns (bytes32) {
+        return keccak256(abi.encode(agreedGrams, minGrade, amount, deadline));
+    }
+
+    /// @notice Move the agreed amount from the buyer into escrow (the buyer approves it first), up to the deadline.
     function fund(bytes32 id) external {
         Agreement storage a = agreements[id];
         if (a.status != Status.Created) revert WrongStatus(a.status);
         if (msg.sender != a.buyer) revert NotBuyer();
+        if (block.timestamp > a.deadline) revert DeadlinePassed();
         a.status = Status.Funded;
         if (!token.transferFrom(msg.sender, address(this), a.amount)) revert TransferFailed();
         emit Funded(id, a.amount);
@@ -126,8 +138,8 @@ contract ContractFarming {
 
     /// @notice Judge the three conditions for one delivered batch (operator only). Pays the FPO when all
     /// hold; otherwise emits the failed conditions as a bitmask and stays funded. Reverts (nothing judged)
-    /// on a non-funded agreement, after the deadline, on a grade above 100 or on a grade signature that
-    /// does not recover to the agreement's attestor.
+    /// on a non-funded agreement, after the deadline, on a batch already paid out under any agreement, on
+    /// a grade above 100 or on a grade signature that does not recover to the agreement's attestor.
     function settle(bytes32 id, bytes32 batchIdHash, uint256 deliveredGrams, bool allVerified, uint8 grade, bytes calldata gradeSig)
         external
         onlyOperator
@@ -135,6 +147,7 @@ contract ContractFarming {
         Agreement storage a = agreements[id];
         if (a.status != Status.Funded) revert WrongStatus(a.status);
         if (block.timestamp > a.deadline) revert DeadlinePassed();
+        if (batchReleased[batchIdHash]) revert BatchAlreadyReleased();
         if (grade > 100) revert BadTerms();
         if (_recover(gradeDigest(id, batchIdHash, grade), gradeSig) != a.buyerAttestor) revert BadGradeSignature();
 
@@ -147,6 +160,7 @@ contract ContractFarming {
             return;
         }
         a.status = Status.Settled;
+        batchReleased[batchIdHash] = true;
         if (!token.transfer(a.fpoPayee, a.amount)) revert TransferFailed();
         emit Settled(id, batchIdHash, a.fpoPayee, a.amount);
     }

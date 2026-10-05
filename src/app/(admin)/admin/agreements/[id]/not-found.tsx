@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Icon } from '../../../../../components/admin/QueueList';
+import { NotFoundTitle } from '../../../../../components/agreements/client-parts';
 import { EmptyCard } from '../../../../../components/agreements/parts';
 import { RailShell } from '../../../../../components/ui/Rail';
 import { t } from '../../../../../lib/i18n';
@@ -20,7 +21,7 @@ export default function AgreementNotFound() {
           </Link>
           <h1 id="q-h">{t('agreements.fpo.title')}</h1>
         </header>
-        <EmptyCard title={t('agreements.notFound.title')} body={t('agreements.notFound.body')} />
+        <EmptyCard title={<NotFoundTitle />} body={t('agreements.notFound.body')} />
       </section>
     </main>
     </RailShell>

@@ -21,7 +21,7 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 export default async function AdminAgreementsPage({ searchParams }: Props) {
   const me = await requireSession('admin');
   const forced = forcedAgreementState((await searchParams).state);
-  const state = forced === 'working' ? null : forced;
+  const state = forced === 'working' || forced === 'turned-away' ? null : forced;
   const db = await getDbReady();
   const [items, names, name] = await Promise.all([state ? [] : listFpoAgreements(db, me.orgId), orgNames(db, [me.orgId]), userName(db, me.userId)]);
   const listState = state ?? (items.length ? 'data' : 'empty');

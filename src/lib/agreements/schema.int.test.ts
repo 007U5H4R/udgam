@@ -275,4 +275,22 @@ describe('agreements tables (TSK-25.4)', () => {
     const n = await t.db.$count(settlements, sql`${settlements.agreementId} = ${id} AND ${settlements.outcome} = 'released'`);
     expect(n).toBe(1);
   });
+
+  it('a batch is released at most once across agreements, and takes no grade once paid out under another (TKT-25 fix)', async () => {
+    const a = await insertAgreement();
+    const b = await insertAgreement();
+    const c = await insertAgreement();
+    for (const id of [a, b, c]) await fund(id);
+    const qaA = await attest(a);
+    const qaB = await attest(b);
+    const rel = await settle(a, qaA, 'released');
+    await t.client.execute({ sql: "UPDATE agreements SET status = 'settled', closed_at = 'x', closed_tx_hash = '0x', closed_anchor_seq = ? WHERE id = ?", args: [rel.seq, a] });
+    // the same batch under another funded agreement, with its own signed grade: refused
+    await refused(settle(b, qaB, 'released'), /UNIQUE constraint failed: settlements\.batch_id/);
+    // a not-released judgment is still allowed (it pays nothing)
+    await settle(b, qaB, 'not_released');
+    // a new grade for the paid-out batch under a third agreement: refused
+    await refused(attest(c), /not already paid out under another agreement/);
+    expect(await t.db.$count(settlements, sql`${settlements.batchId} = ${batchId} AND ${settlements.outcome} = 'released'`)).toBe(1);
+  });
 });

@@ -86,13 +86,8 @@ async function seedOne(db: Db, buyer: { orgId: string; userId: string }, passwor
   const pickings = o.kgs.length;
   const verified = pickings;
   const released = o.step === 'released';
-  const reasons = released
-    ? []
-    : [
-        ...(deliveredKg < agreedKg ? [{ condition: 'quantity', text: `Delivered ${deliveredKg.toFixed(1)} kg of ${agreedKg.toFixed(1)} kg agreed` }] : []),
-        ...(grade < minGrade ? [{ condition: 'grade', text: 'grade below minimum' }] : []),
-        ...(verified < pickings ? [{ condition: 'all_verified', text: `${verified} of ${pickings} pickings Verified` }] : []),
-      ];
+  // condition codes only, as settle.ts anchors them: the terms stay out of the public feed (Design.md §28.4)
+  const reasons = released ? [] : [...(deliveredKg < agreedKg ? ['quantity'] : []), ...(grade < minGrade ? ['grade'] : []), ...(verified < pickings ? ['all_verified'] : [])];
   const stId = newId('ST-', 12);
   const at = iso(shift(-1));
   const txHash = tx64();

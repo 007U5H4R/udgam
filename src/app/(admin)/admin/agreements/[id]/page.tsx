@@ -19,7 +19,7 @@ import { settleAgreementAction } from '../actions';
 // action bar. Released: "Payment released" (--ok) with the ledger line. Not released: "Not released"
 // (--check) naming each condition not met. A settle that did not go through is never shown as a result:
 // the chip stays "Ready to settle" and the inline error says nothing moved. Another FPO's agreement is a
-// 404 like an unknown one (EVAL-080). `?state=loading|working` for e2e.
+// 404 like an unknown one (EVAL-080). `?state=loading|working|turned-away` for e2e.
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Agreement · Udgam' };
 
@@ -63,6 +63,7 @@ export default async function AdminAgreementPage({ params, searchParams }: Props
             action={settleAgreementAction}
             hidden={{ agreementId: a.id, batchId: ready.batchId }}
             forcedWorking={forced === 'working'}
+            forcedFailure={forced === 'turned-away' ? 'turned_away' : undefined}
             hint={t('agreements.settle.hint')}
             texts={{
               idle: t('agreements.settle.idle', { amount, fpo: v.fpoName }),

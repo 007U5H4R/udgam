@@ -8,7 +8,7 @@ import { newId } from '../ids';
 import { append } from '../ledger/hashchain';
 import type { LedgerKind } from '../ledger/types';
 import { agreementChainId, batchIdHash, orgAddress, recoverGradeSigner, signGrade, type GradeDomain, type GradeMessage } from './attestor-keys';
-import type { ChainTx, EscrowChain } from './chain';
+import { ChainError, type ChainTx, type EscrowChain, type OnChainStatus } from './chain';
 import { escrowFromEnv } from './env-chain';
 import { deadlineIso, kgToGrams } from './format';
 import type { NewAgreementValues } from './form';
@@ -22,7 +22,17 @@ import { isGrade, type Grade } from './grades';
 // indistinguishable from an unknown one (not_found, EVAL-080). Inputs from the client are never trusted:
 // terms are re-checked by the caller (form.ts), and every settlement condition is read from the DB.
 
-export type AgreementErrorCode = 'not_found' | 'not_fpo' | 'wrong_state' | 'deadline_not_passed' | 'deadline_passed' | 'not_delivered' | 'already_graded' | 'bad_signature' | 'no_grade';
+export type AgreementErrorCode =
+  | 'not_found'
+  | 'not_fpo'
+  | 'wrong_state'
+  | 'deadline_not_passed'
+  | 'deadline_passed'
+  | 'not_delivered'
+  | 'already_graded'
+  | 'bad_signature'
+  | 'no_grade'
+  | 'invalid_grade';
 
 /** A refusal before anything moved or was recorded. */
 export class AgreementError extends Error {
@@ -44,6 +54,20 @@ export type AgreementRow = typeof agreements.$inferSelect;
 export async function anchorSigned(tx: Tx, kind: LedgerKind, userId: string, statement: Record<string, unknown>) {
   const { kid, publicJwk, signature } = await signAsUser(userId, jcs(statement));
   return append(tx, kind, { ...statement, kid, publicJwk, signature });
+}
+
+/**
+ * Send a buyer's step (fund, refund). If the chain turns it away because the agreement is already in
+ * the step's target state — a concurrent double submit got there first — the step is done: send once
+ * more, which recovers the earlier transaction from its event (chain.ts), and record that one.
+ */
+async function idempotentStep(c: EscrowChain, id: Hex, target: OnChainStatus, send: () => Promise<ChainTx>): Promise<ChainTx> {
+  try {
+    return await send();
+  } catch (e) {
+    if (e instanceof ChainError && e.kind === 'turned_away' && (await c.status(id)) === target) return send();
+    throw e;
+  }
 }
 
 const chainFacts = (c: EscrowChain, tx: ChainTx) => ({ chainId: c.chainId, contract: c.escrow, txHash: tx.txHash, blockNumber: tx.blockNumber });
@@ -158,10 +182,11 @@ export async function fundAgreement(db: Db, input: BuyerAction, o: ServiceOption
   await getUserPublicKey(input.userId);
   const c = await chainOf(o);
   await c.ensureBuyer(input.buyerOrg, BigInt(a.amountPaise));
-  const tx = await c.fund(input.buyerOrg, a.chainIdHex as Hex, BigInt(a.amountPaise));
+  const tx = await idempotentStep(c, a.chainIdHex as Hex, 'funded', () => c.fund(input.buyerOrg, a.chainIdHex as Hex, BigInt(a.amountPaise)));
   const ts = nowOf(o).toISOString();
   await writeTx(db, async (t) => {
     const cur = await buyerAgreement(t, input.buyerOrg, a.id);
+    if (cur.status === 'funded' && cur.fundedTxHash === tx.txHash) return; // a concurrent request recorded it
     if (cur.status !== 'created') throw new AgreementError('wrong_state');
     const anchor = await anchorSigned(t, 'agreement_funded', input.userId, { v: 1, agreementId: a.id, amountPaise: a.amountPaise, chain: chainFacts(c, tx), signedBy: input.userId, ts });
     await t.update(agreements).set({ status: 'funded', fundedAt: ts, fundedTxHash: tx.txHash, fundedAnchorSeq: anchor.seq }).where(eq(agreements.id, a.id));
@@ -176,10 +201,11 @@ export async function refundAgreement(db: Db, input: BuyerAction, o: ServiceOpti
   if (nowOf(o).getTime() <= Date.parse(a.deadline)) throw new AgreementError('deadline_not_passed');
   await getUserPublicKey(input.userId);
   const c = await chainOf(o);
-  const tx = await c.refund(input.buyerOrg, a.chainIdHex as Hex);
+  const tx = await idempotentStep(c, a.chainIdHex as Hex, 'refunded', () => c.refund(input.buyerOrg, a.chainIdHex as Hex));
   const ts = nowOf(o).toISOString();
   await writeTx(db, async (t) => {
     const cur = await buyerAgreement(t, input.buyerOrg, a.id);
+    if (cur.status === 'refunded' && cur.closedTxHash === tx.txHash) return; // a concurrent request recorded it
     if (cur.status !== 'funded') throw new AgreementError('wrong_state');
     const anchor = await anchorSigned(t, 'agreement_refunded', input.userId, { v: 1, agreementId: a.id, amountPaise: a.amountPaise, chain: chainFacts(c, tx), signedBy: input.userId, ts });
     await t.update(agreements).set({ status: 'refunded', closedAt: ts, closedTxHash: tx.txHash, closedAnchorSeq: anchor.seq }).where(eq(agreements.id, a.id));
@@ -197,7 +223,7 @@ export type GradeSigner = (orgId: string, m: GradeMessage, domain: GradeDomain) 
  * refused with bad_signature and nothing is written. `o.sign` exists for that test.
  */
 export async function gradeBatch(db: Db, input: GradeInput, o: ServiceOptions & { sign?: GradeSigner } = {}): Promise<{ attestationId: string }> {
-  if (!isGrade(input.grade)) throw new AgreementError('wrong_state');
+  if (!isGrade(input.grade)) throw new AgreementError('invalid_grade');
   const a = await buyerAgreement(db, input.buyerOrg, input.agreementId);
   if (a.status !== 'funded') throw new AgreementError('wrong_state');
   if (!(await deliveredBatchIds(db, a)).includes(input.batchId)) throw new AgreementError('not_delivered');

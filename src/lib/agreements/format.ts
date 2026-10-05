@@ -140,3 +140,9 @@ export function deadlineHint(raw: string): string {
     ? `Open until ${d}, end of the day (IST). If nothing has settled by then, you can take the money back.`
     : 'If nothing has settled by then, you can take the money back.';
 }
+
+/** The agreement id at the end of a path (`AG-` + 8 capitals or digits), else null: never echo other input. */
+export function agreementIdFromPath(path: string | null): string | null {
+  const last = path?.replace(/\/+$/, '').split('/').pop() ?? '';
+  return /^AG-[0-9A-Z]{8}$/.test(last) ? last : null;
+}

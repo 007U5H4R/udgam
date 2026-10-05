@@ -29,6 +29,7 @@ contract ContractFarmingTest is Test {
     uint256 internal constant START_BALANCE = 10_000_000;
     uint64 internal deadline;
 
+    event AgreementCreated(bytes32 indexed id, address indexed buyer, address fpoPayee, bytes32 termsHash);
     event Funded(bytes32 indexed id, uint256 amount);
     event Settled(bytes32 indexed id, bytes32 indexed batchIdHash, address fpoPayee, uint256 amount);
     event SettlementRejected(bytes32 indexed id, bytes32 indexed batchIdHash, uint8 reasons);
@@ -115,7 +116,7 @@ contract ContractFarmingTest is Test {
         farming.createAgreement(ID, buyer, attestor, fpo, AGREED_GRAMS, MIN_GRADE, AMOUNT, uint64(block.timestamp));
         vm.expectRevert(ContractFarming.ZeroAddress.selector);
         farming.createAgreement(ID, address(0), attestor, fpo, AGREED_GRAMS, MIN_GRADE, AMOUNT, deadline);
-        vm.stopPrank();
+        vm.stopPrank();    _reconcile();
     }
 
     function test_FundMovesAmountIntoEscrow() public {
@@ -153,10 +154,31 @@ contract ContractFarmingTest is Test {
         _reconcile();
     }
 
+    function test_FundAfterDeadlineReverts() public {
+        _create();
+        vm.warp(uint256(deadline) + 1);
+        vm.startPrank(buyer);
+        token.approve(address(farming), AMOUNT);
+        vm.expectRevert(ContractFarming.DeadlinePassed.selector);
+        farming.fund(ID);
+        vm.stopPrank();
+        assertEq(uint8(_status()), uint8(ContractFarming.Status.Created));
+        assertEq(token.balanceOf(address(farming)), 0);
+        _reconcile();
+    }
+
+    function test_FundAtTheDeadlineStillWorks() public {
+        _create();
+        vm.warp(uint256(deadline));
+        _fund();
+        assertEq(uint8(_status()), uint8(ContractFarming.Status.Funded));
+        _reconcile();
+    }
+
     function test_FundUnknownAgreementReverts() public {
         vm.prank(buyer);
         vm.expectRevert(abi.encodeWithSelector(ContractFarming.WrongStatus.selector, ContractFarming.Status.None));
-        farming.fund(ID);
+        farming.fund(ID);    _reconcile();
     }
 
     function test_RefundBeforeDeadlineReverts() public {
@@ -416,5 +438,61 @@ contract ContractFarmingTest is Test {
         vm.expectRevert(abi.encodeWithSelector(ContractFarming.WrongStatus.selector, ContractFarming.Status.Settled));
         farming.refund(ID);
         _reconcile();
+    }
+
+    // ── review fix: one delivered batch releases at most one escrow ──────────────────────────────
+
+    bytes32 internal constant ID2 = keccak256("AG-TEST0002");
+
+    function _createAndFund(bytes32 id) internal {
+        vm.prank(operator);
+        farming.createAgreement(id, buyer, attestor, fpo, AGREED_GRAMS, MIN_GRADE, AMOUNT, deadline);
+        vm.startPrank(buyer);
+        token.approve(address(farming), AMOUNT);
+        farming.fund(id);
+        vm.stopPrank();
+    }
+
+    function _settleAs(bytes32 id, uint256 grams) internal {
+        bytes memory sig = _sign(attestorKey, id, BATCH, 90);
+        vm.prank(operator);
+        farming.settle(id, BATCH, grams, true, 90, sig);
+    }
+
+    function test_SameBatchReleasesOnlyOneAgreement() public {
+        _createAndFund(ID);
+        _createAndFund(ID2);
+        _settleAs(ID, 512_000);
+        assertTrue(farming.batchReleased(BATCH));
+        bytes memory sig = _sign(attestorKey, ID2, BATCH, 90);
+        vm.prank(operator);
+        vm.expectRevert(ContractFarming.BatchAlreadyReleased.selector);
+        farming.settle(ID2, BATCH, 512_000, true, 90, sig);
+        assertEq(token.balanceOf(fpo), AMOUNT, "paid once");
+        assertEq(token.balanceOf(address(farming)), AMOUNT, "the second escrow stays funded");
+        (,,,,,,, ContractFarming.Status s2) = farming.agreements(ID2);
+        assertEq(uint8(s2), uint8(ContractFarming.Status.Funded));
+        _reconcile();
+    }
+
+    function test_RejectedBatchDoesNotCountAsReleased() public {
+        _createAndFund(ID);
+        _createAndFund(ID2);
+        _settleAs(ID, 499_500); // short: rejected, nothing paid
+        assertFalse(farming.batchReleased(BATCH));
+        _settleAs(ID2, 512_000);
+        assertTrue(farming.batchReleased(BATCH));
+        assertEq(token.balanceOf(fpo), AMOUNT);
+        _reconcile();
+    }
+
+    // ── review nit: the creation event carries a hash of the terms, not the terms ────────────────
+
+    function test_CreatedEventCarriesTermsHashOnly() public {
+        bytes32 termsHash = keccak256(abi.encode(uint256(500_000), uint8(80), uint256(5_000_000), deadline));
+        assertEq(farming.termsHash(AGREED_GRAMS, MIN_GRADE, AMOUNT, deadline), termsHash);
+        vm.expectEmit(true, true, false, true);
+        emit AgreementCreated(ID, buyer, fpo, termsHash);
+        _create();
     }
 }
