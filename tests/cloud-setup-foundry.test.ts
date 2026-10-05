@@ -48,7 +48,7 @@ trap 'echo prior-trap-ran > "$MARK"' EXIT
 ${BLOCK}`;
   const r = spawnSync('bash', ['-c', harness], {
     encoding: 'utf8',
-    env: { PATH: `${fakeBin}:${process.env.PATH}`, HOME: home, CURL_LOG: join(dir, 'curl.log'), MARK: join(dir, 'mark'), TMPDIR: dir, ...env },
+    env: { NODE_ENV: 'test', PATH: `${fakeBin}:${process.env.PATH ?? ''}`, HOME: home, CURL_LOG: join(dir, 'curl.log'), MARK: join(dir, 'mark'), TMPDIR: dir, ...env },
   });
   const curlLog = existsSync(join(dir, 'curl.log')) ? readFileSync(join(dir, 'curl.log'), 'utf8') : '';
   return { ...r, curlLog, mark: existsSync(join(dir, 'mark')) ? readFileSync(join(dir, 'mark'), 'utf8').trim() : null };
@@ -62,7 +62,7 @@ describe.runIf(linux)('cloud-setup.sh Foundry block (TASK-23 B-1…B-6)', () => 
       ['--connect-timeout', '20'],
       ['--max-time', '300'],
       ['--retry', '3'],
-    ]) {
+    ] as const) {
       expect(args[args.indexOf(flag) + 1], flag).toBe(value);
     }
     expect(args).toContain('--retry-all-errors');
