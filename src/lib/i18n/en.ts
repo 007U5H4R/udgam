@@ -496,6 +496,7 @@ export const en = {
   'agreements.status.waitingDelivery': 'Funded · waiting for delivery',
   'agreements.status.ready': 'Ready to settle',
   'agreements.status.gradedWaitingSettle': 'Graded · waiting for the FPO to settle', // DES-101 (EXE40)
+  'agreements.status.gradedWaitingSettleShort': 'Waiting for the FPO to settle',
   'agreements.status.waitingBuyerGrade': 'Delivered · waiting for the buyer’s grade',
   'agreements.status.waitingBuyerGradeShort': 'Waiting for the buyer’s grade',
   'agreements.status.waitingGrade': 'Waiting for the grade',

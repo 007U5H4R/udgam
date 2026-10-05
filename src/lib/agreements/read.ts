@@ -84,7 +84,7 @@ export function buyerStatus(v: AgreementView): StatusView {
   if (v.deadlinePassed) return sv('na', 'agreements.status.deadlineTakeBack', 'agreements.status.deadlineNotSettled');
   if (v.delivered.some((b) => b.grade === null)) return sv('na', 'agreements.status.needsGrade', 'agreements.status.needsGradeShort');
   // Graded, not yet judged: the FPO settles next (DES-101, EXE40), as the admin's "Ready to settle".
-  if (v.delivered.some((b) => b.grade !== null && !v.settlements.some((s) => s.batchId === b.batchId))) return sv('na', 'agreements.status.gradedWaitingSettle');
+  if (v.delivered.some((b) => b.grade !== null && !v.settlements.some((s) => s.batchId === b.batchId))) return sv('na', 'agreements.status.gradedWaitingSettle', 'agreements.status.gradedWaitingSettleShort');
   const last = v.settlements[0];
   if (last?.outcome === 'not_released') return { mark: 'check', word: t('agreements.status.notReleasedYetCount', { count: conditionsNotMet(last.reasons.length) }), short: t('agreements.status.notReleasedYet') };
   return sv('na', 'agreements.status.waitingDelivery');

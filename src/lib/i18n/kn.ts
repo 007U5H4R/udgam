@@ -449,6 +449,7 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'agreements.status.waitingDelivery': 'ಹಣ ಹಾಕಲಾಗಿದೆ · ವಿತರಣೆಗಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
   'agreements.status.ready': 'ಇತ್ಯರ್ಥಕ್ಕೆ ಸಿದ್ಧ', // REVIEW: native speaker
   'agreements.status.gradedWaitingSettle': 'ಗ್ರೇಡ್ ಮಾಡಲಾಗಿದೆ · FPO ಇತ್ಯರ್ಥಕ್ಕಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
+  'agreements.status.gradedWaitingSettleShort': 'FPO ಇತ್ಯರ್ಥಕ್ಕಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
   'agreements.status.waitingBuyerGrade': 'ತಲುಪಿದೆ · ಖರೀದಿದಾರರ ದರ್ಜೆಗಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
   'agreements.status.waitingBuyerGradeShort': 'ಖರೀದಿದಾರರ ದರ್ಜೆಗಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
   'agreements.status.waitingGrade': 'ದರ್ಜೆಗಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker

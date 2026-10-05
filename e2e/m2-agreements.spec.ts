@@ -80,7 +80,7 @@ test.describe('buyer agreements (Design.md §28.1 screens 1–4)', () => {
     await page.goto('/buyer/agreements');
     await expect(page.locator(`[data-agreement="${seeded.ready.id}"]`)).toContainText('Graded · waiting for the FPO to settle');
     await page.goto(`/buyer/agreements/${seeded.ready.id}`);
-    await expect(page.locator('.d-title .vchip')).toHaveText('Graded · waiting for the FPO to settle');
+    await expect(page.locator('.d-title .vchip')).toHaveText('Waiting for the FPO to settle');
     await expect(page.getByRole('heading', { name: 'Delivered batch' })).toBeVisible();
     await expect(page.getByTestId('grade-card')).toContainText('You graded it Very good · 80.');
     await expect(page.getByTestId('grade-card')).toContainText(`${seeded.ready.fpoName} settles it next.`);

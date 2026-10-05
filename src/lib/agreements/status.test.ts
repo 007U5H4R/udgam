@@ -30,7 +30,8 @@ const view = (delivered: DeliveredBatch[], settlements: SettlementView[] = []): 
 describe('buyerStatus after grading (DES-101)', () => {
   it('a graded, unsettled batch reads "Graded · waiting for the FPO to settle" with the neutral mark', () => {
     const s = buyerStatus(view([batch(80)]));
-    expect(s).toEqual({ mark: 'na', word: 'Graded · waiting for the FPO to settle', short: 'Graded · waiting for the FPO to settle' });
+    // the detail chip is short (it never wraps), like the admin's "Waiting for the buyer’s grade"
+    expect(s).toEqual({ mark: 'na', word: 'Graded · waiting for the FPO to settle', short: 'Waiting for the FPO to settle' });
     expect(adminStatus(view([batch(80)])).word).toBe('Ready to settle');
   });
 
