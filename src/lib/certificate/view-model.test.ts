@@ -119,7 +119,7 @@ describe('buildCertificateView (TSK-16.1)', () => {
     const last = f.entries.at(-1)!;
     const processor = 'ORG-1H3Q2PVQ'; // the fixture's transfer goes here; it plays the processor
     f.entries.push(
-      { ...last, seq: last.seq + 1, kind: 'processing_step', payload: { v: 1, batchId: f.batchId, processorOrg: processor, processorName: 'Processor C-03', process: 'hulling_parchment', inputKg: 600, outputKg: 480, ratio: 80, band: [75, 85], status: 'ok', evidence: 'e', ts: '2026-10-01T04:35:00.000Z', ...step } },
+      { ...last, seq: last.seq + 1, kind: 'processing_step', payload: { v: 1, batchId: f.batchId, processorOrg: processor, processorName: 'Processor C-03', process: 'hulling_parchment', inputKg: 600, outputKg: 480, ratio: 80, band: [75, 85], status: 'ok', evidence: 'e', configVersion: 'mb-1', ts: '2026-10-01T04:35:00.000Z', ...step } },
       { ...last, seq: last.seq + 2, kind: 'custody_transfer', payload: { v: 1, batchId: f.batchId, fromOrg: processor, toOrg: 'ORG-BUYER-B07', ts: '2026-10-01T04:50:00.000Z' } },
     );
     return f;
@@ -142,6 +142,29 @@ describe('buildCertificateView (TSK-16.1)', () => {
     expect(p.journey.find((j) => j.kind === 'processed')).toMatchObject({ process: 'pulping', placeholder: true });
     const o = buildCertificateView(withStep({ batchId: 'B-OTHER' }));
     expect(o.journey.some((j) => j.kind === 'processed')).toBe(false);
+  });
+
+  it('the placeholder band comes from the signed config version and process, never from the evidence words (TKT-26 quality nit 6)', () => {
+    const placeholderOf = (step: Record<string, unknown>) => (buildCertificateView(withStep(step)).journey.find((j) => j.kind === 'processed') as { placeholder: boolean }).placeholder;
+    expect(placeholderOf({ process: 'pulping', band: [35, 50], evidence: 'e' })).toBe(true); // mb-1 pulping, no words needed
+    expect(placeholderOf({ process: 'drying', band: [40, 60], evidence: 'e' })).toBe(true);
+    expect(placeholderOf({ process: 'hulling_parchment', evidence: 'Output … (placeholder range, to be confirmed).' })).toBe(false); // words alone do not decide
+    expect(placeholderOf({ process: 'pulping', configVersion: 'mb-9', evidence: 'Output … (placeholder range, to be confirmed).' })).toBe(false); // unknown version: no claim
+    expect(placeholderOf({ process: 'pulping', configVersion: undefined })).toBe(false);
+  });
+
+  // TKT-26 spec review minor 2 (follow-up 2): a custody hop whose recipient hands the batch on later is a
+  // processor hop (only a processor hands a batch on). When that processor's step is missing from the feed,
+  // the hop must never read "Handed to buyer": it is said to be a processor with no step recorded.
+  it('a hop to a processor whose step is missing from the feed reads as a processor hop with no step recorded', () => {
+    const f = withStep({});
+    f.entries = f.entries.filter((e) => e.kind !== 'processing_step');
+    const v = buildCertificateView(f);
+    expect(v.journey.slice(2)).toEqual([
+      { kind: 'batched', at: '2026-09-29T18:56:32.317Z', org: 'ORG-0H3TE0Z3' },
+      { kind: 'transferred', at: '2026-09-29T18:56:32.325Z', from: 'ORG-0H3TE0Z3', org: 'ORG-1H3Q2PVQ', toProcessorWithoutStep: true },
+      { kind: 'transferred', at: '2026-10-01T04:50:00.000Z', from: 'ORG-1H3Q2PVQ', org: 'ORG-BUYER-B07' },
+    ]);
   });
 
   it('the organic line appears only when an attestation payload exists', () => {

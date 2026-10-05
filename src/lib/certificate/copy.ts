@@ -88,6 +88,9 @@ export const certCopy = {
     batched: 'Batched',
     by: (org: string) => `By ${org}`,
     handed: 'Handed to buyer',
+    // A hop to an organisation that later hands the batch on (so a processor) with no step of it in the feed (follow-up 2).
+    handedProcessor: 'Handed to a processor',
+    noStep: 'No processing step recorded',
     to: (org: string) => `To ${org}`,
     // M-002 processing step (TKT-26, Design.md §28.1 screen 7, §28.7)
     processed: { pulping: 'Pulped', drying: 'Dried', hulling_parchment: 'Hulled', hulling_dry_cherry: 'Hulled' } as Record<string, string>,

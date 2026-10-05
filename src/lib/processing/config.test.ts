@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import canonicalize from 'canonicalize';
 import { describe, expect, it } from 'vitest';
 import { MB_CONFIG, MB_CONFIG_HASH, PROCESSES, isPlaceholderBand } from './config';
+import { PLACEHOLDER_PROCESSES } from './placeholder-bands';
 
 // TSK-26.1 (TC-086): the mass-balance bands `mb-1` are data with a version, a source per process and a
 // pinned JCS hash (printed in eval provenance). The Coffee Board outturns are fixed literals from
@@ -39,6 +40,11 @@ describe('mass-balance config mb-1 (TSK-26.1)', () => {
     expect(isPlaceholderBand('drying')).toBe(true);
     expect(isPlaceholderBand('hulling_parchment')).toBe(false);
     expect(isPlaceholderBand('hulling_dry_cherry')).toBe(false);
+  });
+
+  it('the structured placeholder list for the current version agrees with the sources (the certificate reads the list)', () => {
+    expect(PLACEHOLDER_PROCESSES[MB_CONFIG.version]).toEqual(['pulping', 'drying']);
+    expect(PROCESSES.filter((p) => MB_CONFIG.source[p].startsWith('placeholder — owner to confirm'))).toEqual([...PLACEHOLDER_PROCESSES[MB_CONFIG.version]!]);
   });
 
   it('MB_CONFIG_HASH is the SHA-256 of the RFC 8785 form, and is stable (pinned)', () => {

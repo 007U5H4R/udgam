@@ -1,5 +1,6 @@
 import type { PlotPolygon } from '../geo/types';
 import type { FeedEntry, ProofFeedV1 } from '../ledger/proof';
+import { isPlaceholderStep } from '../processing/placeholder-bands';
 import { districtOf, regionOf } from './district';
 
 // The certificate's view model (technical-plan §8.4, TP16, TSK-16.1): every fact the public page shows —
@@ -24,7 +25,11 @@ export type JourneyStep =
   | { kind: 'harvested'; from: string; to: string; farmCount: number }
   | { kind: 'checked'; pickings: number }
   | { kind: 'batched'; at: string; org: string }
-  | { kind: 'transferred'; at: string; from: string; org: string }
+  /**
+   * A custody hop. `toProcessorWithoutStep`: the recipient hands the batch on later, so it is a processor
+   * (only a processor hands a batch on), yet no step of it is in the feed: never shown as "Handed to buyer".
+   */
+  | { kind: 'transferred'; at: string; from: string; org: string; toProcessorWithoutStep?: true }
   /**
    * M-002 (TKT-26, Design.md §28.4): a processor's step, between Batched and Handed to buyer. The hand to
    * that processor is folded into it ("At Processor C-03"). `placeholder`: the band is not yet confirmed.
@@ -251,11 +256,16 @@ export function buildCertificateView(feed: ProofFeedV1): CertificateView {
   // Custody and processing steps in ledger order; a hand to an organisation that then records a step is
   // shown as that step (Design.md §28.1 screen 7: one item between Batched and Handed to buyer).
   const processors = new Set(steps.map((s) => str(s.payload.processorOrg)).filter((x): x is string => !!x));
+  // An organisation that hands the batch on is a processor (an FPO's batch has one first hop; a buyer's is
+  // final). The custody payload carries no organisation type, so this is how a processor hop whose step is
+  // missing from the feed is still told apart from a hand to a buyer.
+  const handsOn = new Set(custody.map((e) => str(e.payload.fromOrg)).filter((x): x is string => !!x));
   for (const e of [...custody, ...steps].sort((a, b) => a.seq - b.seq)) {
     const q = e.payload;
     if (e.kind === 'custody_transfer') {
       const to = str(q.toOrg) ?? '';
-      if (!processors.has(to)) journey.push({ kind: 'transferred', at: str(q.ts) ?? e.ts, from: str(q.fromOrg) ?? '', org: to });
+      if (processors.has(to)) continue;
+      journey.push({ kind: 'transferred', at: str(q.ts) ?? e.ts, from: str(q.fromOrg) ?? '', org: to, ...(handsOn.has(to) ? { toProcessorWithoutStep: true as const } : {}) });
       continue;
     }
     const band = Array.isArray(q.band) ? q.band.map(num) : [];
@@ -270,7 +280,8 @@ export function buildCertificateView(feed: ProofFeedV1): CertificateView {
       band: [band[0] ?? 0, band[1] ?? 0],
       // Anything but an explicit 'ok' reads as flagged: the page never presents a step as within range by default.
       status: q.status === 'ok' ? 'ok' : 'flag',
-      placeholder: (str(q.evidence) ?? '').includes('placeholder range'),
+      // From the signed config version and process (structured), never from the evidence words.
+      placeholder: isPlaceholderStep(q.configVersion, q.process),
     });
   }
 
