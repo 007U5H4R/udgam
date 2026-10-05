@@ -1,22 +1,30 @@
 import { istDay } from '../certificate/copy';
+import { t } from '../i18n';
 import { istClock } from '../review/copy';
 import { bandFor, isPlaceholderBand, PROCESSES, type MbCrop, type Process } from './config';
 import type { ProcessorBatch } from './read';
 
-// The processor surface's words (Design.md §28.6, §28.7; contract.html screen 6). English only, like the
-// admin surfaces (TP18). Plain words; never accusation words: a step is "Within range" or "Flagged".
+// The processor surface's words (Design.md §28.6, §28.7; contract.html screen 6), from the i18n keys
+// `processor.*` (en.ts; Kannada drafts in kn.ts marked for native review, like `agreements.*`). Shipped in
+// English, like the agreements screens. Plain words; never accusation words: a step is "Within range" or
+// "Flagged". The signed evidence sentence (mass-balance.ts) is signed data, not copy, and stays as signed.
 
 export const PROCESS_LABEL: Record<Process, string> = {
-  pulping: 'Pulping',
-  drying: 'Drying',
-  hulling_parchment: 'Hulling parchment',
-  hulling_dry_cherry: 'Hulling dry cherry',
+  pulping: t('processor.process.pulping'),
+  drying: t('processor.process.drying'),
+  hulling_parchment: t('processor.process.hulling_parchment'),
+  hulling_dry_cherry: t('processor.process.hulling_dry_cherry'),
 };
 
 /** The past-tense word for a recorded step ("Hulled"), as the certificate journey says it. */
-export const PROCESS_DONE: Record<Process, string> = { pulping: 'Pulped', drying: 'Dried', hulling_parchment: 'Hulled', hulling_dry_cherry: 'Hulled' };
+export const PROCESS_DONE: Record<Process, string> = {
+  pulping: t('processor.done.pulping'),
+  drying: t('processor.done.drying'),
+  hulling_parchment: t('processor.done.hulling_parchment'),
+  hulling_dry_cherry: t('processor.done.hulling_dry_cherry'),
+};
 
-const CROP: Record<MbCrop, string> = { arabica: 'Arabica', robusta: 'Robusta' };
+const CROP: Record<MbCrop, string> = { arabica: t('processor.crop.arabica'), robusta: t('processor.crop.robusta') };
 export const cropName = (c: MbCrop): string => CROP[c];
 
 const pct = (n: number): string => String(n);
@@ -24,19 +32,18 @@ export const kg1 = (kg: number): string => kg.toFixed(1);
 
 /** The hint under each process option: the band for this batch's crop, or that it is a placeholder. */
 export function processHint(p: Process, crop: MbCrop): string {
-  if (p === 'pulping') return 'Fresh cherry to wet parchment · placeholder range, to be confirmed';
-  if (p === 'drying') return 'Placeholder range, to be confirmed';
+  if (p === 'pulping') return t('processor.hint.pulping');
+  if (p === 'drying') return t('processor.hint.drying');
   const [min, max] = bandFor(p, crop);
-  return `Expected output ${pct(min)}–${pct(max)}% of input (${CROP[crop]})`;
+  return t('processor.hint.band', { min: pct(min), max: pct(max), crop: CROP[crop] });
 }
 
 /** The band line under the weights, for the chosen process (or before one is chosen). */
 export function bandLine(p: Process | null, crop: MbCrop): string {
-  if (!p) return 'Each process has an expected range of output to input. Outside it the step is flagged, not refused.';
+  if (!p) return t('processor.band.none');
   const [min, max] = bandFor(p, crop);
-  const name = PROCESS_LABEL[p].toLowerCase();
-  if (isPlaceholderBand(p)) return `For ${name} (${CROP[crop]}), the range ${pct(min)}–${pct(max)}% of input is a placeholder, to be confirmed. Outside it the step is flagged, not refused.`;
-  return `For ${name} (${CROP[crop]}), output is usually ${pct(min)}–${pct(max)}% of input. Outside that range the step is flagged, not refused.`;
+  const vars = { process: PROCESS_LABEL[p].toLowerCase(), crop: CROP[crop], min: pct(min), max: pct(max) };
+  return isPlaceholderBand(p) ? t('processor.band.placeholder', vars) : t('processor.band.usual', vars);
 }
 
 export const PROCESS_OPTIONS = PROCESSES;
@@ -50,55 +57,88 @@ export type RowStatus = { cls: 'ok' | 'check' | 'na'; text: string };
 
 /** A list row's status line (§28.7 "Statuses and their marks"). */
 export function rowStatus(b: ProcessorBatch): RowStatus {
-  if (b.handedOn) return { cls: 'ok', text: `Handed on to ${b.handedOn.toOrgName}` };
-  if (!b.step) return { cls: 'na', text: 'Ready for a processing step' };
+  if (b.handedOn) return { cls: 'ok', text: t('processor.row.handedOn', { org: b.handedOn.toOrgName }) };
+  if (!b.step) return { cls: 'na', text: t('processor.row.ready') };
   const done = PROCESS_DONE[b.step.process];
-  return b.step.status === 'ok' ? { cls: 'ok', text: `${done} · within the expected range` } : { cls: 'check', text: `${done} · flagged: ${b.step.ratio.toFixed(1)}% of input` };
+  return b.step.status === 'ok'
+    ? { cls: 'ok', text: t('processor.row.ok', { done }) }
+    : { cls: 'check', text: t('processor.row.flag', { done, ratio: b.step.ratio.toFixed(1) }) };
 }
 
 /** The detail's chip. */
 export function detailChip(b: ProcessorBatch): RowStatus {
-  if (b.handedOn) return { cls: 'ok', text: 'Handed on' };
-  if (!b.step) return { cls: 'na', text: 'With you' };
-  return b.step.status === 'ok' ? { cls: 'ok', text: 'Within range' } : { cls: 'check', text: 'Flagged' };
+  if (b.handedOn) return { cls: 'ok', text: t('processor.chip.handedOn') };
+  if (!b.step) return { cls: 'na', text: t('processor.chip.withYou') };
+  return b.step.status === 'ok' ? { cls: 'ok', text: t('processor.chip.within') } : { cls: 'check', text: t('processor.chip.flagged') };
 }
 
+/** "3 pickings" / "1 picking". */
+export const pickingsText = (n: number): string => t(n === 1 ? 'processor.detail.picking' : 'processor.detail.pickings', { n });
+
+/** Refusals that retrying cannot fix: the batch changed under this page (for example in another tab). */
+export type StaleRefusal = 'already_recorded' | 'not_held' | 'no_step' | 'not_found';
+const STALE: Record<StaleRefusal, { b: string; p: string }> = {
+  already_recorded: { b: t('processor.refused.alreadyRecordedB'), p: t('processor.refused.alreadyRecordedP') },
+  not_held: { b: t('processor.refused.notHeldB'), p: t('processor.refused.notHeldP') },
+  no_step: { b: t('processor.refused.noStepB'), p: t('processor.refused.noStepP') },
+  not_found: { b: t('processor.refused.notFoundB'), p: t('processor.refused.notFoundP') },
+};
+
+/**
+ * The words for a refusal that retrying cannot fix, shown with Reload and never with "Try again" (TKT-26
+ * quality review minor 3). Null for anything else, which keeps the generic action error and its retry.
+ */
+export const staleRefusal = (reason: string): { b: string; p: string } | null => (Object.hasOwn(STALE, reason) ? STALE[reason as StaleRefusal] : null);
+
 export const COPY = {
-  title: 'Batches with you',
-  sub: 'Record what you did to each batch, then hand it on to the buyer.',
-  loading: 'Loading your batches…',
-  emptyH: 'No batches with you right now.',
-  emptyP: 'A batch appears here when an FPO hands it to you.',
-  errorH: 'Couldn’t load your batches.',
-  errorP: 'Nothing was changed.',
-  retry: 'Try again',
-  back: 'Back to batches',
-  pick: 'Choose a batch to record its processing step and hand it on.',
-  railLabel: 'Processor sections',
+  title: t('processor.title'),
+  sub: t('processor.sub'),
+  eyebrow: t('processor.eyebrow'),
+  loading: t('processor.loading'),
+  emptyH: t('processor.emptyH'),
+  emptyP: t('processor.emptyP'),
+  errorH: t('processor.errorH'),
+  errorP: t('processor.errorP'),
+  retry: t('processor.retry'),
+  reload: t('processor.reload'),
+  back: t('processor.back'),
+  pick: t('processor.pick'),
+  detailLabel: t('processor.detailLabel'),
+  railLabel: t('processor.railLabel'),
   roleLabel: (org: string) => org,
-  recordH: 'Record a processing step',
-  processLegend: 'Process',
-  inputLabel: 'Input (kg)',
-  inputHint: 'What you weighed going in.',
-  outputLabel: 'Output (kg)',
-  outputHint: 'What you weighed coming out. More than the input is allowed; the step is then flagged.',
-  signedNote: 'Signed by the server on behalf of your account and recorded permanently.',
-  record: 'Sign and record step',
-  recording: 'Recording the step…',
-  recordErrB: 'Couldn’t record the step.',
-  recordErrP: 'Nothing was signed or saved. What you entered is still here.',
-  weightName: 'Weight in and out',
-  nothingRefused: 'Nothing is refused. The step is recorded, and the flag shows on the batch’s certificate.',
-  handH: 'Hand on to a buyer',
-  buyerLabel: 'Buyer',
-  chooseBuyer: 'Choose a buyer',
-  handNote: 'Signed by the server on behalf of your account. After this, the batch is no longer with you.',
-  handOn: 'Sign and hand on',
-  handingOn: (buyer: string) => `Handing on to ${buyer}…`,
-  handErrB: 'Couldn’t hand on the batch.',
-  handErrP: 'Nothing was signed. The batch is still with you.',
-  recorded: 'Recorded',
-  handedMeta: (by: string, org: string, when: string) => `Signed on behalf of ${by} (${org}) on ${when}. This batch is no longer with you.`,
-  noBuyers: 'No buyer organisations are set up yet.',
-  signOut: 'Sign out',
+  recordH: t('processor.recordH'),
+  processLegend: t('processor.processLegend'),
+  inputLabel: t('processor.inputLabel'),
+  inputHint: t('processor.inputHint'),
+  outputLabel: t('processor.outputLabel'),
+  outputHint: t('processor.outputHint'),
+  signedNote: t('processor.signedNote'),
+  record: t('processor.record'),
+  recording: t('processor.recording'),
+  recordErrB: t('processor.recordErrB'),
+  recordErrP: t('processor.recordErrP'),
+  weightName: t('processor.weightName'),
+  nothingRefused: t('processor.nothingRefused'),
+  handH: t('processor.handH'),
+  buyerLabel: t('processor.buyerLabel'),
+  chooseBuyer: t('processor.chooseBuyer'),
+  handNote: t('processor.handNote'),
+  handOn: t('processor.handOn'),
+  handingOn: (buyer: string) => t('processor.handingOn', { buyer }),
+  handErrB: t('processor.handErrB'),
+  handErrP: t('processor.handErrP'),
+  recorded: t('processor.recorded'),
+  handedMeta: (by: string, org: string, when: string) => t('processor.handedMeta', { by, org, when }),
+  noBuyers: t('processor.noBuyers'),
+  signOut: t('processor.signOut'),
+  kg: (kg: number) => t('processor.kg', { kg: kg1(kg) }),
+  rowId: (id: string, crop: string) => t('processor.row.id', { id, crop }),
+  rowFrom: (org: string, when: string) => t('processor.row.from', { org, when }),
+  handedOnTo: (org: string) => t('processor.row.handedOn', { org }),
+  detailEyebrow: (org: string) => t('processor.detail.eyebrow', { org }),
+  detailMeta: (v: { crop: string; pickings: string; kg: string; when: string; org: string }) => t('processor.detail.meta', v),
+  stepH: (process: string, when: string) => t('processor.detail.stepH', { process, when }),
+  stepSum: (inKg: number, outKg: number) => t('processor.detail.stepSum', { in: kg1(inKg), out: kg1(outKg) }),
+  metaList: t('processor.meta.list'),
+  metaDetail: t('processor.meta.detail'),
 } as const;

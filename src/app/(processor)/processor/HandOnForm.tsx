@@ -5,7 +5,7 @@ import { useRef, useState, useTransition, type FormEvent } from 'react';
 import { Icon } from '../../../components/admin/QueueList';
 import { Pill } from '../../../components/ui/Pill';
 import { VerdictMark } from '../../../components/ui/VerdictChip';
-import { COPY } from '../../../lib/processing/copy';
+import { COPY, staleRefusal } from '../../../lib/processing/copy';
 import { FIELD_MESSAGES } from '../../../lib/processing/validate';
 import { handOnAction } from './actions';
 
@@ -13,12 +13,15 @@ import { handOnAction } from './actions';
 // panel (.decide) with the buyer select, the signed note and one primary pill. Working: "Handing on to
 // Buyer B-07…" with the select disabled. Action error: the inline error says nothing was signed and the
 // batch is still with you; the pill becomes Try again. Field check: "Choose a buyer from the list." (§28.7).
+// A refusal that retrying cannot fix (handed on in another tab, no step) says so in its own words and the
+// pill becomes Reload (router.refresh), never Try again (TKT-26 quality review minor 3).
 
 export function HandOnForm({ batchId, buyers }: { batchId: string; buyers: { id: string; name: string }[] }) {
   const router = useRouter();
   const [toOrgId, setToOrgId] = useState('');
   const [fieldErr, setFieldErr] = useState<string | null>(null);
   const [actError, setActError] = useState(false);
+  const [stale, setStale] = useState<{ b: string; p: string } | null>(null);
   const [working, start] = useTransition();
   const selectRef = useRef<HTMLSelectElement>(null);
   const buyerName = buyers.find((b) => b.id === toOrgId)?.name ?? '';
@@ -26,6 +29,10 @@ export function HandOnForm({ batchId, buyers }: { batchId: string; buyers: { id:
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (working) return;
+    if (stale) {
+      router.refresh();
+      return;
+    }
     setActError(false);
     if (!toOrgId) {
       setFieldErr(FIELD_MESSAGES.buyer);
@@ -48,7 +55,11 @@ export function HandOnForm({ batchId, buyers }: { batchId: string; buyers: { id:
       if (r.reason === 'fields') {
         setFieldErr(r.errors.buyer);
         selectRef.current?.focus();
-      } else setActError(true);
+      } else {
+        const s = staleRefusal(r.reason);
+        if (s) setStale(s);
+        else setActError(true);
+      }
     });
   };
 
@@ -84,7 +95,15 @@ export function HandOnForm({ batchId, buyers }: { batchId: string; buyers: { id:
           </p>
         ) : null}
       </div>
-      {actError && !working ? (
+      {stale && !working ? (
+        <div className="inline-err" role="alert">
+          <Icon name="retry" />
+          <p>
+            <b>{stale.b}</b>
+            {stale.p}
+          </p>
+        </div>
+      ) : actError && !working ? (
         <div className="inline-err" role="alert">
           <Icon name="wifiOff" />
           <p>
@@ -97,8 +116,8 @@ export function HandOnForm({ batchId, buyers }: { batchId: string; buyers: { id:
         <Icon name="seal" />
         <span>{COPY.handNote}</span>
       </p>
-      <Pill type="submit" disabled={working} icon={<Icon name={working ? 'ring' : actError ? 'retry' : 'arrowRight'} className={working ? 'ic spin' : 'ic'} />}>
-        {working ? COPY.handingOn(buyerName) : actError ? COPY.retry : COPY.handOn}
+      <Pill type="submit" disabled={working} icon={<Icon name={working ? 'ring' : actError || stale ? 'retry' : 'arrowRight'} className={working ? 'ic spin' : 'ic'} />}>
+        {working ? COPY.handingOn(buyerName) : stale ? COPY.reload : actError ? COPY.retry : COPY.handOn}
       </Pill>
       <p className="vh" aria-live="polite">
         {working ? COPY.handingOn(buyerName) : ''}

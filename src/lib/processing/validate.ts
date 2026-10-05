@@ -1,4 +1,5 @@
 import { isProcess, type Process } from './config';
+import { t } from '../i18n';
 
 // Field checks for the processing step and the hand-on (Design.md §28.7 "Field checks"; WCAG 2.2 SC
 // 3.3.1/3.3.3). Isomorphic: the processor's form checks on submit with these rules and words, and the
@@ -10,12 +11,12 @@ export type StepField = 'process' | 'inputKg' | 'outputKg';
 export type StepFieldErrors = Partial<Record<StepField, string>>;
 
 export const FIELD_MESSAGES = {
-  process: 'Choose the process you did.',
-  inputNeeded: 'Enter the input weight in kg, for example 600.0.',
-  inputFormat: 'Enter a weight above 0 kg in digits, for example 600.0.',
-  outputNeeded: 'Enter the output weight in kg, for example 480.0.',
-  outputFormat: 'Output must be more than 0 kg.',
-  buyer: 'Choose a buyer from the list.',
+  process: t('processor.field.process'),
+  inputNeeded: t('processor.field.inputNeeded'),
+  inputFormat: t('processor.field.inputFormat'),
+  outputNeeded: t('processor.field.outputNeeded'),
+  outputFormat: t('processor.field.outputFormat'),
+  buyer: t('processor.field.buyer'),
 } as const;
 
 /** Digits with at most one decimal place, up to 99,999.9 kg (kg are shown to one decimal across M-001). */

@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { Icon } from '../../../components/admin/QueueList';
+import { t } from '../../../lib/i18n';
 import { MB_CONFIG } from '../../../lib/processing/config';
-import { COPY, cropName, detailChip, istWhen, kg1, PROCESS_LABEL } from '../../../lib/processing/copy';
+import { COPY, cropName, detailChip, istWhen, kg1, pickingsText, PROCESS_LABEL } from '../../../lib/processing/copy';
 import type { ProcessorBatch } from '../../../lib/processing/read';
 import { HandOnForm } from './HandOnForm';
 import { StatusMark } from './ProcessorScreen';
@@ -23,7 +24,7 @@ export function BatchDetail({ b, orgName, buyers }: { b: ProcessorBatch; orgName
           {COPY.back}
         </Link>
         <header>
-          <p className="eyebrow">Batch · from {b.fromOrgName}</p>
+          <p className="eyebrow">{COPY.detailEyebrow(b.fromOrgName)}</p>
           <div className="d-title">
             <h2 id="d-h" tabIndex={-1}>
               {b.batchId}
@@ -34,24 +35,24 @@ export function BatchDetail({ b, orgName, buyers }: { b: ProcessorBatch; orgName
             </span>
           </div>
           <p className="d-meta">
-            {cropName(b.crop)} · {b.pickings} {b.pickings === 1 ? 'picking' : 'pickings'} · {kg1(b.quantityKg)} kg · received {istWhen(b.receivedAt)}, signed on behalf of {b.fromOrgName}
+            {COPY.detailMeta({ crop: cropName(b.crop), pickings: pickingsText(b.pickings), kg: kg1(b.quantityKg), when: istWhen(b.receivedAt), org: b.fromOrgName })}
           </p>
         </header>
 
         {b.step ? (
           <section className="glass card checks-card" aria-labelledby="mb-h" data-testid="step-result">
             <h3 className="sec-h" id="mb-h">
-              {PROCESS_LABEL[b.step.process]} · recorded {istWhen(b.step.recordedAt)}
+              {COPY.stepH(PROCESS_LABEL[b.step.process], istWhen(b.step.recordedAt))}
             </h3>
             <p className="checks-sum">
-              Input {kg1(b.step.inputKg)} kg · output {kg1(b.step.outputKg)} kg
+              {COPY.stepSum(b.step.inputKg, b.step.outputKg)}
             </p>
             <ol className="checks">
               <li className={`chk ${flagged ? 'check' : ''}`} data-status={b.step.status}>
                 <div className="c-top">
                   <span className={`c-stat ${flagged ? 'check' : 'ok'}`}>
                     <StatusMark cls={flagged ? 'check' : 'ok'} />
-                    {flagged ? 'Flagged' : 'Within range'}
+                    {flagged ? t('processor.chip.flagged') : t('processor.chip.within')}
                   </span>
                   <span className="c-name">
                     {COPY.weightName}
@@ -72,7 +73,7 @@ export function BatchDetail({ b, orgName, buyers }: { b: ProcessorBatch; orgName
             <p className="o-top">
               <span className="vchip ok">
                 <StatusMark cls="ok" />
-                Handed on to {b.handedOn.toOrgName}
+                {COPY.handedOnTo(b.handedOn.toOrgName)}
               </span>
               <b>{COPY.recorded}</b>
             </p>
