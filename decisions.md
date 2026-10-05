@@ -1109,3 +1109,18 @@ baseline-v1 is frozen (EV13, EXE34).
 - `/api/enrol` answers 411 without a numeric Content-Length and 413 above 4 KiB, and reads through the bounded reader.
 - One key-file helper keeps files at 0600 and directories at 0700, and tightens a loose directory.
 - The duplicated helpers are merged. `docs/exec/migrations.md` lists the triggers a future `user` rebuild must drop and recreate, and a test fails when that list drifts from the schema.
+
+## EXE40 · Stage 8 design-critique triage — accepted (orchestrator, under the owner's delegation, 2026-10-05)
+**Context.** Three design reviewers critiqued the running app against Design.md and the approved mockups (reports in `docs/exec/stage8/`). They raised 61 findings, DES-001–025, DES-100–114 and DES-200–220: 0 P0, 7 P1, 29 P2, 25 P3.
+**Decision.** Fix every finding except those parked below, in one fix wave per surface, then re-run the critique. Delegated owner calls:
+- **DES-002 (offline navigation):** fixed without a service worker. When the phone is offline, tabs and "Send now" stay in the app, show the saved-on-phone sheet and keep "Nothing is lost". A service worker or full offline shell is out of MVP scope.
+- **DES-021 / DES-105 (Sign out):** Help gains a Sign out entry in the field app, and every office rail gains Sign out in its foot. This is a content addition, not a change to the frozen IA.
+- **DES-101 (QA-M002-1):** after grading, the buyer sees "Graded · waiting for the FPO to settle" and the grade card.
+- **DES-203 (EVAL-087 / TC-071):** the printed certificate gains a print-only QR and URL (the existing `BatchQr`). The case text is unchanged.
+
+**Parked:**
+- **DES-005:** no time promise on Needs a check (EXE24, OD-5). The farmer copy names who will look and where the answer will appear.
+- **DES-201:** the lone processor hop with no step (EXE32; signed `toOrgType` later).
+- **DES-202:** the OG image text is a **Design Freeze item → owner**. The image always reads "Kodagu Arabica, verified at origin", even for other districts or failing batches.
+- **DES-204:** organisation IDs, not names, on the certificate (EXE28).
+- **DES-218:** the localhost absolute-URL fallback → TKT-28 (QA-P6-8-3).
