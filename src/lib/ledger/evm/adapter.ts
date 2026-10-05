@@ -1,6 +1,6 @@
-import { and, asc, eq, inArray, notExists, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { writeTx, type Db, type Tx } from '../../db/client';
-import { evmAnchors, ledgerEntries } from '../../db/schema';
+import { evmAnchors } from '../../db/schema';
 import { log } from '../../log';
 import { append as hashchainAppend } from '../hashchain';
 import type { Anchor, LedgerKind } from '../types';
@@ -56,27 +56,67 @@ export function errorText(e: unknown): string {
   return text.slice(0, 300);
 }
 
-// One anchoring run at a time per database, across module instances (Next may load this module twice
-// in one process; see db/client.ts), so two runs never send the same seq.
-const QUEUES_KEY = Symbol.for('udgam.evm.anchor-queues');
-const queues: WeakMap<Db, Promise<unknown>> = ((globalThis as Record<symbol, unknown>)[QUEUES_KEY] as WeakMap<Db, Promise<unknown>> | undefined) ??
-  ((globalThis as Record<symbol, unknown>)[QUEUES_KEY] = new WeakMap<Db, Promise<unknown>>()) as WeakMap<Db, Promise<unknown>>;
+// One anchoring pass at a time per database, across module instances and ledger objects (Next may load
+// this module twice in one process; see db/client.ts), so two passes never send the same seq. Calls are
+// coalesced (single-flight): with no pass running, a call starts one; while one runs, every call shares
+// ONE queued follow-up pass, which starts when the running pass ends and sees whatever was appended
+// meanwhile. However many requests call anchorPending() (each /api/verify and proof build does), at most
+// one pass runs and one waits, so a slow or dead chain costs at most two RPC rounds and two error writes.
+type Flight = { running?: Promise<AnchorRunReport>; queued?: Promise<AnchorRunReport> };
+const FLIGHTS_KEY = Symbol.for('udgam.evm.anchor-flights');
+const flights: WeakMap<Db, Flight> = ((globalThis as Record<symbol, unknown>)[FLIGHTS_KEY] as WeakMap<Db, Flight> | undefined) ??
+  ((globalThis as Record<symbol, unknown>)[FLIGHTS_KEY] = new WeakMap<Db, Flight>()) as WeakMap<Db, Flight>;
+
+/** Run `pass` single-flight for `db`: share the queued follow-up when a pass is already running. */
+export function coalesced(db: Db, pass: () => Promise<AnchorRunReport>): Promise<AnchorRunReport> {
+  let f = flights.get(db);
+  if (!f) flights.set(db, (f = {}));
+  const flight = f;
+  if (flight.queued) return flight.queued;
+  const start = (): Promise<AnchorRunReport> => {
+    const p: Promise<AnchorRunReport> = pass().finally(() => {
+      if (flight.running === p) flight.running = undefined;
+    });
+    flight.running = p;
+    return p;
+  };
+  if (!flight.running) return start();
+  const settle = () => undefined;
+  const queued: Promise<AnchorRunReport> = flight.running.then(settle, settle).then(() => {
+    flight.queued = undefined;
+    return start();
+  });
+  flight.queued = queued;
+  return queued;
+}
 
 export function createEvmLedger(o: EvmLedgerOptions): EvmLedger {
   const { db } = o;
   const now = o.now ?? (() => new Date());
 
-  async function backfill(): Promise<void> {
-    const missing = await db
-      .select({ seq: ledgerEntries.seq })
-      .from(ledgerEntries)
-      .where(notExists(db.select({ one: sql`1` }).from(evmAnchors).where(eq(evmAnchors.seq, ledgerEntries.seq))))
-      .limit(1);
-    if (missing.length === 0) return;
+  // The anchoring frontier: every seq up to the highest non-pending row has a row already (rows are
+  // anchored strictly in order), so backfill and the pending read only look above it, by primary key.
+  // ONE statement reads the entries still to anchor, with or without a row, so the set is a consistent
+  // snapshot with no gaps: an append that commits after it waits for the next pass (spec Minor 2).
+  async function toAnchor(): Promise<{ seq: number; attempts: number; entryHash: string; hasRow: boolean }[]> {
+    const rows = await db.all<{ seq: number; attempts: number | null; entry_hash: string; status: string | null }>(sql`
+      SELECT le.seq AS seq, ea.attempts AS attempts, le.entry_hash AS entry_hash, ea.status AS status
+        FROM ledger_entries le LEFT JOIN evm_anchors ea ON ea.seq = le.seq
+       WHERE le.seq > (SELECT COALESCE(MAX(seq), 0) FROM evm_anchors WHERE status <> 'pending')
+         AND (ea.seq IS NULL OR ea.status = 'pending')
+       ORDER BY le.seq`);
+    return rows.map((r) => ({ seq: r.seq, attempts: r.attempts ?? 0, entryHash: r.entry_hash, hasRow: r.status !== null }));
+  }
+
+  /** Pending rows for entries that have none (appended through hashchain.append, or before the switch). */
+  async function backfill(seqs: number[]): Promise<void> {
+    if (seqs.length === 0) return;
+    const at = now().toISOString();
     await writeTx(db, async (tx) => {
-      await tx.run(sql`INSERT INTO evm_anchors (seq, status, attempts, updated_at)
-        SELECT le.seq, 'pending', 0, ${now().toISOString()} FROM ledger_entries le
-         WHERE NOT EXISTS (SELECT 1 FROM evm_anchors ea WHERE ea.seq = le.seq) ORDER BY le.seq`);
+      for (const seq of seqs) {
+        await tx.run(sql`INSERT INTO evm_anchors (seq, status, attempts, updated_at)
+          SELECT ${seq}, 'pending', 0, ${at} WHERE NOT EXISTS (SELECT 1 FROM evm_anchors WHERE seq = ${seq})`);
+      }
     });
   }
 
@@ -117,14 +157,9 @@ export function createEvmLedger(o: EvmLedgerOptions): EvmLedger {
   }
 
   async function run(): Promise<AnchorRunReport> {
-    await backfill();
-    const pending = await db
-      .select({ seq: evmAnchors.seq, attempts: evmAnchors.attempts, entryHash: ledgerEntries.entryHash })
-      .from(evmAnchors)
-      .innerJoin(ledgerEntries, eq(ledgerEntries.seq, evmAnchors.seq))
-      .where(eq(evmAnchors.status, 'pending'))
-      .orderBy(asc(evmAnchors.seq));
+    const pending = await toAnchor();
     if (pending.length === 0) return { anchored: 0, pending: 0 };
+    await backfill(pending.filter((r) => !r.hasRow).map((r) => r.seq));
 
     let anchored = 0;
     const stop = async (row: { seq: number; attempts: number }, reason: string, failed = false): Promise<AnchorRunReport> => {
@@ -183,13 +218,7 @@ export function createEvmLedger(o: EvmLedgerOptions): EvmLedger {
       return anchor;
     },
     anchorPending() {
-      const previous = queues.get(db) ?? Promise.resolve();
-      const next = previous.then(run, run);
-      queues.set(
-        db,
-        next.catch(() => undefined),
-      );
-      return next;
+      return coalesced(db, run);
     },
   };
 }

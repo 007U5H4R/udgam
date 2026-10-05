@@ -1,4 +1,4 @@
-import { asc, eq, gt } from 'drizzle-orm';
+import { and, asc, eq, gt, lt } from 'drizzle-orm';
 import { sha256Hex } from '../../crypto';
 import type { Db } from '../../db/client';
 import { evmAnchors, ledgerEntries } from '../../db/schema';
@@ -10,7 +10,8 @@ import type { RegistryClient } from './client';
 // row (payload → payload_hash → entry header) must both equal registry.entryHash(seq). A row altered
 // after anchoring, by any writer that got past the append-only triggers, fails one or both. Also
 // reported: anchors the database claims that the chain does not hold, and on-chain seqs missing from the
-// ledger (a deleted tail). Entries not yet on chain are counted as pending, not as mismatches.
+// ledger (a deleted entry anywhere at or below the chain's head). Entries after the head are counted as
+// pending, not as mismatches.
 
 export type AuditReason =
   | 'stored-entry-hash-differs-from-chain'
@@ -65,11 +66,13 @@ export async function auditLedger(db: Db, client: RegistryClient): Promise<Audit
     }
     if (page.length < PAGE) break;
   }
-  // Seqs the registry holds that the ledger has lost, and holes in the ledger below the chain's head.
-  const present = new Set<number>();
-  if (entries < chainNext - 1) {
-    const rows = await db.select({ seq: ledgerEntries.seq }).from(ledgerEntries).where(gt(ledgerEntries.seq, 0));
-    for (const r of rows) present.add(r.seq);
+  // Every seq the registry holds (1 .. chainNext-1) must be in the ledger: a hole below the chain's head
+  // is a deleted (or never written) entry. Only seqs at or below the head count here; entries after it
+  // are pending and reported separately, so they can never mask a hole (TASK-25 fix round 1, MAJOR 2).
+  const present = new Set(
+    (await db.select({ seq: ledgerEntries.seq }).from(ledgerEntries).where(and(gt(ledgerEntries.seq, 0), lt(ledgerEntries.seq, chainNext)))).map((r) => r.seq),
+  );
+  if (present.size < chainNext - 1) {
     for (let s = 1; s < chainNext; s++) if (!present.has(s)) mismatches.push({ seq: s, reasons: ['on-chain-but-missing-from-ledger'] });
   }
   mismatches.sort((a, b) => a.seq - b.seq);
