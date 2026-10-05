@@ -97,6 +97,8 @@ export interface EscrowChain {
   fund(orgId: string, id: Hex, amountPaise: bigint): Promise<ChainTx>;
   refund(orgId: string, id: Hex): Promise<ChainTx>;
   settle(a: SettleArgs): Promise<SettleOutcome>;
+  /** The tx of an earlier release of `id` for this batch, or null (recovers a settle whose record was lost). */
+  settledTx(id: Hex, batchIdHash: Hex): Promise<ChainTx | null>;
 }
 
 export type EscrowChainOptions = { rpcUrl: string; deployment: EscrowDeployment; operatorKey: Hex; timeoutMs?: number };
@@ -145,8 +147,9 @@ export function createEscrowChain(o: EscrowChainOptions): EscrowChain {
   }
 
   /** The tx of an earlier event for `id` (recovers a call whose receipt was lost before it was recorded). */
-  async function earlier(eventName: string, id: Hex): Promise<ChainTx | null> {
-    const logs = await pub.getContractEvents({ address: d.escrow, abi: FARMING_ABI, eventName, args: { id }, fromBlock: BigInt(d.deployedAtBlock), toBlock: 'latest' });
+  async function earlier(eventName: string, id: Hex, batchIdHash?: Hex): Promise<ChainTx | null> {
+    const args = batchIdHash === undefined ? { id } : { id, batchIdHash };
+    const logs = await pub.getContractEvents({ address: d.escrow, abi: FARMING_ABI, eventName, args, fromBlock: BigInt(d.deployedAtBlock), toBlock: 'latest' });
     const log = logs.at(-1);
     return log?.transactionHash && log.blockNumber !== null ? { txHash: log.transactionHash, blockNumber: Number(log.blockNumber) } : null;
   }
@@ -228,5 +231,7 @@ export function createEscrowChain(o: EscrowChainOptions): EscrowChain {
       }
       throw new ChainError('turned_away', 'settle emitted no outcome');
     },
+
+    settledTx: (id, batchIdHash) => earlier('Settled', id, batchIdHash).catch((e) => Promise.reject(toChainError(e))),
   };
 }

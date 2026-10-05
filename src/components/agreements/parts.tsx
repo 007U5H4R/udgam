@@ -240,7 +240,7 @@ export type ConditionFacts = { deliveredKg: number; grade: number | null; pickin
 
 /** The three conditions as value vs threshold: from a settlement row (what was judged) or a delivered batch (before settling). */
 export function Conditions({ v, facts, pending, at }: { v: AgreementView; facts: ConditionFacts; pending: boolean; at?: string }) {
-  const results = judge({ ...facts, grade: (facts.grade as Grade | null) ?? null, attestationId: null }, v.row);
+  const results = judge({ ...facts, grade: (facts.grade as Grade | null) ?? null }, v.row);
   const met = results.filter((r) => r.met).length;
   const short = Math.round((v.row.agreedKg - Math.round(facts.deliveredKg * 10) / 10) * 10) / 10;
   return (

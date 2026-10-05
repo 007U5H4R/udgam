@@ -9,6 +9,7 @@ import { batchIdHash } from './attestor-keys';
 import { formatKg1, kgToGrams } from './format';
 import { gradeDisplay, isGrade, type Grade } from './grades';
 import { AgreementError, anchorSigned, deliveredBatchIds, fpoAgreement, type ServiceOptions } from './service';
+import { ChainError, type EscrowChain, type SettleArgs, type SettleOutcome } from './chain';
 import { escrowFromEnv } from './env-chain';
 
 // The settlement service — the oracle (technical-plan TSK-25.6). SERVER-ONLY.
@@ -34,10 +35,12 @@ export type SettlementFacts = {
   verifiedPickings: number;
   grade: Grade | null;
   attestationId: string | null;
+  /** The buyer's EIP-712 grade signature (with the grade), or null. */
+  gradeSig: string | null;
 };
 
 /** The three conditions as value vs threshold (Design.md §28.7; reasons follow TSK-25.6's wording). */
-export function judge(f: SettlementFacts, a: { agreedKg: number; minGrade: number }): ConditionResult[] {
+export function judge(f: Pick<SettlementFacts, 'deliveredKg' | 'pickings' | 'verifiedPickings' | 'grade'>, a: { agreedKg: number; minGrade: number }): ConditionResult[] {
   const delivered = Math.round(f.deliveredKg * 10) / 10;
   const short = Math.round((a.agreedKg - delivered) * 10) / 10;
   const min = gradeDisplay(a.minGrade as Grade);
@@ -76,53 +79,84 @@ export async function settlementFacts(db: Db | Tx, agreementId: string, batchId:
   const verdicts = eventIds.length ? await db.select({ v: harvestEvents.finalVerdict }).from(harvestEvents).where(inArray(harvestEvents.id, eventIds)) : [];
   const verifiedPickings = verdicts.filter((r) => r.v === 'Verified').length;
   const [qa] = await db
-    .select({ id: qualityAttestations.id, grade: qualityAttestations.grade })
+    .select({ id: qualityAttestations.id, grade: qualityAttestations.grade, sig: qualityAttestations.eip712Sig })
     .from(qualityAttestations)
     .where(and(eq(qualityAttestations.agreementId, agreementId), eq(qualityAttestations.batchId, batchId)));
-  return { deliveredKg, pickings: eventIds.length, verifiedPickings, grade: qa && isGrade(qa.grade) ? qa.grade : null, attestationId: qa?.id ?? null };
+  const graded = qa && isGrade(qa.grade) ? qa : null;
+  return { deliveredKg, pickings: eventIds.length, verifiedPickings, grade: graded ? (graded.grade as Grade) : null, attestationId: graded?.id ?? null, gradeSig: graded?.sig ?? null };
 }
 
 export type SettleInput = { fpoOrg: string; userId: string; agreementId: string; batchId: string };
 export type SettleResult = { settlementId: string; outcome: 'released' | 'not_released'; reasons: Reason[]; txHash: Hex; blockNumber: number };
+
+/**
+ * The contract's decision for one batch. If the agreement is already settled on chain for THIS batch
+ * (a release whose DB record was lost: the process died after the receipt, or the writeTx failed, or a
+ * concurrent request is recording it), the earlier release is recovered from its Settled event and
+ * nothing new is sent; the caller records it once.
+ */
+async function decideOnChain(c: EscrowChain, args: SettleArgs): Promise<SettleOutcome> {
+  const recover = async (): Promise<SettleOutcome | null> => {
+    if ((await c.status(args.id)) !== 'settled') return null;
+    const tx = await c.settledTx(args.id, args.batchIdHash);
+    return tx ? { ...tx, released: true, reasons: 0 } : null;
+  };
+  const earlier = await recover();
+  if (earlier) return earlier;
+  try {
+    return await c.settle(args);
+  } catch (e) {
+    if (e instanceof ChainError && e.kind === 'turned_away') {
+      const raced = await recover();
+      if (raced) return raced;
+    }
+    throw e;
+  }
+}
 
 export async function settleBatch(db: Db, input: SettleInput, o: ServiceOptions = {}): Promise<SettleResult> {
   const a = await fpoAgreement(db, input.fpoOrg, input.agreementId);
   if (a.status !== 'funded') throw new AgreementError('wrong_state');
   if (!(await deliveredBatchIds(db, a)).includes(input.batchId)) throw new AgreementError('not_delivered');
   const facts = await settlementFacts(db, a.id, input.batchId);
-  if (facts.grade === null || facts.attestationId === null) throw new AgreementError('no_grade');
-  const [qa] = await db.select({ sig: qualityAttestations.eip712Sig }).from(qualityAttestations).where(eq(qualityAttestations.id, facts.attestationId));
+  const { grade, attestationId, gradeSig } = facts;
+  if (grade === null || attestationId === null || gradeSig === null) throw new AgreementError('no_grade');
   await getUserPublicKey(input.userId);
 
   const allVerified = facts.pickings > 0 && facts.verifiedPickings === facts.pickings;
   const c = await (o.chain ?? escrowFromEnv)();
-  const out = await c.settle({
+  const out = await decideOnChain(c, {
     id: a.chainIdHex as Hex,
     batchIdHash: batchIdHash(input.batchId),
     deliveredGrams: kgToGrams(Math.round(facts.deliveredKg * 10) / 10),
     allVerified,
-    grade: facts.grade,
-    gradeSig: qa!.sig as Hex,
+    grade,
+    gradeSig: gradeSig as Hex,
   });
   // The contract decided; name each condition its bitmask says was not met, value vs threshold.
   const results = judge(facts, a);
   const reasons: Reason[] = out.released ? [] : results.filter((r) => (out.reasons & REASON_BITS[r.condition]) !== 0).map((r) => ({ condition: r.condition, text: r.text }));
   const outcome = out.released ? 'released' : 'not_released';
-  const settlementId = newId('ST-', 12);
   const ts = (o.now ?? (() => new Date()))().toISOString();
 
-  await writeTx(db, async (t) => {
+  const settlementId = await writeTx(db, async (t) => {
+    // Exactly once: a concurrent request may already have recorded this same chain decision.
+    const [done] = await t.select({ id: settlements.id }).from(settlements).where(and(eq(settlements.agreementId, a.id), eq(settlements.txHash, out.txHash)));
+    if (done) return done.id;
+    const [cur] = await t.select({ status: agreements.status }).from(agreements).where(eq(agreements.id, a.id));
+    if (cur?.status !== 'funded') throw new AgreementError('wrong_state');
+    const id = newId('ST-', 12);
     const statement = {
       v: 1,
-      settlementId,
+      settlementId: id,
       agreementId: a.id,
       batchId: input.batchId,
-      attestationId: facts.attestationId,
+      attestationId,
       deliveredKg: facts.deliveredKg,
       pickings: facts.pickings,
       verifiedPickings: facts.verifiedPickings,
       allVerified,
-      grade: facts.grade,
+      grade,
       outcome,
       reasons,
       chain: { chainId: c.chainId, contract: c.escrow, txHash: out.txHash, blockNumber: out.blockNumber },
@@ -131,15 +165,15 @@ export async function settleBatch(db: Db, input: SettleInput, o: ServiceOptions 
     };
     const anchor = await anchorSigned(t, 'settlement', input.userId, statement);
     await t.insert(settlements).values({
-      id: settlementId,
+      id,
       agreementId: a.id,
       batchId: input.batchId,
-      attestationId: facts.attestationId!,
+      attestationId,
       deliveredKg: facts.deliveredKg,
       pickings: facts.pickings,
       verifiedPickings: facts.verifiedPickings,
       allVerified,
-      grade: facts.grade!,
+      grade,
       outcome,
       reasons: JSON.stringify(reasons),
       txHash: out.txHash,
@@ -151,6 +185,7 @@ export async function settleBatch(db: Db, input: SettleInput, o: ServiceOptions 
     if (out.released) {
       await t.update(agreements).set({ status: 'settled', closedAt: ts, closedTxHash: out.txHash, closedAnchorSeq: anchor.seq }).where(eq(agreements.id, a.id));
     }
+    return id;
   });
   return { settlementId, outcome, reasons, txHash: out.txHash, blockNumber: out.blockNumber };
 }

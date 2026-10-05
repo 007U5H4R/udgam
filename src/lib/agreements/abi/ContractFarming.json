@@ -123,6 +123,25 @@
   },
   {
     "type": "function",
+    "name": "batchReleased",
+    "inputs": [
+      {
+        "name": "batchIdHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "createAgreement",
     "inputs": [
       {
@@ -452,6 +471,11 @@
   {
     "type": "error",
     "name": "BadTerms",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BatchAlreadyReleased",
     "inputs": []
   },
   {

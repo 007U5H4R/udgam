@@ -56,6 +56,8 @@ contract ContractFarming {
     IERC20Minimal public immutable token;
 
     mapping(bytes32 id => Agreement) public agreements;
+    /// @notice Batches already paid out: one delivered batch releases at most one escrow, across agreements.
+    mapping(bytes32 batchIdHash => bool) public batchReleased;
 
     event AgreementCreated(bytes32 indexed id, address indexed buyer, address fpoPayee, uint256 agreedGrams, uint8 minGrade, uint256 amount, uint64 deadline);
     event Funded(bytes32 indexed id, uint256 amount);
@@ -72,6 +74,7 @@ contract ContractFarming {
     error DeadlinePassed();
     error BadGradeSignature();
     error TransferFailed();
+    error BatchAlreadyReleased();
 
     constructor(address operator_, address token_) {
         if (operator_ == address(0) || token_ == address(0)) revert ZeroAddress();
@@ -126,8 +129,8 @@ contract ContractFarming {
 
     /// @notice Judge the three conditions for one delivered batch (operator only). Pays the FPO when all
     /// hold; otherwise emits the failed conditions as a bitmask and stays funded. Reverts (nothing judged)
-    /// on a non-funded agreement, after the deadline, on a grade above 100 or on a grade signature that
-    /// does not recover to the agreement's attestor.
+    /// on a non-funded agreement, after the deadline, on a batch already paid out under any agreement, on
+    /// a grade above 100 or on a grade signature that does not recover to the agreement's attestor.
     function settle(bytes32 id, bytes32 batchIdHash, uint256 deliveredGrams, bool allVerified, uint8 grade, bytes calldata gradeSig)
         external
         onlyOperator
@@ -135,6 +138,7 @@ contract ContractFarming {
         Agreement storage a = agreements[id];
         if (a.status != Status.Funded) revert WrongStatus(a.status);
         if (block.timestamp > a.deadline) revert DeadlinePassed();
+        if (batchReleased[batchIdHash]) revert BatchAlreadyReleased();
         if (grade > 100) revert BadTerms();
         if (_recover(gradeDigest(id, batchIdHash, grade), gradeSig) != a.buyerAttestor) revert BadGradeSignature();
 
@@ -147,6 +151,7 @@ contract ContractFarming {
             return;
         }
         a.status = Status.Settled;
+        batchReleased[batchIdHash] = true;
         if (!token.transfer(a.fpoPayee, a.amount)) revert TransferFailed();
         emit Settled(id, batchIdHash, a.fpoPayee, a.amount);
     }

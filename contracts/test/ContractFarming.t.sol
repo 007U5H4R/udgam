@@ -417,4 +417,50 @@ contract ContractFarmingTest is Test {
         farming.refund(ID);
         _reconcile();
     }
+
+    // ── review fix: one delivered batch releases at most one escrow ──────────────────────────────
+
+    bytes32 internal constant ID2 = keccak256("AG-TEST0002");
+
+    function _createAndFund(bytes32 id) internal {
+        vm.prank(operator);
+        farming.createAgreement(id, buyer, attestor, fpo, AGREED_GRAMS, MIN_GRADE, AMOUNT, deadline);
+        vm.startPrank(buyer);
+        token.approve(address(farming), AMOUNT);
+        farming.fund(id);
+        vm.stopPrank();
+    }
+
+    function _settleAs(bytes32 id, uint256 grams) internal {
+        bytes memory sig = _sign(attestorKey, id, BATCH, 90);
+        vm.prank(operator);
+        farming.settle(id, BATCH, grams, true, 90, sig);
+    }
+
+    function test_SameBatchReleasesOnlyOneAgreement() public {
+        _createAndFund(ID);
+        _createAndFund(ID2);
+        _settleAs(ID, 512_000);
+        assertTrue(farming.batchReleased(BATCH));
+        bytes memory sig = _sign(attestorKey, ID2, BATCH, 90);
+        vm.prank(operator);
+        vm.expectRevert(ContractFarming.BatchAlreadyReleased.selector);
+        farming.settle(ID2, BATCH, 512_000, true, 90, sig);
+        assertEq(token.balanceOf(fpo), AMOUNT, "paid once");
+        assertEq(token.balanceOf(address(farming)), AMOUNT, "the second escrow stays funded");
+        (,,,,,,, ContractFarming.Status s2) = farming.agreements(ID2);
+        assertEq(uint8(s2), uint8(ContractFarming.Status.Funded));
+        _reconcile();
+    }
+
+    function test_RejectedBatchDoesNotCountAsReleased() public {
+        _createAndFund(ID);
+        _createAndFund(ID2);
+        _settleAs(ID, 499_500); // short: rejected, nothing paid
+        assertFalse(farming.batchReleased(BATCH));
+        _settleAs(ID2, 512_000);
+        assertTrue(farming.batchReleased(BATCH));
+        assertEq(token.balanceOf(fpo), AMOUNT);
+        _reconcile();
+    }
 }
