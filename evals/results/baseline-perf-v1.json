@@ -1,0 +1,173 @@
+{
+  "gate": "S4",
+  "case": "EVAL-071",
+  "target": "http://localhost:3960",
+  "path": "/verify/B-7CBYRAA5?h=35e495bcd2ea",
+  "profile": {
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "network": {
+      "downloadMbps": 10,
+      "uploadMbps": 5,
+      "latencyMs": 80
+    },
+    "cpuThrottle": 4,
+    "cache": "cold (fresh context per run)"
+  },
+  "runs": [
+    {
+      "run": 1,
+      "ms": 2775,
+      "serverMs": 509,
+      "htmlMs": 608,
+      "verifyMs": 426,
+      "finalState": "verified",
+      "errors": []
+    },
+    {
+      "run": 2,
+      "ms": 2502,
+      "serverMs": 107,
+      "htmlMs": 209,
+      "verifyMs": 406,
+      "finalState": "verified",
+      "errors": []
+    },
+    {
+      "run": 3,
+      "ms": 2905,
+      "serverMs": 150,
+      "htmlMs": 262,
+      "verifyMs": 516,
+      "finalState": "verified",
+      "errors": []
+    },
+    {
+      "run": 4,
+      "ms": 2539,
+      "serverMs": 88,
+      "htmlMs": 184,
+      "verifyMs": 364,
+      "finalState": "verified",
+      "errors": []
+    },
+    {
+      "run": 5,
+      "ms": 2498,
+      "serverMs": 144,
+      "htmlMs": 244,
+      "verifyMs": 396,
+      "finalState": "verified",
+      "errors": []
+    },
+    {
+      "run": 6,
+      "ms": 2232,
+      "serverMs": 121,
+      "htmlMs": 236,
+      "verifyMs": 401,
+      "finalState": "verified",
+      "errors": []
+    },
+    {
+      "run": 7,
+      "ms": 2259,
+      "serverMs": 91,
+      "htmlMs": 202,
+      "verifyMs": 401,
+      "finalState": "verified",
+      "errors": []
+    },
+    {
+      "run": 8,
+      "ms": 2405,
+      "serverMs": 78,
+      "htmlMs": 183,
+      "verifyMs": 402,
+      "finalState": "verified",
+      "errors": []
+    },
+    {
+      "run": 9,
+      "ms": 2259,
+      "serverMs": 172,
+      "htmlMs": 272,
+      "verifyMs": 384,
+      "finalState": "verified",
+      "errors": []
+    },
+    {
+      "run": 10,
+      "ms": 2316,
+      "serverMs": 89,
+      "htmlMs": 180,
+      "verifyMs": 432,
+      "finalState": "verified",
+      "errors": []
+    }
+  ],
+  "summary": {
+    "n": 10,
+    "p50": 2451.5,
+    "p95": 2846.5,
+    "max": 2905,
+    "thresholdMs": 3000,
+    "pass": true
+  },
+  "verify": {
+    "n": 10,
+    "p50": 401.5,
+    "p95": 478.2,
+    "max": 516,
+    "thresholdMs": 300,
+    "pass": false
+  },
+  "server": {
+    "n": 10,
+    "p50": 114,
+    "p95": 357.35,
+    "max": 509,
+    "thresholdMs": 3000,
+    "pass": true
+  },
+  "pass": true,
+  "provenance": {
+    "harness": {
+      "name": "udgam-eval-perf",
+      "version": "0.1.0"
+    },
+    "appVersion": "0.1.0",
+    "git": {
+      "commit": "eb321a1dd63bed90c1d66cf8f52d99ecab104685",
+      "shortSha": "eb321a1",
+      "branch": "worktree-agent-a051c0381abad79f1",
+      "dirty": false,
+      "changes": [],
+      "formalOutputs": [
+        "evals/reports/eval-report-0.1.0-eb321a1.md",
+        "evals/reports/eval-report-baseline-v1.md",
+        "evals/results/baseline-v1.json",
+        "evals/results/eval-run-0.1.0-eb321a1.json"
+      ]
+    },
+    "environment": "local",
+    "node": "v22.22.2",
+    "os": {
+      "platform": "linux",
+      "arch": "x64"
+    },
+    "hardware": {
+      "cpuModel": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+      "cpus": 4,
+      "arch": "x64",
+      "platform": "linux",
+      "memoryGb": 15.7,
+      "referenceHost": false,
+      "note": "Measured on this host, not the Oracle A1 reference instance (S3, and S4 on the reference host, are TKT-29 at M-003)."
+    },
+    "timestampUtc": "2026-10-05T18:11:40.796Z",
+    "durationMs": 30597
+  }
+}
