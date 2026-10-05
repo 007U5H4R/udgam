@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { certificateUrl, proofFinalState, seedCertificate, type SeededCertificate } from './helpers/certificate';
+import { certificateUrl, noHorizontalScroll, noSeriousAxeViolations, proofFinalState, seedCertificate, type SeededCertificate } from './helpers/certificate';
 
 // The public certificate (TKT-16), ported from .design/exploration/final/verify.html. Each Playwright
 // project is one viewport (320, 375, 768, 1440). One batch is seeded per worker: 3 Verified pickings
@@ -149,5 +149,63 @@ test.describe('certificate entries, organic line, files and limits (TSK-16.5)', 
     await expect(page.getByTestId('override-reason').filter({ visible: true })).toHaveText('Decided by the office: Verified · Reason: Scale photo checked by the office');
     await expect(page.getByTestId('attestation-line')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Organic' })).toHaveCount(0);
+  });
+});
+
+test.describe('certificate responsive and accessibility gates (TSK-16.11, @eval EVAL-087, EVAL-089, TC-080, TC-081)', () => {
+  test('no horizontal scroll and no serious or critical axe violation: verified, loading, mismatch, not found', async ({ page }) => {
+    for (const [path, final] of [
+      [certificateUrl(seeded), 'verified'],
+      [certificateUrl(seeded, '&state=loading'), null],
+      [certificateUrl(seeded, '&state=mismatch'), 'mismatch'],
+      [`/verify/${seeded.batchId}?h=000000000000`, null],
+    ] as const) {
+      await page.goto(path);
+      if (final) expect(await proofFinalState(page), path).toBe(final);
+      else await page.waitForLoadState('networkidle');
+      await noHorizontalScroll(page);
+      await noSeriousAxeViolations(page);
+    }
+  });
+
+  test('tab order follows the page: proof panel → (map) → entries → downloads', async ({ page }) => {
+    await openVerified(page);
+    // the map sits between the proof panel and the entries in the document (it has nothing to focus)
+    const order = await page.evaluate(() => {
+      const all = Array.from(document.querySelectorAll('.proof, #origin-map, section[aria-labelledby="entries-h"], #dl-block'));
+      return ['.proof', '#origin-map', 'section[aria-labelledby="entries-h"]', '#dl-block'].map((sel) => all.findIndex((e) => e.matches(sel)));
+    });
+    expect(order).toEqual([0, 1, 2, 3]);
+    const regions: string[] = [];
+    for (let i = 0; i < 60; i++) {
+      await page.keyboard.press('Tab');
+      const r = await page.evaluate(() => {
+        const a = document.activeElement;
+        if (!a || a === document.body) return 'none';
+        if (a.closest('.proof')) return 'proof';
+        if (a.closest('#origin-map')) return 'map';
+        if (a.closest('section[aria-labelledby="entries-h"]')) return 'entries';
+        if (a.closest('#dl-block')) return 'downloads';
+        return `other:${a.tagName.toLowerCase()}`;
+      });
+      if (regions.at(-1) !== r) regions.push(r);
+      if (r === 'downloads' && (await page.evaluate(() => document.activeElement?.id)) === 'print') break;
+    }
+    expect(regions.filter((r) => r !== 'none')).toEqual(['proof', 'entries', 'downloads']);
+  });
+
+  test('the page runs under its CSP with no violation (TC-076 on the certificate)', async ({ page }) => {
+    const violations: string[] = [];
+    page.on('console', (m) => {
+      if (/Content Security Policy|Content-Security-Policy/i.test(m.text())) violations.push(m.text());
+    });
+    await page.addInitScript(() => {
+      document.addEventListener('securitypolicyviolation', (e) => console.error(`Content Security Policy violation: ${e.violatedDirective} ${e.blockedURI}`));
+    });
+    const res = await page.goto(certificateUrl(seeded));
+    expect(res!.headers()['content-security-policy']).toMatch(/script-src 'self' 'nonce-[A-Za-z0-9+/=]+' 'strict-dynamic'/);
+    expect(await proofFinalState(page)).toBe('verified');
+    await page.waitForLoadState('networkidle');
+    expect(violations).toEqual([]);
   });
 });
