@@ -17,6 +17,7 @@
     "test:int": "vitest run --project integration",
     "test:tz": "TZ=America/Los_Angeles vitest run && TZ=Asia/Kolkata vitest run",
     "test:e2e": "playwright test",
+    "demo": "playwright test -c playwright.demo.config.ts",
     "verify": "pnpm typecheck && pnpm lint && pnpm test",
     "eval": "tsx evals/harness/run.ts",
     "eval:validate": "tsx evals/harness/dataset.ts --validate",
