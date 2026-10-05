@@ -12,6 +12,7 @@ export const certCopy = {
   /** The batch QR card on the admin and buyer batch pages (TSK-16.7). */
   qrTitle: 'Certificate QR code',
   qrPrint: 'Print QR',
+  qrLabel: (url: string) => `QR code for ${url}`,
   /** Beside a failing step's plain words: "(step <name>…)". */
   stepWord: 'step',
   eyebrow: (batchId: string) => `Batch ${batchId}`,

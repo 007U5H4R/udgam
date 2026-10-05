@@ -2,6 +2,7 @@ import type { BoundaryReason } from '../lib/capture/boundary';
 import type { FormReason } from '../lib/capture/parse';
 import type { CaptureEvent } from '../lib/capture/pipeline';
 import { sha256Hex } from '../lib/crypto';
+import { refusalKeepsOutbox } from '../lib/i18n/farmer-evidence';
 import type { CheckId, CheckStatus } from '../lib/verification/types';
 import { advanceDevice, answeredItems, bumpAttempt, deleteOutbox, listOutbox, loadSigner, markAnswered, putOutbox, type Advance, type OutboxItem } from './capture-store';
 import type { GpsWatch } from './gps';
@@ -36,6 +37,11 @@ export type SendOptions = {
   /** Photos the server holds already (TKT-30); defaults to what stage-client.ts staged on this page. */
   staged?: ReadonlySet<string>;
 };
+/**
+ * Which refusals keep the outbox copy (to send again after signing in again or waiting). Defaults to the
+ * one policy, refusalKeepsOutbox, so a caller that leaves it out never loses a picking (TKT-11).
+ */
+type KeepOption = { keepOnRefusal?: (reason: string) => boolean };
 
 /** The signed photo hashes, in payload order (empty when the payload cannot be read). */
 function signedHashes(payload: string): string[] {
@@ -248,7 +254,7 @@ export type OutboxSend = { id: string; payload: string; signature: string; files
  */
 export async function submitCapture(
   draft: { plotId: string; cherryKg: number; photos: Photo[]; gps: GpsWatch | null },
-  opts: SendOptions & { keepOnRefusal?: (reason: string) => boolean; now?: () => Date; onSaved?: (item: OutboxSend) => void } = {},
+  opts: SendOptions & KeepOption & { now?: () => Date; onSaved?: (item: OutboxSend) => void } = {},
 ): Promise<SubmitResult & { item?: OutboxSend }> {
   await finishAnswered();
   const signer = await loadSigner();
@@ -342,7 +348,7 @@ export async function finishAnswered(): Promise<void> {
  */
 export async function sendOutboxItem(
   item: OutboxSend,
-  opts: SendOptions & { keepOnRefusal?: (reason: string) => boolean } = {},
+  opts: SendOptions & KeepOption = {},
 ): Promise<SendResult> {
   const wait = (notBefore.get(item.id) ?? 0) - Date.now();
   if (wait > 0 && !(await pause(wait, opts.signal))) return { kind: 'retryable', cause: 'offline' };
@@ -352,7 +358,7 @@ export async function sendOutboxItem(
   if (r.kind === 'retryable' && r.retryAfterSec !== undefined) notBefore.set(item.id, Date.now() + Math.min(r.retryAfterSec, MAX_RETRY_WAIT_SEC) * 1000);
   if (r.kind === 'verdict') {
     await settleLocally(item.id, { deviceId: item.deviceId, seq: item.seq, payloadHash: await sha256Hex(item.payload) });
-  } else if (r.kind === 'rejected' && !(opts.keepOnRefusal?.(r.reason) ?? false)) {
+  } else if (r.kind === 'rejected' && !(opts.keepOnRefusal ?? refusalKeepsOutbox)(r.reason)) {
     await settleLocally(item.id, null);
   }
   return r;
@@ -369,12 +375,26 @@ export function outboxSend(item: Pick<OutboxItem, 'id' | 'payload' | 'signature'
   }
 }
 
-/** The pickings saved on this phone that still need sending (not those the server already answered), oldest first. */
+/**
+ * The pickings saved on this phone that still need sending, oldest first: not those the server already
+ * answered, whether that is flagged on the stored copy or, when even that write failed, owed in memory.
+ */
 export async function pendingItems(): Promise<OutboxItem[]> {
-  return (await listOutbox()).filter((i) => i.answered === undefined);
+  return (await listOutbox()).filter((i) => i.answered === undefined && !owed.has(i.id));
 }
 
 export type PendingResult = { id: string; result: SendResult };
+
+/** The Web Lock every tab's queue runs under, so two tabs never send the same copy at once. */
+export const OUTBOX_LOCK = 'udgam-outbox';
+
+type LockManagerLike = { request: <T>(name: string, cb: () => Promise<T>) => Promise<T> };
+
+/** `fn` under the cross-tab Web Lock when the browser has Web Locks; otherwise (older browsers) as it is. */
+function underLock<T>(fn: () => Promise<T>): Promise<T> {
+  const locks = (globalThis.navigator as { locks?: LockManagerLike } | undefined)?.locks;
+  return locks && typeof locks.request === 'function' ? locks.request(OUTBOX_LOCK, fn) : fn();
+}
 
 let queue: Promise<PendingResult[]> | null = null;
 
@@ -385,31 +405,36 @@ let queue: Promise<PendingResult[]> | null = null;
  * would meet the same answer, and sending them first would change their order. Two pickings saved
  * offline were signed with the same seq (the chain head moves only on a verdict), so the second to
  * arrive is flagged by chain_continuity on the server; the phone shows whatever verdict it gets and
- * never re-signs to "fix" the seq. A second call while one runs joins it. Never throws.
+ * never re-signs to "fix" the seq.
+ *
+ * Single flight: a second call in this tab while one runs joins it and gets its results (the first
+ * caller's options apply: its fetch, signal, keepOnRefusal and onResult). Across tabs the run holds the
+ * Web Lock OUTBOX_LOCK, so another tab's queue waits and then finds the sent copies gone. Never throws.
  */
-export function sendPending(opts: SendOptions & { keepOnRefusal?: (reason: string) => boolean; onResult?: (r: PendingResult) => void } = {}): Promise<PendingResult[]> {
-  queue ??= (async () => {
+export function sendPending(opts: SendOptions & KeepOption & { onResult?: (r: PendingResult) => void } = {}): Promise<PendingResult[]> {
+  const keep = opts.keepOnRefusal ?? refusalKeepsOutbox;
+  queue ??= underLock(async () => {
     const out: PendingResult[] = [];
-    try {
-      await finishAnswered();
-      for (const item of await pendingItems().catch(() => [])) {
-        const send = outboxSend(item);
-        if (!send) continue; // not a payload this app signed: left as it is
-        const result = await sendOutboxItem(send, opts);
-        const r = { id: item.id, result };
-        out.push(r);
-        try {
-          opts.onResult?.(r);
-        } catch {
-          // a screen update must never stop the queue
-        }
-        const kept = result.kind === 'retryable' || (result.kind === 'rejected' && (opts.keepOnRefusal?.(result.reason) ?? false));
-        if (kept) break;
+    await finishAnswered();
+    for (const item of await pendingItems().catch(() => [])) {
+      const send = outboxSend(item);
+      if (!send) continue; // not a payload this app signed: left as it is (PendingRow flags it)
+      const result = await sendOutboxItem(send, { ...opts, keepOnRefusal: keep });
+      const r = { id: item.id, result };
+      out.push(r);
+      try {
+        opts.onResult?.(r);
+      } catch {
+        // a screen update must never stop the queue
       }
-    } finally {
-      queue = null;
+      const kept = result.kind === 'retryable' || (result.kind === 'rejected' && keep(result.reason));
+      if (kept) break;
     }
     return out;
-  })();
+  })
+    .catch(() => [] as PendingResult[])
+    .finally(() => {
+      queue = null;
+    });
   return queue;
 }

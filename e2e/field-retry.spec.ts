@@ -60,6 +60,38 @@ test('TC-050 (a): an answer from a proxy (502 page) → "Couldn\'t send"; after 
   await page.reload();
   const after = await readOutbox(page);
   expect(after.map((i) => [i.id, i.payload, i.signature, i.sizes])).toEqual(before.map((i) => [i.id, i.payload, i.signature, i.sizes]));
+  // TSK-11.2 (a): after the reload Home lists it as a pending row, "Saved on this phone", with Send now
+  const pending = page.getByTestId('pending-rows').locator('li');
+  await expect(pending).toHaveCount(1);
+  await expect(pending.locator('.r-date')).toHaveText('Saved on this phone');
+  await expect(pending.locator('.r-kg')).toHaveText('42.5 kg');
+  await expect(pending.getByRole('button', { name: 'Send now' })).toBeVisible();
+});
+
+test('TSK-11.3 on Pickings: a picking saved offline is listed first with Send now; Send now sends it and the row is gone, a sent row in its place', async ({ page, context }) => {
+  const seed = seedCaptureWorld({ events: ['40:Verified'] });
+  await openField(page, context, seed);
+  await page.route('**/api/capture', (r) => r.abort('internetdisconnected'));
+  await typePicking(page, seed, { photos: 1, kg: '42.5' });
+  await page.locator('#send-btn').click();
+  await page.getByTestId('saved-sheet').getByRole('button', { name: 'Try later' }).click();
+  await expect(page).toHaveURL(/\/field$/);
+  const [saved] = await readOutbox(page);
+
+  await page.goto('/field/pickings');
+  const pending = page.getByTestId('pending-rows').locator('li');
+  await expect(pending).toHaveCount(1);
+  await expect(pending.locator('.r-kg')).toHaveText('42.5 kg');
+  await expect(page.locator('section[data-month] li.row')).toHaveCount(1);
+
+  await page.unroute('**/api/capture');
+  await pending.getByRole('button', { name: 'Send now' }).click();
+  await expect(page.getByTestId('pending-rows')).toHaveCount(0, { timeout: 90_000 });
+  expect(await readOutbox(page)).toEqual([]);
+  const [row] = await dbRows<{ id: string }>('SELECT id FROM harvest_events WHERE payload_hash = ?', [payloadHash(saved!.payload)]);
+  expect(row).toBeDefined();
+  await expect(page.locator(`section[data-month] li.row[data-event="${row!.id}"] .r-kg`)).toHaveText('42.5 kg');
+  await expect(page.locator('section[data-month] li.row')).toHaveCount(2);
 });
 
 test('TC-050 (b) / EVAL-068: the server commits but the answer is lost → Try again returns the original event (idempotent) and one event exists', async ({ page, context }) => {

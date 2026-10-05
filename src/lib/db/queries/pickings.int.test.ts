@@ -9,7 +9,7 @@ import { persistAccepted, persistRejected } from '../../capture/persist';
 import { jcs, sha256Hex, sign } from '../../crypto';
 import type { CheckResult, CapturePayloadV1, Verdict } from '../../verification/types';
 import { writeTx } from '../client';
-import { istMonth, listPickings } from './pickings';
+import { istMonth, latestRuns, listPickings, PICKINGS_LIMIT } from './pickings';
 
 // TSK-11.4 / TC-051: the Pickings tab lists only this agent's pickings (and this agent's refusals) in its
 // own organisation, grouped by IST month, newest first; Needs a check carries the reason and Not
@@ -166,5 +166,34 @@ describe('listPickings', () => {
     await picking(w, { at: '2026-09-27T05:00:00.000Z', kg: 44, verdict: 'Verified', checks: [inside] });
     const [m] = await listPickings(t.db, w.agentId, w.orgId, 'kn');
     expect(m!.items[0]!.plotName).toBe('ತೋಟ 1');
+  });
+
+  // TASK-12 fix round 1 (quality minor 5): the list is bounded (the newest PICKINGS_LIMIT), so one
+  // inArray over the event ids never nears SQLite's bound-parameter limit over a long season.
+  it('returns at most `limit` pickings, the newest; the default limit is 200', async () => {
+    await picking(w, { at: '2026-09-25T05:00:00.000Z', kg: 30, verdict: 'Verified', checks: [inside] });
+    const b = await picking(w, { at: '2026-09-26T05:00:00.000Z', kg: 31, verdict: 'Verified', checks: [inside] });
+    const c = await picking(w, { at: '2026-09-27T05:00:00.000Z', kg: 32, verdict: 'Verified', checks: [inside] });
+    expect((await listPickings(t.db, w.agentId, w.orgId, 'en', { limit: 2 })).flatMap((m) => m.items).map((i) => i.eventId)).toEqual([c, b]);
+    expect(PICKINGS_LIMIT).toBe(200);
+  });
+});
+
+describe('latestRuns', () => {
+  it('reads only the latest run of each event: a re-run (run 2) decides the verdict and the checks', async () => {
+    const e = await picking(w, { at: '2026-09-27T05:00:00.000Z', kg: 44, verdict: 'Needs Review', checks: [inside] });
+    const cloudy: CheckResult = { id: 'ndvi_harvest_window', status: 'flag', score: 0.5, weight: 1, hardFail: false, evidence: 'clear' };
+    await t.client.execute({
+      sql: `INSERT INTO verification_runs (id, event_id, run_no, verdict, score, checks, unavailable_providers, config_version, config_hash, created_at, anchor_seq)
+        VALUES ('VR-RERUN', ?, 2, 'Verified', 91.7, ?, '[]', 'cfg-1', ?, '2026-09-28T05:00:00.000Z', 1)`,
+      args: [e, JSON.stringify([inside, cloudy]), '0'.repeat(64)],
+    });
+    // another event with only its first run: its run 1 is its latest
+    const single = await picking(w, { at: '2026-09-29T05:00:00.000Z', kg: 40, verdict: 'Verified', checks: [inside] });
+    const runs = await latestRuns(t.db, [e, single]);
+    expect([...runs.keys()].sort()).toEqual([e, single].sort());
+    expect(runs.get(single)).toMatchObject({ verdict: 'Verified' });
+    expect(runs.get(e)).toMatchObject({ verdict: 'Verified', score: 91.7 });
+    expect(runs.get(e)!.checks.map((c) => c.id)).toEqual(['geofence', 'ndvi_harvest_window']);
   });
 });

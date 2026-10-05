@@ -42,14 +42,26 @@ export function PickingsEmpty({ lang }: { lang: Lang }) {
   );
 }
 
-export function PickingsError({ lang }: { lang: Lang }) {
+/** The error state; in the route's error boundary `onRetry` re-renders the list, otherwise Try again reloads it. */
+export function PickingsError({ lang, onRetry }: { lang: Lang; onRetry?: () => void }) {
   return (
     <PickingsFrame lang={lang}>
       <GlassCard as="article" className="plot-card" role="alert">
         <p className="h1 plot-h">{t('home.error.title', {}, lang)}</p>
         <p className="facts">{t('home.error.body', {}, lang)}</p>
       </GlassCard>
-      <Link className={[pill.pill, pill.amber, 'record'].join(' ')} href="/field/pickings">
+      <Link
+        className={[pill.pill, pill.amber, 'record'].join(' ')}
+        href="/field/pickings"
+        onClick={
+          onRetry
+            ? (e) => {
+                e.preventDefault();
+                onRetry();
+              }
+            : undefined
+        }
+      >
         <Ic name="retry" />
         {t('home.error.retry', {}, lang)}
       </Link>

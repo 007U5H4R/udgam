@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
-import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CHECK_GROUPS, type GroupKey } from '../../../../../components/field/check-groups';
@@ -12,15 +11,16 @@ import { TabBar } from '../../../../../components/ui/TabBar';
 import { VerdictChip, VerdictMark, type MarkKind } from '../../../../../components/ui/VerdictChip';
 import { getDbReady } from '../../../../../lib/db/client';
 import { getPickingDetail, type PickingDetail } from '../../../../../lib/db/queries/picking-detail';
-import { isLang, LANG_COOKIE, t, type Lang, type MessageKey } from '../../../../../lib/i18n';
+import { t, type MessageKey } from '../../../../../lib/i18n';
 import type { CheckStatus, Verdict } from '../../../../../lib/verification/types';
 import { requireSession } from '../../../../_auth/require';
+import { langFromCookies, throwIfForced } from '../../route-state';
 
 // /field/pickings/[eventId] — one picking (Design.md §5: "each opening its detail: photos, kg, verdict,
 // reasons"; no mockup, composed from the ported parts, TP17): Back to Pickings, the verdict chip, the kg
 // and plot, when the office received it (IST), the photos (thumbnails for their owner only), up to three
 // lines in the farmer's words, and "See all checks" with each of the six groups' state (word + mark).
-// Another agent's picking is not found (404).
+// Another agent's picking is not found (404). A failure shows the /field error boundary (field/error.tsx).
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Picking · Udgam' };
 
@@ -40,11 +40,17 @@ function groupStates(checks: PickingDetail['checks']): { key: GroupKey; state: G
   });
 }
 
-export default async function PickingDetailPage({ params }: { params: Promise<{ eventId: string }> }) {
+export default async function PickingDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ eventId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const agent = await requireSession('agent');
   const { eventId } = await params;
-  const cookie = (await cookies()).get(LANG_COOKIE)?.value;
-  const lang: Lang = isLang(cookie) ? cookie : 'en';
+  throwIfForced((await searchParams).state); // dev and e2e only: shows the /field error boundary
+  const lang = await langFromCookies();
   const d = await getPickingDetail(await getDbReady(), agent.userId, agent.orgId, eventId, lang);
   if (!d) notFound();
 
