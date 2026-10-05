@@ -12,6 +12,8 @@ import { Ic } from './icons';
 // answer) or "Couldn't send" (the server answered without a result). A refusal that signing in again
 // or waiting can fix (rate_limited, unauthenticated, forbidden, device_not_owned, length_required)
 // names itself instead; a 429 or a busy 503 also says how long the phone will wait (at most 60 s).
+// DES-006: while Try again runs the pill is disabled and reads "Trying…"; a Try again that fails again
+// adds "Still no network. Nothing is lost." so the farmer can tell the retry ran.
 
 /** `t(key)` with each `{name}` in `bold` drawn in <b>, as the mockup bolds the photo count and the kg. */
 function Rich({ k, vars, bold, lang }: { k: MessageKey; vars: Record<string, string>; bold: string[]; lang: Lang }) {
@@ -29,6 +31,8 @@ export function SavedSheet({
   cause,
   reason,
   retryAfterSec,
+  busy = false,
+  again = false,
   lang,
   photos,
   kg,
@@ -40,6 +44,10 @@ export function SavedSheet({
   /** A refusal the phone keeps the copy for, or `no_fix` (no GPS fix yet: nothing was signed). */
   reason?: string;
   retryAfterSec?: number;
+  /** A Try again is running. */
+  busy?: boolean;
+  /** This sheet follows a Try again that failed too. */
+  again?: boolean;
   lang: Lang;
   photos: number;
   kg: number;
@@ -83,8 +91,11 @@ export function SavedSheet({
         )}
         {/* A busy server's Retry-After (503); a 429's wait is in the rate_limited copy above. */}
         {!refusal && retryAfterSec !== undefined ? <p data-testid="saved-wait">{retryWait(retryAfterSec, lang)}</p> : null}
-        <Pill variant="amber" icon={<Ic name="retry" />} onClick={onRetry}>
-          {tr('rec.saved.retry')}
+        <p className="still" role="status" data-testid="saved-still">
+          {again && !busy ? tr(cause === 'offline' ? 'rec.saved.still.offline' : 'rec.saved.still.server') : ''}
+        </p>
+        <Pill variant="amber" icon={<Ic name="retry" />} onClick={onRetry} disabled={busy} aria-busy={busy || undefined}>
+          {tr(busy ? 'rec.saved.trying' : 'rec.saved.retry')}
         </Pill>
         <button className="textbtn" type="button" onClick={onLater}>
           <Ic name="clock" />

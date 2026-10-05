@@ -96,7 +96,9 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
   useEffect(() => () => Object.values(previews).forEach((u) => URL.revokeObjectURL(u)), [previews]);
 
   // Each screen change starts at the top with focus on its heading.
-  const screen = holdChecking ? 'checking' : flow.step;
+  // DES-006: a Try again keeps its sheet up, busy, until the first check arrives (or it fails again).
+  const screen = holdChecking ? 'checking' : flow.step === 'checking' && flow.retry ? 'saved' : flow.step;
+  const sheetError = flow.retry ?? flow.error;
   useEffect(() => {
     window.scrollTo(0, 0);
     document.querySelector<HTMLElement>('main h1')?.focus({ preventScroll: true });
@@ -201,6 +203,7 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
       {flow.step === 'weight' ? (
         <WeightStep
           kg={flow.kg}
+          refused={flow.kgRefused}
           photos={usedPhotos(flow).length}
           plotName={plot.name}
           range={range}
@@ -233,11 +236,13 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
           onDone={() => router.push('/field')}
         />
       ) : null}
-      {screen === 'saved' && flow.error && flow.error.kind !== 'rejected' ? (
+      {screen === 'saved' && sheetError && sheetError.kind !== 'rejected' ? (
         <SavedSheet
-          cause={flow.error.kind}
-          reason={flow.error.reason}
-          retryAfterSec={flow.error.retryAfterSec}
+          cause={sheetError.kind}
+          reason={sheetError.reason}
+          retryAfterSec={sheetError.retryAfterSec}
+          busy={flow.step === 'checking'}
+          again={sheetError.again === true}
           lang={lang}
           photos={usedPhotos(flow).length}
           kg={kgValue(flow.kg) ?? 0}

@@ -123,6 +123,9 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'rec.kg.delete': 'ಅಳಿಸಿ', // REVIEW: native speaker
   'rec.kg.send': '{kg} ಕೆಜಿ ಕಳುಹಿಸಿ', // REVIEW: native speaker
   'rec.kg.type': 'ತೂಕ ನಮೂದಿಸಿ', // REVIEW: native speaker
+  'rec.kg.rule': 'ಅರ್ಧ ಕಿಲೋ ಲೆಕ್ಕದಲ್ಲಿ (.0 ಅಥವಾ .5), 500 ಕೆಜಿ ವರೆಗೆ.', // REVIEW: native speaker
+  'rec.kg.check': '{kg} ಕೆಜಿ ನಿಮ್ಮ ಇತ್ತೀಚಿನ ಕೊಯ್ಲುಗಳಿಗಿಂತ ({min}–{max} ಕೆಜಿ) ತುಂಬಾ ಬೇರೆ. ಕಳುಹಿಸುವ ಮೊದಲು ಸಂಖ್ಯೆಯನ್ನು ಪರಿಶೀಲಿಸಿ.', // REVIEW: native speaker
+  'rec.kg.sendCheck': 'ಹೌದು, {kg} ಕೆಜಿ ಕಳುಹಿಸಿ', // REVIEW: native speaker
   'rec.chk.title': 'ನಿಮ್ಮ ಕೊಯ್ಲನ್ನು ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ', // REVIEW: native speaker
   'rec.chk.sub1': '{kg} ಕೆಜಿ · {plot} · 1 ಫೋಟೋ', // REVIEW: native speaker
   'rec.chk.subN': '{kg} ಕೆಜಿ · {plot} · {n} ಫೋಟೋಗಳು', // REVIEW: native speaker
@@ -159,6 +162,9 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'rec.saved.waitSec': '{sec} ಸೆಕೆಂಡುಗಳ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಬಹುದು.', // REVIEW: native speaker
   'rec.saved.wait1': '1 ನಿಮಿಷದ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಬಹುದು.', // REVIEW: native speaker
   'rec.saved.waitMin': '{min} ನಿಮಿಷಗಳ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಬಹುದು.', // REVIEW: native speaker
+  'rec.saved.trying': 'ಪ್ರಯತ್ನಿಸುತ್ತಿದೆ…', // REVIEW: native speaker
+  'rec.saved.still.offline': 'ಇನ್ನೂ ನೆಟ್‌ವರ್ಕ್ ಇಲ್ಲ. ಏನೂ ಕಳೆದುಹೋಗಿಲ್ಲ.', // REVIEW: native speaker
+  'rec.saved.still.server': 'ಇನ್ನೂ ಕಳುಹಿಸಲಾಗಲಿಲ್ಲ. ಏನೂ ಕಳೆದುಹೋಗಿಲ್ಲ.', // REVIEW: native speaker
   'rec.photos1': '1 ಫೋಟೋ', // REVIEW: native speaker
   'rec.photosN': '{n} ಫೋಟೋಗಳು', // REVIEW: native speaker
   'rec.noDevice': 'ಈ ಫೋನ್ ಇನ್ನೂ ಕೊಯ್ಲುಗಳಿಗೆ ಸಿದ್ಧವಾಗಿಲ್ಲ.', // REVIEW: native speaker

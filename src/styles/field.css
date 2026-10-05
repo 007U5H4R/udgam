@@ -714,8 +714,11 @@ html[lang='kn'] body {
 }
 
 /* ── s3-kg Weight ─────────────────────────────────────── */
-.kg-screen {
-  min-height: inherit;
+/* DES-010: the weight screen is a full-height column, so the keypad (margin-top: auto) and the Send pill
+   sit in the bottom thumb zone, as in the mockup and on every other record screen. */
+.screen.kg-screen {
+  min-height: 100vh;
+  min-height: 100svh;
 }
 .kg-read {
   display: flex;
@@ -745,6 +748,11 @@ html[lang='kn'] body {
   color: var(--ink-2);
   font-size: 17px;
   margin-bottom: clamp(12px, 3vh, 24px);
+}
+/* DES-019: a refused key (the half-kilo rule) or a weight far from the farmer's range: amber, word first. */
+.kg-hint.warn {
+  color: var(--check-ink);
+  font-weight: 600;
 }
 .keypad {
   display: grid;
@@ -1180,6 +1188,14 @@ html[lang='kn'] body {
 }
 .sheet-panel .pill {
   margin-top: 22px;
+}
+/* DES-006: "Still no network. Nothing is lost." after a Try again that failed too (a live region, empty before). */
+.sheet-panel .still {
+  font-weight: 600;
+  color: var(--check-ink);
+}
+.sheet-panel .still:empty {
+  margin: 0;
 }
 .sheet-panel .textbtn {
   margin-top: 6px;
