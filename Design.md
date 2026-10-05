@@ -202,3 +202,135 @@ web_experience:
   analytics_intent: count certificate views and proof failures (tool chosen in Stage 6)
   assumptions: organic issuer name; public key URL; Kannada not used on this page
 ```
+
+## 28. M-002 addendum — agreements, settlement and processing
+**Stage 4 re-entry for TKT-23 (TASK-24).** **Status:** accepted as D9 under the owner's blanket waiver (EXE1); owner review is pending at Stage 8. **Mockup:** `.design/exploration/final/contract.html`; the reviewer's "Screens" menu reaches every screen, variant and state by hash. **Inputs:** Solution-PRD F17 and F18, tickets TKT-25 and TKT-26, technical-plan TSK-25.8 and TSK-26.5. The section is numbered §28 because technical-plan TKT-23 names it so; §26 and §27 are not used.
+
+This section only adds to the design. It changes no frozen item above. The tokens, components, motion, IA and copy rules of §1–§25 apply unchanged. The mockup copies the `:root` tokens, base CSS and icons of `final/admin.html` verbatim. The certificate step copies the journey CSS of `final/verify.html` verbatim. The added composition CSS uses only values already present in those two files, with no new colour, radius, type size, shadow, icon or motion (TP17).
+
+### 28.1 Screen inventory
+| # | Surface · route | Screen | What the person does | States in the mockup |
+|---|---|---|---|---|
+| 1 | Buyer · `/buyer/agreements` (+ the detail of the selected agreement) | Agreement list | Sees every agreement with its FPO, crop, agreed kg, amount, deadline and a status chip, then opens one. The detail shows the terms, the latest settlement result and the three conditions, read-only. | data · loading · empty · error · working |
+| 2 | Buyer · `/buyer/agreements/new` | New agreement | Fills in the FPO, crop, agreed kg, minimum grade, amount in mock INR and deadline. Creating it records the agreement; funding is the next step. | data · loading · empty · error · working |
+| 3 | Buyer · `/buyer/agreements/[id]` while the agreement is *Created* | Fund | Reads what moves where (amount, balance before and after, the three conditions, the refund date) and funds it. Variant: after the deadline with nothing settled, **Take the money back** (refund). | data (fund, refund) · loading · empty (not found) · error · working |
+| 4 | Buyer · `/buyer/agreements/[id]` while the agreement is *Funded* and a batch is delivered | Grade a delivered batch | Picks one grade label for the delivered batch (§28.3) and signs it. Grades below the agreed minimum are marked before signing. | data · loading · empty (no batch delivered yet) · error · working |
+| 5 | FPO admin · `/admin/agreements` + `/admin/agreements/[id]` | Agreement detail with the settlement panel | Sees the three conditions, each as **value vs threshold** with Met or Not met. Settles when ready. Sees *Payment released* (`--ok`) or *Not released* (`--check`), which names each condition that was not met. | data (ready, released, not released) · loading · empty · error · working |
+| 6 | Processor · `/processor` + `/processor/batches/[batchId]` | Record a processing step, then hand on | Picks a process (pulping, drying, hulling parchment, hulling dry cherry), enters input kg and output kg, and signs. Sees *Within range* (`--ok`) or *Flagged* (`--check`) with the evidence sentence, then hands the batch on to a buyer. | data (form, within, flagged, handed on) · loading · empty · error · working |
+| 7 | Public · `/verify/[batchId]` | Certificate journey: the processing step | Sees one more item in "How it got here", for example "Hulled · At Processor C-03 · 600.0 kg in, 480.0 kg out (80.0%)". A flagged step shows the Needs-a-check mark, the word *Flagged* and the expected range in `--check`. | data (within, flagged) · loading · empty (no step: journey unchanged) · error (does not match) |
+
+One change outside the new screens: the existing admin **Transfer custody** panel (batch detail) also lists processor organisations as recipients, under their own option group. Its layout is unchanged; only the list content grows.
+
+### 28.2 Processor entry point — recommendation: a new `/processor` surface with a `processor` role
+- **Recommended.** Add a `processor` role and a `(processor)` route group at `/processor`, guarded by `requireSession('processor')` in the layout, in every Server Action and in every route handler (technical-plan §10). TSK-26.3 extends the `user.role` CHECK. The guard-coverage test (`tests/guard-coverage.test.ts`) adds `processor` to its route-group pattern.
+- **Why.**
+  - *Least privilege on a security-sensitive build.* A processor needs one task: record a step for a batch it holds, then hand it on. An admin role brings the review queue, overrides, plot editing, phones and custody transfer. A scoped admin view would need an org-type check added to every existing admin guard and query. One missed check would show FPO data to a processor: farmer pseudonyms, plots and evidence.
+  - *The guard model stays one role per route group*, as M-001 built it (EXE5, TC-018). A new role is one CHECK value, one layout and one seed account.
+  - *The frozen admin IA stays intact.* A scoped admin view would have to hide rail items, which changes the frozen four-item rail. `/processor` uses the same rail component with one item.
+  - *Data rules already use the org.* The "only the current holder may record a step" trigger (TSK-26.3) works on the processor org whatever the role is called.
+- **Shell.** The admin rail component with one item (**Batches**) and the signed-in person at the foot. On phones there is no floating tab bar, because there is only one destination. The layout is list → detail, as for admin.
+- **Rejected.** A scoped admin view: the admin guards would need an org-type filter, the leak risk is above, and the frozen rail would change. A processor screen inside the buyer surface: a buyer and a processor are different organisations with different duties, and a buyer must not be able to record processing.
+
+### 28.3 Grade scale
+The buyer picks a **label**. The app stores and signs the **number**. The contract keeps the number as a `uint8` and compares it as `grade ≥ minGrade`.
+
+| Label | Grade (0–100) |
+|---|---|
+| Excellent | 90 |
+| Very good | 80 |
+| Good | 70 |
+| Fair | 60 |
+| Low | 40 |
+
+- The buyer chooses the agreement's minimum grade from the same five labels, so the minimum and the grade always compare cleanly.
+- Grades always display as *label · number*, for example "Very good · 80", and in terms as "Good · 70 of 100".
+- The server refuses any value that is not one of the five numbers, and anything above 100. A `uint8` would allow 255.
+- The numbers leave room for a finer scale later (for example a cupping score) without migrating the contract.
+- **Rejected:**
+  - free numeric entry, which grades the same coffee inconsistently and gives false precision;
+  - the SCA cupping score, which needs roasted samples at delivery;
+  - letter grades, which are easily confused with Indian coffee grade names such as "Plantation A" that describe bean size, not quality.
+
+### 28.4 IA additions
+- **Buyer.**
+  - The buyer surface gains the existing rail component with two items: **Batches** (the default, unchanged) and **Agreements**.
+  - Agreements → agreement detail. The detail carries fund, grade, refund and the read-only settlement result, depending on the agreement's status.
+  - New agreement is reached from the Agreements list.
+  - On phones the rail is the floating glass tab bar with two items.
+  - The M-001 paths Batches → Batch detail → Certificate are unchanged.
+- **FPO admin.**
+  - No new rail item: the four-item rail is frozen.
+  - Agreements live under **Batches**: rail current = Batches.
+  - `/admin/agreements` is linked from the Batches list header ("Agreements with buyers").
+  - A batch delivered under an agreement links to its agreement from the batch detail.
+  - `/admin/agreements/[id]` holds the settlement panel. TSK-25.8 should add `/admin/agreements/page.tsx` beside the planned `[id]` page; it is within TKT-25's owned glob.
+- **Processor.** `/processor` (batches the processor org holds) → `/processor/batches/[batchId]` (record a step, then hand on). See §28.2.
+- **Certificate.**
+  - One journey item is added between *Batched* and *Handed to buyer*.
+  - The page gains no new section. It reuses the existing journey component (`.tl` / `.t-dot`), so this is a content change, not a freeze change.
+  - The certificate derives the step from the proof feed only (TP16).
+  - The public page states no agreement, grade or payment: commercial terms are private. Settlement entries still count among the records the browser checks.
+
+### 28.5 Components used (existing only)
+| Need | Component (source) |
+|---|---|
+| Move between sections | Rail / floating tab bar (`admin.html` `.rail`); the buyer has 2 items, the processor 1 (hidden on phones) |
+| Lists of agreements and batches | Frosted list rows `.q-item` with the bubble, ID, kg, date line and a status line with a mark (`admin.html` queue) |
+| Status | Verdict chip `.vchip` `ok` / `check`. A neutral chip for *Not funded yet*, *Funded* and *Refunded* uses `--surface-2` and `--ink` with the dashed `mk-na` mark (existing tokens and mark). |
+| Agreement terms, delivered batch | Frosted card (`.glass.card`) with definition rows that use the `.chk` row rhythm (hairline, 12 px padding, 152 px label column at ≥ 720 px container width) |
+| Settlement conditions; mass balance | Check rows `.chk` + `.c-stat` + `.c-name` (+ `<code>` key) + `.c-ev` evidence (`admin.html` "All 12 checks"): *Met* = `mk-ok` / `--ok-ink`; *Not met* and *Flagged* = `mk-check` / `--check-ink`, with the row tinted as `.chk.check` |
+| Fund, grade, refund, hand on | Decide panel `.decide` with `.dec-note` (seal icon) and one primary pill (`admin.html` reason panel) |
+| Released / not released / handed on | Outcome card `.outcome` with a chip. Released uses the `.decide` green wash, not released the `.state-card.err` amber wash (both existing values). |
+| Form fields | The `.decide textarea` recipe (16 px radius, 1.5 px border, dark fill, 17 px) applied to `input` and `select`. Option rows use the `.menu-list` row recipe (52 px, 18 px radius, selected = the `aria-current` style) around a native radio. |
+| Empty, error, loading | `.state-card` (+ cherry), `.state-card.err` + amber "Try again" pill, `.sk` skeletons, `.load-note` (`admin.html`) |
+| Certificate step | Journey `.journey` / `.tl` / `.t-dot` / `.t-step` / `.t-when` / `.t-where` and `.unconfirmed` (`verify.html`, verbatim). A flagged dot uses `--check-tint` / `--check` with `mk-check` inside and the `.st-ic` glow value. |
+
+### 28.6 States
+Every data view implements all five states. *Working* here means an action in progress. In §18, "Working" names the populated view, which this table calls *Data*. All states are reachable in dev with `?state=` (technical-plan §11).
+
+| View | Loading | Empty | Error | Working (action running) | Data |
+|---|---|---|---|---|---|
+| Buyer agreement list | "Loading your agreements…" + row skeletons | "No agreements yet." + what an agreement is + **New agreement** | "Couldn't load your agreements. Nothing was changed." + Try again | detail shows "Hosahalli FPO is settling this agreement…" | rows with status chips; detail = terms + latest result + conditions |
+| New agreement | form skeleton | "No FPO to agree with yet." + what to do | inline: "Couldn't create the agreement. Nothing was saved. What you typed is still here." + Try again | fields disabled; pill "Creating the agreement…" | the form |
+| Fund (and refund) | detail skeleton | "There's no agreement AG-0009 for your account." (also for other organisations' IDs: a 404, not a 403) | inline: "Couldn't fund the agreement. The ledger didn't answer, so nothing moved. Your balance is unchanged." | pill "Moving ₹2,40,000.00 into escrow…" | terms + fund panel (balance before → after, three conditions, refund date); after the deadline, the refund panel |
+| Grade a delivered batch | detail skeleton | "No batch delivered yet. When Hosahalli FPO delivers a batch under this agreement, you grade it here." | inline: "Couldn't save the grade. Nothing was signed. Your choice is still selected." | options disabled; pill "Signing the grade…" | delivered batch card + five options + below-minimum note |
+| Admin agreement + settlement | list + detail skeletons | "No agreements yet. An agreement appears here when a buyer sets one up with your FPO." | "Couldn't load the agreements. Nothing was changed." + Try again | "Settling: sending the three conditions to the ledger…"; pill disabled "Settling…" | ready (conditions + **Settle**) · released · not released |
+| Processor batches + step | list + detail skeletons | "No batches with you right now. A batch appears here when an FPO hands it to you." | "Couldn't load your batches. Nothing was changed." + Try again | fields disabled; pill "Recording the step…" | form · within range · flagged · handed on |
+| Certificate journey | proof "Checking 7 of 16 records…" + journey skeleton | batch with no processing step: the M-001 journey, unchanged | does not match: the existing mismatch treatment (no green, dot icons hidden, `.unconfirmed` note) | — (no actions on the public page) | the step within range, or flagged |
+
+### 28.7 Copy
+- **Plain words.** Agreement, fund, escrow, delivered, grade, released, not released, take the money back, hand on, flagged. Avoid: oracle, attestation, bitmask, uint8, settlement transaction, mass-balance violation.
+- **Never accusation words.** Not fraud, fake, suspicious, cheat, tampered, violation, breach, penalty, failed, rejected or defaulted, for a condition, a step or a party. A condition is *Met* or *Not met*. A processing step is *Within range* or *Flagged*: "Nothing is refused. The step is recorded, and the flag shows on the batch's certificate."
+- **Settlement released** (`--ok`): "Payment released · ₹1,50,000.00 (mock INR) · Paid from escrow to Hosahalli FPO on 30 Sep 2026, 4:12 pm. All three conditions were met." It also shows the ledger line (chain, block, tx).
+- **Settlement not released** (`--check`): it always names each condition that was not met, with value and threshold. Example: "2 conditions are not met: delivered quantity (598.5 kg of 600.0 kg) and Verified pickings (13 of 14)." It also says where the money is and what can still happen: "The ₹1,50,000.00 (mock INR) stays in escrow. A later delivery under this agreement can still settle it until 31 Dec 2026."
+- **Condition rows (value vs threshold).**
+  - "**598.5 kg** delivered · at least 600.0 kg agreed (1.5 kg short)"
+  - "Graded **Very good · 80** · minimum Good · 70"
+  - "**13 of 14** pickings Verified · all must be Verified. One picking (Farm F-0231, 24 Sep) still Needs a check."
+
+  The wording follows TSK-25.6 `reasons` (`Delivered 598.5 kg of 600.0 kg agreed`).
+- **Trust statement** (always under the conditions): "Delivered kg and “every picking Verified” are stated by the Udgam server, the only account allowed to settle. The grade is signed by the server on behalf of the buyer's account. The contract does the arithmetic." This is TKT-25's honest-trust wording; signatures follow TP15 ("signed by the server on behalf of your account").
+- **Mass balance.** The evidence follows TSK-26.2: "Output 420.0 kg is 70.0% of input 600.0 kg (expected 75–85% for hulling parchment)." When output exceeds input, the sentence says "a gain in weight" (EVAL-102). Pulping and drying show "placeholder range, to be confirmed" until the owner confirms the bands (TSK-26.1).
+- **Money.** Indian digit grouping with paise ("₹1,50,000.00"). Every amount carries "mock INR" and, where space allows, "not real money".
+- **Statuses.** Buyer: *Not funded yet* · *Funded · waiting for delivery* · *Needs your grade* · *Not released yet* · *Payment released* · *Deadline passed · you can take it back* · *Refunded*. Admin: *Ready to settle* · *Not released* · *Payment released* · *Buyer hasn't funded it yet*. Processor: *Ready for a processing step* · *Within range* · *Flagged* · *Handed on to Buyer B-07*.
+
+### 28.8 Responsive and accessibility (measured on the mockup)
+- **Responsive.** Same breakpoints as admin (§16): rail + list + detail at ≥ 1100 px, list → detail with **Back** below that, and a floating tab bar below 700 px (none for the processor).
+- **Measured.** 167 renders of `contract.html` in Playwright Chromium (reduced motion) were checked:
+  - 41 at 1440 px and 63 each at 768 and 375 px;
+  - every screen, variant and state;
+  - at the two narrow widths, also the list view behind each full-screen detail.
+
+  None has horizontal scroll (`scrollWidth ≤ clientWidth`). `@axe-core/playwright` reports 0 violations of any impact. Screenshots and per-render results are in the session scratchpad (`qa/TKT-23/`).
+- **Implementation notes kept from the mockup.**
+  - When the detail is the whole screen (< 1100 px), the list's h1 is hidden. The detail repeats it as a visually hidden h1 so that every view has one h1 and the heading order holds.
+  - The detail column scrolls on its own at ≥ 1100 px and is focusable (`tabindex="0"`) so that keyboard users can scroll it.
+  - Grade and process choices are native radios inside 52 px rows. Fields are 56 px. Pills are ≥ 56 px.
+  - Every status pairs a word with a mark shape; colour is never the only signal.
+  - Loading shows skeletons, with a `.load-note` line naming what is loading, as in `admin.html`. A spinner is never the whole loading state. An action in progress shows its own words on the disabled pill.
+
+### 28.9 Open items for the owner (not blocking TKT-25/26)
+1. Pulping and drying bands are placeholders (TSK-26.1). The UI says so until they are confirmed.
+2. The processor's input kg is what the processor weighs. It is not compared with the batch's recorded cherry kg, because the product stage differs (cherry vs parchment). Only output against input is checked.
+3. The public certificate shows no agreement or payment (§28.4). A visible "Paid under agreement" step would be a later design change.
+4. An agreement can receive more than one delivered batch. The settle action names the batch, and with several candidates the admin picks one from a select in the settlement panel (not mocked: one batch in the demo data).

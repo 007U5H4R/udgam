@@ -1,6 +1,6 @@
 {
   "$schema": "./eval-dataset.schema.json",
-  "dataset_version": "0.6.0",
+  "dataset_version": "0.6.1",
   "status": "Stage 3 seed. Representative cases only; Stage 7 extends to about 40 legitimate and at least 10 attack cases per scenario 1-4, appending new IDs after the last one used here. IDs are never renumbered or reused. 0.2.0 (Stage 6, TP23): added Milestone 2 cases EVAL-093 to EVAL-105; EVAL-054 and EVAL-068 activated by TP5 and TP7. 0.3.0 (Stage 7, TKT-08): added scenario 1 attack cases EVAL-110 to EVAL-113 (scenario 1 to 11 active S1 cases). 0.4.0 (Stage 7, TKT-07): added plot-laundering fixtures X08 to X10 and scenario 3 attack cases EVAL-106 to EVAL-108 (scenario 3 to 10 active S1 cases). 0.5.0 (Stage 7, TKT-09): added scenario 2 replay cases EVAL-114 to EVAL-117 and scenario 4 yield cases EVAL-118 to EVAL-121 (each scenario to 10 active S1 cases); input.context.crop overrides a fixture plot's crop (EVAL-121).",
   "plan": "evaluation-plan.md (project root, authoritative)",
   "conventions": {
@@ -1282,7 +1282,7 @@
       "priority": "high", "automated": true, "milestone": "M2", "status": "active",
       "depends_on": ["TP23"],
       "input": { "description": "Agreement, settlement and processor screens from the TKT-23 design addendum at 375, 768 and 1440 px in loading, empty, error and working states." },
-      "expected": { "behavior": "No horizontal scroll; all four states render; axe reports no serious or critical violations; the screens match the approved addendum." },
+      "expected": { "behavior": "On each addendum screen (Design.md §28.1): buyer agreement list (/buyer/agreements), new agreement (/buyer/agreements/new), buyer agreement detail with fund and with grade a delivered batch (/buyer/agreements/[id]), FPO admin agreement detail with the settlement panel (/admin/agreements/[id]), processor record a processing step and hand on (/processor), and the processing step in the certificate journey (/verify/[batchId]): no horizontal scroll; all four states render; axe reports no serious or critical violations; the screens match the approved addendum (Design.md §28, final/contract.html), including the settlement panel showing quantity, grade and Verified pickings each as value vs threshold, 'released' in --ok and 'not released' in --check naming each condition not met." },
       "failure_conditions": ["Any gate fails"],
       "tags": ["design"]
     },
