@@ -5,6 +5,7 @@ import { distanceToEdgeM, haversineM } from '../../src/lib/geo/distance';
 import type { LatLng } from '../../src/lib/geo/types';
 import type { FaultMode, ProviderFault } from '../../src/lib/remote-sensing/fixture';
 import type { ProviderName } from '../../src/lib/remote-sensing/types';
+import { CONFIG } from '../../src/lib/verification/config';
 import { CHECK_IDS, type CapturePayloadV1, type CheckId, type Submission, type VerifyContext } from '../../src/lib/verification/types';
 import {
   buildRemoteSensing,
@@ -56,7 +57,7 @@ const OP_PARAMS: Record<string, readonly string[]> = {
   prev_event: ['distance_km', 'minutes_before', 'none'],
   reuse_media: ['from_case', 'which', 'transform'],
   chain: ['seq_delta', 'prev_hash'],
-  season_cumulative: ['ratio_after_event', 'ratio_before_event'],
+  season_cumulative: ['ratio_after_event', 'ratio_before_event', 'split_kg_max'],
   photos: ['count'],
   provider_fault: ['provider', 'mode', 'cache'],
   check_throws: ['check', 'error'],
@@ -72,6 +73,12 @@ export type BuiltCase = {
   context: VerifyContext;
   providerFaults: ProviderFault[];
   throwCheck?: ThrowCheck;
+  /**
+   * `season_cumulative` with `split_kg_max` (EXE23 OD-3): the earlier pickings of this event, in order,
+   * each a separate signed capture on the same plot, device chain and season. Their kg are in
+   * `context.seasonCherryKgBefore`; `submission` is the last picking. Absent otherwise.
+   */
+  priorPickings?: Submission[];
   /** Where the engine had to adapt an intent to the fixture (reported with the case result). */
   notes: string[];
 };
@@ -90,7 +97,8 @@ type Draft = {
   /** `which`: all of the source's photos, one, or the first k (TKT-09, EVAL-114 "2 of 3"). */
   reuse: { fromCase: string; which: 'all' | 'one' | number; reEncode: boolean } | null;
   chain: { seqDelta: number; prevHash: 'correct' | 'stale' | 'genesis' };
-  season: { after: number; before?: number } | null;
+  /** `splitKgMax`: deliver the event's kg (after − before) as pickings of at most this many kg (EXE23 OD-3). */
+  season: { after: number; before?: number; splitKgMax?: number } | null;
   photos: number;
   faults: ProviderFault[];
   throwCheck?: ThrowCheck;
@@ -106,6 +114,8 @@ const PRIOR_DEVICE_EVENTS = 12;
 /** agent-A's accepted entries on revoked D-A2, which re-enrolled D-A3 inherits as agent history (EVAL-021). */
 const OTHER_DEVICE_EVENTS: Record<string, number> = { 'D-A3': 12 };
 const DEFAULT_CHERRY_KG = 42.5;
+/** Minutes between consecutive pickings of a split event (split_kg_max), on server and client clocks. */
+const PICKING_GAP_MIN = 30;
 const NEVER_ENROLLED = 'K-X';
 
 function defaults(): Omit<Draft, 'plot' | 'device'> {
@@ -185,11 +195,19 @@ function apply(d: Draft, m: Mutation): Draft {
     }
     case 'chain':
       return { ...d, chain: { seqDelta: num(m, 'seq_delta'), prevHash: oneOf(m, 'prev_hash', ['correct', 'stale', 'genesis'] as const) } };
-    case 'season_cumulative':
+    case 'season_cumulative': {
+      const before = m.ratio_before_event !== undefined ? num(m, 'ratio_before_event') : undefined;
+      let splitKgMax: number | undefined;
+      if (m.split_kg_max !== undefined) {
+        splitKgMax = num(m, 'split_kg_max');
+        if (splitKgMax < 0.5) throw new InvalidMutationParam(m.op, 'split_kg_max', `split_kg_max must be at least 0.5 kg, got ${splitKgMax}`);
+        if (before === undefined) throw new InvalidMutationParam(m.op, 'split_kg_max', 'split_kg_max needs ratio_before_event (it splits the kg between the two)');
+      }
       return {
         ...d,
-        season: { after: num(m, 'ratio_after_event'), ...(m.ratio_before_event !== undefined ? { before: num(m, 'ratio_before_event') } : {}) },
+        season: { after: num(m, 'ratio_after_event'), ...(before !== undefined ? { before } : {}), ...(splitKgMax !== undefined ? { splitKgMax } : {}) },
       };
+    }
     case 'photos': {
       const count = num(m, 'count');
       if (!Number.isInteger(count) || count < 1 || count > 3) throw new InvalidMutationParam(m.op, 'count', `count must be 1–3, got ${count}`);
@@ -425,14 +443,10 @@ export async function buildCase(c: EvalCase, ds: HarnessInputs, keys: DeviceKeys
   const capturedAt = addMinutes(serverReceivedAt, d.clientClockOffsetMin);
 
   // Chain position (TP10): genesis = a fresh device chain; otherwise the device head is entry PRIOR.
+  // Split pickings (split_kg_max) extend the chain first, so lastSeq/lastEventHash move to their head.
   const genesis = d.chain.prevHash === 'genesis';
-  const lastSeq = genesis ? 0 : PRIOR_DEVICE_EVENTS;
-  const lastEventHash = genesis ? null : await eventHash(d.device, PRIOR_DEVICE_EVENTS);
-  const seq = genesis ? 1 + d.chain.seqDelta : lastSeq + d.chain.seqDelta;
-  let prevEventHash: string;
-  if (genesis) prevEventHash = 'genesis';
-  else if (d.chain.prevHash === 'correct') prevEventHash = lastEventHash!;
-  else prevEventHash = await eventHash(d.device, Math.max(0, Math.min(seq - 1, PRIOR_DEVICE_EVENTS - 1)));
+  let lastSeq = genesis ? 0 : PRIOR_DEVICE_EVENTS;
+  let lastEventHash = genesis ? null : await eventHash(d.device, PRIOR_DEVICE_EVENTS);
 
   // Photos: fresh per case, or reused from another case (reuse_media), and what the server has seen.
   const hashesOf = async (caseId: string, n: number, reEncoded = false) => Promise.all(Array.from({ length: n }, (_, i) => photoHash(caseId, i, reEncoded)));
@@ -462,10 +476,35 @@ export async function buildCase(c: EvalCase, ds: HarnessInputs, keys: DeviceKeys
   const kgPerU = (yieldReference.maxKgHa * spec.area_ha) / yieldReference.cherryToCleanRatio;
   let cherryKg = DEFAULT_CHERRY_KG;
   let seasonCherryKgBefore = 0;
+  let priorKgs: number[] = [];
   if (d.season) {
     if (d.season.before !== undefined) cherryKg = Math.round((d.season.after - d.season.before) * kgPerU * 2) / 2;
+    if (d.season.splitKgMax !== undefined && cherryKg > d.season.splitKgMax) {
+      // EXE23 OD-3: the event's kg as n pickings of equal size (to 0.5 kg), the last taking the remainder.
+      const eventKg = cherryKg;
+      const n = Math.ceil(eventKg / d.season.splitKgMax);
+      const each = Math.floor((eventKg / n) * 2) / 2;
+      priorKgs = Array.from({ length: n - 1 }, () => each);
+      cherryKg = eventKg - each * (n - 1);
+    }
     seasonCherryKgBefore = d.season.after * kgPerU - cherryKg;
     if (cherryKg < 0.5 || seasonCherryKgBefore < 0) throw new Error(`${c.id}: season_cumulative ${JSON.stringify(d.season)} is not reachable on ${d.plot}`);
+  }
+  if (priorKgs.length > 0) {
+    if (d.chain.prevHash === 'stale') throw new Error(`${c.id}: split_kg_max needs a correct or genesis chain, not stale`);
+    // TP6 counts only pickings that were not Rejected. A picking that alone takes the season over the
+    // hard-fail line would be Rejected and left out, so say so: the result is read for what it is.
+    let running = seasonCherryKgBefore - priorKgs.reduce((a, b) => a + b, 0);
+    for (let k = 0; k < priorKgs.length; k++) {
+      running += priorKgs[k]!;
+      const ratio = running / kgPerU;
+      if (ratio > CONFIG.yield.hardFailAboveU) {
+        notes.push(
+          `split pickings: picking ${k + 1} of ${priorKgs.length + 1} already takes the season to ${ratio.toFixed(2)}x U (over ${CONFIG.yield.hardFailAboveU.toFixed(2)}x U); live, it would be Rejected and left out of the season total (TP6)`,
+        );
+        break;
+      }
+    }
   }
   // verify() does not re-check the capture schema; say so when this picking could not pass /api/capture
   // as one upload (e.g. EVAL-049's 0.30x U on a 2 ha plot under the synthetic U), so the result is read
@@ -473,6 +512,41 @@ export async function buildCase(c: EvalCase, ds: HarnessInputs, keys: DeviceKeys
   if (!capturePayloadV1.shape.cherryKg.safeParse(cherryKg).success) {
     notes.push(`cherryKg ${cherryKg} is outside the capture schema (0.5–500 kg per picking): the /api/capture boundary would refuse this single upload`);
   }
+
+  // The earlier pickings (split_kg_max): honest signed captures at the same spot, PICKING_GAP_MIN apart.
+  const priorPickings: Submission[] = [];
+  for (let k = 0; k < priorKgs.length; k++) {
+    const back = -(priorKgs.length - k) * PICKING_GAP_MIN;
+    const pCapturedAt = addMinutes(capturedAt, back);
+    const pHashes = await hashesOf(`${c.id}/picking-${k + 1}`, d.photos);
+    const p: CapturePayloadV1 = {
+      v: 1,
+      plotId: d.plot,
+      deviceId: d.device,
+      seq: lastSeq + 1,
+      prevEventHash: lastEventHash ?? 'genesis',
+      capturedAt: pCapturedAt,
+      gps: { lat: at.lat, lng: at.lng, accuracyM: round1(d.accuracyM) },
+      cherryKg: priorKgs[k]!,
+      media: pHashes.map((sha256, i) => ({ sha256, size: 2_400_000 + 37_000 * i, mime: 'image/jpeg' })),
+    };
+    const pHash = await sha256Hex(jcs(p));
+    priorPickings.push({
+      payload: p,
+      payloadHash: pHash,
+      signature: await sign(deviceKey.pair.privateKey, jcs(p)),
+      media: p.media.map((m) => ({ sha256: m.sha256, exif: { gps: { lat: at.lat, lng: at.lng }, takenAt: pCapturedAt } })),
+      serverReceivedAt: addMinutes(serverReceivedAt, back),
+    });
+    lastSeq = p.seq;
+    lastEventHash = pHash;
+  }
+
+  const seq = genesis ? lastSeq + 1 + d.chain.seqDelta : lastSeq + d.chain.seqDelta;
+  let prevEventHash: string;
+  if (genesis) prevEventHash = lastEventHash ?? 'genesis';
+  else if (d.chain.prevHash === 'correct') prevEventHash = lastEventHash!;
+  else prevEventHash = await eventHash(d.device, Math.max(0, Math.min(seq - 1, PRIOR_DEVICE_EVENTS - 1)));
 
   const payload: CapturePayloadV1 = {
     v: 1,
@@ -497,9 +571,12 @@ export async function buildCase(c: EvalCase, ds: HarnessInputs, keys: DeviceKeys
   };
 
   const revoked = deviceSpec.state === 'revoked' || d.deviceState === 'revoked';
-  const previousEvent = d.prevEvent
-    ? { ...atDistance(at, 0, d.prevEvent.distanceKm * 1000), capturedAt: addMinutes(capturedAt, -d.prevEvent.minutesBefore) }
-    : null;
+  const lastPicking = priorPickings.at(-1)?.payload;
+  const previousEvent = lastPicking
+    ? { lat: lastPicking.gps.lat, lng: lastPicking.gps.lng, capturedAt: lastPicking.capturedAt }
+    : d.prevEvent
+      ? { ...atDistance(at, 0, d.prevEvent.distanceKm * 1000), capturedAt: addMinutes(capturedAt, -d.prevEvent.minutesBefore) }
+      : null;
   const providerFaults = d.faults.map((f) => ({ ...f }));
   const context: VerifyContext = {
     device: { id: d.device, publicJwk: deviceKey.publicJwk, revokedAt: revoked ? REVOKED_AT : null, lastSeq, lastEventHash },
@@ -512,5 +589,12 @@ export async function buildCase(c: EvalCase, ds: HarnessInputs, keys: DeviceKeys
     remoteSensing: buildRemoteSensing(ds.profiles, providerFaults),
   };
 
-  return { submission, context, providerFaults, notes, ...(d.throwCheck ? { throwCheck: { ...d.throwCheck } } : {}) };
+  return {
+    submission,
+    context,
+    providerFaults,
+    notes,
+    ...(d.throwCheck ? { throwCheck: { ...d.throwCheck } } : {}),
+    ...(priorPickings.length > 0 ? { priorPickings } : {}),
+  };
 }
