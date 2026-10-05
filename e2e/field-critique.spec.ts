@@ -206,3 +206,17 @@ test('DES-002: offline, Send now stays on Pickings with the saved row and says n
   await pending.getByRole('button', { name: 'Send now' }).click();
   await expect(page.getByTestId('pending-rows')).toHaveCount(0, { timeout: 90_000 });
 });
+
+test('DES-003: the Home plot card clips the contour lines that run past its glass edge', async ({ page, context }) => {
+  await page.setViewportSize({ width: 768, height: 1024 });
+  const seed = seedCaptureWorld();
+  await openField(page, context, seed);
+  const card = page.locator('.plot-card');
+  const m = await card.evaluate((el) => {
+    const c = el.getBoundingClientRect();
+    const g = el.querySelector('.m-contour')!.getBoundingClientRect();
+    return { overflow: getComputedStyle(el).overflow, past: g.left < c.left || g.right > c.right };
+  });
+  expect(m.past).toBe(true); // the lines are drawn wider than the card …
+  expect(m.overflow).toBe('hidden'); // … and the card clips them
+});
