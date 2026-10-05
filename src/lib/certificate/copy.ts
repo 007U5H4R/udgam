@@ -72,7 +72,8 @@ export const certCopy = {
 
   map: {
     heading: 'Where it was grown',
-    label: (n: number, place: string) => `Map of the ${n} farm ${plural(n, 'plot', 'plots')} in this batch in ${place}. Each plot is drawn by its boundary line.`,
+    label: (n: number, place: string, numbered = false) =>
+      `Map of the ${n} farm ${plural(n, 'plot', 'plots')} in this batch in ${place}. Each plot is drawn by its boundary line${numbered ? ' and numbered as in the farm list below' : ''}.`,
     farms: 'Farms in this batch',
     farm: (producerId: string) => `Farm ${producerId}`,
     pickings: (n: number, kg: string) => `${n} ${plural(n, 'picking', 'pickings')} · ${kg} kg`,

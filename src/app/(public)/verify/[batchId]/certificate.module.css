@@ -253,6 +253,63 @@
   font: 700 22px var(--font);
   letter-spacing: 0.12em;
 }
+/* DES-200: a ring around a plot drawn too small to see, and a number badge where the ID does not fit (the
+   same number leads the plot's row in the farm list). Drawn with the map's own line and label values. */
+.mRing {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.6;
+  stroke-dasharray: 5 5;
+}
+.mBadge circle {
+  fill: rgba(10, 14, 12, 0.78);
+  stroke: var(--accent);
+  stroke-width: 2.6;
+}
+.mBadge text {
+  fill: #f3f6f4;
+  font: 700 18px var(--font);
+}
+.rowBadge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  margin-right: 8px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1.5px solid var(--accent);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: 1px;
+}
+/* DES-217: in forced colours the map keeps its outlines, rings, badges and words in system colours. */
+@media (forced-colors: active) {
+  .mLine,
+  .mRing,
+  .mBadge circle {
+    stroke: CanvasText;
+  }
+  .mFill,
+  .mBadge circle {
+    fill: Canvas;
+  }
+  .mGlow,
+  .mContour,
+  .mStream {
+    stroke: transparent;
+  }
+  .mLabel,
+  .mSub,
+  .mPlace,
+  .mBadge text {
+    fill: CanvasText;
+  }
+  .rowBadge {
+    border-color: CanvasText;
+  }
+}
 .farms {
   display: grid;
   border-top: 1px solid var(--hairline);
