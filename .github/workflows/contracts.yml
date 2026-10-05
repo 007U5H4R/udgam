@@ -1,0 +1,88 @@
+name: Contracts
+
+# M-002 (technical-plan TSK-24.9; docs/spikes/foundry.md §7): Foundry tests, the EVM adapter's tests
+# against Anvil, and the proof suite on the EVM ledger adapter (EVAL-103). A separate workflow, so the
+# required CI jobs (`audit (production dependencies)`, `bundle-secrets (…)`) keep their names. Foundry and
+# solc are the pinned GitHub release assets, checked against the same digests as scripts/cloud-setup.sh.
+
+on:
+  push:
+    paths:
+      - 'contracts/**'
+      - 'src/lib/ledger/**'
+      - 'src/lib/db/**'
+      - 'evals/harness/**'
+      - 'evals/scorers/independent-verifier/**'
+      - 'scripts/evm-deploy.ts'
+      - 'scripts/ledger-audit.ts'
+      - 'scripts/cloud-setup.sh'
+      - 'tests/helpers/evm-world.ts'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'vitest.config.ts'
+      - '.github/workflows/contracts.yml'
+  pull_request:
+    paths:
+      - 'contracts/**'
+      - 'src/lib/ledger/**'
+      - 'src/lib/db/**'
+      - 'evals/harness/**'
+      - 'evals/scorers/independent-verifier/**'
+      - 'scripts/evm-deploy.ts'
+      - 'scripts/ledger-audit.ts'
+      - 'scripts/cloud-setup.sh'
+      - 'tests/helpers/evm-world.ts'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'vitest.config.ts'
+      - '.github/workflows/contracts.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contracts-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: contracts (forge test, EVM adapter, EVAL-103)
+    runs-on: ubuntu-latest
+    env:
+      FOUNDRY_VERSION: 1.8.3
+      FOUNDRY_SHA256: 7ca48e6ca3cac1bce1403ca67e5bc1dc3bc1fd818199c9957c7165079c228568
+      SOLC_VERSION: 0.8.37
+      SOLC_SHA256: 5de843c2c93563cc66425c99a4fb13fdbf32b4c4ae07469480faaf126e14404a
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Foundry and solc
+        shell: bash
+        run: |
+          set -euo pipefail
+          tarball="$RUNNER_TEMP/foundry.tar.gz"
+          curl -sSfL --retry 2 -o "$tarball" "https://github.com/foundry-rs/foundry/releases/download/v${FOUNDRY_VERSION}/foundry_v${FOUNDRY_VERSION}_linux_amd64.tar.gz"
+          echo "${FOUNDRY_SHA256}  ${tarball}" | sha256sum --check --strict
+          mkdir -p "$HOME/.foundry/bin"
+          tar -xzf "$tarball" -C "$HOME/.foundry/bin" forge anvil cast
+          solc="$HOME/.svm/${SOLC_VERSION}/solc-${SOLC_VERSION}"
+          mkdir -p "$(dirname "$solc")"
+          curl -sSfL --retry 2 -o "$solc" "https://github.com/ethereum/solidity/releases/download/v${SOLC_VERSION}/solc-static-linux"
+          echo "${SOLC_SHA256}  ${solc}" | sha256sum --check --strict
+          chmod 0755 "$solc"
+          echo "$HOME/.foundry/bin" >> "$GITHUB_PATH"
+      - name: Foundry versions
+        run: forge --version && anvil --version
+      - name: forge test (TC-082)
+        working-directory: contracts
+        run: forge test -vv
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: EVM adapter tests against Anvil (TC-083, EVAL-104)
+        run: pnpm test:evm
+      - name: Proof suite on the EVM adapter (EVAL-103)
+        run: pnpm eval --ledger=evm --milestone=M2
