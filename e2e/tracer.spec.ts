@@ -86,7 +86,7 @@ test('TC-013 EVAL-001 EVAL-002 a seeded phone signs a picking and sees Verified 
   await expect(page.locator('#verdict-h')).toHaveText('Verified');
   const evidence = page.getByTestId('evidence').getByRole('listitem');
   await expect(evidence).toHaveCount(3);
-  await expect(evidence).toHaveText([/^You were \d+ m inside Plot 1$/, '1 new photo, taken today', 'Forest map: no trees cleared since 2021 (demo data)']);
+  await expect(evidence).toHaveText([/^You were \d+\u00a0m inside Plot 1$/, '1 new photo, taken today', 'Forest map: no trees cleared since 2021 (demo\u00a0data)']);
 
   const events = await query<{ id: string; payload: string; signature: string; cherry_kg: number; seq: number; final_verdict: string; anchor_seq: number }>(
     'SELECT id, payload, signature, cherry_kg, seq, final_verdict, anchor_seq FROM harvest_events WHERE device_id = ?',

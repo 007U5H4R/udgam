@@ -224,41 +224,40 @@ test.describe('buyer list and detail (TSK-14.6, TC-060, EVAL-080)', () => {
     await expect(page.getByText('Verified on this device just now')).toBeVisible();
   });
 
-  test('the organic line shows on both batch detail pages for an attested member plot, and only there (QA-P5-2, TC-058)', async ({ browser }) => {
+  test('the organic line shows on both batch detail pages for an attested member plot, and only there (QA-P5-2, TC-058)', async ({ page }) => {
     test.setTimeout(90_000);
     const LINE = 'Certified by E2E Organic Body — certificate on record · valid 1 Jan 2026–1 Jan 2036';
     const attested = seedBatches('ORG-BUYER-A', 'E2E Organic Body');
     // another FPO's batch, also held by buyer A, has no certificate on record: the first FPO's never shows on it
     const plain = seedBatches('ORG-BUYER-A');
+    /** Sign in as someone else in this project's own page (its viewport kept). */
+    const signInAs = async (email: string, password: string) => {
+      await page.context().clearCookies();
+      await signIn(page, email, password);
+    };
 
-    const admin = await browser.newPage();
-    await signIn(admin, attested.adminEmail, attested.testOnlyAdminPassword);
-    await admin.goto(`/admin/batches/${attested.batch!.batchId}`);
-    const members = admin.getByRole('region', { name: 'Pickings in this batch' });
+    await signInAs(attested.adminEmail, attested.testOnlyAdminPassword);
+    await page.goto(`/admin/batches/${attested.batch!.batchId}`);
+    const members = page.getByRole('region', { name: 'Pickings in this batch' });
     await expect(members.getByTestId('attestation-line')).toHaveCount(3); // one per picking of the attested plot
     await expect(members.getByTestId('attestation-line').first()).toHaveText(LINE);
     await expect(members.getByTestId('attestation-line').first().locator('bdi')).toHaveText('E2E Organic Body');
-    await checkSurface(admin);
-    await admin.close();
+    await checkSurface(page);
 
-    const other = await browser.newPage();
-    await signIn(other, plain.adminEmail, plain.testOnlyAdminPassword);
-    await other.goto(`/admin/batches/${plain.batch!.batchId}`);
-    await expect(other.getByRole('heading', { level: 2, name: plain.batch!.batchId })).toBeVisible();
-    await expect(other.getByTestId('attestation-line')).toHaveCount(0);
-    await other.close();
+    await signInAs(plain.adminEmail, plain.testOnlyAdminPassword);
+    await page.goto(`/admin/batches/${plain.batch!.batchId}`);
+    await expect(page.getByRole('heading', { level: 2, name: plain.batch!.batchId })).toBeVisible();
+    await expect(page.getByTestId('attestation-line')).toHaveCount(0);
 
-    const buyer = await browser.newPage();
-    await signIn(buyer, DEMO_ACCOUNTS.buyerA.email, SEED_PASSWORD);
-    await buyer.goto(`/buyer/batches/${attested.batch!.batchId}`);
-    const plots = buyer.getByRole('region', { name: 'Plots and producers' });
+    await signInAs(DEMO_ACCOUNTS.buyerA.email, SEED_PASSWORD);
+    await page.goto(`/buyer/batches/${attested.batch!.batchId}`);
+    const plots = page.getByRole('region', { name: 'Plots and producers' });
     await expect(plots.getByTestId('attestation-line')).toHaveCount(1);
     await expect(plots.getByTestId('attestation-line')).toHaveText(LINE);
-    await checkSurface(buyer);
-    await buyer.goto(`/buyer/batches/${plain.batch!.batchId}`);
-    await expect(buyer.getByRole('heading', { level: 2, name: plain.batch!.batchId })).toBeVisible();
-    await expect(buyer.getByTestId('attestation-line')).toHaveCount(0);
-    await buyer.close();
+    await checkSurface(page);
+    await page.goto(`/buyer/batches/${plain.batch!.batchId}`);
+    await expect(page.getByRole('heading', { level: 2, name: plain.batch!.batchId })).toBeVisible();
+    await expect(page.getByTestId('attestation-line')).toHaveCount(0);
   });
 
   test("buyer B does not see buyer A's batch, and opening it is a 404 (EVAL-080, TC-019)", async ({ page }) => {

@@ -59,7 +59,7 @@ test('Verified: the lit word, "Your 42.5 kg from Plot 1 is recorded.", three evi
   await expect(page.locator('.v-sub')).toHaveText('Your 42.5 kg from Plot 1 is recorded.');
   const lines = page.getByTestId('evidence').locator('li');
   await expect(lines).toHaveCount(3);
-  await expect(lines.first()).toHaveText(/^You were \d+ m inside Plot 1$/);
+  await expect(lines.first()).toHaveText(/^You were \d+\u00a0m inside Plot 1$/); // the number keeps its unit (no-break space)
   await expect(lines.nth(1)).toHaveText('1 new photo');
   await expect(page.locator('main button')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Done' })).toBeVisible();
@@ -94,7 +94,7 @@ test('Needs a check (weak GPS): amber cherry, the chip, "The office will check t
   await expect(page.locator('.status-row .vchip')).toHaveText('Needs a check');
   await expect(page.locator('#verdict-h')).toHaveText('The office will check this one');
   const lines = page.getByTestId('evidence').locator('li');
-  await expect(lines.first()).toHaveText('The GPS signal was weak (150 m).');
+  await expect(lines.first()).toHaveText('The GPS signal was weak (150\u00a0m).');
   await expect(lines.last()).toContainText("The office will look at this. You'll see the answer in Pickings. You don't need to do anything.");
   await expect(lines.last()).toContainText('Your 42.5 kg and photos are saved.');
   await expect(page.locator('main button')).toHaveCount(1);
@@ -107,8 +107,8 @@ test('Needs a check (P09, satellite picture cloudy): the fixture-derived line en
   await expect(page.getByTestId('cherry')).toHaveClass(/\bamber\b/);
   await expect(page.locator('#verdict-h')).toHaveText('The office will check this one');
   const cloudy = page.getByTestId('evidence').locator('li', { hasText: 'The satellite picture for this month was cloudy.' });
-  await expect(cloudy).toHaveText(/\(demo data\)$/);
-  await expect(cloudy).toHaveText('The satellite picture for this month was cloudy. (demo data)');
+  await expect(cloudy).toHaveText(/\(demo\u00a0data\)$/);
+  await expect(cloudy).toHaveText('The satellite picture for this month was cloudy. (demo\u00a0data)');
   await expect(page.getByTestId('evidence')).toContainText('The office will look at this.');
 });
 
