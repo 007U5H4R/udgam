@@ -805,3 +805,9 @@ Also recorded from TKT-17's fix round, both accepted by the re-reviewer:
 - Splitting the parts into separate Features: one plot keeps one Feature and one ProducerName row.
 
 No threshold, eval case or cfg-1 value changes (CF-13).
+
+## EXE27 · EVAL-122 stays a reported miss — accepted (owner, 2026-10-05; supersedes EXE23's OD-1 → b)
+**Context.** OD-1 → b (EXE23) asked EVAL-122, a 23 h EXIF gap that is a lone flag and so Verified under EV7, to accept Verified. Applying it showed that `evals/eval-dataset.schema.json` forbids an attack-class case from accepting Verified. It would have needed either a class change or a relaxed schema, and either one raises S1 through a dataset edit alone (EVAL-122 is S1's only miss, 42/43).
+**Decision (owner).** EVAL-122 is unchanged and stays a reported miss. S1 stays 97.7 % (42/43), which passes the ≥ 95 % target. EVAL-116 and EVAL-049 were applied as EXE23 says (dataset 0.7.0).
+**Rejected.** Reclassifying EVAL-122 as a non-attack flag test (S1 42/42), and relaxing the schema so that an attack case may accept Verified (S1 43/43 by counting a Verified as a detection).
+**Noted.** EVAL-049 now runs as six pickings of 500 kg on P01. In the live system, rejected pickings don't count toward the season total (TP6). Picking 5 already reaches 2.05× U, so the last picking would see 2.05× U, not the harness's 2.10× U. The verdict (Rejected, yield_plausibility) is the same. `split_kg_max` is still to be documented in evaluation-plan §7.3 and TSK-03.4 (owner docs).

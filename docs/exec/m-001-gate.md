@@ -24,4 +24,5 @@ TKT-21 (TSK-21.x) completes this file with HR1 (evidence-template snapshots), HR
 | OD-9 | Harness defaults for M-002: `DEFAULT_MILESTONE` stays M1 and the default ledger stays hashchain. EXE15 said the milestone moves to M2 when M-002 starts, but a plain `pnpm eval` on hashchain would then fail S6-lib at 7/8 (EVAL-103 needs the EVM ledger and Anvil) | keep M1 and hashchain as the defaults, with M2 run via `--ledger=evm --milestone=M2` in contracts.yml (as now); or switch both defaults, making Foundry a requirement for `pnpm eval` | TKT-24 spec review, EXE15 |
 
 **Owner answers, 2026-10-05 (EXE23):** OD-1 b · OD-2 yes · OD-3 b · OD-4 acknowledged · OD-6 a · OD-9 a. Still open: OD-5, OD-8.
+**EVAL-122 (EXE27):** OD-1 is superseded; EVAL-122 stays a reported miss (the schema forbids an attack case accepting Verified).
 **Delegated decisions, 2026-10-05 (EXE24):** OD-5: Needs a check names who and where, with no time promise. OD-8: budget restated (client JS above the framework ≤ 60 KB gzip; HTML ≤ 120 KB; S4 unchanged and measured in TKT-21). All OD items are now decided.
