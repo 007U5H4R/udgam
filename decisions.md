@@ -850,3 +850,20 @@ No threshold, eval case or cfg-1 value changes (CF-13).
 - A settlement left half-done after a chain payout is recovered from the `Settled` event and recorded once.
 - `agreements.*` has Kannada drafts awaiting native review. There is no batch picker (Design §28.10 item 4); settle takes the first graded, unsettled batch.
 - The migrations were renumbered at merge to 0026/0027 and 0031/0032, regenerated with the custom SQL unchanged.
+
+## EXE31 · TKT-26 processor-hop deviations — accepted (orchestrator under the owner's waiver and delegation, 2026-10-05; spec and quality reviews PASS)
+- The schema needs two custom migrations around one generated one. 0028 drops the 0009 triggers that name `user`. 0029 rebuilds `user` for the `processor` role and adds `processing_steps`. 0030 recreates the 0009 and 0016 triggers verbatim and adds the custody and step guards. The merge renumbered them from 0026–0028. The rebuild is safe only under the app's migration runner (EXE29).
+- TSK-26.3 is split into a schema-only commit and the plan's commit.
+- The step is rendered through the verify page's journey steps, with an optional `flag` on the shared Timeline (the plan's `journey.tsx` does not exist). The FPO→processor hop folds into the step, as in the mockup. evaluation-plan §4.6's closure list is updated for M-002 here.
+- Custody rules replace the 0007/0008 triggers. The first hop goes from the FPO to a buyer or a processor. A second hop goes only from a processor to a buyer, and a buyer's batch is locked.
+- One step per batch per processor. "Hand on only after a step" is enforced in the library; a database trigger for it is queued in follow-up 2.
+- The signed `processing_step` carries the processor's display name. The hand-on keeps the `custody_transfer` shape, and both verifiers treat `processing_step` as signed.
+- The ratio is rounded to one decimal and the band edges are inclusive. Deterministic tenths arithmetic is queued in follow-up 2.
+- The process radios have no `aria-invalid` (a11y lint); the message is linked from the fieldset. No process is preselected.
+- The processor screens reuse `admin.css`, with a `processor.css` copied from the mockup. The rail gains optional props.
+- The batch detail page has no `loading.tsx`, so an unknown batch returns a real 404.
+- The demo seed adds `ORG-PROC-C03` "Processor C-03".
+- T4: the transfer label is "Hand to", with Buyers and Processors groups.
+- An output above input is accepted and flagged, as the spec says (the brief's "never more than input" was a wording slip).
+
+**Open, with follow-up queued:** if the step is missing, a hand-on to a processor can show publicly as "Handed to buyer". The certificate should label the recipient by its org type, which the feed carries, and verifiers don't detect step omission. Recorded for the owner.

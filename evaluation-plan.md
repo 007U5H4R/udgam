@@ -127,7 +127,7 @@ About half the S1 attack cases are single-signal by design (tag `single-signal`)
 
 ### 4.6 S6 — Every anchored record re-verifiable from the certificate page alone: 100 %
 
-**Scope: the provenance closure of a batch.** `batch_created`; every `custody_transfer`; for each event in the batch: its `harvest_event`, every `verification_run` for it, and any `admin_override` on those runs; for each plot involved: `plot_registered` (including polygon edits) and every `attestation`; for each device involved: `device_enrolled`, and `device_revoked` if present. Records outside every batch (for example rejected captures) are anchored but cannot appear on a certificate; ledger-wide integrity for those is a functional test, not S6.
+**Scope: the provenance closure of a batch.** `batch_created`; every `custody_transfer`; from M-002, every `processing_step` (TKT-26) and every `quality_attestation` and `settlement` of the batch (TKT-25; agreement entries stay out because terms are private, EXE30); for each event in the batch: its `harvest_event`, every `verification_run` for it, and any `admin_override` on those runs; for each plot involved: `plot_registered` (including polygon edits) and every `attestation`; for each device involved: `device_enrolled`, and `device_revoked` if present. Records outside every batch (for example rejected captures) are anchored but cannot appear on a certificate; ledger-wide integrity for those is a functional test, not S6.
 
 **Method (EV11).** For every seeded batch:
 1. **In-page verifier** (Playwright): the panel verifies every in-scope entry.
