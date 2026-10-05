@@ -12,6 +12,8 @@ export const en = {
   'signIn.working': 'Signing in…',
   'signIn.error': 'Email or password is not right.',
   'signIn.unavailable': "Couldn't sign in right now. Try again.",
+  'signIn.errorHelp': 'If you have forgotten it, ask the office that set up your account.',
+  'signIn.certificateHint': 'Looking for a coffee certificate? Open the link or QR code you were given.',
   'signOut': 'Sign out',
 
   'shell.field.title': 'Home',
