@@ -21,6 +21,9 @@ export const en = {
   'notFound.toReview': 'Back to Review',
   'notFound.toBatches': 'Back to Batches',
   'notFound.toHome': 'Back to Home',
+  // The admin review's photo marker (DES-102)
+  'review.photoUsedBefore': 'Same photo as the {date} picking',
+  'review.photoSeenBefore': 'Photo seen before on another picking',
   'notFound.picking.title': 'We can’t find that picking.',
   'notFound.picking.body': 'It may be an old link, or a picking from another phone. Your saved pickings are safe on this phone.',
 

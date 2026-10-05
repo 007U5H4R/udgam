@@ -184,6 +184,12 @@ export function istDay(iso: string): string {
   return `${DAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
 }
 
+/** "12 Sep" in IST (the photo marker, admin.html r5). */
+export function istDayMonth(iso: string): string {
+  const d = ist(iso);
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+}
+
 /** "7:42 am" in IST. */
 export function istClock(iso: string): string {
   const d = ist(iso);

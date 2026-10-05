@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, lt, ne, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { adminOverrides, batchEvents, farmers, harvestEvents, media, plots, user, verificationRuns } from '../db/schema';
 import type { PlotPolygon } from '../geo/types';
@@ -24,8 +24,12 @@ export type ReviewDetail = {
   event: { id: string; receivedAt: string; capturedAt: string | null; cherryKg: number; deviceId: string | null; seq: number | null };
   plot: { id: string; name: string; producerId: string; geojson: PlotPolygon; areaHa: number; crop: 'arabica' | 'robusta' };
   point: { lat: number; lng: number; accuracyM: number } | null;
-  /** The event's photos in capture (upload) order; shown through the thumbnail route, never the original. */
-  photos: { mediaId: string; takenAt: string | null }[];
+  /**
+   * The event's photos in capture (upload) order; shown through the thumbnail route, never the original.
+   * `usedBefore` marks a photo the photo check caught (DES-102): the earlier picking's received time when
+   * it is this organisation's, else null (the check is global; another organisation's time stays hidden).
+   */
+  photos: { mediaId: string; takenAt: string | null; usedBefore: { at: string | null } | null }[];
   checks: CheckResult[];
   score: number;
   capReasons: string[];
@@ -48,6 +52,25 @@ const parseExif = (text: string | null): ExifFacts | null => {
   }
 };
 
+/**
+ * The first earlier accepted picking that carries each hash (photo_uniqueness's "seen before": any agent,
+ * any plot, received before this one), with its organisation.
+ */
+async function earlierUses(db: Db, event: { id: string; serverReceivedAt: string }, hashes: string[]): Promise<Map<string, { at: string; orgId: string }>> {
+  const out = new Map<string, { at: string; orgId: string }>();
+  if (hashes.length === 0) return out;
+  const rows = await db
+    .select({ sha256: media.sha256, at: harvestEvents.serverReceivedAt, orgId: farmers.orgId })
+    .from(media)
+    .innerJoin(harvestEvents, eq(harvestEvents.id, media.eventId))
+    .innerJoin(plots, eq(plots.id, harvestEvents.plotId))
+    .innerJoin(farmers, eq(farmers.id, plots.farmerId))
+    .where(and(inArray(media.sha256, [...new Set(hashes)]), eq(harvestEvents.boundaryStatus, 'accepted'), ne(harvestEvents.id, event.id), lt(harvestEvents.serverReceivedAt, event.serverReceivedAt)))
+    .orderBy(asc(harvestEvents.serverReceivedAt));
+  for (const r of rows) if (!out.has(r.sha256)) out.set(r.sha256, { at: r.at, orgId: r.orgId });
+  return out;
+}
+
 /** The review detail of `runId` in `orgId`, or null when there is no such run in the organisation. */
 export async function getReviewDetail(db: Db, orgId: string, runId: string): Promise<ReviewDetail | null> {
   const [row] = await db
@@ -68,7 +91,7 @@ export async function getReviewDetail(db: Db, orgId: string, runId: string): Pro
       .where(eq(verificationRuns.eventId, event.id))
       .orderBy(asc(verificationRuns.runNo)),
     // rowid is the insertion order: persistAccepted writes the photos in upload order
-    db.select({ id: media.id, exif: media.exif }).from(media).where(eq(media.eventId, event.id)).orderBy(asc(sql`${media}.rowid`)),
+    db.select({ id: media.id, exif: media.exif, sha256: media.sha256 }).from(media).where(eq(media.eventId, event.id)).orderBy(asc(sql`${media}.rowid`)),
     db
       .select({ verdict: adminOverrides.newVerdict, reason: adminOverrides.reason, at: adminOverrides.createdAt, adminName: user.name })
       .from(adminOverrides)
@@ -80,6 +103,8 @@ export async function getReviewDetail(db: Db, orgId: string, runId: string): Pro
 
   const checks = JSON.parse(run.checks) as CheckResult[];
   const { capReasons } = score(checks, CONFIG);
+  const caught = checks.some((c) => c.id === 'photo_uniqueness' && c.status === 'fail');
+  const earlier = caught ? await earlierUses(db, event, photoRows.map((p) => p.sha256)) : new Map<string, { at: string; orgId: string }>();
   const latest = history.at(-1)!;
   const locked: Locked = checks.some((c) => c.hardFail)
     ? 'hard_fail'
@@ -98,7 +123,10 @@ export async function getReviewDetail(db: Db, orgId: string, runId: string): Pro
     event: { id: event.id, receivedAt: event.serverReceivedAt, capturedAt: event.clientCapturedAt, cherryKg: event.cherryKg ?? 0, deviceId: event.deviceId, seq: event.seq },
     plot: { id: plot.id, name: plot.id, producerId: row.producerId, geojson: JSON.parse(plot.geojson) as PlotPolygon, areaHa: plot.areaHa, crop: plot.crop },
     point: event.lat !== null && event.lng !== null ? { lat: event.lat, lng: event.lng, accuracyM: event.accuracyM ?? 0 } : null,
-    photos: photoRows.map((p) => ({ mediaId: p.id, takenAt: parseExif(p.exif)?.takenAt ?? null })),
+    photos: photoRows.map((p) => {
+      const first = earlier.get(p.sha256);
+      return { mediaId: p.id, takenAt: parseExif(p.exif)?.takenAt ?? null, usedBefore: first ? { at: first.orgId === orgId ? first.at : null } : null };
+    }),
     checks,
     score: run.score,
     capReasons,

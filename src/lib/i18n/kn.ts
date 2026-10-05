@@ -32,6 +32,8 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'notFound.toReview': 'ಪರಿಶೀಲನೆಗೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
   'notFound.toBatches': 'ಬ್ಯಾಚ್‌ಗಳಿಗೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
   'notFound.toHome': 'ಮುಖಪುಟಕ್ಕೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
+  'review.photoUsedBefore': '{date} ರ ಕೊಯ್ಲಿನ ಅದೇ ಫೋಟೋ', // REVIEW: native speaker
+  'review.photoSeenBefore': 'ಈ ಫೋಟೋ ಬೇರೆ ಕೊಯ್ಲಿನಲ್ಲಿ ಮೊದಲೇ ಕಂಡಿದೆ', // REVIEW: native speaker
   'notFound.picking.title': 'ಆ ಕೊಯ್ಲು ಸಿಗುತ್ತಿಲ್ಲ.', // REVIEW: native speaker
   'notFound.picking.body': 'ಇದು ಹಳೆಯ ಲಿಂಕ್ ಆಗಿರಬಹುದು, ಅಥವಾ ಬೇರೆ ಫೋನ್‌ನ ಕೊಯ್ಲು ಆಗಿರಬಹುದು. ನಿಮ್ಮ ಉಳಿಸಿದ ಕೊಯ್ಲುಗಳು ಈ ಫೋನ್‌ನಲ್ಲಿ ಸುರಕ್ಷಿತವಾಗಿವೆ.', // REVIEW: native speaker
 

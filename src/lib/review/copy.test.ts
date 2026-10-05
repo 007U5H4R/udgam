@@ -3,7 +3,7 @@ import { checksWith } from '../../../tests/helpers/review-world';
 import { CONFIG } from '../verification/config';
 import { score } from '../verification/score';
 import type { CheckResult } from '../verification/types';
-import { capReasonSentence, checksSummary, headlineOf, istClock, istDay, sortedChecks, waited, whyLine } from './copy';
+import { capReasonSentence, checksSummary, headlineOf, istClock, istDay, istDayMonth, sortedChecks, waited, whyLine } from './copy';
 
 // The admin review's words (TKT-12): cap reasons as plain sentences (TSK-12.3), the queue headline
 // (TSK-12.1), the checks summary and order (admin.html), and IST dates by offset (technical-plan §1).
@@ -69,6 +69,8 @@ describe('IST times by offset, never the host zone', () => {
   it('formats the day, the clock and the wait', () => {
     expect(istDay('2026-09-24T02:12:00.000Z')).toBe('Thu 24 Sep');
     expect(istDay('2026-09-24T19:00:00.000Z')).toBe('Fri 25 Sep'); // 00:30 IST the next day
+    expect(istDayMonth('2026-09-12T03:00:00.000Z')).toBe('12 Sep'); // DES-102 photo marker
+    expect(istDayMonth('2026-09-24T19:00:00.000Z')).toBe('25 Sep');
     expect(istClock('2026-09-24T02:12:00.000Z')).toBe('7:42 am');
     expect(istClock('2026-09-24T10:50:00.000Z')).toBe('4:20 pm');
     const now = new Date('2026-09-28T02:12:00.000Z');

@@ -61,6 +61,11 @@ test('@eval EVAL-074 the four demo attacks show the evidence that caught them', 
         const main = page.getByRole('main');
         for (const e of want.evidence) await expect(main.getByText(e, { exact: false }).first()).toBeVisible();
         await expect(main.locator(`[data-verdict="${want.verdict}"]`).first()).toBeVisible();
+        if (a.id === 'replay') {
+          // DES-102 (admin.html r5): each reused photo is outlined and names the picking it came from
+          await expect(main.locator('[data-used-before]')).toHaveCount(3);
+          await expect(main.locator('[data-used-before] .ph-flag').first()).toHaveText(/^Same photo as the \d{1,2} [A-Z][a-z]{2} picking$/);
+        }
         await noHorizontalScroll(page);
       });
     }

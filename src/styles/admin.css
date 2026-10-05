@@ -740,6 +740,24 @@
   font-weight: 500;
   color: var(--ink-2);
 }
+/* DES-102: the photo the photo check caught (admin.html `.ph.bad`, `.ph-flag`) */
+.review .ph.bad .thumb {
+  box-shadow: 0 0 0 2px var(--bad);
+}
+.review .ph-flag {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--bad-ink);
+}
+.review .ph-flag .mk {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+}
 .review .ph-none {
   margin-top: 10px;
   color: var(--ink-2);
