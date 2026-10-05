@@ -347,3 +347,40 @@ test('DES-025 (1): the sign-in and set-up pills sit in the bottom thumb zone, an
   await expect(page.getByTestId('enrol-done')).toHaveText('This phone is ready');
   await low('Go to Home');
 });
+
+for (const vp of [
+  { width: 375, height: 812 },
+  { width: 360, height: 740 },
+]) {
+  test(`axe pass on the touched screens at ${vp.width}×${vp.height}: no serious or critical violation`, async ({ page, context }) => {
+    await page.setViewportSize(vp);
+    const seed = seedCaptureWorld({ events: ['38.5:Verified', '44:Needs Review:cloud', '29:Rejected:outside'], phone: '+91 8272 000 111' });
+    await openField(page, context, seed);
+    const serious = async (where: string) => {
+      const { violations } = await new AxeBuilder({ page }).analyze();
+      expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`), where).toEqual([]);
+    };
+    await serious('home');
+    await helpTab(page).click();
+    await page.getByTestId('help-more').locator('summary').click();
+    await serious('help sheet, More open');
+    await page.keyboard.press('Escape');
+    await context.setOffline(true);
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Pickings' }).click();
+    await expect(page.getByTestId('offline-sheet')).toBeVisible();
+    await serious('offline sheet');
+    await context.setOffline(false);
+    await page.goto('/field/pickings');
+    await page.locator('li.row .r-why details summary').click();
+    await serious('pickings');
+    await page.locator('li.row a.r-open').first().click();
+    await page.getByTestId('all-checks').locator('summary').click();
+    await serious('picking detail');
+    await page.route('**/api/capture', (r) => r.abort('internetdisconnected'));
+    await typePicking(page, seed, { photos: 1, kg: '499' });
+    await serious('weight, out of range');
+    await page.locator('#send-btn').click();
+    await expect(page.getByTestId('saved-sheet')).toBeVisible();
+    await serious('saved sheet');
+  });
+}
