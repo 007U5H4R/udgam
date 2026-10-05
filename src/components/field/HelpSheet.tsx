@@ -56,12 +56,15 @@ export function HelpSheet({ open, onClose, lang, info, onLanguage }: { open: boo
       <Row icon={<Ic name="seal" />}>{tr('help.photos')}</Row>
       <Row icon={<Ic name="camera" />}>{tr('help.gallery')}</Row>
 
-      {/* What the three answers mean: the chip (word + mark) is the row's icon. */}
-      <div data-testid="help-verdicts">
-        <Row icon={<VerdictChip verdict="Verified" lang={lang} />}>{tr('help.verified')}</Row>
-        <Row icon={<VerdictChip verdict="Needs Review" lang={lang} />}>{tr('help.check')}</Row>
-        <Row icon={<VerdictChip verdict="Rejected" lang={lang} />}>{tr('help.rejected')}</Row>
-      </div>
+      {/* What the three answers mean: the chip (word + mark) is the row's icon. Rendered only while the
+          sheet is open, so these chips never sit, hidden, beside the page's own verdict chips. */}
+      {open ? (
+        <div data-testid="help-verdicts">
+          <Row icon={<VerdictChip verdict="Verified" lang={lang} />}>{tr('help.verified')}</Row>
+          <Row icon={<VerdictChip verdict="Needs Review" lang={lang} />}>{tr('help.check')}</Row>
+          <Row icon={<VerdictChip verdict="Rejected" lang={lang} />}>{tr('help.rejected')}</Row>
+        </div>
+      ) : null}
 
       {info.officePhone ? (
         <Row icon={<Ic name="help" />}>
