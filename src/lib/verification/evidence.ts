@@ -1,12 +1,11 @@
 import { CONFIG } from './config';
 import type { CheckId } from './types';
+import { istDate } from '../format';
 
 // Evidence sentences (technical-plan §6.5, TP3 — resolves GAP-8). English; every sentence names the
 // measured value and, where one applies, the threshold (HR1). Units per evaluation-plan §7.4. The
 // farmer-facing i18n layer rewrites these in plain words with the same numbers. Checks call these;
 // they never build evidence strings themselves.
-
-const IST_OFFSET_MS = (5 * 60 + 30) * 60_000;
 
 /** Whole metres: "182 m". */
 export const m = (d: number): string => `${Math.round(d) || 0} m`;
@@ -55,10 +54,6 @@ export function gapDur(min: number, limits: readonly number[]): string {
   for (const l of limits) if (x > l && mins <= l) mins = Math.floor(l) + 1;
   return exactDur(mins);
 }
-/** Calendar date in IST (UTC+05:30) by explicit offset, never the host zone. */
-export const istDate = (iso: string): string => new Date(Date.parse(iso) + IST_OFFSET_MS).toISOString().slice(0, 10);
-/** Calendar month in IST, `YYYY-MM`. */
-export const istMonth = (iso: string): string => istDate(iso).slice(0, 7);
 /** Why a remote-sensing provider gave nothing usable, in evidence words: "timeout", "HTTP 503", … */
 export function providerReason(e: { kind: 'timeout' | 'http' | 'malformed'; status?: number }): string {
   if (e.kind === 'timeout') return 'timeout';

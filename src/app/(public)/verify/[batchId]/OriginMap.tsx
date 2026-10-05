@@ -1,5 +1,6 @@
 import { CertIcon } from '../../../../components/ui/CertIcon';
-import { certCopy, ha1, kg1 } from '../../../../lib/certificate/copy';
+import { certCopy, ha1 } from '../../../../lib/certificate/copy';
+import { kg1 } from '../../../../lib/format';
 import { fitLabel, MAP_BOX, originMapPaths } from '../../../../lib/certificate/map';
 import type { CertificateView } from '../../../../lib/certificate/view-model';
 import c from './certificate.module.css';

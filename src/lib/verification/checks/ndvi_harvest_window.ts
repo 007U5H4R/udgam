@@ -1,7 +1,8 @@
 import { plotGeom } from '../../remote-sensing';
 import { ProviderError, type NdviWindow } from '../../remote-sensing/types';
 import type { VerifyConfig } from '../config';
-import { evidence, istDate, providerReason, sourced } from '../evidence';
+import { evidence, providerReason, sourced } from '../evidence';
+import { istDate } from '../../format';
 import type { Check, CheckOutcome } from '../registry';
 
 // ndvi_harvest_window (technical-plan §6.3, TP11): living canopy around the picking? Mean NDVI of the

@@ -3,7 +3,8 @@ import type { PickingItem } from '../../lib/db/queries/pickings';
 import { t, type Lang, type MessageKey } from '../../lib/i18n';
 import { GlassCard } from '../ui/GlassCard';
 import { VerdictChip } from '../ui/VerdictChip';
-import { istShortDay, kg1 } from './format';
+import { istShortDay } from './format';
+import { kg1 } from '../../lib/format';
 
 // One sent picking on the Pickings list (final/index.html #s8, lines 642–659): the IST date and kg
 // (a link to its detail), the verdict chip (word + mark + colour), and for Needs a check the reason and

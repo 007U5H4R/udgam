@@ -44,9 +44,6 @@ export function istPartOfDay(iso: string): 'morning' | 'afternoon' | 'evening' {
   return h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
 }
 
-/** kg as the capture screens show it: one decimal ("44.0"). */
-export const kg1 = (kg: number): string => kg.toFixed(1);
-
 /** "September 2026" for an IST month 'YYYY-MM' (the Pickings month header, #s8). */
 export function monthYear(month: string, lang: Lang = 'en'): string {
   const [y, m] = month.split('-').map(Number) as [number, number];

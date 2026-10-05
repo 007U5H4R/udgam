@@ -3,6 +3,7 @@ import { t } from '../i18n';
 import { istClock } from '../review/copy';
 import { bandFor, isPlaceholderBand, PROCESSES, type MbCrop, type Process } from './config';
 import type { ProcessorBatch } from './read';
+import { kg1 } from '../format';
 
 // The processor surface's words (Design.md §28.6, §28.7; contract.html screen 6), from the i18n keys
 // `processor.*` (en.ts; Kannada drafts in kn.ts marked for native review, like `agreements.*`). Shipped in
@@ -28,7 +29,6 @@ const CROP: Record<MbCrop, string> = { arabica: t('processor.crop.arabica'), rob
 export const cropName = (c: MbCrop): string => CROP[c];
 
 const pct = (n: number): string => String(n);
-export const kg1 = (kg: number): string => kg.toFixed(1);
 
 /** The hint under each process option: the band for this batch's crop, or that it is a placeholder. */
 export function processHint(p: Process, crop: MbCrop): string {

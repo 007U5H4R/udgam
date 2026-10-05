@@ -10,11 +10,12 @@ import { GlassCard } from '../../../../../components/ui/GlassCard';
 import pill from '../../../../../components/ui/Pill.module.css';
 import { batchAttestations } from '../../../../../lib/attestations/for-batch';
 import { getBuyerBatch, listBuyerBatches } from '../../../../../lib/batches/buyer';
-import { formatKg, formatScore, istDateTime } from '../../../../../lib/batches/format';
+import { formatKg, istDateTime } from '../../../../../lib/batches/format';
+import { formatScore } from '../../../../../lib/format';
 import { orgNames } from '../../../../../lib/batches/read';
 import { getDbReady } from '../../../../../lib/db/client';
 import { t } from '../../../../../lib/i18n';
-import { istDate } from '../../../../../lib/verification/evidence';
+import { istDate } from '../../../../../lib/format';
 import { requireSession, scopedById } from '../../../../_auth/require';
 import { BuyerList } from '../../BuyerList';
 

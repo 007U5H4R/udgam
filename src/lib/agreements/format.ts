@@ -30,7 +30,7 @@ export function formatKg1(kg: number): string {
 }
 
 /** "31 Dec 2026" for an ISO time, in IST. */
-export function istDate(iso: string): string {
+export function istDayLong(iso: string): string {
   const d = new Date(Date.parse(iso) + IST_OFFSET_MS);
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
@@ -39,7 +39,7 @@ export function istDate(iso: string): string {
 export function istDateTime12(iso: string): string {
   const d = new Date(Date.parse(iso) + IST_OFFSET_MS);
   const h = d.getUTCHours();
-  return `${istDate(iso)}, ${h % 12 === 0 ? 12 : h % 12}:${String(d.getUTCMinutes()).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
+  return `${istDayLong(iso)}, ${h % 12 === 0 ? 12 : h % 12}:${String(d.getUTCMinutes()).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
 }
 
 /** "31 Dec 2026" for a "2026-12-31" date input value, or '' when it is not one. */

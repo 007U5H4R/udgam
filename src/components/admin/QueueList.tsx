@@ -3,7 +3,8 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { VerdictMark } from '../ui/VerdictChip';
 import pill from '../ui/Pill.module.css';
-import { istDay, kg1, waited, type QueueIcon } from '../../lib/review/copy';
+import { istDay, waited, type QueueIcon } from '../../lib/review/copy';
+import { kg1 } from '../../lib/format';
 import type { QueueItem, ReviewQueue } from '../../lib/review/queue';
 
 // The review queue column (TSK-12.2), ported from final/admin.html lines 450–490: the heading with the

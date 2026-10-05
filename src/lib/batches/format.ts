@@ -13,6 +13,3 @@ export function istDateTime(iso: string): string {
 
 /** Kilograms: whole numbers bare, otherwise one decimal (captures are multiples of 0.5 kg). */
 export const formatKg = (kg: number): string => (Number.isInteger(kg) ? String(kg) : kg.toFixed(1));
-
-/** A 0–100 score: whole numbers bare, otherwise one decimal. */
-export const formatScore = (score: number): string => (Number.isInteger(score) ? String(score) : (Math.round(score * 10) / 10).toFixed(1));

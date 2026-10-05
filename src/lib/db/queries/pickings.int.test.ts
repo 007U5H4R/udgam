@@ -9,7 +9,8 @@ import { persistAccepted, persistRejected } from '../../capture/persist';
 import { jcs, sha256Hex, sign } from '../../crypto';
 import type { CheckResult, CapturePayloadV1, Verdict } from '../../verification/types';
 import { writeTx } from '../client';
-import { istMonth, latestRuns, listPickings, PICKINGS_LIMIT } from './pickings';
+import { latestRuns, listPickings, PICKINGS_LIMIT } from './pickings';
+import { istMonth } from '../../format';
 
 // TSK-11.4 / TC-051: the Pickings tab lists only this agent's pickings (and this agent's refusals) in its
 // own organisation, grouped by IST month, newest first; Needs a check carries the reason and Not
