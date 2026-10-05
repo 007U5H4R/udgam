@@ -42,6 +42,7 @@ const COUNTS = {
   attestations: 1,
   batches: 1,
   transfers: 1,
+  attacks: 4,
 };
 
 async function rows<T>(sql: string): Promise<T[]> {

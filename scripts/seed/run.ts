@@ -23,6 +23,7 @@ import { registerPlot } from '../../src/lib/plots/plots';
 import { overrideRun } from '../../src/lib/review/override';
 import { coffeeSeasonOf } from '../../src/lib/yield/season';
 import { SEED, type AgentKey, type SeedPlot, type UserKey } from './data';
+import { stageAttacks } from './attacks';
 import { captureForm, photosFor, signedCapture } from './capture';
 
 // `pnpm seed` (technical-plan TSK-20.2, TC-077): the Kodagu demo state, built through the app's own
@@ -132,7 +133,7 @@ const PDF = new TextEncoder().encode('%PDF-1.4\n% Udgam demo organic certificate
 const silent = { error: () => undefined, info: () => undefined, warn: () => undefined };
 
 /** Build the demo world into `db` (migrated, empty) and `dataDir`. */
-export async function runSeed(db: Db, { dataDir, now = new Date() }: { dataDir: string; now?: Date }): Promise<{ counts: Omit<SeedCounts, 'attacks' | 'credentials'>; world: SeededWorld }> {
+export async function runSeed(db: Db, { dataDir, now = new Date() }: { dataDir: string; now?: Date }): Promise<{ counts: Omit<SeedCounts, 'credentials'>; world: SeededWorld }> {
   if (!(await isEmpty(db))) throw new Error(SEED_NOT_EMPTY);
   mkdirSync(dataDir, { recursive: true });
   const store = localMediaStore(dataDir);
@@ -239,6 +240,10 @@ export async function runSeed(db: Db, { dataDir, now = new Date() }: { dataDir: 
   // Seal everything so far in a signed checkpoint (S7).
   await writeTx(db, (tx) => checkpointIfNeeded(tx));
 
+  const world: SeededWorld = { orgId, buyerOrgId, userIds, plotIds, devices, photos, eventIds };
+  // The four staged attacks, signed by agent 2's phone, ready for /admin/demo (TSK-20.3).
+  const manifest = await stageAttacks(world, { dataDir, now });
+
   return {
     counts: {
       organisations: 2,
@@ -251,8 +256,9 @@ export async function runSeed(db: Db, { dataDir, now = new Date() }: { dataDir: 
       attestations: 1,
       batches: 1,
       transfers: 1,
+      attacks: manifest.attacks.length,
     },
-    world: { orgId, buyerOrgId, userIds, plotIds, devices, photos, eventIds },
+    world,
   };
 }
 
@@ -270,7 +276,7 @@ export async function seed({ reset = false, now }: { reset?: boolean; now?: Date
   const db = await getDbReady();
   await prepareDatabase(db);
   const { counts } = await runSeed(db, { dataDir, ...(now ? { now } : {}) });
-  return { ...counts, attacks: 0, credentials: join(dataDir, 'seed-credentials.txt') };
+  return { ...counts, credentials: join(dataDir, 'seed-credentials.txt') };
 }
 
 /** `pnpm seed [--reset]`: prints the counts and the credentials file's path, never a password. */
