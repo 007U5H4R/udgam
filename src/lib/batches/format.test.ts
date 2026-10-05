@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { formatKg, formatScore, istDateTime } from './format';
+import { formatKg, istDateTime } from './format';
+import { formatScore } from '../format';
 
 // Display helpers for the batch screens (technical-plan §1 Time and Numbers, §11 States).
 

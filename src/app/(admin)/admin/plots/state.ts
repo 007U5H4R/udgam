@@ -6,6 +6,6 @@ import { env } from '../../../../lib/config/env';
 export type ViewState = 'working' | 'loading' | 'empty' | 'error';
 
 export function forcedState(param: string | string[] | undefined): ViewState | null {
-  if (process.env.NODE_ENV === 'production' && env.E2E !== '1') return null;
+  if (env.NODE_ENV === 'production' && env.E2E !== '1') return null;
   return param === 'loading' || param === 'empty' || param === 'error' ? param : null;
 }

@@ -2,7 +2,7 @@ import { and, asc, desc, eq, exists, inArray, notExists, sql } from 'drizzle-orm
 import type { Db } from '../db/client';
 import { agreements, batches, custodyTransfers, organisations, qualityAttestations, settlements } from '../db/schema';
 import { t, type MessageKey } from '../i18n';
-import { formatKg1, formatInr, istDate } from './format';
+import { formatKg1, formatInr, istDayLong } from './format';
 import { isGrade, type Grade } from './grades';
 import { deliveredBatchIds, type AgreementRow } from './service';
 import { judge, settlementFacts, type Condition, type ConditionResult, type Reason } from './settle';
@@ -118,7 +118,7 @@ export function batchToGrade(v: AgreementView): DeliveredBatch | null {
 export function rowFacts(a: AgreementRow): string {
   const crop = t(a.crop === 'arabica' ? 'agreements.row.cropArabica' : 'agreements.row.cropRobusta');
   const when =
-    a.status === 'settled' && a.closedAt ? istDate(a.closedAt) : a.status === 'refunded' && a.closedAt ? t('agreements.row.takenBack', { date: istDate(a.closedAt) }) : t('agreements.row.by', { date: istDate(a.deadline) });
+    a.status === 'settled' && a.closedAt ? istDayLong(a.closedAt) : a.status === 'refunded' && a.closedAt ? t('agreements.row.takenBack', { date: istDayLong(a.closedAt) }) : t('agreements.row.by', { date: istDayLong(a.deadline) });
   return t('agreements.row.facts', { crop, amount: formatInr(a.amountPaise), when });
 }
 
@@ -246,7 +246,7 @@ export async function agreementForBatch(db: Db, fpoOrg: string, batchId: string)
     .limit(1);
   const status =
     hit.status === 'settled' && rel?.outcome === 'released'
-      ? t('agreements.status.releasedOn', { date: istDate(rel.at) })
+      ? t('agreements.status.releasedOn', { date: istDayLong(rel.at) })
       : rel?.outcome === 'not_released'
         ? t('agreements.status.notReleased')
         : hit.status === 'refunded'

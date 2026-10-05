@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { Writable } from 'node:stream';
@@ -80,6 +80,22 @@ describe('loadOrCreateOperatorKey', () => {
     await loadOrCreateOperatorKey(path);
     expect(statSync(path).mode & 0o777).toBe(0o600);
     expect(lines.join('')).toContain('evm.operator_key_mode_tightened');
+  });
+
+  it('tightens a loose keys/ directory to 0700 on load and says so (final branch review finding 3)', async () => {
+    await loadOrCreateOperatorKey(path);
+    chmodSync(dirname(path), 0o755);
+    await loadOrCreateOperatorKey(path);
+    expect(statSync(dirname(path)).mode & 0o777).toBe(0o700);
+    expect(lines.join('')).toContain('evm.operator_key_dir_mode_tightened');
+  });
+
+  it('generating into an existing loose keys/ directory leaves it 0700 (final branch review finding 3)', async () => {
+    mkdirSync(dirname(path), { recursive: true, mode: 0o755 });
+    chmodSync(dirname(path), 0o755);
+    await loadOrCreateOperatorKey(path);
+    expect(statSync(path).mode & 0o777).toBe(0o600);
+    expect(statSync(dirname(path)).mode & 0o777).toBe(0o700);
   });
 
   it('concurrent first calls agree on one key', async () => {

@@ -86,6 +86,9 @@ jobs:
           set +a
           pnpm build
       - run: bash scripts/ci/check-bundle-secrets.sh .env.ci.example .next
+      # Final branch review finding 1: no data, key or env file in any server file trace (.nft.json),
+      # which `output: 'standalone'` would copy into the artifact.
+      - run: node scripts/ci/check-trace.mjs .next
 
   dataset:
     name: dataset (eval:validate)

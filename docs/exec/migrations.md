@@ -39,3 +39,28 @@ Committed migrations are never edited, comments included, so corrections to them
 - **`0034_processing_step_guards.sql`** (follow-up 2) adds two triggers. It does not replace any trigger from 0030:
   - `custody_transfers_processor_step_required`: a processor hands a batch on only after it has recorded its processing step.
   - `processing_steps_recorder_is_processor`: the user who records a step has role `processor` in the processor organisation that holds the batch.
+
+## Before any future rebuild of `user`
+
+A drizzle-kit table rebuild of `user` (CREATE `__new_user` → copy → `DROP TABLE user` → RENAME, as in 0029) has two trigger traps. 0028's comment names only the 0009 triggers, but 0030 and 0034 have added more since, so use the lists below, not that comment.
+
+- **The RENAME re-parses every trigger in the schema** and fails ("no such table: main.user") while a trigger on another table names `user`. Drop those triggers in a custom migration before the rebuild, as `0028_prep_processing.sql` did.
+- **The DROP removes every trigger on `user` itself.**
+
+Recreate both groups unchanged in a custom migration right after the rebuild, as `0030_guards_processing.sql` did. Copy each body from the latest migration that created it, and check the result in `sqlite_master`.
+
+`src/lib/db/user-triggers.int.test.ts` migrates an empty database and fails if either list below differs from the triggers it finds, so a new trigger that reads `user` has to be added here.
+
+#### Triggers on other tables that read `user`
+
+- `devices_agent_fk_insert` (0009, recreated by 0030)
+- `devices_agent_fk_update` (0009, recreated by 0030)
+- `harvest_events_agent_fk_insert` (0009, recreated by 0030)
+- `harvest_events_agent_fk_update` (0009, recreated by 0030)
+- `processing_steps_recorder_is_processor` (0034)
+
+#### Triggers on `user` itself
+
+- `user_agent_fk_delete` (0009, recreated by 0030)
+- `user_agent_fk_update` (0009, recreated by 0030)
+- `user_no_replace_referenced` (0016, recreated by 0030)

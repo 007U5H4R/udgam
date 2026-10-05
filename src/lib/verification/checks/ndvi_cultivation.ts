@@ -1,7 +1,8 @@
 import { plotGeom } from '../../remote-sensing';
 import { ProviderError, type NdviHistory } from '../../remote-sensing/types';
 import type { VerifyConfig } from '../config';
-import { evidence, istMonth, providerReason, sourced } from '../evidence';
+import { evidence, providerReason, sourced } from '../evidence';
+import { istMonth } from '../../format';
 import type { Check, CheckOutcome } from '../registry';
 
 // ndvi_cultivation (technical-plan §6.3, TP11): is the plot a year-round canopy? Over the 12 monthly

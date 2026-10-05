@@ -4,7 +4,8 @@ import { BODY_READ_DEADLINE_MS, BUSY_RETRY_AFTER_SEC } from '../../../lib/captur
 import { checkContentLength } from '../../../lib/capture/parse';
 import { runCapture, type CaptureEvent } from '../../../lib/capture/pipeline';
 import { readFormWithin } from '../../../lib/capture/read-form';
-import { consume, IP_LIMIT, ipKey, refund } from '../../../lib/capture/rate-limit';
+import { IP_LIMIT, ipKey } from '../../../lib/capture/rate-limit';
+import { consume, refund } from '../../../lib/rate-limit';
 import { localStagingStore } from '../../../lib/capture/staging';
 import { clientIp } from '../../../lib/client-ip';
 import { env } from '../../../lib/config/env';

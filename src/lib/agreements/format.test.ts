@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agreementIdFromPath, amountHint, deadlineHint, deadlineIso, dmy, FIELD_MESSAGES, formatInr, formatKg1, istDate, istDateTime12, kgToGrams, parseAmount, parseDeadline, parseKg } from './format';
+import { agreementIdFromPath, amountHint, deadlineHint, deadlineIso, dmy, FIELD_MESSAGES, formatInr, formatKg1, istDayLong, istDateTime12, kgToGrams, parseAmount, parseDeadline, parseKg } from './format';
 import { checkGrade, checkNewAgreement } from './form';
 import { gradeDisplay, isGrade, parseGrade } from './grades';
 
@@ -56,7 +56,7 @@ describe('money and quantities (§28.7)', () => {
 describe('dates in IST (§28.7)', () => {
   it('the deadline is the end of the chosen day in IST', () => {
     expect(deadlineIso('2026-12-31')).toBe('2026-12-31T18:29:59.999Z');
-    expect(istDate('2026-12-31T18:29:59.999Z')).toBe('31 Dec 2026');
+    expect(istDayLong('2026-12-31T18:29:59.999Z')).toBe('31 Dec 2026');
     expect(dmy('2026-12-31')).toBe('31 Dec 2026');
     expect(istDateTime12('2026-09-30T10:42:00.000Z')).toBe('30 Sep 2026, 4:12 pm');
     expect(deadlineHint('2026-12-31')).toBe('Open until 31 Dec 2026, end of the day (IST). If nothing has settled by then, you can take the money back.');

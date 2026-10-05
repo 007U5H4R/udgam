@@ -7,7 +7,7 @@ import { newId } from "../ids";
 import { append } from "../ledger/hashchain";
 import { log as defaultLog } from "../log";
 import { localMediaStore, type MediaStore } from "../media/store";
-import { istDate } from "../verification/evidence";
+import { istDate } from "../format";
 
 // An organic certificate as an attestation (technical-plan §4.1, §8.1, TKT-13, DISC4). An issuer claims
 // the plot is certified; Udgam only proves that the certificate file has not changed since it was

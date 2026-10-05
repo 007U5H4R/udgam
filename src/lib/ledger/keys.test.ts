@@ -1,5 +1,5 @@
 import { execFile, execFileSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { Writable } from 'node:stream';
@@ -164,6 +164,15 @@ describe('loadLedgerKey (TC-064)', () => {
     expect(text).toContain('ledger.key_mode_tightened');
     expect(text).toContain('ledger.key_dir_mode_tightened');
     expect(text).not.toContain('"d":');
+  });
+
+  it('generating into an existing loose key directory leaves it 0700 (final branch review finding 3)', async () => {
+    const path = freshPath();
+    mkdirSync(dirname(path), { recursive: true, mode: 0o755 });
+    chmodSync(dirname(path), 0o755);
+    await (await keysModule()).loadLedgerKey(path);
+    expect(statSync(path).mode & 0o777).toBe(0o600);
+    expect(statSync(dirname(path)).mode & 0o777).toBe(0o700);
   });
 
   it('the default location under DATA_DIR is git-ignored', () => {

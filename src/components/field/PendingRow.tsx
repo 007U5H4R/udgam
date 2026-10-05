@@ -7,7 +7,7 @@ import type { OutboxItem } from '../../client/capture-store';
 import { t, type Lang, type MessageKey } from '../../lib/i18n';
 import { refusalCopy, refusalKeepsOutbox, retryWait } from '../../lib/i18n/farmer-evidence';
 import { GlassCard } from '../ui/GlassCard';
-import { kg1 } from './format';
+import { kg1 } from '../../lib/format';
 
 // Pickings saved on this phone and not sent yet (TSK-11.3): one frosted row each ("Saved on this phone",
 // the kg) with a "Send now" text button, listed above the sent entries on Home and Pickings. The row is

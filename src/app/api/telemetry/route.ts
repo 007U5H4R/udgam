@@ -1,4 +1,4 @@
-import { consume } from '../../../lib/capture/rate-limit';
+import { consume } from '../../../lib/rate-limit';
 import { readBodyWithin } from '../../../lib/capture/read-form';
 import {
   parseTelemetry,

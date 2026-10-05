@@ -6,7 +6,8 @@ import { addUser, cookieHeader as cookieOf } from '../../../tests/helpers/auth';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 import { makeDevice, type TestDevice } from '../../../tests/helpers/verify';
 import { jcs, sha256Hex, sign } from '../crypto';
-import { consume, DEVICE_LIMIT, deviceKey, IP_LIMIT, ipKey } from './rate-limit';
+import { consume } from '../rate-limit';
+import { DEVICE_LIMIT, deviceKey, IP_LIMIT, ipKey } from './rate-limit';
 
 // TSK-19.3 · TC-074: 30 captures per phone and 60 per address per 10 minutes, on the rate_limits
 // table; the route answers 429 with Retry-After. The phone bucket belongs to the signed-in agent too

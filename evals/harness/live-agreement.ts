@@ -7,7 +7,7 @@ import { forestLossOutcome } from '../../src/lib/verification/checks/deforestati
 import { ndviHistoryOutcome } from '../../src/lib/verification/checks/ndvi_cultivation';
 import { ndviWindowOutcome } from '../../src/lib/verification/checks/ndvi_harvest_window';
 import { CONFIG } from '../../src/lib/verification/config';
-import { istDate, istMonth } from '../../src/lib/verification/evidence';
+import { istDate, istMonth } from '../../src/lib/format';
 import type { CheckStatus } from '../../src/lib/verification/types';
 import { SERVER_RECEIVED_AT, type HarnessInputs } from './context';
 import { RS_DIR } from './fixtures';

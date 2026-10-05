@@ -1,4 +1,5 @@
 import type { CheckId, CheckResult, Verdict } from '../verification/types';
+import { formatScore } from '../format';
 
 // Words for the admin review screens (TKT-12), ported from .design/exploration/final/admin.html. English
 // only: the admin surface ships in English (N5), like the plot screens' copy (TKT-06); these move into
@@ -198,9 +199,3 @@ export function waited(fromIso: string, now: Date): string {
   const days = Math.floor(min / (24 * 60));
   return days === 1 ? '1 day' : `${days} days`;
 }
-
-/** kg as the review shows it: one decimal ("38.5"). */
-export const kg1 = (kg: number): string => kg.toFixed(1);
-
-/** A 0–100 score: whole numbers bare, otherwise one decimal. */
-export const formatScore = (score: number): string => (Number.isInteger(score) ? String(score) : (Math.round(score * 10) / 10).toFixed(1));

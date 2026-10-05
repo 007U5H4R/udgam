@@ -11,7 +11,7 @@ const info = vi.hoisted(() => vi.fn());
 const consume = vi.hoisted(() => vi.fn());
 vi.mock('../../../lib/log', () => ({ log: { info, warn: vi.fn(), error: vi.fn() } }));
 vi.mock('../../../lib/db/client', () => ({ getDbReady: vi.fn(async () => ({})) }));
-vi.mock('../../../lib/capture/rate-limit', () => ({ consume }));
+vi.mock('../../../lib/rate-limit', () => ({ consume }));
 
 import { POST } from './route';
 

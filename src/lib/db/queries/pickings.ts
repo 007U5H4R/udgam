@@ -6,6 +6,7 @@ import { score } from '../../verification/score';
 import type { CheckResult, Verdict, VerifyResult } from '../../verification/types';
 import type { Db } from '../client';
 import { farmers, harvestEvents, plots, verificationRuns } from '../schema';
+import { istMonth } from '../../format';
 
 // The Pickings tab (final/index.html #s8, TSK-11.4): every picking this agent sent, grouped by IST month
 // (newest first), each with its verdict and, for Needs a check and Not accepted, the reason in the
@@ -26,11 +27,6 @@ export type PickingItem = {
 };
 
 export type PickingMonth = { month: string; items: PickingItem[] };
-
-const IST_MS = 330 * 60_000;
-
-/** 'YYYY-MM' of an instant in IST (UTC+05:30, explicit offset arithmetic, never the host zone). */
-export const istMonth = (iso: string): string => new Date(Date.parse(iso) + IST_MS).toISOString().slice(0, 7);
 
 /** "Plot n": each plot's place among its farmer's plots, oldest first (the schema holds no plot names). */
 export async function plotOrdinals(db: Db, farmerIds: string[]): Promise<Map<string, number>> {

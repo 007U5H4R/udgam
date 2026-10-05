@@ -5,7 +5,8 @@ import { ListLoading, StateCard } from '../../../../components/buyer/BatchStates
 import { cropLabel, pickingsLabel } from '../../../../components/buyer/labels';
 import screen from '../../../../components/buyer/BatchScreen.module.css';
 import pill from '../../../../components/ui/Pill.module.css';
-import { formatKg, formatScore } from '../../../../lib/batches/format';
+import { formatKg } from '../../../../lib/batches/format';
+import { formatScore } from '../../../../lib/format';
 import type { BatchSummary } from '../../../../lib/batches/read';
 import type { ViewState } from '../../../../lib/batches/view-state';
 import { t } from '../../../../lib/i18n';

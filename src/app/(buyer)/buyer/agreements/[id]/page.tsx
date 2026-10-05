@@ -7,7 +7,7 @@ import { GradeForm } from '../../../../../components/agreements/GradeForm';
 import { Conditions, DetailColumn, DetailHead, DetailSkeleton, EmptyCard, OutcomeNotReleased, OutcomeReleased, StatusChip, Terms } from '../../../../../components/agreements/parts';
 import { Icon } from '../../../../../components/admin/QueueList';
 import { buyerBalance } from '../../../../../lib/agreements/env-chain';
-import { formatInr, formatKg1, istDate } from '../../../../../lib/agreements/format';
+import { formatInr, formatKg1, istDayLong } from '../../../../../lib/agreements/format';
 import { gradeDisplay, type Grade } from '../../../../../lib/agreements/grades';
 import { batchToGrade, buyerStatus, getAgreementView, listBuyerAgreements, type AgreementView } from '../../../../../lib/agreements/read';
 import { forcedAgreementState } from '../../../../../lib/agreements/view-state';
@@ -48,7 +48,7 @@ function Body({ v, balance, forcedWorking }: { v: AgreementView; balance: bigint
           note={
             <p className="dec-note">
               <Icon name="seal" />
-              <span>{t('agreements.fund.note', { deadline: istDate(a.deadline) })}</span>
+              <span>{t('agreements.fund.note', { deadline: istDayLong(a.deadline) })}</span>
             </p>
           }
         >
@@ -82,7 +82,7 @@ function Body({ v, balance, forcedWorking }: { v: AgreementView; balance: bigint
             </p>
           }
         >
-          <p>{t('agreements.refund.body', { deadline: istDate(a.deadline), amount })}</p>
+          <p>{t('agreements.refund.body', { deadline: istDayLong(a.deadline), amount })}</p>
           {balance !== null ? <p className="bal">{t('agreements.refund.balance', { before: formatInr(balance), after: formatInr(balance + BigInt(a.amountPaise)) })}</p> : null}
         </ActionPanel>
       </>
@@ -104,7 +104,7 @@ function Body({ v, balance, forcedWorking }: { v: AgreementView; balance: bigint
             </div>
             <div>
               <dt>{t('agreements.delivered.delivered')}</dt>
-              <dd>{t('agreements.delivered.kgWhen', { kg: formatKg1(toGrade.deliveredKg), when: toGrade.deliveredAt ? istDate(toGrade.deliveredAt) : '' })}</dd>
+              <dd>{t('agreements.delivered.kgWhen', { kg: formatKg1(toGrade.deliveredKg), when: toGrade.deliveredAt ? istDayLong(toGrade.deliveredAt) : '' })}</dd>
             </div>
             <div>
               <dt>{t('agreements.delivered.pickings')}</dt>
@@ -137,7 +137,7 @@ function Body({ v, balance, forcedWorking }: { v: AgreementView; balance: bigint
   return (
     <>
       {released ? <OutcomeReleased v={v} s={released} /> : last?.outcome === 'not_released' && a.status === 'funded' ? <OutcomeNotReleased v={v} s={last} side="buyer" /> : null}
-      {a.status === 'refunded' ? <p className="d-meta">{t('agreements.refunded.line', { amount, when: a.closedAt ? istDate(a.closedAt) : '' })}</p> : null}
+      {a.status === 'refunded' ? <p className="d-meta">{t('agreements.refunded.line', { amount, when: a.closedAt ? istDayLong(a.closedAt) : '' })}</p> : null}
       <Terms v={v} side="buyer" />
       {judged ? <Conditions v={v} facts={judged} pending={false} /> : null}
     </>
@@ -162,14 +162,14 @@ export default async function BuyerAgreementPage({ params, searchParams }: Props
   const firstBatch = v.delivered[0];
   const meta =
     a.status === 'created'
-      ? t('agreements.meta.created', { when: istDate(a.createdAt) })
+      ? t('agreements.meta.created', { when: istDayLong(a.createdAt) })
       : a.status === 'funded' && v.deadlinePassed
-        ? t(v.delivered.length ? 'agreements.meta.endedNotSettled' : 'agreements.meta.endedNothing', { funded: istDate(a.fundedAt!), deadline: istDate(a.deadline) })
+        ? t(v.delivered.length ? 'agreements.meta.endedNotSettled' : 'agreements.meta.endedNothing', { funded: istDayLong(a.fundedAt!), deadline: istDayLong(a.deadline) })
         : a.status === 'funded'
-          ? t('agreements.meta.funded', { when: istDate(a.fundedAt!), amount: formatInr(a.amountPaise) })
+          ? t('agreements.meta.funded', { when: istDayLong(a.fundedAt!), amount: formatInr(a.amountPaise) })
           : firstBatch
-            ? t('agreements.meta.delivered', { when: istDate(a.createdAt), batch: firstBatch.batchId, delivered: firstBatch.deliveredAt ? istDate(firstBatch.deliveredAt) : '' })
-            : t('agreements.meta.createdOnly', { when: istDate(a.createdAt) });
+            ? t('agreements.meta.delivered', { when: istDayLong(a.createdAt), batch: firstBatch.batchId, delivered: firstBatch.deliveredAt ? istDayLong(firstBatch.deliveredAt) : '' })
+            : t('agreements.meta.createdOnly', { when: istDayLong(a.createdAt) });
   return (
     <main className="review agr no-rail detail-open" data-state="working" id="main">
       <AgreementList side="buyer" orgName={orgName} items={items} state={forced === 'loading' ? 'loading' : 'data'} currentId={a.id} />

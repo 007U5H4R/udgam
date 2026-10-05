@@ -139,7 +139,7 @@ describe('POST /api/capture/stage (TC-093)', () => {
 
   it('TC-093 60 stage calls per agent per 10 min: the 61st → 429 with Retry-After, before the body is read', async () => {
     const { POST } = await import('./route');
-    const { consume } = await import('../../../../lib/capture/rate-limit');
+    const { consume } = await import('../../../../lib/rate-limit');
     const { STAGE_AGENT_LIMIT, stageAgentKey } = await import('../../../../lib/capture/staging');
     expect(STAGE_AGENT_LIMIT).toEqual({ limit: 60, windowSec: 600 });
     for (let i = 0; i < 60; i++) await consume(t.db, stageAgentKey(world.agentId), 60, 600);
@@ -153,7 +153,7 @@ describe('POST /api/capture/stage (TC-093)', () => {
 
   it('the per-address limit answers 429 with Retry-After before the body is read', async () => {
     const { POST } = await import('./route');
-    const { consume } = await import('../../../../lib/capture/rate-limit');
+    const { consume } = await import('../../../../lib/rate-limit');
     const { STAGE_IP_LIMIT, stageIpKey } = await import('../../../../lib/capture/staging');
     for (let i = 0; i < STAGE_IP_LIMIT.limit; i++) await consume(t.db, stageIpKey('198.51.100.4'), STAGE_IP_LIMIT.limit, STAGE_IP_LIMIT.windowSec);
     const r = untouchedBody({ length: '20', ip: '198.51.100.4' });

@@ -8,7 +8,7 @@ import { formatHa } from '../../../../../lib/geo/area';
 import { tileLayerConfig } from '../../../../../lib/geo/tiles';
 import { getPlot, listPlots } from '../../../../../lib/plots/plots';
 import { toRegistrationChecks } from '../../../../../lib/plots/registration';
-import { istDate } from '../../../../../lib/verification/evidence';
+import { istDate } from '../../../../../lib/format';
 import { requireSession, scopedById } from '../../../../_auth/require';
 import { CROP_TEXT, STATUS_TEXT } from '../copy';
 import { EditBoundary } from '../EditBoundary';

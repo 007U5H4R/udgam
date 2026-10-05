@@ -1,5 +1,6 @@
 import { HomeClient, type HomePlotView, type HomeRow } from '../../../components/field/HomeClient';
-import { ha1, istDayMonth, istIsoDate, istLongDate, istPartOfDay, istShortDay, kg1 } from '../../../components/field/format';
+import { ha1, istDayMonth, istIsoDate, istLongDate, istPartOfDay, istShortDay } from '../../../components/field/format';
+import { kg1 } from '../../../lib/format';
 import { HomeError, HomeSkeleton } from '../../../components/field/HomeStates';
 import { getDbReady } from '../../../lib/db/client';
 import { getFieldHome, type FieldHome } from '../../../lib/db/queries/field-home';

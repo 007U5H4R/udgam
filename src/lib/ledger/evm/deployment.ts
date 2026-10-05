@@ -1,5 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname } from 'node:path';
+import { runtimePath } from '../../config/runtime-path';
 import { z } from 'zod';
 
 // Where the EVM adapter finds its chain, registry and operator key (technical-plan TSK-24.3). SERVER-ONLY.
@@ -30,8 +31,8 @@ export type EvmPaths = { rpcUrl: string; deploymentPath: string; operatorKeyPath
 export function evmPaths(e: { DATA_DIR: string; ANVIL_RPC_URL?: string; EVM_OPERATOR_KEY_PATH?: string }): EvmPaths {
   return {
     rpcUrl: e.ANVIL_RPC_URL ?? DEFAULT_RPC_URL,
-    deploymentPath: resolve(join(e.DATA_DIR, 'evm', 'deployment.json')),
-    operatorKeyPath: resolve(e.EVM_OPERATOR_KEY_PATH ?? join(e.DATA_DIR, 'keys', 'evm-operator.key')),
+    deploymentPath: runtimePath(e.DATA_DIR, 'evm', 'deployment.json'),
+    operatorKeyPath: e.EVM_OPERATOR_KEY_PATH !== undefined ? runtimePath(e.EVM_OPERATOR_KEY_PATH) : runtimePath(e.DATA_DIR, 'keys', 'evm-operator.key'),
   };
 }
 

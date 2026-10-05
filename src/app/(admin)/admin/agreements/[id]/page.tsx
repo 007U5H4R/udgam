@@ -4,7 +4,7 @@ import { ActionPanel } from '../../../../../components/agreements/ActionPanel';
 import { AgreementList } from '../../../../../components/agreements/AgreementList';
 import { Conditions, DetailColumn, DetailHead, DetailSkeleton, OutcomeNotReleased, OutcomeReleased, StatusChip, Terms } from '../../../../../components/agreements/parts';
 import { RailShell } from '../../../../../components/ui/Rail';
-import { formatInr, istDate, istDateTime12 } from '../../../../../lib/agreements/format';
+import { formatInr, istDayLong, istDateTime12 } from '../../../../../lib/agreements/format';
 import { adminStatus, getAgreementView, listFpoAgreements, readyBatch } from '../../../../../lib/agreements/read';
 import { forcedAgreementState } from '../../../../../lib/agreements/view-state';
 import { orgNames } from '../../../../../lib/batches/read';
@@ -42,10 +42,10 @@ export default async function AdminAgreementPage({ params, searchParams }: Props
   const shown = ready ?? v.delivered.find((b) => b.batchId === (released ?? last)?.batchId) ?? v.delivered[0];
   const meta =
     a.status === 'created'
-      ? t('agreements.meta.adminCreated', { when: istDate(a.createdAt), deadline: istDate(a.deadline) })
+      ? t('agreements.meta.adminCreated', { when: istDayLong(a.createdAt), deadline: istDayLong(a.deadline) })
       : shown
-        ? t('agreements.meta.adminDelivered', { funded: istDate(a.fundedAt ?? a.createdAt), batch: shown.batchId, delivered: shown.deliveredAt ? istDate(shown.deliveredAt) : '', deadline: istDate(a.deadline) })
-        : t('agreements.meta.adminFunded', { funded: istDate(a.fundedAt ?? a.createdAt), deadline: istDate(a.deadline) });
+        ? t('agreements.meta.adminDelivered', { funded: istDayLong(a.fundedAt ?? a.createdAt), batch: shown.batchId, delivered: shown.deliveredAt ? istDayLong(shown.deliveredAt) : '', deadline: istDayLong(a.deadline) })
+        : t('agreements.meta.adminFunded', { funded: istDayLong(a.fundedAt ?? a.createdAt), deadline: istDayLong(a.deadline) });
   const listTitle = t('agreements.fpo.title');
   const head = <DetailHead eyebrow={t('agreements.detailEyebrow', { other: v.buyerName })} title={a.id} chip={<StatusChip status={{ mark: status.mark, word: status.short }} />} meta={meta} />;
 

@@ -409,3 +409,14 @@ describe('proof.ts and merkle.ts are isomorphic', () => {
     expect(specifiers('./merkle.ts')).toEqual(['../crypto']);
   });
 });
+
+// Final branch review finding 8 (TASK-16): docs/proof-feed.md §9.3 rule 3 says every custody transfer
+// has `seq > b.seq`. Step 1 (strictly ascending, unique seqs) makes `seq == b.seq` unreachable, so no
+// feed can tell the bounds apart; both verifiers state the documented rule literally instead.
+describe('custody-chain bound (§9.3 rule 3)', () => {
+  it('the app and the clean-room verifier both refuse a transfer at or before the batch seq', () => {
+    expect(readFileSync('docs/proof-feed.md', 'utf8')).toContain('all have `seq > b.seq`');
+    expect(readFileSync('src/lib/ledger/proof.ts', 'utf8')).toContain('if (c.seq <= batch.seq ||');
+    expect(readFileSync('evals/scorers/independent-verifier/src/verify.ts', 'utf8')).toContain('if (t.seq <= b.seq ||');
+  });
+});

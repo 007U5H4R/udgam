@@ -1,5 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname } from 'node:path';
+import { runtimePath } from '../config/runtime-path';
 import { z } from 'zod';
 
 // Where the escrow lives (TKT-25). SERVER-ONLY. DATA_DIR/evm/agreements.json is written by
@@ -19,7 +20,7 @@ export const EscrowDeploymentSchema = z.object({
 
 export type EscrowDeployment = { chainId: number; token: `0x${string}`; escrow: `0x${string}`; operator: `0x${string}`; deployedAtBlock: number };
 
-export const escrowDeploymentPath = (dataDir: string): string => resolve(join(dataDir, 'evm', 'agreements.json'));
+export const escrowDeploymentPath = (dataDir: string): string => runtimePath(dataDir, 'evm', 'agreements.json');
 
 export async function readEscrowDeployment(path: string): Promise<EscrowDeployment> {
   return EscrowDeploymentSchema.parse(JSON.parse(await readFile(path, 'utf8'))) as EscrowDeployment;

@@ -10,7 +10,8 @@ import { ProviderError, type RemoteSensingProvider } from '../remote-sensing/typ
 import { forestLossOutcome, gfwDown } from '../verification/checks/deforestation_overlap';
 import { ndviHistoryDown, ndviHistoryOutcome } from '../verification/checks/ndvi_cultivation';
 import { CONFIG } from '../verification/config';
-import { evidence, istMonth, providerReason } from '../verification/evidence';
+import { evidence, providerReason } from '../verification/evidence';
+import { istMonth } from '../format';
 import type { CheckOutcome } from '../verification/registry';
 import type { CheckStatus } from '../verification/types';
 

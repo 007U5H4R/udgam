@@ -8,14 +8,15 @@ import { PlotAttestationLine } from '../../../../../components/ui/AttestationLin
 import { BatchQr } from '../../../../../components/ui/BatchQr';
 import { GlassCard } from '../../../../../components/ui/GlassCard';
 import { RailShell } from '../../../../../components/ui/Rail';
-import { formatKg, formatScore, istDateTime } from '../../../../../lib/batches/format';
+import { formatKg, istDateTime } from '../../../../../lib/batches/format';
+import { formatScore } from '../../../../../lib/format';
 import { agreementForBatch } from '../../../../../lib/agreements/read';
 import { batchAttestations } from '../../../../../lib/attestations/for-batch';
 import { getOrgBatch, listOrgBatches, listRecipientOrgs } from '../../../../../lib/batches/read';
 import { getDbReady } from '../../../../../lib/db/client';
 import { userName } from '../../../../../lib/enrolment/phones';
 import { t } from '../../../../../lib/i18n';
-import { istDate } from '../../../../../lib/verification/evidence';
+import { istDate } from '../../../../../lib/format';
 import { requireSession, scopedById } from '../../../../_auth/require';
 import { BatchList } from '../BatchList';
 import { cropLabel, pickingsLabel } from '../../../../../components/buyer/labels';

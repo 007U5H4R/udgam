@@ -53,8 +53,8 @@ beforeEach(async () => {
   waiting = 0;
   failConsume = false;
   rateNow = undefined;
-  vi.doMock('./rate-limit', async (importOriginal) => {
-    const real = await importOriginal<typeof import('./rate-limit')>();
+  vi.doMock('../rate-limit', async (importOriginal) => {
+    const real = await importOriginal<typeof import('../rate-limit')>();
     return {
       ...real,
       consume: async (...[db, key, limit, windowSec, now]: Parameters<typeof real.consume>) => {
@@ -100,7 +100,7 @@ afterEach(async () => {
   expect(capturesInFlight().total).toBe(0);
   deadlineMs = 30_000;
   vi.doUnmock('../verification/verify');
-  vi.doUnmock('./rate-limit');
+  vi.doUnmock('../rate-limit');
   vi.doUnmock('./limits');
   (await import('../db/client')).closeDb();
   vi.unstubAllEnvs();
@@ -292,7 +292,8 @@ describe('capture slots, fix round 2 (N2, N7)', () => {
   it('the per-address limit is checked before a slot is taken: with all 4 slots held, an address over its limit → 429, not 503', async () => {
     const { POST } = await import('../../app/api/capture/route');
     const b = await agentCookie('AG-B');
-    const { consume: realConsume, ipKey, IP_LIMIT } = await vi.importActual<typeof import('./rate-limit')>('./rate-limit');
+    const { consume: realConsume } = await vi.importActual<typeof import('../rate-limit')>('../rate-limit');
+    const { ipKey, IP_LIMIT } = await vi.importActual<typeof import('./rate-limit')>('./rate-limit');
     // One pinned clock, mid-window, for the fill and for every request after it: the window cannot roll
     // over between them however slow the setup is (it did once under full-suite load: 503 instead of 429).
     rateNow = new Date('2026-10-14T04:15:00.000Z');
@@ -331,7 +332,8 @@ describe('capture slots, fix round 2 (N2, N7)', () => {
 
   it('the early paths give their slot back: per-address 429s, a failing rate-limit write, a body that is not multipart, a body that breaks off', async () => {
     const { POST } = await import('../../app/api/capture/route');
-    const { consume: realConsume, ipKey, IP_LIMIT } = await vi.importActual<typeof import('./rate-limit')>('./rate-limit');
+    const { consume: realConsume } = await vi.importActual<typeof import('../rate-limit')>('../rate-limit');
+    const { ipKey, IP_LIMIT } = await vi.importActual<typeof import('./rate-limit')>('./rate-limit');
     for (let i = 0; i < IP_LIMIT.limit; i++) await realConsume(t.db, ipKey('203.0.113.100'), IP_LIMIT.limit, IP_LIMIT.windowSec);
     for (let i = 0; i < 6; i++) {
       const r = await POST(await capture('203.0.113.100'));

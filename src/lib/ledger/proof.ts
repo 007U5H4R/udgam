@@ -261,7 +261,7 @@ function closureComplete(feed: ProofFeedV1, batch: FeedEntry): boolean {
   for (const c of feed.entries.filter((e) => e.kind === 'custody_transfer' && e.payload.batchId === feed.batchId)) {
     const fromOrg = str(c.payload.fromOrg);
     const toOrg = str(c.payload.toOrg);
-    if (c.seq < batch.seq || !fromOrg || !toOrg || fromOrg !== holder) return false;
+    if (c.seq <= batch.seq || !fromOrg || !toOrg || fromOrg !== holder) return false;
     holder = toOrg;
   }
   return true;

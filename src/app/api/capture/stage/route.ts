@@ -1,6 +1,6 @@
 import { AuthError, authErrorResponse } from '../../../../lib/auth/guards';
 import { BODY_READ_DEADLINE_MS, BUSY_RETRY_AFTER_SEC, MAX_PHOTO_BYTES } from '../../../../lib/capture/limits';
-import { consume } from '../../../../lib/capture/rate-limit';
+import { consume } from '../../../../lib/rate-limit';
 import { readBodyWithin } from '../../../../lib/capture/read-form';
 import {
   acquireStageSlot,

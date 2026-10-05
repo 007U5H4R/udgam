@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEMO_DATA_SUFFIX, dur, evidence, gapDur, istDate, kmh, kOfN, m, pct, sourced, xu } from './evidence';
+import { DEMO_DATA_SUFFIX, dur, evidence, gapDur, kmh, kOfN, m, pct, sourced, xu } from './evidence';
+import { istDate } from '../format';
 import { CHECK_IDS } from './types';
 
 // TC-011 (registry part): every row of technical-plan §6.5 renders, is snapshot-tested, and names the

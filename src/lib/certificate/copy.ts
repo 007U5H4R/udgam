@@ -1,4 +1,5 @@
 import type { VerifyStep } from '../ledger/proof';
+import { kg1 } from '../format';
 
 // The public certificate's words (TKT-16), ported from .design/exploration/final/verify.html. The page is
 // English only: its readers are importers, auditors and consumers abroad (Design.md §25), so these are
@@ -191,9 +192,6 @@ export function istRange(fromIso: string, toIso: string): string {
 
 /** Today's IST calendar date `YYYY-MM-DD` for `now` (the attestation line's validity). */
 export const istToday = (now: Date): string => new Date(now.getTime() + IST_OFFSET_MS).toISOString().slice(0, 10);
-
-/** Kilograms with one decimal ("612.0"), tabular in the tables (verify.html). */
-export const kg1 = (kg: number): string => (Math.round(kg * 10) / 10).toFixed(1);
 
 /** Kilograms, whole numbers bare ("612"), else one decimal (the headline). */
 export const kgShort = (kg: number): string => (Number.isInteger(kg) ? String(kg) : kg1(kg));

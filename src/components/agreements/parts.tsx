@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { Icon, NaMark } from '../admin/QueueList';
 import { VerdictMark } from '../ui/VerdictChip';
 import pill from '../ui/Pill.module.css';
-import { formatInr, formatKg1, istDate, istDateTime12 } from '../../lib/agreements/format';
+import { formatInr, formatKg1, istDayLong, istDateTime12 } from '../../lib/agreements/format';
 import { gradeDisplay, type Grade } from '../../lib/agreements/grades';
 import { judge, type Condition, type ConditionResult } from '../../lib/agreements/settle';
 import type { AgreementView, Mark, SettlementView, StatusView } from '../../lib/agreements/read';
@@ -197,7 +197,7 @@ export function Terms({ v, side }: { v: AgreementView; side: 'buyer' | 'fpo' }) 
         </div>
         <div>
           <dt>{t('agreements.terms.deadline')}</dt>
-          <dd>{istDate(a.deadline)}</dd>
+          <dd>{istDayLong(a.deadline)}</dd>
         </div>
         <div>
           <dt>{t('agreements.terms.with')}</dt>
@@ -321,7 +321,7 @@ export function OutcomeNotReleased({ v, s, side }: { v: AgreementView; s: Settle
       </p>
       <p className="o-meta">
         {t(side === 'buyer' ? 'agreements.notRel.whereBuyer' : 'agreements.notRel.whereFpo', { amount: formatInr(v.row.amountPaise) })}{' '}
-        {v.deadlinePassed ? '' : t('agreements.notRel.later', { deadline: istDate(v.row.deadline) })}
+        {v.deadlinePassed ? '' : t('agreements.notRel.later', { deadline: istDayLong(v.row.deadline) })}
       </p>
     </div>
   );
