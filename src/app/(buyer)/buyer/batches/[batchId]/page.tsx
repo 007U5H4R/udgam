@@ -8,6 +8,7 @@ import { PlotAttestationLine } from '../../../../../components/ui/AttestationLin
 import { BatchQr } from '../../../../../components/ui/BatchQr';
 import { GlassCard } from '../../../../../components/ui/GlassCard';
 import pill from '../../../../../components/ui/Pill.module.css';
+import { DetailSignOut } from '../../../../../components/ui/SignOut';
 import { batchAttestations } from '../../../../../lib/attestations/for-batch';
 import { getBuyerBatch, listBuyerBatches } from '../../../../../lib/batches/buyer';
 import { formatKg, istDateTime } from '../../../../../lib/batches/format';
@@ -106,6 +107,7 @@ export default async function BuyerBatchPage({ params }: Props) {
               }))}
             />
           </GlassCard>
+          <DetailSignOut />
         </div>
       </section>
     </main>

@@ -67,13 +67,57 @@ test.describe('DES-105 Sign out on every office screen', () => {
 
   test('buyer: batches and agreements', async ({ page }) => {
     await signIn(page, DEMO_ACCOUNTS.buyerA.email, SEED_PASSWORD);
-    // the list column carries it; a detail that is the whole screen (< 1100 px) has Back instead
-    const wide = (page.viewportSize()?.width ?? 0) >= 1100;
-    for (const path of ['/buyer', '/buyer/agreements', ...(wide ? ['/buyer/agreements/new'] : [])]) {
+    for (const path of ['/buyer', '/buyer/agreements', '/buyer/agreements/new']) {
       await page.goto(path);
-      await oneSignOut(page, path, 760); // the buyer's list column pill (unchanged on Batches)
+      await oneSignOut(page, path, 760); // the buyer's list column pill (unchanged on Batches), or the detail's end
     }
     await axeClean(page);
+  });
+
+  // The buyer has no rail: Sign out sits at the foot of the list column, which a detail that is the whole
+  // screen (< 1100 px) hides. There the detail ends with its own ghost pill instead (as RailShell's phone
+  // footer does); side by side (≥ 1100 px) only the list's shows.
+  test('buyer: a detail that is the whole screen ends with Sign out', async ({ page }) => {
+    const b = runSeed<SeededBatches>('e2e/helpers/seed-batches.ts', ['--transfer-to', 'ORG-BUYER-A']);
+    const a = runSeed<SeededAgreements>('e2e/helpers/seed-agreements.ts');
+    const narrow = (page.viewportSize()?.width ?? 0) < 1100;
+    const inDetail = async (where: string) => {
+      const out = page.getByRole('button', { name: 'Sign out' });
+      const detailOut = page.locator('section.detail, section[aria-labelledby="d-h"]').getByRole('button', { name: 'Sign out' });
+      await oneSignOut(page, where, narrow ? 360 : 760);
+      await expect(detailOut, where).toHaveCount(narrow ? 1 : 0);
+      if (narrow) {
+        // the last thing on the screen: nothing in the detail sits below it
+        const below = await out.evaluate((btn) => {
+          const end = btn.getBoundingClientRect().bottom;
+          return [...btn.closest('section')!.querySelectorAll('h2, h3, p, a, button, li')].filter((el) => el !== btn && el.getBoundingClientRect().top >= end).length;
+        });
+        expect(below, where).toBe(0);
+      }
+    };
+
+    await signIn(page, DEMO_ACCOUNTS.buyerA.email, SEED_PASSWORD);
+    await page.goto(`/buyer/batches/${b.batch!.batchId}`);
+    await expect(page.getByRole('heading', { level: 2, name: b.batch!.batchId })).toBeVisible();
+    await inDetail('buyer batch detail');
+    await axeClean(page);
+
+    await page.context().clearCookies();
+    await signIn(page, a.buyerEmail, a.testOnlyPassword);
+    for (const id of [a.created.id, a.released.id]) {
+      await page.goto(`/buyer/agreements/${id}`);
+      await inDetail(`buyer agreement ${id}`);
+    }
+    await page.goto('/buyer/agreements/new');
+    await inDetail('buyer new agreement');
+    await axeClean(page);
+
+    // and it ends the session from the detail
+    await page.goto(`/buyer/agreements/${a.created.id}`);
+    await page.getByRole('button', { name: 'Sign out' }).click();
+    await expect(page).toHaveURL(/\/sign-in$/);
+    await page.goto(`/buyer/agreements/${a.created.id}`);
+    await expect(page).toHaveURL(/\/sign-in$/);
   });
 
   test('processor: the batch list', async ({ page }) => {

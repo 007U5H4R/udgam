@@ -7,6 +7,7 @@ import { forcedAgreementState } from '../../../../../lib/agreements/view-state';
 import { orgNames } from '../../../../../lib/batches/read';
 import { getDbReady } from '../../../../../lib/db/client';
 import { t } from '../../../../../lib/i18n';
+import { DetailSignOut } from '../../../../../components/ui/SignOut';
 import { requireSession } from '../../../../_auth/require';
 import { createAgreementAction } from '../actions';
 
@@ -40,6 +41,7 @@ export default async function NewAgreementPage({ searchParams }: Props) {
               <NewAgreementForm action={createAgreementAction} fpos={fpos} forcedWorking={forced === 'working'} />
             </div>
           )}
+          <DetailSignOut />
         </DetailColumn>
       )}
     </main>
