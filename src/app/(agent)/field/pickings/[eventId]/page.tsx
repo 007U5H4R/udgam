@@ -98,7 +98,10 @@ export default async function PickingDetailPage({
         <GlassCard as="div" card={false} className="row tall">
           <div className="r-why">
             <details data-testid="all-checks">
-              <summary>{tr('dt.seeAll')}</summary>
+              <summary>
+                {tr('dt.seeAll')}
+                <Ic name="chevron" className="ic chev" />
+              </summary>
               <ul className="checks">
                 {groups.map((g) => {
                   const mark = MARK[g.state];

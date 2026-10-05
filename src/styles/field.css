@@ -1267,6 +1267,7 @@ html[lang='kn'] body {
 .row .r-why summary {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   min-height: 48px;
   color: #b9f5d2;
   font-weight: 700;

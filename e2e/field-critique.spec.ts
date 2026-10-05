@@ -282,3 +282,19 @@ test('DES-013: the record flow on a phone that is not set up goes to set-up befo
   await expect(page).toHaveURL(/\/enrol$/);
   await expect(page.getByText('Not accepted')).toHaveCount(0);
 });
+
+test('DES-016: "What can I do?" and "See all checks" carry a chevron that turns when they open', async ({ page, context }) => {
+  const seed = seedCaptureWorld({ events: ['29:Rejected:outside'] });
+  await openField(page, context, seed);
+  await page.goto('/field/pickings');
+  const summary = page.locator('li.row .r-why details summary');
+  const chev = summary.locator('svg.chev');
+  await expect(chev).toHaveCount(1);
+  const turn = () => chev.evaluate((el) => getComputedStyle(el).transform);
+  expect(await turn()).toBe('none');
+  await summary.click();
+  await expect.poll(turn).toMatch(/^matrix\(-1, /); // rotate(180deg), after its 0.2 s turn
+
+  await page.locator('li.row a.r-open').first().click();
+  await expect(page.getByTestId('all-checks').locator('summary svg.chev')).toHaveCount(1);
+});

@@ -4,12 +4,13 @@ import { t, type Lang, type MessageKey } from '../../lib/i18n';
 import { GlassCard } from '../ui/GlassCard';
 import { VerdictChip } from '../ui/VerdictChip';
 import { istShortDay } from './format';
+import { Ic } from './icons';
 import { kg1 } from '../../lib/format';
 
 // One sent picking on the Pickings list (final/index.html #s8, lines 642–659): the IST date and kg
 // (a link to its detail), the verdict chip (word + mark + colour), and for Needs a check the reason and
 // that the office is checking it (`r-why`), for Not accepted the reason and a "What can I do?"
-// disclosure with what to do.
+// disclosure with what to do (its chevron turns when it opens, DES-016).
 
 export function PickingRow({ item, lang }: { item: PickingItem; lang: Lang }) {
   const tr = (k: MessageKey, v: Record<string, string | number> = {}) => t(k, v, lang);
@@ -27,7 +28,10 @@ export function PickingRow({ item, lang }: { item: PickingItem; lang: Lang }) {
           <p>{item.reason!.text}</p>
           {item.whatToDo ? (
             <details>
-              <summary>{tr('pk.whatCanIDo')}</summary>
+              <summary>
+                {tr('pk.whatCanIDo')}
+                <Ic name="chevron" className="ic chev" />
+              </summary>
               <p>{item.whatToDo}</p>
             </details>
           ) : null}
