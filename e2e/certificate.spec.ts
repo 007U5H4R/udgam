@@ -53,7 +53,8 @@ test.describe('certificate hero, origin map and journey (TSK-16.4, @eval EVAL-08
       await expect(farms.nth(i)).toContainText(`Farm ${producerId} · 2.0 ha`);
       await expect(farms.nth(i)).toContainText('1 picking');
       // EXE12 / CF-11: fixture satellite data is labelled, and the label is shown as recorded
-      await expect(farms.nth(i).getByTestId('forest-line')).toHaveText('0.0% of plot area lost since 2021 (hard fail at 10.0%) (demo data)');
+      // (DES-213: "limit", not the verifier's "hard fail", on the public page)
+      await expect(farms.nth(i).getByTestId('forest-line')).toHaveText('0.0% of plot area lost since 2021 (limit 10.0%) (demo data)');
     }
   });
 
@@ -111,7 +112,7 @@ test.describe('certificate entries, organic line, files and limits (TSK-16.5)', 
     await expect(more.locator('li').first()).toBeHidden();
     await more.locator('summary').click();
     // the rest, with the fixture satellite lines labelled "(demo data)" exactly as recorded (EXE12)
-    await expect(more).toContainText('0.0% of plot area lost since 2021 (hard fail at 10.0%) (demo data)');
+    await expect(more).toContainText('0.0% of plot area lost since 2021 (limit 10.0%) (demo data)');
     await expect(more).toContainText('Living canopy around the picking date: NDVI 0.71 (needs ≥ 0.45) (demo data)');
   });
 

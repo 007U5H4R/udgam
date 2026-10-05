@@ -202,5 +202,17 @@ export const kgShort = (kg: number): string => (Number.isInteger(kg) ? String(kg
 /** Hectares with one decimal ("1.8 ha"). */
 export const ha1 = (ha: number | null): string => (ha === null ? '' : `${(Math.round(ha * 10) / 10).toFixed(1)} ha`);
 
+/**
+ * A recorded evidence sentence in the certificate's public words (Stage 8, DES-208 / DES-213): the chain
+ * check without the phone's sequence numbers (they read against the table's own "#" column), and "limit"
+ * for the verifier's "hard fail" limits. Every other sentence, and any "(demo data)" label (EXE12), is
+ * shown as recorded. Display only: the feed and the signed payloads are unchanged.
+ */
+export function publicEvidence(line: string): string {
+  const chain = /^Entry (\d+) follows entry \d+ from this phone$/.exec(line);
+  if (chain) return chain[1] === '1' ? 'First entry from this phone' : 'Follows the previous entry from this phone';
+  return line.replace(/\(hard fail at /g, '(limit ').replace(/, hard fail above /g, ', limit ');
+}
+
 /** The first 8 characters of a key id (the fingerprint shown on the page). */
 export const kid8 = (kid: string): string => kid.slice(0, 8);

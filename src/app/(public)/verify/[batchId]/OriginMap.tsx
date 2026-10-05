@@ -1,5 +1,5 @@
 import { CertIcon } from '../../../../components/ui/CertIcon';
-import { certCopy, ha1 } from '../../../../lib/certificate/copy';
+import { certCopy, ha1, publicEvidence } from '../../../../lib/certificate/copy';
 import { kg1 } from '../../../../lib/format';
 import { BADGE_R, MAP_BOX, originMapPaths, plotMarks } from '../../../../lib/certificate/map';
 import type { CertificateView } from '../../../../lib/certificate/view-model';
@@ -7,10 +7,11 @@ import c from './certificate.module.css';
 
 // "Where it was grown" (verify.html "3 · origin map card"): the batch's plots as glowing outlines on one
 // dark SVG map (no tiles, Design.md §25), drawn from the polygons anchored in the feed, then each farm by
-// its producer ID with its area, pickings and kilograms, and its latest forest-loss result verbatim (a
-// "(demo data)" label included, EXE12). A plot's label stays inside its outline (TASK-17 fix round 1): it
-// is squeezed to fit. DES-200: a plot drawn smaller than a few pixels also gets a ring marker, and a plot
-// whose ID does not fit gets a number badge instead, repeated on its row of the farm list (lib/certificate/map.ts).
+// its producer ID with its area, pickings and kilograms, and its latest forest-loss result as recorded (a
+// "(demo data)" label included, EXE12) in the page's public words (publicEvidence, DES-213). A plot's
+// label stays inside its outline (TASK-17 fix round 1): it is squeezed to fit. DES-200: a plot drawn
+// smaller than a few pixels also gets a ring marker, and a plot whose ID does not fit gets a number badge
+// instead, repeated on its row of the farm list (lib/certificate/map.ts).
 
 const CONTOURS = (() => {
   const out: string[] = [];
@@ -105,7 +106,7 @@ export function OriginMap({ view }: { view: CertificateView }) {
               <span>{o ? certCopy.map.pickings(o.pickings, kg1(o.kg)) : null}</span>
               <span className={c.forest} data-testid="forest-line">
                 <CertIcon name="tree" className={c.ic} />
-                <span>{p.forestLoss ? p.forestLoss.evidence : certCopy.map.noForest}</span>
+                <span>{p.forestLoss ? publicEvidence(p.forestLoss.evidence) : certCopy.map.noForest}</span>
               </span>
             </li>
           );

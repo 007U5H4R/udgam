@@ -9,7 +9,7 @@ import { EntryList, type EntryRow } from '../../../../components/ui/EntryList';
 import { OriginTable } from '../../../../components/ui/OriginTable';
 import { ProofPanel } from '../../../../components/ui/ProofPanel';
 import { Timeline, type TimelineStep } from '../../../../components/ui/Timeline';
-import { certCopy, istDay, istRange, istToday, kgShort } from '../../../../lib/certificate/copy';
+import { certCopy, istDay, istRange, istToday, kgShort, publicEvidence } from '../../../../lib/certificate/copy';
 import { kg1 } from '../../../../lib/format';
 import { FEED_ELEMENT_ID, serializeFeedForEmbed } from '../../../../lib/certificate/embed';
 import { resolveDevState } from '../../../../lib/certificate/dev-state';
@@ -100,7 +100,7 @@ function entryRows(view: CertificateView): EntryRow[] {
     farm: e.producerId,
     kg: kg1(e.kg),
     verdict: VERDICT[e.verdict],
-    evidence: e.evidence,
+    evidence: e.evidence.map(publicEvidence),
     ...(e.override ? { override: { word: VERDICT[e.override.verdict].word, reason: e.override.reason } } : {}),
     seqs: e.seqs,
   }));
