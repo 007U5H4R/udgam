@@ -20,6 +20,18 @@
 .map :global(.leaflet-control-attribution a) {
   text-decoration: underline;
 }
+/* DES-106 (Design.md §17: targets at least 48 px, text at least 13 px): Leaflet's zoom buttons are 30 px
+   and its attribution is 12 px. The extra class beats leaflet.css's `.leaflet-touch .leaflet-bar a`. */
+.map :global(.leaflet-bar.leaflet-control-zoom a) {
+  width: 48px;
+  height: 48px;
+  line-height: 48px;
+  font-size: 24px;
+}
+.map :global(.leaflet-control-container .leaflet-control-attribution) {
+  font-size: 13px;
+  line-height: 1.4;
+}
 .mapLoading {
   display: grid;
   place-items: center;

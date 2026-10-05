@@ -6,6 +6,7 @@ import { openField, seedCaptureWorld } from './helpers/capture';
 import type { SeededAgreements } from './helpers/seed-agreements';
 import type { SeededBatches } from './helpers/seed-batches';
 import type { SeededReview } from './helpers/seed-review';
+import { stubTiles } from './helpers/stubs';
 import { E2E_DATA_DIR } from './helpers/tracer';
 
 // Stage 8 office fixes (docs/exec/stage8/stage8-office.md): the office shell around every admin, buyer and
@@ -206,5 +207,20 @@ test.describe('DES-110 one title pattern: "<Screen> <ID> · Udgam"', () => {
     await signIn(page, DEMO_ACCOUNTS.processorA.email, SEED_PASSWORD);
     await page.goto('/processor');
     await expect(page).toHaveTitle('Batches · Udgam');
+  });
+});
+
+test.describe('DES-106 the plot map controls meet the target and text floors', () => {
+  test('zoom buttons are 48 px and the attribution is 13 px on Add a plot', async ({ page }) => {
+    await stubTiles(page);
+    await signIn(page, DEMO_ACCOUNTS.adminA.email, SEED_PASSWORD);
+    await page.goto('/admin/plots/new');
+    for (const name of ['Zoom in', 'Zoom out']) {
+      const box = (await page.getByRole('button', { name }).or(page.getByRole('link', { name })).first().boundingBox())!;
+      expect(box.width, name).toBeGreaterThanOrEqual(48);
+      expect(box.height, name).toBeGreaterThanOrEqual(48);
+    }
+    const size = await page.locator('.leaflet-control-attribution').evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    expect(size).toBeGreaterThanOrEqual(13);
   });
 });
