@@ -240,6 +240,10 @@ export function renderReportFromResults(r: ResultsFile, resultsPath: string): st
   out.push('');
   out.push(`Registry: ${p.registry.checks.join(', ') || 'none'}${p.registry.missing.length ? ` · not built yet: ${p.registry.missing.join(', ')}` : ''}`);
   out.push('');
+  if (p.massBalance) {
+    out.push(`Mass balance ${code(p.massBalance.version)} · hash ${code(p.massBalance.hash)}${p.massBalance.placeholderBands.length ? ` · placeholder bands (owner to confirm): ${p.massBalance.placeholderBands.join(', ')}` : ''}`);
+    out.push('');
+  }
   out.push('```json');
   out.push(JSON.stringify(p.config.object, null, 2));
   out.push('```');

@@ -89,6 +89,9 @@ describe('the report derives from the results file only (TC-016)', () => {
     for (const c of r.cases.filter((x) => x.outcome !== 'passed')) expect(md).toContain(c.id);
     expect(md).toContain(r.provenance.config.hash);
     expect(md).toContain(r.provenance.dataset.sha256);
+    // TSK-26.1: the mass-balance bands' version and hash, and which bands are placeholders.
+    expect(r.provenance.massBalance).toMatchObject({ version: 'mb-1', placeholderBands: ['pulping', 'drying'] });
+    expect(md).toContain(r.provenance.massBalance!.hash);
   });
 
   it('shows the pairs side by side, the known limitations and the sample-size caveat', () => {

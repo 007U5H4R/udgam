@@ -5,6 +5,7 @@ import { arch, platform } from 'node:os';
 import { relative, resolve } from 'node:path';
 import { YIELD_REFERENCE_ROWS, YIELD_REFERENCE_VERSION } from '../../src/lib/yield/reference-data';
 import { CONFIG, CONFIG_HASH } from '../../src/lib/verification/config';
+import { MB_CONFIG, MB_CONFIG_HASH, PROCESSES, isPlaceholderBand } from '../../src/lib/processing/config';
 import type { CheckId } from '../../src/lib/verification/types';
 import { PLACEHOLDER_YIELD_REFERENCE } from './context';
 import { EVALS_DIR, type Dataset, type Suite } from './dataset';
@@ -26,6 +27,8 @@ export type Provenance = {
   fixtures: { version: string; sha256: string; files: number };
   config: { version: string; hash: string; mode: 'full' | 'ledger-only'; enabledChecks: CheckId[]; object: typeof CONFIG };
   registry: { checks: CheckId[]; missing: CheckId[] };
+  /** The processor mass-balance bands (TSK-26.1, M-002), with the processes whose band is a placeholder. Absent in older results. */
+  massBalance?: { version: string; hash: string; placeholderBands: string[] };
   provider: 'fixture' | 'live';
   yieldReference: {
     version: string;
@@ -103,6 +106,7 @@ export function provenance(i: ProvenanceInput): Provenance {
     fixtures: { version: FIXTURE_SET_VERSION, sha256: fixtureSetHash(i.fixtureFiles), files: i.fixtureFiles.length },
     config: { version: CONFIG.version, hash: CONFIG_HASH, mode: i.mode, enabledChecks: i.enabledChecks, object: CONFIG },
     registry: { checks: i.registryChecks, missing: i.enabledChecks.filter((id) => !i.registryChecks.includes(id)) },
+    massBalance: { version: MB_CONFIG.version, hash: MB_CONFIG_HASH, placeholderBands: PROCESSES.filter(isPlaceholderBand) },
     provider: i.provider,
     yieldReference: {
       version: 'placeholder-U (technical-plan TSK-03.4)',
