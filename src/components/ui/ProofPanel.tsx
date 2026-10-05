@@ -268,7 +268,7 @@ function Mismatch({ state }: { state: Extract<ProofUiState, { status: 'mismatch'
         <div>
           <dt>{p.whatFailed}</dt>
           <dd className={s.step}>
-            {certCopy.steps[failure.step]} (step <code>{failure.step}</code>
+            {certCopy.steps[failure.step]} ({certCopy.stepWord} <code>{failure.step}</code>
             {refs.length > 0 ? `, ${refs.join(', ')}` : ''}).
           </dd>
         </div>

@@ -9,6 +9,11 @@ const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
 export const certCopy = {
   kind: 'Public certificate',
+  /** The batch QR card on the admin and buyer batch pages (TSK-16.7). */
+  qrTitle: 'Certificate QR code',
+  qrPrint: 'Print QR',
+  /** Beside a failing step's plain words: "(step <name>…)". */
+  stepWord: 'step',
   eyebrow: (batchId: string) => `Batch ${batchId}`,
   headline: (kg: string, crop: string, farms: number, district: string) => `${kg} kg of ${crop} cherry from ${farms} ${plural(farms, 'farm', 'farms')} in ${district}`,
   meta: (region: string, window: string | null) => (window ? `${region} · harvested ${window}` : region),

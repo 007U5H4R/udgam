@@ -1,3 +1,4 @@
+import { certCopy } from '../../lib/certificate/copy';
 import { certificateUrl, qrSvg } from '../../lib/certificate/qr';
 import { PrintQrButton } from './PrintQrButton';
 import s from './BatchQr.module.css';
@@ -12,11 +13,11 @@ export async function BatchQr({ batchId, shortHash }: { batchId: string; shortHa
   return (
     <section className={s.card} aria-labelledby="qr-h" data-testid="batch-qr">
       <h2 className={s.h} id="qr-h">
-        Certificate QR code
+        {certCopy.qrTitle}
       </h2>
       <div className={s.code} role="img" aria-label={`QR code for ${url}`} dangerouslySetInnerHTML={{ __html: svg }} />
       <p className={s.url}>{url}</p>
-      <PrintQrButton svg={svg} url={url} label="Print QR" />
+      <PrintQrButton svg={svg} url={url} label={certCopy.qrPrint} />
     </section>
   );
 }
