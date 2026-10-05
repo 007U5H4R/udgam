@@ -19,7 +19,8 @@ import { buildContext, refreshUnderLock } from './context';
 import { findAcceptedOutcome, winnerAfterUniqueViolation, type AcceptedOutcome } from './idempotency';
 import { claimedDeviceId, parseCaptureForm, type FormReason } from './parse';
 import { persistAccepted, persistRejected, type AppendFn, type RejectedCapture, type StoredMedia } from './persist';
-import { consume, DEVICE_LIMIT, deviceKey, refund } from './rate-limit';
+import { consume, refund } from '../rate-limit';
+import { DEVICE_LIMIT, deviceKey } from './rate-limit';
 import { claimStaged, consumeStaged, sweepStaging, type StagingStore } from './staging';
 
 // The capture pipeline (technical-plan §3.1). Emits NDJSON-able events: a `check` line as each check

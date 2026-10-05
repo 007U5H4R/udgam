@@ -131,7 +131,7 @@ describe('client disconnect', () => {
   afterEach(() => {
     vi.doUnmock('../../../lib/db/client');
     vi.doUnmock('../../../lib/log');
-    vi.doUnmock('../../../lib/capture/rate-limit');
+    vi.doUnmock('../../../lib/rate-limit');
   });
 
   it('a stream cancelled before the verdict still commits once, raises no unhandled rejection and logs no failure', async () => {
@@ -150,8 +150,8 @@ describe('client disconnect', () => {
     });
     // The rate limits count in their own write transactions before the stream starts; only the
     // capture's commit is held here.
-    vi.doMock('../../../lib/capture/rate-limit', async (importOriginal) => ({
-      ...(await importOriginal<typeof import('../../../lib/capture/rate-limit')>()),
+    vi.doMock('../../../lib/rate-limit', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('../../../lib/rate-limit')>()),
       consume: async () => ({ ok: true, retryAfterSec: 0 }),
     }));
     const error = vi.fn();

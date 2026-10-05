@@ -1,9 +1,11 @@
-import { and, eq, lt, sql } from 'drizzle-orm';
+import { and, eq, gt, lt, sql } from 'drizzle-orm';
 import { writeTx, type Db, type Tx } from './db/client';
 import { rateLimits } from './db/schema';
 
 // Fixed-window rate limiting on the SQLite file (technical-plan §4.1 `rate_limits`, N3: no Redis).
-// Used by enrolment (5 attempts per code, 10 per IP per hour, §10) and later by capture (TKT-19).
+// Used by enrolment (5 attempts per code, 10 per IP per hour, §10), capture and photo staging (TKT-19,
+// TKT-30) and the certificate telemetry beacon (TKT-16). `hit` counts; `consume` adds the Retry-After
+// seconds the HTTP routes answer with, and `refund` gives one attempt back.
 
 export type HitResult = { allowed: boolean; remaining: number };
 
@@ -49,4 +51,33 @@ export function hit(handle: Db | Tx, key: string, limit: number, windowSec: numb
   if (!Number.isInteger(windowSec) || windowSec <= 0) throw new RangeError('windowSec must be a positive integer');
   if (isTx(handle)) return hitIn(handle, key, limit, windowSec, now);
   return writeTx(handle, (tx) => hitIn(tx, key, limit, windowSec, now));
+}
+
+export type ConsumeResult = { ok: boolean; retryAfterSec: number };
+
+/**
+ * Count one attempt on `key` and say whether it is within `limit` per `windowSec`. When it is not,
+ * `retryAfterSec` is the whole seconds until the current window ends (at least 1).
+ */
+export async function consume(db: Db, key: string, limit: number, windowSec: number, now: Date = new Date()): Promise<ConsumeResult> {
+  const r = await hit(db, key, limit, windowSec, now);
+  if (r.allowed) return { ok: true, retryAfterSec: 0 };
+  const nowSec = now.getTime() / 1000;
+  const windowEnd = (Math.floor(nowSec / windowSec) + 1) * windowSec;
+  return { ok: false, retryAfterSec: Math.max(1, Math.ceil(windowEnd - nowSec)) };
+}
+
+/**
+ * Give back one attempt counted on `key` in the window of `now` (TKT-30 review #5): a capture answered
+ * 409 media_not_staged is not an attempt, its resend with the bytes is, so the pair spends one token.
+ * A window that has rolled over since is left alone.
+ */
+export async function refund(db: Db, key: string, windowSec: number, now: Date): Promise<void> {
+  const windowStart = Math.floor(now.getTime() / 1000 / windowSec) * windowSec;
+  await writeTx(db, (tx) =>
+    tx
+      .update(rateLimits)
+      .set({ count: sql`${rateLimits.count} - 1` })
+      .where(and(eq(rateLimits.key, key), eq(rateLimits.windowStart, windowStart), gt(rateLimits.count, 0))),
+  );
 }
