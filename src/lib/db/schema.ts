@@ -535,3 +535,28 @@ export const cropYieldReference = sqliteTable(
     check('crop_yield_reference_values_check', sql`${t.maxKgHa} > 0 AND ${t.cherryToCleanRatio} > 0 AND ${t.cherryToCleanRatio} <= 1`),
   ],
 );
+
+/**
+ * Photos uploaded ahead of their capture (technical-plan §4.1, TP28; TKT-30). A staged file belongs to
+ * one agent and the phone that staged it, lives at DATA_DIR/staging/<agent_id>/<sha256> and expires
+ * after an hour (swept). Not provenance: no anchor, never read by `photo_uniqueness` (only an accepted
+ * capture's `media` rows count as seen). Staging the same bytes again refreshes the row.
+ */
+export const stagedMedia = sqliteTable(
+  'staged_media',
+  {
+    sha256: text('sha256').notNull(),
+    agentId: text('agent_id').notNull(),
+    deviceId: text('device_id').notNull(),
+    size: integer('size').notNull(),
+    mime: text('mime').notNull(),
+    path: text('path').notNull(),
+    createdAt: text('created_at').notNull(),
+    expiresAt: text('expires_at').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.sha256, t.agentId] }),
+    index('staged_media_agent_expiry_idx').on(t.agentId, t.expiresAt),
+    index('staged_media_expiry_idx').on(t.expiresAt),
+  ],
+);
