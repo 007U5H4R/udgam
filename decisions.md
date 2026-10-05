@@ -786,3 +786,22 @@ S4's threshold and every cfg-1 value are unchanged (CF-13).
 **Context.** TKT-30's quality review found the following. The phone only names staged hashes that the server confirmed, so a staged file whose bytes no longer match at capture can only have changed on the server. TC-094(b) anchored this as the device's `media_hash_mismatch` rejection, and the phone then dropped a correct outbox copy. That contradicts TP28: the farmer never loses a photo.
 **Decision.** At capture, a re-hash mismatch on a staged file answers 409 `media_not_staged`, with nothing anchored and the file discarded. The phone resends the bytes inline, which are then verified normally. A mismatch on bytes the phone itself sent is still an anchored `media_hash_mismatch`.
 **Rejected.** Anchoring the server-side mismatch as the agent's refusal, which blames the agent and loses the photo.
+
+## EXE26 · A multi-part plot under 4 ha exports one point per part — accepted (orchestrator, under the owner's delegation, 2026-10-05; extends TP24)
+**Context.** TKT-17's fix re-review (A9) found that a plot registered as several parts (a MultiPolygon) and under 4 ha in total exported as ONE Point, placed on one of its parts. EUDR requires every plot of land to be geolocated. If the parts are separate parcels, the other parcels had no location in the DDS file, and a buyer's due diligence would be incomplete. The owner said: "Decide on my behalf".
+**Decision.** Under 4 ha, a multi-part plot exports as a `MultiPoint` with one interior point per part (the same `interiorPoint` rule as a single Point), in part order, with the plot's `Area` (two decimals) unchanged. Both rules below stand as exported:
+- a single-part plot under 4 ha stays a `Point`;
+- a plot of 4 ha or more stays a `Polygon`/`MultiPolygon` (outer rings, RFC 7946 orientation).
+
+The EU file description accepts Point, MultiPoint, Polygon and MultiPolygon. docs/eudr-geojson.md and the export schema are updated to match, with tests that use fixed literals. This is implemented in the follow-up task (item 16).
+
+Also recorded from TKT-17's fix round, both accepted by the re-reviewer:
+- a plot of 4 ha or more in several parts exports as `MultiPolygon` (it extends TP24's "Polygon");
+- a ring of a plot of 4 ha or more that collapses under 6-dp rounding makes the export answer 503 rather than silently downgrading to a Point. Registration cannot produce that state.
+
+**Rejected:**
+- Keeping one Point: it leaves separate parcels unlocated.
+- Exporting the full MultiPolygon under 4 ha: allowed, but it is more than the Regulation asks for under 4 ha, and it diverges from the single-part Point rule.
+- Splitting the parts into separate Features: one plot keeps one Feature and one ProducerName row.
+
+No threshold, eval case or cfg-1 value changes (CF-13).
