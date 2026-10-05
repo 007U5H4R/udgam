@@ -292,3 +292,22 @@ Formal commit `d7124cb` records the run at gate commit `eb321a1`. The harness, p
 - BUG · EVAL-055 · Verified (score 95.8), expected Needs Review/Rejected; the lone `exif_time_agreement` flag reads "phone clock 3 days from server (limit 24 h)" (scenario 6 stretch) · TKT-08 (TASK-9). Owner-held stretch miss, EXE10 / OD-7. Not in S1.
 - BUG · EVAL-056 · Verified (score 95.8), expected Needs Review/Rejected; the lone `exif_time_agreement` flag reads "Photo time 2 h from capture time (limit 10 min)" (scenario 6 stretch) · TKT-08 (TASK-9). Owner-held stretch miss, EXE10 / OD-7. Not in S1.
 - BUG · EVAL-071 (§18 verify budget, reported only, not a gate) · proof-start → proof-final p50 401.5 ms, p95 478.2 ms, max 516 ms at 4× CPU throttle, against the ≤ 300 ms budget (EXE24 / OD-8). S4 itself passes · TKT-16 (TASK-17).
+
+## Stage 7 completion · final whole-branch review · PASS · 2026-10-05
+**Review.** The completion review (Opus, whole branch at ebb42ce) found 1 major, 2 minor and 6 nit. The single fix wave (EXE39) merged at 6a6051d.
+
+**Verification by the reviewer at 6a6051d: PASS, 0 findings open.**
+- typecheck and lint 0; `test` 2513/2513; `pnpm build` 0 warnings; `check-bundle-secrets` passes; `check-trace` passes in CI (`ci.yml`).
+- **Traces:** 12 planted probes (keys, the DB, media, credentials, `.e2e-data`, `.secrets`) appear in no `.nft.json`. The verify route's trace went from 1,566 files to 421. With the old code restored locally, `check-trace` fails and names every `data/` probe.
+- **`/api/enrol`:** 60 MB with a declared length → 413 in 0.12 s, unread. Chunked → 411. Signed out → 401.
+- **Key folders:** loose `keys/` and `keys/evm/` folders are tightened to 0700, and key files to 0600.
+
+**Non-blocking, carried to Stage 9 and TKT-27:**
+- A few data-dir reads still use a bare `resolve`/`join`: the attestation route, `media/store`, `media/thumbs`, `capture/staging` and `demo/attacks`. None leaked in the probe build; move them onto `runtimePath`.
+- Re-run `check-trace` on TKT-27's `output:'standalone'` build.
+
+**Stage 7 exit criteria met.**
+- All tasks are green under TDD, and every per-task two-stage review passed.
+- Every phase QA passed (P1–P8, M-002), and the M-001 formal evaluation passed.
+- The final whole-branch review is clean.
+- Next: Stage 8 (EXE22).
