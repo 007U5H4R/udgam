@@ -30,6 +30,12 @@ let onArrive: () => void = () => undefined;
 let holdVerify: () => void = () => undefined;
 /** While true, the per-address rate-limit write fails (the database refusing). */
 let failConsume = false;
+/**
+ * The rate limiter's clock when a test pins it (else the wall clock). Its windows are fixed 10-minute
+ * buckets of wall-clock time, so a test that fills a bucket and then asserts on the next request must not
+ * straddle a bucket boundary: slow setup under load could roll the window over in between (TASK-20).
+ */
+let rateNow: Date | undefined;
 /** The route's body-read deadline in these tests (60 s in the app; the value is pinned in in-flight.test.ts). */
 let deadlineMs = 30_000;
 /** Bodies left hanging by a test; broken off in afterEach so no slot outlives its test. */
@@ -46,13 +52,14 @@ beforeEach(async () => {
   held = false;
   waiting = 0;
   failConsume = false;
+  rateNow = undefined;
   vi.doMock('./rate-limit', async (importOriginal) => {
     const real = await importOriginal<typeof import('./rate-limit')>();
     return {
       ...real,
-      consume: async (...args: Parameters<typeof real.consume>) => {
+      consume: async (...[db, key, limit, windowSec, now]: Parameters<typeof real.consume>) => {
         if (failConsume) throw new Error('database is locked');
-        return real.consume(...args);
+        return real.consume(db, key, limit, windowSec, now ?? rateNow ?? new Date());
       },
     };
   });
@@ -286,7 +293,10 @@ describe('capture slots, fix round 2 (N2, N7)', () => {
     const { POST } = await import('../../app/api/capture/route');
     const b = await agentCookie('AG-B');
     const { consume: realConsume, ipKey, IP_LIMIT } = await vi.importActual<typeof import('./rate-limit')>('./rate-limit');
-    for (let i = 0; i < IP_LIMIT.limit; i++) await realConsume(t.db, ipKey('203.0.113.80'), IP_LIMIT.limit, IP_LIMIT.windowSec);
+    // One pinned clock, mid-window, for the fill and for every request after it: the window cannot roll
+    // over between them however slow the setup is (it did once under full-suite load: 503 instead of 429).
+    rateNow = new Date('2026-10-14T04:15:00.000Z');
+    for (let i = 0; i < IP_LIMIT.limit; i++) await realConsume(t.db, ipKey('203.0.113.80'), IP_LIMIT.limit, IP_LIMIT.windowSec, rateNow);
     await stalled(POST, cookie, '203.0.113.81');
     await stalled(POST, cookie, '203.0.113.81');
     await stalled(POST, b, '203.0.113.82');
