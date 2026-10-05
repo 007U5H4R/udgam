@@ -259,6 +259,7 @@ export const en = {
   'pk.noKg': 'No weight',
   'pk.why.check': '{reason} The office is checking it.',
   'pk.whatCanIDo': 'What can I do?',
+  'pk.limit': 'Showing your last {n} pickings. Ask the office for earlier ones.',
   // One picking (TKT-11, TSK-11.5)
   'dt.back': 'Back to Pickings',
   'dt.title': '{kg} · {plot}',

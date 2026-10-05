@@ -764,6 +764,20 @@ html[lang='kn'] body {
   margin-top: 18px;
   font-weight: 700;
 }
+/* DES-018: a photo that cannot be sent: the inline error style of /enrol (--bad-ink, word first, an icon). */
+.photo-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  color: var(--bad-ink);
+  font-weight: 600;
+}
+.photo-error .ic {
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+}
 
 /* ── s3-kg Weight ─────────────────────────────────────── */
 /* DES-010: the weight screen is a full-height column, so the keypad (margin-top: auto) and the Send pill

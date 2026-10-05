@@ -183,6 +183,7 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'pk.noKg': 'ತೂಕ ಇಲ್ಲ', // REVIEW: native speaker
   'pk.why.check': '{reason} ಕಚೇರಿ ಇದನ್ನು ಪರಿಶೀಲಿಸುತ್ತಿದೆ.', // REVIEW: native speaker
   'pk.whatCanIDo': 'ನಾನು ಏನು ಮಾಡಬಹುದು?', // REVIEW: native speaker
+  'pk.limit': 'ನಿಮ್ಮ ಕೊನೆಯ {n} ಕೊಯ್ಲುಗಳನ್ನು ತೋರಿಸಲಾಗಿದೆ. ಹಿಂದಿನವುಗಳಿಗೆ ಕಚೇರಿಯನ್ನು ಕೇಳಿ.', // REVIEW: native speaker
   'dt.back': 'ಕೊಯ್ಲುಗಳಿಗೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
   'dt.title': '{kg} · {plot}', // REVIEW: native speaker
   'dt.received': 'ಕಚೇರಿ ಸ್ವೀಕರಿಸಿದ ಸಮಯ', // REVIEW: native speaker
