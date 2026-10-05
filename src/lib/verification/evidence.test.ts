@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEMO_DATA_SUFFIX, dur, evidence, istDate, kmh, kOfN, m, pct, sourced, xu } from './evidence';
+import { DEMO_DATA_SUFFIX, dur, evidence, gapDur, istDate, kmh, kOfN, m, pct, sourced, xu } from './evidence';
 import { CHECK_IDS } from './types';
 
 // TC-011 (registry part): every row of technical-plan §6.5 renders, is snapshot-tested, and names the
@@ -215,6 +215,28 @@ describe('formatters (evaluation-plan §7.4)', () => {
     expect(dur(2819)).toBe('47 h');
     expect(dur(2879)).toBe('2 days');
     expect(dur(10080)).toBe('7 days');
+  });
+  it('gapDur: the coarse dur when it lands on the right side of every limit (QA-P5-5)', () => {
+    expect(gapDur(10, [10, 1440])).toBe('10 min');
+    expect(gapDur(11, [10, 1440])).toBe('11 min');
+    expect(gapDur(1440, [10, 1440])).toBe('24 h');
+    expect(gapDur(1500, [10, 1440])).toBe('25 h');
+    expect(gapDur(10080, [1440, 10080])).toBe('7 days');
+    expect(gapDur(12960, [1440, 10080])).toBe('9 days');
+  });
+  it('gapDur: minutes shown when the coarse value would sit on the wrong side of a limit (QA-P5-5, EXE18)', () => {
+    expect(gapDur(1441, [10, 1440])).toBe('24 h 1 min');
+    expect(gapDur(1441, [1440, 10080])).toBe('24 h 1 min');
+    expect(gapDur(1459, [10, 1440])).toBe('24 h 19 min');
+    expect(gapDur(10081, [1440, 10080])).toBe('7 days 1 min');
+    expect(gapDur(10140, [1440, 10080])).toBe('7 days 1 h');
+    expect(gapDur(10201, [1440, 10080])).toBe('7 days 2 h 1 min');
+  });
+  it('gapDur: a fraction past a limit rounds toward the verdict, never back onto the limit (QA-P5-5)', () => {
+    expect(gapDur(10.4, [10, 1440])).toBe('11 min');
+    expect(gapDur(1440.3, [10, 1440])).toBe('24 h 1 min');
+    expect(gapDur(10080.5, [1440, 10080])).toBe('7 days 1 min');
+    expect(gapDur(9.6, [10, 1440])).toBe('10 min'); // under the limit: 10 is not over 10
   });
   it('istDate: the calendar date in IST (UTC+05:30), independent of the host zone', () => {
     expect(istDate('2026-09-30T18:29:59.999Z')).toBe('2026-09-30');

@@ -95,7 +95,7 @@ describe('exif_time_agreement (TC-037; TP4)', () => {
       [-1380, 'flag', 'Photo time 23 h'], // EVAL-122
       [-1440, 'flag', 'Photo time 24 h'],
       [1440, 'flag', 'Photo time 24 h'],
-      [-1441, 'fail', 'Photo time 24 h from capture time (limit 10 min); phone clock 0 min from server (limit 24 h) (fail over 24 h)'],
+      [-1441, 'fail', 'Photo time 24 h 1 min from capture time (limit 10 min); phone clock 0 min from server (limit 24 h) (fail over 24 h)'], // QA-P5-5
       [-1500, 'fail', 'Photo time 25 h'], // EVAL-123
       [-4320, 'fail', 'Photo time 3 days'], // EVAL-034
       [-64_800, 'fail', 'Photo time 45 days'], // EVAL-033
@@ -143,13 +143,13 @@ describe('exif_time_agreement (TC-037; TP4)', () => {
       [0, 'ok', 'phone clock 0 min'],
       [-23 * 60, 'ok', 'phone clock 23 h'],
       [-24 * 60, 'ok', 'phone clock 24 h'],
-      [-(24 * 60 + 1), 'flag', 'phone clock 24 h'],
+      [-(24 * 60 + 1), 'flag', 'phone clock 24 h 1 min from server (limit 24 h)'], // QA-P5-5
       [-4320, 'flag', 'phone clock 3 days'], // EVAL-055
       [-10_080, 'flag', 'phone clock 7 days'],
-      [-10_081, 'fail', '(fail over 7 days)'],
+      [-10_081, 'fail', 'phone clock 7 days 1 min from server (limit 24 h) (fail over 7 days)'], // QA-P5-5
       [-12_960, 'fail', 'phone clock 9 days'], // EVAL-057
       [-14_400, 'fail', 'phone clock 10 days'], // EVAL-035
-      [24 * 60 + 1, 'flag', 'phone clock 24 h'], // a clock running ahead
+      [24 * 60 + 1, 'flag', 'phone clock 24 h 1 min'], // a clock running ahead
     ] as const)('client %d min off the server → %s', async (offset, status, text) => {
       const r = await clock(offset);
       expect(r).toMatchObject({ status, hardFail: false });
