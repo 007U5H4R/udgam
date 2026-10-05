@@ -431,6 +431,7 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'agreements.status.notReleasedCount': 'ಬಿಡುಗಡೆಯಾಗಿಲ್ಲ · {count}', // REVIEW: native speaker
   'agreements.status.waitingDelivery': 'ಹಣ ಹಾಕಲಾಗಿದೆ · ವಿತರಣೆಗಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
   'agreements.status.ready': 'ಇತ್ಯರ್ಥಕ್ಕೆ ಸಿದ್ಧ', // REVIEW: native speaker
+  'agreements.status.gradedWaitingSettle': 'ಗ್ರೇಡ್ ಮಾಡಲಾಗಿದೆ · FPO ಇತ್ಯರ್ಥಕ್ಕಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
   'agreements.status.waitingBuyerGrade': 'ತಲುಪಿದೆ · ಖರೀದಿದಾರರ ದರ್ಜೆಗಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
   'agreements.status.waitingBuyerGradeShort': 'ಖರೀದಿದಾರರ ದರ್ಜೆಗಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
   'agreements.status.waitingGrade': 'ದರ್ಜೆಗಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
@@ -529,6 +530,9 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'agreements.delivered.kgWhen': '{kg} ಕೆಜಿ · {when}', // REVIEW: native speaker
   'agreements.delivered.pickings': 'ಕೊಯ್ಲುಗಳು', // REVIEW: native speaker
   'agreements.delivered.pickingsValue': '{of} ರಲ್ಲಿ {n} ಪರಿಶೀಲಿತ', // REVIEW: native speaker
+  'agreements.graded.title': 'ನಿಮ್ಮ ಗ್ರೇಡ್', // REVIEW: native speaker
+  'agreements.graded.line': 'ನೀವು ಇದಕ್ಕೆ {grade} ಗ್ರೇಡ್ ನೀಡಿದ್ದೀರಿ.', // REVIEW: native speaker
+  'agreements.graded.next': '{fpo} ಮುಂದೆ ಇದನ್ನು ಇತ್ಯರ್ಥಗೊಳಿಸುತ್ತದೆ. ಮೂರೂ ಷರತ್ತುಗಳು ಪೂರೈಸಿದರೆ ಮಾತ್ರ ಪಾವತಿ ಬಿಡುಗಡೆಯಾಗುತ್ತದೆ.', // REVIEW: native speaker
   'agreements.grade.title': 'ಬ್ಯಾಚ್ {batch} ಗೆ ದರ್ಜೆ ನೀಡಿ', // REVIEW: native speaker
   'agreements.grade.legend': 'ಗುಣಮಟ್ಟದ ದರ್ಜೆ', // REVIEW: native speaker
   'agreements.grade.atMin': 'ಒಪ್ಪಿದ ಕನಿಷ್ಠ', // REVIEW: native speaker
@@ -542,10 +546,10 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'agreements.grade.errBody': 'ಯಾವುದಕ್ಕೂ ಸಹಿ ಹಾಕಿಲ್ಲ. ನಿಮ್ಮ ಆಯ್ಕೆ ಇನ್ನೂ ಆರಿಸಿದಂತೆಯೇ ಇದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', // REVIEW: native speaker
   'agreements.grade.emptyTitle': 'ಇನ್ನೂ ಯಾವುದೇ ಬ್ಯಾಚ್ ತಲುಪಿಲ್ಲ.', // REVIEW: native speaker
   'agreements.grade.emptyBody': '{fpo} ಈ ಒಪ್ಪಂದದಡಿ ಬ್ಯಾಚ್ ತಲುಪಿಸಿದಾಗ, ನೀವು ಇಲ್ಲಿ ದರ್ಜೆ ನೀಡುತ್ತೀರಿ.', // REVIEW: native speaker
-  'agreements.settle.idle': 'ಇತ್ಯರ್ಥ: {fpo} ಗೆ {amount} ಪಾವತಿಸಿ', // REVIEW: native speaker
+  'agreements.settle.idle': 'ಇತ್ಯರ್ಥ · {amount}', // REVIEW: native speaker
   'agreements.settle.busy': 'ಇತ್ಯರ್ಥವಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
   'agreements.settle.working': 'ಇತ್ಯರ್ಥ: ಮೂರು ಷರತ್ತುಗಳನ್ನು ಲೆಡ್ಜರ್‌ಗೆ ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
-  'agreements.settle.hint': 'ಪಾವತಿಸುವ ಮೊದಲು ಲೆಡ್ಜರ್ ಮೂರೂ ಷರತ್ತುಗಳನ್ನು ಮತ್ತೆ ಪರಿಶೀಲಿಸುತ್ತದೆ.', // REVIEW: native speaker
+  'agreements.settle.hint': '{fpo} ಗೆ ಪಾವತಿಸುವ ಮೊದಲು ಲೆಡ್ಜರ್ ಮೂರೂ ಷರತ್ತುಗಳನ್ನು ಮತ್ತೆ ಪರಿಶೀಲಿಸುತ್ತದೆ.', // REVIEW: native speaker
   'agreements.settle.errTitle': 'ಇತ್ಯರ್ಥ ಮಾಡಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
   'agreements.settle.noAnswer': 'ಲೆಡ್ಜರ್ ಉತ್ತರಿಸಲಿಲ್ಲ, ಆದ್ದರಿಂದ ಏನೂ ಸರಿಯಲಿಲ್ಲ ಮತ್ತು ಷರತ್ತುಗಳನ್ನು ನಿರ್ಣಯಿಸಲಿಲ್ಲ. {amount} (ಅಣಕು INR) ಇನ್ನೂ ಎಸ್ಕ್ರೋದಲ್ಲಿದೆ.', // REVIEW: native speaker
   'agreements.settle.turnedAway': 'ಷರತ್ತುಗಳನ್ನು ನಿರ್ಣಯಿಸುವ ಮೊದಲೇ ಲೆಡ್ಜರ್ ವಿನಂತಿಯನ್ನು ತಿರಸ್ಕರಿಸಿತು, ಆದ್ದರಿಂದ ಏನೂ ಸರಿಯಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ; ಮತ್ತೆ ಹೀಗಾದರೆ ಉದ್ಗಮ್ ತಂಡಕ್ಕೆ ತಿಳಿಸಿ.', // REVIEW: native speaker

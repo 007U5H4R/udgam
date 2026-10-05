@@ -64,9 +64,9 @@ export default async function AdminAgreementPage({ params, searchParams }: Props
             hidden={{ agreementId: a.id, batchId: ready.batchId }}
             forcedWorking={forced === 'working'}
             forcedFailure={forced === 'turned-away' ? 'turned_away' : undefined}
-            hint={t('agreements.settle.hint')}
+            hint={t('agreements.settle.hint', { fpo: v.fpoName })}
             texts={{
-              idle: t('agreements.settle.idle', { amount, fpo: v.fpoName }),
+              idle: t('agreements.settle.idle', { amount }),
               busy: t('agreements.settle.busy'),
               retry: t('agreements.retry'),
               workingLine: t('agreements.settle.working'),

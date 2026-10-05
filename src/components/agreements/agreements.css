@@ -66,6 +66,20 @@
   }
 }
 
+/* the buyer's signed grade, read-only, while the FPO settles (DES-101) */
+.agr .graded {
+  display: grid;
+  gap: 6px;
+  padding: 18px 20px;
+}
+.agr .graded .g-line {
+  font-weight: 700;
+}
+.agr .graded .g-next {
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+}
+
 /* agreement terms (definition rows in a frosted card) */
 .agr .terms {
   padding: 18px 20px 8px;
