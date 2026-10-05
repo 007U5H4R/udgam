@@ -84,7 +84,8 @@ function RevokeSheet({ phone, onClose }: { phone: PhoneView; onClose: () => void
 function Phones({ agent }: { agent: AgentView }) {
   const [revoking, setRevoking] = useState<PhoneView | null>(null);
   return (
-    <section aria-labelledby={`phones-h-${agent.id}`}>
+    // DES-108: named with the agent too, so two agents' sections are distinct landmarks (axe landmark-unique)
+    <section aria-labelledby={`agent-h-${agent.id} phones-h-${agent.id}`}>
       <h3 id={`phones-h-${agent.id}`} className={s.secH}>
         {t('phones.agentPhones')}
       </h3>
@@ -125,7 +126,7 @@ function Plots({ agent }: { agent: AgentView }) {
   const [removeState, remove, removing] = useActionState<ActionState, FormData>(unassignAction, IDLE);
   const selectId = `add-plot-${agent.id}`;
   return (
-    <section aria-labelledby={`plots-h-${agent.id}`}>
+    <section aria-labelledby={`agent-h-${agent.id} plots-h-${agent.id}`}>
       <h3 id={`plots-h-${agent.id}`} className={s.secH}>
         {t('phones.plots')}
       </h3>

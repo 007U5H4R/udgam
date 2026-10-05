@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { DEMO_ACCOUNTS, SEED_PASSWORD, seedAccounts, signIn } from './helpers/auth';
 import { openField, seedCaptureWorld } from './helpers/capture';
+import { seedEnrolment } from './helpers/enrolment';
 import type { SeededAgreements } from './helpers/seed-agreements';
 import type { SeededBatches } from './helpers/seed-batches';
 import type { SeededReview } from './helpers/seed-review';
@@ -253,5 +254,18 @@ test.describe('DES-107 the batch builder has select all per crop and a plot filt
     await expect(page.getByRole('button', { name: /^Create batch · 1 picking · / })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Select all Arabica/ })).toBeDisabled();
     await axeClean(page);
+  });
+});
+
+test.describe('DES-108 each agent’s Phones and Plots sections are distinct landmarks', () => {
+  test('the section names carry the agent’s name', async ({ page }) => {
+    const seed = seedEnrolment({ enrol: true, plot: true });
+    await signIn(page, seed.adminEmail, SEED_PASSWORD);
+    await page.goto('/admin/phones');
+    const card = page.getByTestId(`agent-${seed.agentId}`);
+    await expect(card.getByRole('region', { name: `${seed.agentName} Phones`, exact: true })).toBeVisible();
+    await expect(card.getByRole('region', { name: `${seed.agentName} Plots this agent records`, exact: true })).toBeVisible();
+    const { violations } = await new AxeBuilder({ page }).withRules(['landmark-unique']).analyze();
+    expect(violations.map((v) => v.id)).toEqual([]);
   });
 });
