@@ -65,9 +65,9 @@ export function BatchBuilder({ events, labels }: { events: BuilderEvent[]; label
       <input type="hidden" name="crop" value={crop ?? ''} />
       <div className={s.tools}>
         {plots.length > 1 ? (
-          <label className={s.filter}>
-            <span>{labels.filter}</span>
-            <select value={plot ?? ''} onChange={(ev) => setPlot(ev.currentTarget.value || null)} disabled={pending}>
+          <div className={s.filter}>
+            <label htmlFor="pick-plot">{labels.filter}</label>
+            <select id="pick-plot" value={plot ?? ''} onChange={(ev) => setPlot(ev.currentTarget.value || null)} disabled={pending}>
               <option value="">{fill(labels.filterAll, { n: events.length })}</option>
               {plots.map((p) => (
                 <option key={p.plot} value={p.plot}>
@@ -75,7 +75,7 @@ export function BatchBuilder({ events, labels }: { events: BuilderEvent[]; label
                 </option>
               ))}
             </select>
-          </label>
+          </div>
         ) : null}
         {crops.map((c) => {
           const ids = shown.filter((e) => e.crop === c).map((e) => e.eventId);

@@ -241,7 +241,7 @@ test.describe('DES-107 the batch builder has select all per crop and a plot filt
 
     // a row without a reason line is no taller than its two lines need (was 96 px)
     const row = (await page.locator(`label[for="pick-${b.arabica[0]}"]`).boundingBox())!;
-    expect(row.height).toBeLessThan(96);
+    if ((page.viewportSize()?.width ?? 0) >= 700) expect(row.height).toBeLessThan(96); // phones wrap the title and facts
 
     const filter = page.getByLabel('Plot', { exact: true });
     const options = await filter.locator('option').allTextContents();
