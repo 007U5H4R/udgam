@@ -5,6 +5,7 @@ import { checkContentLength } from '../../../lib/capture/parse';
 import { runCapture, type CaptureEvent } from '../../../lib/capture/pipeline';
 import { readFormWithin } from '../../../lib/capture/read-form';
 import { consume, IP_LIMIT, ipKey } from '../../../lib/capture/rate-limit';
+import { localStagingStore } from '../../../lib/capture/staging';
 import { clientIp } from '../../../lib/client-ip';
 import { env } from '../../../lib/config/env';
 import { getDbReady, type Db } from '../../../lib/db/client';
@@ -135,7 +136,8 @@ async function accept(req: Request, agent: Guarded, db: Db, release: () => void,
     try {
       // The request id rides on every capture log line (e.g. capture.idempotent_replay, TKT-09).
       const requestLog = withRequestId(requestIdFrom(req.headers.get('x-request-id')));
-      await runCapture(form, { db, media: localMediaStore(env.DATA_DIR), agentId: agent.userId, log: requestLog }, emit);
+      const deps = { db, media: localMediaStore(env.DATA_DIR), staging: localStagingStore(env.DATA_DIR), agentId: agent.userId, log: requestLog };
+      await runCapture(form, deps, emit);
     } catch (err) {
       // runCapture never rejects; this is the media store's configuration failing.
       log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'capture.route_failed');

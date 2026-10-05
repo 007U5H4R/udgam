@@ -136,7 +136,8 @@ export async function admit(
   // 6. Plot assignment: the plot must be assigned to the phone's agent (a boundary rule, not a check).
   if (!(await deps.isPlotAssigned(device.agentId, payload.plotId))) return reject('plot_not_assigned', device);
 
-  // 7. The uploaded bytes are the signed bytes, in order (S1).
+  // 7. The uploaded bytes are the signed bytes, in order (S1). Staged photos (TKT-30) arrive here as files
+  // too, read back from staging: they are re-hashed against the signed payload like any upload.
   if (input.files.length !== payload.media.length) return reject('media_hash_mismatch', device);
   // The signed size must be the uploaded byte length too, so media.size never stores an unchecked claim.
   for (let i = 0; i < input.files.length; i++) {

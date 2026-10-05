@@ -20,6 +20,7 @@ import { findAcceptedOutcome, winnerAfterUniqueViolation, type AcceptedOutcome }
 import { claimedDeviceId, parseCaptureForm, type FormReason } from './parse';
 import { persistAccepted, persistRejected, type AppendFn, type RejectedCapture, type StoredMedia } from './persist';
 import { consume, DEVICE_LIMIT, deviceKey } from './rate-limit';
+import { consumeStaged, readStaged, type StagingStore } from './staging';
 
 // The capture pipeline (technical-plan §3.1). Emits NDJSON-able events: a `check` line as each check
 // finishes, then exactly one terminal line — `verdict` (only after COMMIT), `rejected` (boundary 4xx,
@@ -49,6 +50,8 @@ export type CaptureEvent =
       /** A replay refused for the same reason as before: the original anchored refusal (TKT-09). */
       eventId?: string;
       idempotent?: boolean;
+      /** media_not_staged (409, TKT-30): the staged photos that were not there; the phone resends their bytes. */
+      missing?: string[];
     }
   | { t: 'error'; retryable: boolean };
 
@@ -65,6 +68,11 @@ export type CaptureDeps = {
   /** Ledger append; injectable so tests can fail it inside the transaction (TC-010, EVAL-067). */
   append?: AppendFn;
   log?: Pick<typeof defaultLog, 'error' | 'info' | 'warn'>;
+  /**
+   * Photos staged ahead of the capture (TKT-30). Without it, a capture naming staged photos is answered
+   * 409 media_not_staged and the phone sends their bytes instead.
+   */
+  staging?: StagingStore;
 };
 
 async function findDevice(db: Db, id: string): Promise<BoundaryDevice | null> {
@@ -136,9 +144,10 @@ export async function runCapture(form: FormData, deps: CaptureDeps, emit: (line:
     }
   };
 
+  const staged: string[] = []; // staged photos this capture used (consumed once it has committed)
   let terminal: CaptureEvent;
   try {
-    terminal = await capture(form, deps, send, held);
+    terminal = await capture(form, deps, send, held, staged);
   } catch (err) {
     await dropStored(); // nothing was committed
     log.error({ errClass: errClass(err) }, 'capture.failed');
@@ -149,6 +158,14 @@ export async function runCapture(form: FormData, deps: CaptureDeps, emit: (line:
   if (terminal.t === 'rejected') await dropStored();
   else releaseHolds(); // committed (or nothing stored): the rows now own the files
   send(terminal);
+  // After COMMIT the staged copies are in the media store: drop their staging rows and files (TSK-30.3).
+  if (terminal.t === 'verdict' && staged.length > 0 && deps.staging) {
+    try {
+      await consumeStaged(deps.db, deps.staging, { agentId: deps.agentId, sha256s: staged });
+    } catch (err) {
+      log.warn({ errClass: errClass(err) }, 'capture.staged_cleanup_failed'); // they expire within the hour
+    }
+  }
 }
 
 /** The local checks whose inputs a concurrent commit can change (refreshUnderLock re-reads them). */
@@ -205,7 +222,7 @@ async function lateRefusal(tx: Tx, device: BoundaryDevice, plotId: string): Prom
 }
 
 /** The capture steps (technical-plan §3.1). Returns the terminal line; throws when nothing was committed. */
-async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEvent) => void, held: string[]): Promise<CaptureEvent> {
+async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEvent) => void, held: string[], stagedUsed: string[]): Promise<CaptureEvent> {
   const { db } = deps;
   const now = deps.now ?? (() => new Date());
 
@@ -263,11 +280,35 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
     if (!rl.ok) return refuse({ reason: 'rate_limited', status: 429, retryAfterSec: rl.retryAfterSec });
   }
 
-  // 1. the form, cheapest check first: count → sizes → magic bytes → schema (TSK-19.2)
-  const parsed = await parseCaptureForm(form);
+  // 1. the form, cheapest check first: count → sizes → magic bytes → schema (TSK-19.2), then any staged
+  // photos (TSK-30.3): only the signed-in agent's, staged by the phone the payload names, unexpired.
+  const staging = deps.staging;
+  const loadStaged = staging
+    ? async (hashes: string[], deviceId: string) => {
+        const found = new Map<string, Uint8Array>();
+        for (const sha256 of hashes) {
+          const bytes = await readStaged(db, staging, { agentId: deps.agentId, deviceId, sha256, now: now() });
+          if (bytes) found.set(sha256, bytes);
+        }
+        return found;
+      }
+    : undefined;
+  const parsed = await parseCaptureForm(form, { loadStaged });
   const serverReceivedAt = now().toISOString();
   if (!parsed.ok) {
     const { payloadString, signature } = parsed;
+    if (parsed.reason === 'media_not_staged') {
+      // Not a refusal (nothing is anchored): the phone resends the bytes. A resend of a payload already
+      // accepted (its staged copies consumed) gets its original verdict, as an all-bytes resend would.
+      if (payloadString !== undefined && signature !== undefined) {
+        const auth = await authenticate({ payloadString, signature }, { findDevice: (id) => findDevice(db, id) });
+        if (auth.ok && auth.device.agentId === deps.agentId) {
+          const prior = await findAcceptedOutcome(db, auth.payloadHash);
+          if (prior) return replay(prior);
+        }
+      }
+      return refuse({ reason: 'media_not_staged', status: 409, missing: parsed.missing ?? [] });
+    }
     if (MEDIA_REASONS.has(parsed.reason) && payloadString !== undefined && signature !== undefined) {
       const auth = await authenticate({ payloadString, signature }, { findDevice: (id) => findDevice(db, id) });
       if (auth.ok) {
@@ -280,6 +321,7 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
     return refuse({ reason: parsed.reason, status: parsed.status, ...(parsed.field ? { field: parsed.field } : {}) });
   }
   const form_ = parsed.form;
+  stagedUsed.push(...form_.staged);
 
   // 2. boundary, in order: canonical bytes, schema, device, signature (authenticate) → the device is the
   // signed-in agent's → 3. idempotent replay of an accepted payload → revocation, plot assignment, media

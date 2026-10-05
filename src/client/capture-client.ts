@@ -52,8 +52,11 @@ function parseLine(raw: string): Line | null {
   }
 }
 
-/** Every refusal code the capture route and its auth guard answer with (boundary.ts, parse.ts, route.ts, guards.ts). */
-type AppRefusal = FormReason | BoundaryReason | 'device_not_owned' | 'rate_limited' | 'unauthenticated' | 'forbidden';
+/**
+ * Every refusal code the capture route and its auth guard answer with (boundary.ts, parse.ts, route.ts,
+ * guards.ts). Not media_not_staged (TKT-30): that is no refusal, the phone resends the bytes.
+ */
+type AppRefusal = Exclude<FormReason, 'media_not_staged'> | BoundaryReason | 'device_not_owned' | 'rate_limited' | 'unauthenticated' | 'forbidden';
 const APP_REFUSAL: Record<AppRefusal, true> = {
   length_required: true,
   body_too_large: true,
