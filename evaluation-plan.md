@@ -210,7 +210,7 @@ An attack case is a legitimate base case (`base_case`) plus a list of `mutations
 | `prev_event` | `distance_km`, `minutes_before`, or `none` | The device's previous accepted event |
 | `reuse_media` | `from_case`, `which` (`all`, `one`), optional `transform: re-encode` | Media hashes reused from another case; `context.seen_media_from` seeds the global seen set |
 | `chain` | `seq_delta`, `prev_hash` (`correct`, `stale`, `genesis`) | Per-device chain position |
-| `season_cumulative` | `ratio_after_event`, optional `ratio_before_event`, in U | Season yield on the plot |
+| `season_cumulative` | `ratio_after_event`, optional `ratio_before_event`, in U; optional `split_kg_max` (needs `ratio_before_event`) submits the season's kg as equal pickings of at most that many kg, each a separate signed capture on the same plot, device chain and season (EXE23, EXE27) | Season yield on the plot |
 | `photos` | `count` | Number of photos (1–3) |
 | `provider_fault` | `provider`, `mode` (`timeout`, `http_500`, `malformed`), optional `cache: empty` | Provider behaviour in the fixture adapter |
 | `check_throws` | `check`, `error` | Test-only fault injection |

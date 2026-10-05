@@ -811,3 +811,14 @@ No threshold, eval case or cfg-1 value changes (CF-13).
 **Decision (owner).** EVAL-122 is unchanged and stays a reported miss. S1 stays 97.7 % (42/43), which passes the ≥ 95 % target. EVAL-116 and EVAL-049 were applied as EXE23 says (dataset 0.7.0).
 **Rejected.** Reclassifying EVAL-122 as a non-attack flag test (S1 42/42), and relaxing the schema so that an attack case may accept Verified (S1 43/43 by counting a Verified as a detection).
 **Noted.** EVAL-049 now runs as six pickings of 500 kg on P01. In the live system, rejected pickings don't count toward the season total (TP6). Picking 5 already reaches 2.05× U, so the last picking would see 2.05× U, not the harness's 2.10× U. The verdict (Rejected, yield_plausibility) is the same. `split_kg_max` is still to be documented in evaluation-plan §7.3 and TSK-03.4 (owner docs).
+
+## EXE28 · District outlines, organisation names and the split-pickings docs — accepted (orchestrator, under the owner's delegation, 2026-10-05)
+**Context.** The owner said "take decisions on behalf of me" for the open items after TKT-16's fix round.
+**Decisions.**
+- **District outlines.** The MVP keeps the conservative hand-drawn outlines for Kodagu, Chikkamagaluru, Hassan and Dakshina Kannada in `src/lib/certificate/district.ts`, labelled as such in the file. A point outside every outline reads "Karnataka", so the certificate never names a wrong district. Swapping in an official licensed boundary set (e.g. DataMeet, CC BY 2.5 IN) is a **pre-pilot human item**: the cloud sandbox can't download it. It is listed in HANDOFF.
+- **Organisation names on the certificate.** The journey keeps showing organisation IDs (`ORG-…`), and the public proof feed contract is unchanged. Names can be added later as an additive, signed feed field, once each FPO and buyer agrees to be named publicly.
+- **`split_kg_max`.** The harness option added for EVAL-049 (EXE23/EXE27) is now documented in evaluation-plan §7.3 and technical-plan TSK-03.4.
+
+**Rejected:**
+- Shipping coarse bounding boxes: they named wrong districts.
+- Adding organisation names to the feed now: it changes the proof contract and publishes counterparties without their consent.
