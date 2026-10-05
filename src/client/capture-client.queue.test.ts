@@ -170,6 +170,47 @@ describe('single flight (quality minor 3, nit 13)', () => {
     expect(calls).toBe(1);
   });
 
+  it("a hung POST is cut off by the queue's timeout and releases the lock, so the next run proceeds (TASK-12 r2 #1)", async () => {
+    let tail: Promise<unknown> = Promise.resolve();
+    const request = vi.fn((_name: string, ...rest: unknown[]) => {
+      const cb = rest.at(-1) as () => Promise<unknown>;
+      const run = tail.then(cb);
+      tail = run.catch(() => undefined);
+      return run;
+    });
+    vi.stubGlobal('navigator', { locks: { request } });
+    vi.mocked(listOutbox).mockResolvedValue([stored('OB-H-1', 1)]);
+    const seen: AbortSignal[] = [];
+    const hung = (_u: string, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        seen.push(init!.signal!);
+        init!.signal!.addEventListener('abort', () => reject(new DOMException('timed out', 'TimeoutError')));
+      });
+    const first = await sendPending({ fetchImpl: hung, sendTimeoutMs: 50 });
+    expect(first).toEqual([{ id: 'OB-H-1', result: { kind: 'retryable', cause: 'offline' } }]);
+    expect(seen[0]!.aborted).toBe(true);
+    // the lock is free again: another run (another tab) gets through and sends
+    const second = await sendPending({ fetchImpl: async () => new Response(verdictBody, { status: 200 }) });
+    expect(second.map((r) => r.result.kind)).toEqual(['verdict']);
+  });
+
+  it("the caller's signal also bounds the wait for the lock: a tab whose holder hangs can give up (TASK-12 r2 #1)", async () => {
+    const options: unknown[] = [];
+    const request = vi.fn((_name: string, opts: { signal?: AbortSignal }) => {
+      options.push(opts);
+      return new Promise((_resolve, reject) => opts.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))));
+    });
+    vi.stubGlobal('navigator', { locks: { request } });
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const ctl = new AbortController();
+    const done = sendPending({ signal: ctl.signal, fetchImpl: async () => new Response(verdictBody, { status: 200 }) });
+    ctl.abort();
+    expect(await done).toEqual([]);
+    expect((options[0] as { signal: AbortSignal }).signal).toBe(ctl.signal);
+    // an unexpected queue failure is logged by class, not swallowed (TASK-12 r2 nit 3)
+    expect(errors).toHaveBeenCalledWith('capture.queue_failed', { errClass: 'AbortError' });
+  });
+
   it('without Web Locks (older browsers) the queue still runs', async () => {
     vi.stubGlobal('navigator', {});
     vi.mocked(listOutbox).mockResolvedValue([stored('OB-N-1', 1)]);

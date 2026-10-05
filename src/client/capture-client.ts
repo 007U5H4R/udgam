@@ -390,12 +390,38 @@ export type PendingResult = { id: string; result: SendResult };
 /** The Web Lock every tab's queue runs under, so two tabs never send the same copy at once. */
 export const OUTBOX_LOCK = 'udgam-outbox';
 
-type LockManagerLike = { request: <T>(name: string, cb: () => Promise<T>) => Promise<T> };
+/**
+ * How long one queued send may take before it is cut off and kept for later (TASK-12 r2 #1): a hung
+ * request (a stalled captive portal) must not hold the cross-tab lock, and every other tab, forever.
+ */
+export const QUEUE_SEND_TIMEOUT_MS = 120_000;
 
-/** `fn` under the cross-tab Web Lock when the browser has Web Locks; otherwise (older browsers) as it is. */
-function underLock<T>(fn: () => Promise<T>): Promise<T> {
+type LockManagerLike = {
+  request: (<T>(name: string, cb: () => Promise<T>) => Promise<T>) & (<T>(name: string, options: { signal?: AbortSignal }, cb: () => Promise<T>) => Promise<T>);
+};
+
+/**
+ * `fn` under the cross-tab Web Lock when the browser has Web Locks; otherwise (older browsers) as it is.
+ * With `signal`, waiting for the lock ends when the caller gives up.
+ */
+function underLock<T>(fn: () => Promise<T>, signal?: AbortSignal): Promise<T> {
   const locks = (globalThis.navigator as { locks?: LockManagerLike } | undefined)?.locks;
-  return locks && typeof locks.request === 'function' ? locks.request(OUTBOX_LOCK, fn) : fn();
+  if (!locks || typeof locks.request !== 'function') return fn();
+  return signal ? locks.request(OUTBOX_LOCK, { signal }, fn) : locks.request(OUTBOX_LOCK, fn);
+}
+
+/** The caller's signal (if any) and a timeout, as one signal. */
+function bounded(signal: AbortSignal | undefined, ms: number): AbortSignal {
+  const timeout = AbortSignal.timeout(ms);
+  if (!signal) return timeout;
+  if (typeof AbortSignal.any === 'function') return AbortSignal.any([signal, timeout]);
+  // Older phone browsers have no AbortSignal.any: join the two by hand.
+  const ctl = new AbortController();
+  for (const s of [signal, timeout]) {
+    if (s.aborted) ctl.abort(s.reason);
+    else s.addEventListener('abort', () => ctl.abort(s.reason), { once: true });
+  }
+  return ctl.signal;
 }
 
 let queue: Promise<PendingResult[]> | null = null;
@@ -413,7 +439,9 @@ let queue: Promise<PendingResult[]> | null = null;
  * caller's options apply: its fetch, signal, keepOnRefusal and onResult). Across tabs the run holds the
  * Web Lock OUTBOX_LOCK, so another tab's queue waits and then finds the sent copies gone. Never throws.
  */
-export function sendPending(opts: SendOptions & KeepOption & { onResult?: (r: PendingResult) => void } = {}): Promise<PendingResult[]> {
+export function sendPending(
+  opts: SendOptions & KeepOption & { onResult?: (r: PendingResult) => void; sendTimeoutMs?: number } = {},
+): Promise<PendingResult[]> {
   const keep = opts.keepOnRefusal ?? refusalKeepsOutbox;
   queue ??= underLock(async () => {
     const out: PendingResult[] = [];
@@ -421,7 +449,8 @@ export function sendPending(opts: SendOptions & KeepOption & { onResult?: (r: Pe
     for (const item of await pendingItems().catch(() => [])) {
       const send = outboxSend(item);
       if (!send) continue; // not a payload this app signed: left as it is (PendingRow flags it)
-      const result = await sendOutboxItem(send, { ...opts, keepOnRefusal: keep });
+      // Each send is bounded, so a hung request is cut off (kept, retryable) and the lock is released.
+      const result = await sendOutboxItem(send, { ...opts, keepOnRefusal: keep, signal: bounded(opts.signal, opts.sendTimeoutMs ?? QUEUE_SEND_TIMEOUT_MS) });
       const r = { id: item.id, result };
       out.push(r);
       try {
@@ -433,8 +462,12 @@ export function sendPending(opts: SendOptions & KeepOption & { onResult?: (r: Pe
       if (kept) break;
     }
     return out;
-  })
-    .catch(() => [] as PendingResult[])
+  }, opts.signal)
+    .catch((err: unknown) => {
+      // Never throws, but an unexpected failure (a store bug, the lock wait given up) is seen.
+      console.error('capture.queue_failed', { errClass: errName(err) });
+      return [] as PendingResult[];
+    })
     .finally(() => {
       queue = null;
     });
