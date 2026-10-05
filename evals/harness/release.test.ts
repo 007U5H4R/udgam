@@ -1,20 +1,24 @@
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { CONFIG_HASH } from '../../src/lib/verification/config';
-import type { CaseResult } from '../scorers/case-assertions';
-import { loadDataset, type EvalCase } from './dataset';
-import { gitFacts } from './provenance';
+import { loadDataset } from './dataset';
 import {
   buildRelease,
   DEFERRED_TICKETS,
   evalIdsIn,
+  formalRefusals,
   harnessEvidence,
+  hasRangeSyntax,
+  loadPerf,
+  loadSuite,
   main,
   parseReleaseArgs,
   perfEvidence,
   playwrightEvidence,
+  provenanceProblem,
   reconcile,
   renderReleaseReport,
   vitestEvidence,
@@ -23,66 +27,82 @@ import {
   type ReleaseInput,
 } from './release';
 import { evaluate, type ResultsFile } from './run';
-import { parseSuiteArgs, suiteCommands } from './test-suites';
+import { parseSuiteArgs, sidecarPath, suiteCommands, type SuiteReport, type SuiteRunRecord } from './test-suites';
+import { kase, WORLD, WORLD_GIT, worldHarness } from './testing/release-world';
+import type { TreeState } from './tree-state';
 
 // TSK-21.4 (TKT-21, TC-079, S7): the release evaluation merges the harness, the EVAL-titled Vitest and
 // Playwright tests and the S4 perf result into one release result. Every dataset case gets exactly one
 // status; a gated case with no evidence is `missing` and fails S7-release; M3 cases are `deferred to
-// M-003` with their ticket. All fixtures live in a temporary directory, never in evals/results/.
+// M-003` with their ticket. TASK-22 fix round 1: the release fails closed on stale, failed or altered
+// inputs (every probe of the two reviews is a test below). All fixtures live in a temporary directory,
+// never in evals/results/.
 // No test TITLE here may name an EVAL ID: the release maps every EVAL-titled test to its case, so a
 // title such as "EVAL-073 …" in this file would count as evidence for that case (fixture IDs stay in
 // the bodies; table rows are titled by index).
 
 const root = mkdtempSync(join(tmpdir(), 'udgam-release-'));
 afterAll(() => rmSync(root, { recursive: true, force: true }));
-const GIT = { commit: 'a'.repeat(40), shortSha: 'aaaaaaa', branch: 'build/stage7', dirty: false };
-
-const kase = (id: string, over: Partial<EvalCase> = {}): EvalCase =>
-  ({ id, title: `title of ${id}`, feature: 'x', category: 'functional', suite: 'integration', gates: [], priority: 'high', automated: true, milestone: 'M1', status: 'active', input: {}, expected: {}, failure_conditions: [], ...over }) as EvalCase;
+let k = 0;
+const HEAD: TreeState = { ...WORLD_GIT, changes: [], formalOutputs: [] };
+const OTHER = { ...WORLD_GIT, commit: 'b'.repeat(40), shortSha: 'bbbbbbb' };
+const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 const ev = (id: string, runner: Evidence['runner'], status: Evidence['status'] = 'passed', source = 'x.test.ts'): Evidence => ({ id, runner, source, title: `${id} test`, status });
+const runs = (ms: number[]) => ms.map((x) => ({ finalState: 'verified', ms: x }));
+const TEN = runs([1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000, 2100]);
+const perfFile = (over: Record<string, unknown> = {}) => ({ gate: 'S4', case: 'EVAL-071', pass: true, runs: TEN, summary: { p50: 1650, p95: 2055, max: 2100, thresholdMs: 3000 }, provenance: { git: WORLD_GIT }, ...over });
 
-/** A minimal harness results file: the fields release.ts reads. */
-function harnessFile(over: { cases?: Partial<CaseResult>[]; dirty?: boolean; commit?: string; gatesPass?: boolean; skipped?: number; networkCalls?: string[] } = {}): ResultsFile {
-  const pass = over.gatesPass ?? true;
-  const gates = ['S1', 'S1-floor', 'S2', 'S6-lib', 'S7', 'CF'].map((id) => ({ id, name: id, value: pass, display: pass ? 'Yes' : 'No', target: 'Yes', pass, detail: '' }));
-  return {
-    schema: 'udgam-eval-results/1',
-    provenance: {
-      appVersion: '0.1.0',
-      git: { ...GIT, commit: over.commit ?? GIT.commit, dirty: over.dirty ?? false },
-      config: { version: 'cfg-1', hash: CONFIG_HASH, mode: 'full', enabledChecks: [], object: {} },
-      dataset: { path: 'evals/eval-dataset.json', version: '0.8.0', sha256: 'd'.repeat(64) },
-      timestampUtc: '2026-10-05T00:00:00.000Z',
-    },
-    summary: { overall: pass ? 'PASS' : 'FAIL', exitCode: pass ? 0 : 1, recommendation: '', blockers: [] },
-    totals: { ok: pass, active: 2, passed: 2, failed: 0, notYetImplemented: 0, errored: 0, skipped: over.skipped ?? 0, problems: [] },
-    gates,
-    criticalConditions: [],
-    scope: { milestone: 'M1', outOfScope: [] },
-    cases: (over.cases ?? [{ id: 'EVAL-001', suite: 'harness-verifier', outcome: 'passed', notes: [], error: null }]) as CaseResult[],
-    runtime: { networkCalls: over.networkCalls ?? [], executionOrder: [] },
-  } as unknown as ResultsFile;
+const VITEST_OK = (title: string, status = 'passed') => ({ success: status !== 'failed', numFailedTestSuites: 0, testResults: [{ name: '/repo/a.int.test.ts', status: status === 'failed' ? 'failed' : 'passed', assertionResults: [{ ancestorTitles: [], title, status }] }] });
+const PW_OK = (title: string, status = 'expected') => ({ suites: [{ title: 'c.spec.ts', file: 'c.spec.ts', specs: [{ title, file: 'c.spec.ts', tests: [{ projectName: 'phone', status, expectedStatus: 'passed' }] }] }], errors: [], stats: { expected: 1, unexpected: status === 'unexpected' ? 1 : 0, skipped: 0, flaky: 0 } });
+
+/** Write a suite report and the run record a real run would leave beside it (or a doctored one). */
+function writeSuite(dir: string, name: SuiteReport, report: unknown, rec: Partial<SuiteRunRecord> & { gitBoth?: TreeState } = {}): string {
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, `${name}.json`);
+  const text = JSON.stringify(report);
+  writeFileSync(file, text);
+  const tree = rec.gitBoth ?? HEAD;
+  const record: SuiteRunRecord = { schema: 'udgam-suite-run/1', report: name, command: `fixture ${name}`, exitCode: 0, refused: null, reportSha256: sha(text), git: { before: tree, after: tree }, startedAt: '2026-10-05T00:00:00.000Z', finishedAt: '2026-10-05T00:01:00.000Z', ...rec };
+  delete (record as { gitBoth?: unknown }).gitBoth;
+  writeFileSync(sidecarPath(file), JSON.stringify(record));
+  return file;
 }
 
-describe('evalIdsIn: test titles → EVAL IDs', () => {
+describe('evalIdsIn: test titles → EVAL IDs (whole IDs only, no ranges)', () => {
   it.each([
     ['@eval EVAL-073 TC-078 the Kodagu demo', ['EVAL-073']],
     ['certificate gates (TSK-16.11, @eval EVAL-087, EVAL-089, TC-080)', ['EVAL-087', 'EVAL-089']],
-    ['certificate tamper mode (@eval EVAL-058..063, TC-065)', ['EVAL-058', 'EVAL-059', 'EVAL-060', 'EVAL-061', 'EVAL-062', 'EVAL-063']],
-    ['@eval EVAL-100–102 through the screens', ['EVAL-100', 'EVAL-101', 'EVAL-102']],
-    ['EVAL-058–EVAL-060 on EVM', ['EVAL-058', 'EVAL-059', 'EVAL-060']],
-    ['EVAL-100-102 is not a range', ['EVAL-100']],
-    ['EVAL-063..058 is reversed, so only the first', ['EVAL-063']],
+    ['(EVAL-086) capture at 375 px', ['EVAL-086']],
+    ['capture flow — EVAL-086 at 375 px', ['EVAL-086']],
     ['EVAL-064 and again EVAL-064', ['EVAL-064']],
+    ['EVAL-0861 hand-added', []],
+    ['XEVAL-086 hand-added', []],
+    ['EVAL-086a', []],
+    ['EVAL-086_x', []],
+    ['TC-EVAL-086', []],
+    ['EVAL-086 – 100 events', []],
+    ['EVAL-086 - 100 events', []],
+    ['certificate tamper mode (@eval EVAL-058..063, TC-065)', []],
+    ['@eval EVAL-100–102 through the screens', []],
+    ['EVAL-058–EVAL-060 on EVM', []],
+    ['runProofSuite (EVAL-058–063, 066) and EVAL-064', ['EVAL-064']],
     ['TC-016 only', []],
   ])('title table row %#', (title, ids) => {
     expect(evalIdsIn(title)).toEqual(ids);
+  });
+
+  it('hasRangeSyntax flags the titles whose range-written IDs are not read', () => {
+    expect(hasRangeSyntax('EVAL-058..063')).toBe(true);
+    expect(hasRangeSyntax('EVAL-086 – 100 events')).toBe(true);
+    expect(hasRangeSyntax('capture flow — EVAL-086 at 375 px')).toBe(false);
   });
 });
 
 describe('runner reports → evidence', () => {
   it('Vitest JSON: full names (describe › test), passed / failed / skipped, and a file that failed outside any test', () => {
     const r = vitestEvidence({
+      success: false,
+      numFailedTestSuites: 1,
       testResults: [
         {
           name: '/repo/src/lib/capture/pipeline.int.test.ts',
@@ -105,8 +125,13 @@ describe('runner reports → evidence', () => {
     ]);
     expect(r.evidence[0]!.title).toBe('capture pipeline (EVAL-067) › rolls back');
     expect(r.evidence[1]!.detail).toBe('expected 400');
-    expect(r.errors).toHaveLength(1);
-    expect(r.errors[0]).toMatch(/broken\.int\.test\.ts: Cannot find module x/);
+    expect(r.errors).toEqual(['Vitest reports success=false (1 failed suite(s)): the run failed', '/repo/src/lib/broken.int.test.ts: Cannot find module x']);
+  });
+
+  it('Vitest: success false (an unhandled error) is an error even when every test passed; a report without success fails closed', () => {
+    expect(vitestEvidence({ ...VITEST_OK('EVAL-053 ok'), success: false }).errors).toEqual(['Vitest reports success=false (0 failed suite(s)): the run failed']);
+    expect(vitestEvidence({ testResults: VITEST_OK('EVAL-053 ok').testResults }).errors[0]).toMatch(/success=undefined/);
+    expect(vitestEvidence(VITEST_OK('EVAL-053 ok')).errors).toEqual([]);
   });
 
   it('Playwright JSON: nested describes, one piece of evidence per project, flaky = passed (noted), top-level errors kept', () => {
@@ -125,10 +150,10 @@ describe('runner reports → evidence', () => {
                   title: 'no horizontal scroll',
                   file: 'certificate.spec.ts',
                   tests: [
-                    { projectName: 'phone', status: 'expected', results: [{ status: 'passed' }] },
-                    { projectName: 'desktop', status: 'unexpected', results: [{ status: 'failed', error: { message: 'scrollWidth 400 > 375' } }] },
-                    { projectName: 'tablet', status: 'flaky', results: [{ status: 'failed' }, { status: 'passed' }] },
-                    { projectName: 'phone-small', status: 'skipped', results: [] },
+                    { projectName: 'phone', status: 'expected', expectedStatus: 'passed', results: [{ status: 'passed' }] },
+                    { projectName: 'desktop', status: 'unexpected', expectedStatus: 'passed', results: [{ status: 'failed', error: { message: 'scrollWidth 400 > 375' } }] },
+                    { projectName: 'tablet', status: 'flaky', expectedStatus: 'passed', results: [{ status: 'failed' }, { status: 'passed' }] },
+                    { projectName: 'phone-small', status: 'skipped', expectedStatus: 'skipped', results: [] },
                   ],
                 },
               ],
@@ -137,6 +162,7 @@ describe('runner reports → evidence', () => {
         },
       ],
       errors: [{ message: 'webServer exited early' }],
+      stats: { unexpected: 1 },
     });
     expect(r.tests).toBe(4);
     const of = (id: string) => r.evidence.filter((e) => e.id === id).map((e) => e.status);
@@ -146,34 +172,75 @@ describe('runner reports → evidence', () => {
     expect(e087[1]!.detail).toBe('project desktop; scrollWidth 400 > 375');
     expect(e087[2]!.detail).toBe('project tablet; flaky: passed on retry');
     expect(r.evidence[0]!.title).toBe('certificate.spec.ts › certificate gates (@eval EVAL-087, EVAL-089) › no horizontal scroll');
-    expect(r.errors).toEqual(['webServer exited early']);
+    expect(r.errors).toEqual(['webServer exited early', 'Playwright reports 1 unexpected result(s): the run failed']);
   });
 
-  it('perf: the S4 case passes only with ≥ 10 runs that passed the S4 gate', () => {
-    const runs = (n: number) => Array.from({ length: n }, () => ({ finalState: 'verified' }));
-    const summary = { p50: 1200, p95: 1500, max: 1600, thresholdMs: 3000 };
-    expect(perfEvidence({ gate: 'S4', case: 'EVAL-071', pass: true, runs: runs(10), summary }, 'p.json')[0]).toMatchObject({ status: 'passed', detail: '10 cold loads, 10 verified, p50 1200 ms, p95 1500 ms, max 1600 ms (threshold 3000 ms)' });
-    expect(perfEvidence({ gate: 'S4', case: 'EVAL-071', pass: true, runs: runs(9), summary }, 'p.json')[0]).toMatchObject({ status: 'failed', detail: expect.stringMatching(/fewer than the 10 runs/) });
-    expect(perfEvidence({ gate: 'S4', case: 'EVAL-071', pass: false, runs: runs(10), summary }, 'p.json')[0]!.status).toBe('failed');
-    expect(perfEvidence({ gate: 'S3', case: 'EVAL-070', pass: true, runs: runs(20) }, 'p.json')[0]).toMatchObject({ id: 'EVAL-071', status: 'failed' });
+  it('Playwright: unexpected > 0 is an error whatever the EVAL tests say; no stats fails closed; test.fail() is not a pass', () => {
+    const passing = PW_OK('@eval EVAL-064 not found');
+    expect(playwrightEvidence({ ...passing, stats: { unexpected: 2 } }).errors).toEqual(['Playwright reports 2 unexpected result(s): the run failed']);
+    expect(playwrightEvidence({ ...passing, stats: undefined }).errors).toEqual(['the report has no stats: it cannot show that the run finished']);
+    expect(playwrightEvidence(passing).errors).toEqual([]);
+    const markedFail = playwrightEvidence({ ...passing, suites: [{ title: 'c.spec.ts', specs: [{ title: '@eval EVAL-064 x', tests: [{ projectName: 'phone', status: 'expected', expectedStatus: 'failed' }] }] }] });
+    expect(markedFail.evidence[0]).toMatchObject({ status: 'failed', detail: 'project phone; expected status failed (test.fail()): not evidence of a pass' });
+  });
+
+  it('a range-titled test maps to nothing and is listed', () => {
+    const r = playwrightEvidence(PW_OK('certificate tamper mode (@eval EVAL-058..063, TC-065)'));
+    expect(r.evidence).toEqual([]);
+    expect(r.rangeTitles).toEqual(['c.spec.ts: c.spec.ts › certificate tamper mode (@eval EVAL-058..063, TC-065)']);
+  });
+
+  it('perf: S4 is recomputed from the raw runs and the code threshold, never the stored flag', () => {
+    expect(perfEvidence(perfFile(), 'p.json')).toEqual({
+      evidence: [{ id: 'EVAL-071', runner: 'perf', source: 'p.json', title: 'S4 certificate verification, cold loads', status: 'passed', detail: '10 cold loads, 10 verified, 10 verified under 3000 ms, max 2100 ms' }],
+      problems: [],
+    });
+    const nine = perfEvidence(perfFile({ runs: TEN.slice(0, 9), pass: false }), 'p.json');
+    expect(nine.evidence[0]).toMatchObject({ status: 'failed', detail: '9 cold loads, 9 verified, 9 verified under 3000 ms, max 2000 ms, fewer than the 10 runs S4 needs' });
+    expect(nine.problems).toEqual([]);
+    expect(perfEvidence(perfFile({ gate: 'S3', case: 'EVAL-070' }), 'p.json').evidence[0]).toMatchObject({ id: 'EVAL-071', status: 'failed' });
+  });
+
+  it('perf: a flipped pass flag, a slow or unverified load, or a doctored threshold is a problem naming the file', () => {
+    const slow = perfEvidence(perfFile({ runs: [...TEN.slice(0, 9), { finalState: 'verified', ms: 3000 }] }), 'evals/results/baseline-perf-v1.json');
+    expect(slow.evidence[0]!.status).toBe('failed');
+    expect(slow.problems).toEqual(['evals/results/baseline-perf-v1.json: the file says pass=true, its runs give FAIL (≥ 10 loads, each verified and under 3000 ms)']);
+    const unverified = perfEvidence(perfFile({ runs: [...TEN.slice(0, 9), { finalState: 'timeout', ms: 1000 }] }), 'p.json');
+    expect(unverified.problems).toHaveLength(1);
+    const lowered = perfEvidence(perfFile({ pass: false }), 'p.json');
+    expect(lowered.problems).toEqual(['p.json: the file says pass=false, its runs give PASS (≥ 10 loads, each verified and under 3000 ms)']);
+    expect(lowered.evidence[0]!.status).toBe('failed');
+    expect(perfEvidence(perfFile({ summary: { p50: 1, p95: 1, max: 1, thresholdMs: 4000 } }), 'p.json').problems).toEqual(["p.json: the file's threshold 4000 ms is not S4's 3000 ms"]);
   });
 
   it('harness: one piece per case, and the two harness-integrity cases from its own integrity (clean tree, offline, exit code consistent)', () => {
-    const ok = harnessEvidence(harnessFile({ cases: [{ id: 'EVAL-001', suite: 'harness-verifier', outcome: 'passed', notes: [] }, { id: 'EVAL-002', suite: 'harness-verifier', outcome: 'not_yet_implemented', notes: ['needs x'] }] }), 'h.json');
-    expect(ok.map((e) => [e.id, e.runner, e.status])).toEqual([
-      ['EVAL-001', 'harness', 'passed'],
-      ['EVAL-002', 'harness', 'failed'],
-      ['EVAL-092', 'harness-integrity', 'passed'],
-      ['EVAL-091', 'harness-integrity', 'passed'],
+    const ok = harnessEvidence(worldHarness({ undetected: ['EVAL-002'] }), 'h.json');
+    expect(ok.filter((e) => e.runner === 'harness').map((e) => [e.id, e.status])).toEqual([
+      ['EVAL-001', 'passed'],
+      ['EVAL-002', 'failed'],
+      ['EVAL-003', 'passed'],
+      ['EVAL-004', 'passed'],
+      ['EVAL-005', 'passed'],
+      ['EVAL-058', 'passed'],
     ]);
-    expect(ok[1]!.detail).toBe('not_yet_implemented; needs x');
+    // S1 fails on the miss and the file exits 1: consistent, offline and clean, so both integrity cases pass.
+    expect(ok.filter((e) => e.runner === 'harness-integrity').map((e) => [e.id, e.status])).toEqual([
+      ['EVAL-092', 'passed'],
+      ['EVAL-091', 'passed'],
+    ]);
     const status = (h: ResultsFile, id: string) => harnessEvidence(h, 'h.json').find((e) => e.id === id)!.status;
-    expect(status(harnessFile({ dirty: true }), 'EVAL-091')).toBe('failed');
-    expect(status(harnessFile({ networkCalls: ['https://x'] }), 'EVAL-091')).toBe('failed');
-    expect(status(harnessFile({ skipped: 1 }), 'EVAL-092')).toBe('failed');
-    const lying = harnessFile({ gatesPass: false });
+    expect(status(worldHarness({ git: { ...WORLD_GIT, dirty: true } }), 'EVAL-091')).toBe('failed');
+    expect(status(worldHarness({ networkCalls: ['https://x'] }), 'EVAL-091')).toBe('failed');
+    const lying = worldHarness({ undetected: ['EVAL-001'] });
     lying.summary.exitCode = 0;
     expect(status(lying, 'EVAL-091')).toBe('failed');
+  });
+
+  it('provenanceProblem: no commit, another commit, or a dirty tree', () => {
+    expect(provenanceProblem('the perf results p.json', undefined, HEAD)).toBe('the perf results p.json records no commit, so it cannot be tied to aaaaaaa (CF-12)');
+    expect(provenanceProblem('the perf results p.json', OTHER, HEAD)).toBe('the perf results p.json is from bbbbbbb, the release runs at aaaaaaa: every number must come from this commit (CF-12)');
+    expect(provenanceProblem('the perf results p.json', { ...WORLD_GIT, dirty: true }, HEAD)).toBe('the perf results p.json was produced on a dirty tree (CF-12)');
+    expect(provenanceProblem('x', WORLD_GIT, HEAD)).toBeNull();
   });
 });
 
@@ -194,6 +261,7 @@ describe('reconcile: one status per dataset case, never dropped', () => {
     kase('EVAL-199', { suite: 'manual', milestone: 'M3' }),
     kase('EVAL-093', { milestone: 'M2' }),
     kase('EVAL-040', { status: 'retired' }),
+    kase('EVAL-064', { suite: 'e2e' }),
   ];
   const evidence = [
     ev('EVAL-001', 'harness'),
@@ -209,6 +277,8 @@ describe('reconcile: one status per dataset case, never dropped', () => {
     ev('EVAL-084', 'playwright'),
     ev('EVAL-093', 'vitest', 'failed'),
     ev('EVAL-500', 'playwright'),
+    ev('EVAL-064', 'playwright'),
+    ev('EVAL-064', 'playwright', 'skipped'),
   ];
   const { cases: out, problems } = reconcile({ cases }, evidence, 'M1');
   const of = (id: string) => out.find((c) => c.id === id)!;
@@ -232,15 +302,17 @@ describe('reconcile: one status per dataset case, never dropped', () => {
     ['EVAL-072', 'deferred', false],
     ['EVAL-093', 'out_of_scope', false],
     ['EVAL-040', 'retired', false],
+    ['EVAL-064', 'passed', true],
   ])('reconcile table row %#', (id, outcome, gated) => {
     expect(of(id)).toMatchObject({ outcome, gated });
   });
 
-  it('notes say why: no test, not in the harness, no perf results, pending decision', () => {
+  it('notes say why: no test, not in the harness, no perf results, pending decision, skipped beside passing', () => {
     expect(of('EVAL-067').notes).toContain('no test names this case');
     expect(of('EVAL-002').notes).toContain('not in the harness results');
     expect(of('EVAL-071').notes[0]).toMatch(/no perf results/);
     expect(of('EVAL-084').notes).toContain('pending decision: reported, outside the gates');
+    expect(of('EVAL-064').notes).toContain('1 skipped test(s) beside the passing ones');
   });
 
   it('flags evidence from a runner other than the dataset suite names (e2e case, vitest test)', () => {
@@ -272,65 +344,172 @@ describe('reconcile: one status per dataset case, never dropped', () => {
 });
 
 describe('buildRelease and the report', () => {
-  const dataset = { cases: [kase('EVAL-001', { suite: 'harness-verifier' }), kase('EVAL-053'), kase('EVAL-071', { suite: 'perf' }), kase('EVAL-091', { suite: 'ci' }), kase('EVAL-092', { suite: 'ci' }), kase('EVAL-070', { suite: 'perf', milestone: 'M3' })] };
-  const suiteSource = (name: 'integration' | 'e2e' | 'e2e-demo') => ({ name, file: `${name}.json`, sha256: 'b'.repeat(64), command: 'x', exitCode: 0, tests: 1, evalTests: 1, errors: [] as string[] });
+  const suiteSource = (name: 'integration' | 'e2e' | 'e2e-demo', errors: string[] = []) => ({ name, file: `${name}.json`, record: `${name}.run.json`, sha256: 'b'.repeat(64), command: 'x', exitCode: 0, tests: 1, evalTests: 1, errors });
   const perfOk = { evidence: [ev('EVAL-071', 'perf')], source: { name: 'perf' as const, file: 'perf.json', sha256: 'c'.repeat(64), command: null, exitCode: null, tests: 10, evalTests: 1, errors: [] } };
-  const input = (over: Partial<ReleaseInput> = {}): ReleaseInput => {
-    const h = harnessFile();
+  const input = (over: Partial<ReleaseInput> & { harnessResults?: ResultsFile } = {}): ReleaseInput => {
+    const h = over.harnessResults ?? worldHarness();
     return {
-      dataset,
+      dataset: WORLD,
       milestone: 'M1',
       harness: { results: h, file: join(root, 'h.json'), text: JSON.stringify(h) },
-      suites: [{ source: suiteSource('integration'), evidence: [ev('EVAL-053', 'vitest')] }],
+      suites: [{ source: suiteSource('integration'), evidence: [ev('EVAL-053', 'vitest'), ev('EVAL-064', 'playwright'), ev('EVAL-073', 'playwright')] }],
       perf: perfOk,
       readiness: ['eval:ready (milestone M1) — READY', 'WARNING: docs/exec/hr3-field-calibration.md is absent: … (decisions.md TP29) …'],
-      git: GIT,
+      git: HEAD,
       startedAt: new Date('2026-10-05T01:02:03.000Z'),
       durationMs: 42,
       ...over,
     };
   };
+  const gate = (r: ReleaseFile, id: string) => r.gates.find((g) => g.id === id)!;
 
   it('PASS when every gated case passes, S4 comes from the perf file and nothing is missing', () => {
     const r = buildRelease(input());
+    expect(r.problems).toEqual([]);
     expect(r.summary).toMatchObject({ overall: 'PASS', exitCode: 0, blockers: [] });
     expect(r.gates.map((g) => g.id)).toEqual(['S1', 'S1-floor', 'S2', 'S6-lib', 'S7', 'CF', 'S4', 'Cases', 'S7-release']);
-    expect(r.gates.find((g) => g.id === 'S4')).toMatchObject({ pass: true, source: 'x.test.ts' });
-    expect(r.gates.find((g) => g.id === 'Cases')).toMatchObject({ display: '4/4', pass: true });
-    expect(r.totals).toEqual({ cases: 6, gated: 5, passed: 5, failed: 0, skipped: 0, missing: 0, deferred: 1, outOfScope: 0, notGated: 0 });
+    expect(gate(r, 'S4')).toMatchObject({ pass: true, source: 'x.test.ts', target: 'every load < 3 s' });
+    expect(gate(r, 'Cases')).toMatchObject({ display: '6/6', pass: true });
+    expect(r.totals).toEqual({ cases: 13, gated: 12, passed: 12, failed: 0, skipped: 0, missing: 0, deferred: 1, outOfScope: 0, notGated: 0 });
     // A harness run reading this file as its "previous formal run" needs these (run.ts readResultsFile).
     expect(r.provenance.config.hash).toBe(CONFIG_HASH);
     expect(r.provenance.timestampUtc).toBe('2026-10-05T01:02:03.000Z');
+    expect(r.provenance.git).toEqual(WORLD_GIT);
     expect(r.cases.every((c) => typeof c.outcome === 'string')).toBe(true);
   });
 
   it('FAIL: no perf file → S4 not run and the S4 case missing; a stale harness commit and a suite error are problems', () => {
-    const r = buildRelease(input({ perf: undefined, git: { ...GIT, commit: 'b'.repeat(40), shortSha: 'bbbbbbb' }, suites: [{ source: { ...suiteSource('e2e'), errors: ['webServer exited early'] }, evidence: [ev('EVAL-053', 'vitest')] }] }));
+    const r = buildRelease(input({ perf: undefined, harnessResults: worldHarness({ git: OTHER }), suites: [{ source: suiteSource('e2e', ['webServer exited early']), evidence: [ev('EVAL-053', 'vitest'), ev('EVAL-064', 'playwright'), ev('EVAL-073', 'playwright')] }] }));
     expect(r.summary.overall).toBe('FAIL');
-    expect(r.gates.find((g) => g.id === 'S4')).toMatchObject({ pass: false, display: 'not run' });
+    expect(gate(r, 'S4')).toMatchObject({ pass: false, display: 'not run' });
     expect(r.cases.find((c) => c.id === 'EVAL-071')!.outcome).toBe('missing');
-    expect(r.problems).toEqual(['e2e: webServer exited early', 'the harness results are from aaaaaaa, the release runs at bbbbbbb: every number must come from this commit (CF-12)']);
-    expect(r.gates.find((g) => g.id === 'S7-release')!.pass).toBe(false);
-    expect(r.gates.find((g) => g.id === 'Cases')!.detail).toBe('EVAL-071 missing');
+    expect(r.problems).toEqual([
+      `harness: the harness results ${join(root, 'h.json')} is from bbbbbbb, the release runs at aaaaaaa: every number must come from this commit (CF-12)`,
+      'e2e: webServer exited early',
+    ]);
+    expect(gate(r, 'S7-release').pass).toBe(false);
+    expect(gate(r, 'Cases').detail).toBe('EVAL-071 missing');
   });
 
-  it('a failed harness case is judged by the harness gates, not the Cases gate (S1 tolerates a miss; stretch is reported)', () => {
-    const h = harnessFile({ cases: [{ id: 'EVAL-001', suite: 'harness-verifier', outcome: 'failed', notes: [] }] });
-    const r = buildRelease(input({ harness: { results: h, file: join(root, 'h.json'), text: JSON.stringify(h) } }));
+  it('FAIL: a harness file produced on a dirty tree', () => {
+    const r = buildRelease(input({ harnessResults: worldHarness({ git: { ...WORLD_GIT, dirty: true } }) }));
+    expect(r.problems).toContain(`harness: the harness results ${join(root, 'h.json')} was produced on a dirty tree (CF-12)`);
+    expect(r.summary.overall).toBe('FAIL');
+  });
+
+  it('FAIL: the release tree itself is dirty', () => {
+    const r = buildRelease(input({ git: { ...HEAD, dirty: true, changes: [' M src/a.ts'] } }));
+    expect(r.problems).toEqual(['the release tree has changes outside the untracked formal outputs ( M src/a.ts): every number must come from the committed tree (CF-12)']);
+    expect(r.provenance.git.dirty).toBe(true);
+    expect(r.summary.overall).toBe('FAIL');
+  });
+
+  it('FAIL: a harness file with a flipped pass flag is named, and the recomputed gate decides', () => {
+    const h = worldHarness({ undetected: ['EVAL-001'] });
+    h.gates.find((g) => g.id === 'S1')!.pass = true;
+    h.summary = { ...h.summary, overall: 'PASS', exitCode: 0 };
+    const r = buildRelease(input({ harnessResults: h }));
+    expect(gate(r, 'S1')).toMatchObject({ display: '75.0 % (3/4)', pass: false });
+    expect(r.problems).toContain(`harness: ${join(root, 'h.json')} disagrees with its own cases: gate S1: the file says 75.0 % (3/4) PASS, its cases give 75.0 % (3/4) FAIL`);
+    expect(r.summary.overall).toBe('FAIL');
+  });
+
+  it('a failed harness case is judged by the harness gates, not the Cases gate (here S1 fails on it)', () => {
+    const r = buildRelease(input({ harnessResults: worldHarness({ undetected: ['EVAL-001'] }) }));
     expect(r.cases.find((c) => c.id === 'EVAL-001')!.outcome).toBe('failed');
-    expect(r.gates.find((g) => g.id === 'Cases')).toMatchObject({ display: '4/4', pass: true });
-    expect(r.summary.overall).toBe('PASS'); // the harness's own S1/S2 gates (here passing) decide
+    expect(gate(r, 'Cases')).toMatchObject({ display: '6/6', pass: true });
+    expect(r.problems).toEqual([]);
+    expect(r.summary.blockers[0]).toMatch(/^S1 /);
   });
 
-  it('the report prints the readiness lines (with the HR3 warning), the gates, the deferred table and every case', () => {
-    const r = buildRelease(input());
+  it('CF-13 is judged at release time from the drift passed in', () => {
+    const r = buildRelease(input({ configDrift: { baselineHash: 'f'.repeat(64), currentHash: CONFIG_HASH, authorised: false } }));
+    expect(gate(r, 'CF')).toMatchObject({ display: '1', pass: false });
+  });
+
+  it('the report prints the readiness lines (with the HR3 warning), the gates, the deferred table, every case, range titles and skipped evidence', () => {
+    const r = buildRelease(
+      input({
+        suites: [
+          { source: { ...suiteSource('integration'), rangeTitles: ['c.spec.ts: tamper (EVAL-058..063)'] }, evidence: [ev('EVAL-053', 'vitest'), ev('EVAL-053', 'vitest', 'skipped'), ev('EVAL-064', 'playwright'), ev('EVAL-073', 'playwright')] },
+        ],
+      }),
+    );
     const md = renderReleaseReport(r, '/x/eval-run-v1-release-aaaaaaa.json');
     expect(md).toContain('# Udgam release evaluation — eval-run-v1-release-aaaaaaa');
     expect(md).toContain('**Overall: PASS**');
     expect(md).toContain('WARNING: docs/exec/hr3-field-calibration.md is absent');
     expect(md).toMatch(/\| S4 \| .* \| PASS \| `x\.test\.ts` \|/);
     expect(md).toContain('| EVAL-070 | title of EVAL-070 | perf | M-003 (TKT-29 · TASK-30) |');
-    for (const c of dataset.cases) expect(md).toContain(`| ${c.id} | ${c.suite} | ${c.milestone} |`);
+    expect(md).toContain('## Titles with range-written IDs (not read)');
+    expect(md).toContain('- c.spec.ts: tamper (EVAL-058..063)');
+    expect(md).toContain('## Passed, with skipped tests');
+    expect(md).toContain('| integration | `integration.json` | `integration.run.json` |');
+    for (const c of WORLD.cases) expect(md).toContain(`| ${c.id} | ${c.suite} | ${c.milestone} |`);
+  });
+});
+
+describe('suite reports and perf files must come from this commit, unaltered', () => {
+  const dir = () => join(root, `s${++k}`);
+  const problemsOf = (file: string) => loadSuite('integration', file, HEAD).source.errors;
+
+  it('a report with a matching run record loads cleanly', () => {
+    const f = writeSuite(dir(), 'integration', VITEST_OK('EVAL-053 ok'));
+    const r = loadSuite('integration', f, HEAD);
+    expect(r.source).toMatchObject({ errors: [], exitCode: 0, command: 'fixture integration', tests: 1, evalTests: 1 });
+    expect(r.evidence.map((e) => e.id)).toEqual(['EVAL-053']);
+  });
+
+  it('a stale suite report (run at another commit) is a problem', () => {
+    expect(problemsOf(writeSuite(dir(), 'integration', VITEST_OK('EVAL-053 ok'), { gitBoth: { ...OTHER, changes: [], formalOutputs: [] } }))).toEqual([
+      'the integration run (tree before it) is from bbbbbbb, the release runs at aaaaaaa: every number must come from this commit (CF-12)',
+      'the integration run (tree after it) is from bbbbbbb, the release runs at aaaaaaa: every number must come from this commit (CF-12)',
+    ]);
+  });
+
+  it('a run on a dirty tree (before or after) is a problem, naming the changes', () => {
+    const d = dir();
+    const f = writeSuite(d, 'integration', VITEST_OK('EVAL-053 ok'), { git: { before: HEAD, after: { ...HEAD, dirty: true, changes: ['?? stray.txt'] } } });
+    expect(problemsOf(f)).toEqual(['the integration run (tree after it) was produced on a dirty tree (CF-12): ?? stray.txt']);
+  });
+
+  it('a failed or refused run is a problem even when every EVAL test passed', () => {
+    expect(problemsOf(writeSuite(dir(), 'integration', VITEST_OK('EVAL-053 ok'), { exitCode: 1 }))).toEqual(['the run exited 1: a failed run fails the release whatever its tests say']);
+    expect(loadSuite('e2e', writeSuite(dir(), 'e2e', PW_OK('@eval EVAL-064 x'), { exitCode: 2, refused: 'port 3100 is already in use' }), HEAD).source.errors).toEqual(['the run was refused: port 3100 is already in use', 'the run exited 2: a failed run fails the release whatever its tests say']);
+  });
+
+  it('a report changed after its run (the hand-added test probe) is a problem', () => {
+    const d = dir();
+    const f = writeSuite(d, 'e2e', PW_OK('@eval EVAL-064 x'));
+    const doctored = PW_OK('@eval EVAL-064 x');
+    doctored.suites[0]!.specs.push({ title: 'EVAL-0861 hand-added', file: 'c.spec.ts', tests: [{ projectName: 'phone', status: 'expected', expectedStatus: 'passed' }] });
+    writeFileSync(f, JSON.stringify(doctored));
+    const r = loadSuite('e2e', f, HEAD);
+    expect(r.source.errors).toHaveLength(1);
+    expect(r.source.errors[0]).toMatch(/e2e\.json is not the report its run left .*: changed after the run$/);
+    expect(r.evidence.map((e) => e.id)).toEqual(['EVAL-064']); // and EVAL-0861 never maps to EVAL-086
+  });
+
+  it('a report without a run record, or with a record of another suite, is a problem', () => {
+    const d = dir();
+    mkdirSync(d, { recursive: true });
+    writeFileSync(join(d, 'integration.json'), JSON.stringify(VITEST_OK('EVAL-053 ok')));
+    expect(problemsOf(join(d, 'integration.json'))[0]).toMatch(/^no readable run record at .*integration\.run\.json .*: the report cannot be tied to this commit$/);
+    const f = writeSuite(dir(), 'integration', VITEST_OK('EVAL-053 ok'), { report: 'e2e' });
+    expect(problemsOf(f)[0]).toMatch(/integration\.run\.json is not a integration run record$/);
+  });
+
+  it('a perf file from another commit, or produced on a dirty tree, is a problem naming it', () => {
+    const d = dir();
+    mkdirSync(d, { recursive: true });
+    const write = (name: string, body: unknown) => {
+      writeFileSync(join(d, name), JSON.stringify(body));
+      return join(d, name);
+    };
+    expect(loadPerf(write('a.json', perfFile()), HEAD).source.errors).toEqual([]);
+    expect(loadPerf(write('b.json', perfFile({ provenance: { git: OTHER } })), HEAD).source.errors).toEqual([`the perf results ${join(d, 'b.json')} is from bbbbbbb, the release runs at aaaaaaa: every number must come from this commit (CF-12)`]);
+    expect(loadPerf(write('c.json', perfFile({ provenance: { git: { ...WORLD_GIT, dirty: true } } })), HEAD).source.errors).toEqual([`the perf results ${join(d, 'c.json')} was produced on a dirty tree (CF-12)`]);
+    expect(loadPerf(write('d.json', perfFile({ provenance: undefined })), HEAD).source.errors).toEqual([`the perf results ${join(d, 'd.json')} records no commit, so it cannot be tied to aaaaaaa (CF-12)`]);
   });
 });
 
@@ -338,8 +517,8 @@ describe('a harness run reads a release file as a previous formal run without an
   it('provenance.config.hash, timestampUtc and cases[].outcome are where run.ts looks', async () => {
     const dir = join(root, 'compat');
     mkdirSync(dir, { recursive: true });
-    const h = harnessFile();
-    const release = buildRelease({ dataset: { cases: [kase('EVAL-058', { suite: 'harness-proof' })] }, milestone: 'M1', harness: { results: h, file: 'h.json', text: '{}' }, suites: [], readiness: [], git: GIT, startedAt: new Date(), durationMs: 1 });
+    const h = worldHarness();
+    const release = buildRelease({ dataset: WORLD, milestone: 'M1', harness: { results: h, file: 'h.json', text: '{}' }, suites: [], readiness: [], git: HEAD, startedAt: new Date(), durationMs: 1 });
     writeFileSync(join(dir, 'eval-run-v1-release-aaaaaaa.json'), JSON.stringify(release));
     const run = await evaluate({ seed: 3, suites: ['harness-proof'], proofSuite: async () => [], resultsDir: dir });
     expect(run.totals.problems.filter((p) => p.includes('eval-run-v1-release'))).toEqual([]);
@@ -348,38 +527,64 @@ describe('a harness run reads a release file as a previous formal run without an
 });
 
 describe('eval:release CLI', () => {
-  it('parses its flags and refuses bad ones', () => {
+  it('parses its flags and refuses bad ones, including --reuse with formal output', () => {
     expect(parseReleaseArgs(['--milestone=M1'])).toMatchObject({ milestone: 'M1', out: 'local', reuse: false });
-    expect(parseReleaseArgs(['--reuse', '--out=formal', '--harness=h.json', '--perf=p.json'])).toMatchObject({ reuse: true, out: 'formal', harness: expect.stringMatching(/h\.json$/), perf: expect.stringMatching(/p\.json$/) });
+    expect(parseReleaseArgs(['--reuse', '--harness=h.json', '--perf=p.json'])).toMatchObject({ reuse: true, out: 'local', harness: expect.stringMatching(/h\.json$/), perf: expect.stringMatching(/p\.json$/) });
+    expect(() => parseReleaseArgs(['--reuse', '--out=formal', '--harness=h.json', '--perf=p.json'])).toThrow(/--reuse is for local runs/);
     expect(() => parseReleaseArgs(['--milestone=M7'])).toThrow(/--milestone/);
     expect(() => parseReleaseArgs(['--harness'])).toThrow(/--harness needs a value/);
     expect(() => parseReleaseArgs(['--dir=/tmp/x', '--out=formal'])).toThrow(/--dir is for local runs/);
     expect(() => parseReleaseArgs(['--bogus'])).toThrow(/unknown flag/);
   });
 
-  it('--reuse --dir: merges fixture reports into a local release under the temp dir, and the report re-renders byte-identically from it', async () => {
+  it('formalRefusals: a dirty tree, a missing input, or an input outside the results directory', () => {
+    const args = (o: { harness?: string; perf?: string }) => ({ milestone: 'M1' as const, out: 'formal' as const, reuse: false, ...o });
+    expect(formalRefusals(args({ harness: '/r/eval-run-0.1.0-aaaaaaa.json', perf: '/r/baseline-perf-v1.json' }), HEAD, '/r')).toEqual([]);
+    expect(formalRefusals(args({ harness: '/r/h.json', perf: '/r/p.json' }), { ...HEAD, dirty: true, changes: [' M src/a.ts'] }, '/r')).toEqual(['the tree has changes outside the untracked formal outputs:  M src/a.ts']);
+    expect(formalRefusals(args({ perf: '/r/p.json' }), HEAD, '/r')[0]).toMatch(/^--harness=<file> is required/);
+    expect(formalRefusals(args({ harness: '/tmp/h.json', perf: '/r/p.json' }), HEAD, '/r')).toEqual(['--harness must name a formal file in /r/, got /tmp/h.json']);
+  });
+
+  it('--out=formal on a dirty tree, or with --reuse, exits 2 and runs and writes nothing', async () => {
+    const dir = join(root, 'refuse');
+    mkdirSync(join(dir, 'results'), { recursive: true });
+    let ran = 0;
+    const errors: string[] = [];
+    const io = { log: () => {}, error: (s: string) => errors.push(s) };
+    const deps = { git: () => ({ ...HEAD, dirty: true, changes: ['?? notes.txt'] }), resultsDir: join(dir, 'results'), reportsDir: join(dir, 'reports'), dataset: WORLD, runSuite: async () => void ran++ };
+    expect(await main(['--out=formal', `--harness=${join(dir, 'results', 'h.json')}`, `--perf=${join(dir, 'results', 'p.json')}`], io, deps)).toBe(2);
+    expect(errors.join('\n')).toMatch(/refused; nothing was run or written:\n {2}- the tree has changes outside the untracked formal outputs: \?\? notes\.txt/);
+    expect(await main(['--out=formal', '--reuse'], io, { ...deps, git: () => HEAD })).toBe(2);
+    expect(errors.join('\n')).toMatch(/--reuse is for local runs/);
+    expect(ran).toBe(0);
+    expect(readdirSync(join(dir, 'results'))).toEqual([]);
+    expect(existsSync(join(dir, 'reports'))).toBe(false);
+  });
+
+  it('--reuse --dir: merges fixture reports and their run records into a local release, and the report re-renders byte-identically from it', async () => {
     const dir = join(root, 'cli');
     const local = join(dir, 'local');
+    const h = worldHarness();
     mkdirSync(local, { recursive: true });
-    const git = gitFacts();
-    const h = harnessFile({ commit: git.commit, dirty: git.dirty });
     writeFileSync(join(dir, 'harness.json'), JSON.stringify(h));
-    writeFileSync(join(local, 'integration.json'), JSON.stringify({ testResults: [{ name: 'a.int.test.ts', status: 'passed', assertionResults: [{ ancestorTitles: [], title: 'EVAL-053 tampered', status: 'passed' }] }] }));
-    writeFileSync(join(local, 'e2e.json'), JSON.stringify({ suites: [{ title: 'c.spec.ts', specs: [{ title: '@eval EVAL-064 not found', tests: [{ projectName: 'phone', status: 'expected' }] }] }], errors: [] }));
+    writeSuite(local, 'integration', VITEST_OK('EVAL-053 tampered'));
+    writeSuite(local, 'e2e', PW_OK('@eval EVAL-064 not found'));
     // e2e-demo.json is absent: an error, never "no tests"
-    writeFileSync(join(dir, 'perf.json'), JSON.stringify({ gate: 'S4', case: 'EVAL-071', pass: true, runs: Array.from({ length: 10 }, () => ({ finalState: 'verified' })), summary: { p50: 1, p95: 1, max: 1, thresholdMs: 3000 } }));
+    writeFileSync(join(dir, 'perf.json'), JSON.stringify(perfFile()));
     const lines: string[] = [];
-    const code = await main(['--milestone=M1', '--reuse', `--dir=${dir}`, `--harness=${join(dir, 'harness.json')}`, `--perf=${join(dir, 'perf.json')}`], { log: (s) => lines.push(s), error: (s) => lines.push(s) });
-    expect(code).toBe(1); // the real dataset has many cases these fixtures do not cover
+    const code = await main(['--milestone=M1', '--reuse', `--dir=${dir}`, `--harness=${join(dir, 'harness.json')}`, `--perf=${join(dir, 'perf.json')}`], { log: (s) => lines.push(s), error: (s) => lines.push(s) }, { git: () => HEAD, dataset: WORLD });
+    expect(code).toBe(1);
     const written = readdirSync(local).filter((f) => f.startsWith('eval-'));
-    expect(written).toEqual([`eval-report-v1.md`, `eval-run-v1-release-${git.shortSha}.json`].sort());
-    const resultsPath = join(local, `eval-run-v1-release-${git.shortSha}.json`);
+    expect(written).toEqual(['eval-report-v1.md', 'eval-run-v1-release-aaaaaaa.json']);
+    const resultsPath = join(local, 'eval-run-v1-release-aaaaaaa.json');
     const r = JSON.parse(readFileSync(resultsPath, 'utf8')) as ReleaseFile;
     expect(r.cases.find((c) => c.id === 'EVAL-053')!.runners).toEqual(['vitest']);
     expect(r.cases.find((c) => c.id === 'EVAL-064')!.runners).toEqual(['playwright']);
     expect(r.cases.find((c) => c.id === 'EVAL-071')!.runners).toContain('perf');
-    expect(r.problems.some((p) => /^e2e-demo: no readable report/.test(p))).toBe(true);
-    expect(r.cases).toHaveLength(loadDataset().cases.length);
+    expect(r.cases.find((c) => c.id === 'EVAL-073')!.outcome).toBe('missing');
+    expect(r.problems.filter((p) => p.startsWith('e2e-demo: '))).toHaveLength(2); // no run record, no report
+    expect(r.problems.filter((p) => !p.startsWith('e2e-demo: '))).toEqual([]);
+    expect(r.cases).toHaveLength(WORLD.cases.length);
     expect(readFileSync(join(local, 'eval-report-v1.md'), 'utf8')).toBe(renderReleaseReport(r, resultsPath));
     expect(lines[0]).toBe('eval:release (M1) — FAIL');
   });

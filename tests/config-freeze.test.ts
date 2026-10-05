@@ -3,11 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { CONFIG_HASH } from '../src/lib/verification/config';
-import { loadDataset, type EvalCase } from '../evals/harness/dataset';
-import { REPO_ROOT } from '../evals/harness/provenance';
+import { checkConfigFreeze, CONFIG_CHANGES_PATH, DECISIONS_PATH, type FreezeInput } from '../evals/harness/config-freeze';
+import { loadDataset } from '../evals/harness/dataset';
 import { renderReport } from '../evals/harness/report';
 import { RESULTS_DIR } from '../evals/harness/results';
-import { BASELINE_V1_FILE, BASELINE_V1_REPORT, main, parseArgs, runHarness } from '../evals/harness/run';
+import { BASELINE_V1_FILE, BASELINE_V1_REPORT, evaluate, main, parseArgs, runHarness } from '../evals/harness/run';
 
 // TSK-21.2 (TKT-21, EV13, CF-13): the verification config `cfg-1` is frozen by baseline-v1. Once
 // evals/results/baseline-v1.json exists, CONFIG_HASH must equal its provenance.config.hash, unless
@@ -15,80 +15,14 @@ import { BASELINE_V1_FILE, BASELINE_V1_REPORT, main, parseArgs, runHarness } fro
 // for every scenario the change affects, at least two NEW attack-case IDs (absent from baseline-v1)
 // that already exist in the dataset as attack cases of that scenario (evaluation-plan §10).
 // Before baseline-v1 exists the guard passes vacuously.
+// The rule itself is evals/harness/config-freeze.ts (EXE34): this test and the harness's CF-13 (run.ts)
+// call the same function, so a drift the test rejects can never pass the gate. A bare mention of a hash
+// in decisions.md authorises nothing.
 //
 // evals/config-changes.md format: one table row per authorised config change, e.g.
 //   | Config hash | Decision | Scenarios | New attack cases |
 //   |---|---|---|---|
 //   | <64-hex sha-256> | EV17 | 1, 3 | EVAL-150, EVAL-151, EVAL-152, EVAL-153 |
-
-type Freeze = { ok: boolean; reason: string };
-type FreezeInput = {
-  resultsDir: string;
-  configHash: string;
-  changesPath: string;
-  decisionsPath: string;
-  cases: Pick<EvalCase, 'id' | 'case_class' | 'scenario'>[];
-};
-
-const readOrNull = (path: string): string | null => {
-  try {
-    return readFileSync(path, 'utf8');
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
-    throw e;
-  }
-};
-
-/** The freeze guard. Fails closed: an unreadable or malformed baseline is a failure, never "absent". */
-function checkConfigFreeze(i: FreezeInput): Freeze {
-  let text: string | null;
-  try {
-    text = readOrNull(join(i.resultsDir, BASELINE_V1_FILE));
-  } catch (e) {
-    return { ok: false, reason: `baseline-v1 exists but cannot be read: ${(e as Error).message}` };
-  }
-  if (text === null) return { ok: true, reason: 'no baseline-v1 yet: the guard passes vacuously' };
-  let baseline: { provenance?: { config?: { hash?: unknown } }; cases?: { id?: unknown }[] };
-  try {
-    baseline = JSON.parse(text);
-  } catch {
-    return { ok: false, reason: 'baseline-v1 is not valid JSON' };
-  }
-  const frozen = baseline.provenance?.config?.hash;
-  if (typeof frozen !== 'string' || !/^[0-9a-f]{64}$/.test(frozen)) return { ok: false, reason: 'baseline-v1 lacks provenance.config.hash' };
-  if (!Array.isArray(baseline.cases)) return { ok: false, reason: 'baseline-v1 lacks cases' };
-  if (frozen === i.configHash) return { ok: true, reason: `CONFIG_HASH equals the baseline-v1 hash ${frozen}` };
-
-  const drift = `CONFIG_HASH ${i.configHash} differs from the baseline-v1 hash ${frozen}`;
-  const changes = readOrNull(i.changesPath);
-  if (changes === null) return { ok: false, reason: `${drift}, and there is no evals/config-changes.md authorising it` };
-  const row = changes.split('\n').find((l) => l.trim().startsWith('|') && l.includes(i.configHash));
-  if (!row) return { ok: false, reason: `${drift}, and evals/config-changes.md does not list ${i.configHash}` };
-  const cells = row.split('|').slice(1, -1).map((c) => c.trim());
-  if (cells.length < 4) return { ok: false, reason: `the config-changes row for ${i.configHash} needs 4 cells (hash | decision | scenarios | new attack cases)` };
-  const [, decisionCell, scenarioCell, caseCell] = cells as [string, string, string, string];
-
-  const decision = /^(TP|EV)\d+$/.exec(decisionCell)?.[0];
-  if (!decision) return { ok: false, reason: `${drift}: the row names no TP/EV decision (got "${decisionCell}")` };
-  const decisions = readOrNull(i.decisionsPath) ?? '';
-  if (!new RegExp(`^## ${decision} `, 'm').test(decisions)) return { ok: false, reason: `${drift}: decision ${decision} is not recorded in decisions.md` };
-
-  const scenarios = [...scenarioCell.matchAll(/\d+/g)].map((m) => Number(m[0]));
-  if (scenarios.length === 0) return { ok: false, reason: `${drift}: the row names no affected scenario` };
-  const inBaseline = new Set(baseline.cases.map((c) => c.id));
-  const byId = new Map(i.cases.map((c) => [c.id, c]));
-  const listed = [...caseCell.matchAll(/EVAL-\d{3,}/g)].map((m) => m[0]);
-  for (const s of scenarios) {
-    const fresh = listed.filter((id) => {
-      const c = byId.get(id);
-      return c !== undefined && c.case_class === 'attack' && c.scenario === s && !inBaseline.has(id);
-    });
-    if (new Set(fresh).size < 2) {
-      return { ok: false, reason: `${drift}: scenario ${s} needs ≥ 2 new attack cases already in the dataset (and not in baseline-v1); found ${fresh.length === 0 ? 'none' : fresh.join(', ')}` };
-    }
-  }
-  return { ok: true, reason: `${drift}, authorised by ${decision} with new attack cases for scenario(s) ${scenarios.join(', ')}` };
-}
 
 const root = mkdtempSync(join(tmpdir(), 'udgam-freeze-'));
 afterAll(() => rmSync(root, { recursive: true, force: true }));
@@ -130,8 +64,8 @@ describe('the frozen verification config (TSK-21.2, EV13, CF-13)', () => {
     const r = checkConfigFreeze({
       resultsDir: RESULTS_DIR,
       configHash: CONFIG_HASH,
-      changesPath: join(REPO_ROOT, 'evals', 'config-changes.md'),
-      decisionsPath: join(REPO_ROOT, 'decisions.md'),
+      changesPath: CONFIG_CHANGES_PATH,
+      decisionsPath: DECISIONS_PATH,
       cases: loadDataset().cases,
     });
     expect(r, r.reason).toMatchObject({ ok: true });
@@ -175,10 +109,35 @@ describe('the frozen verification config (TSK-21.2, EV13, CF-13)', () => {
     ['a non-attack case', row(`${CONFIG_HASH} | EV17 | 1 | EVAL-150, EVAL-154`), /scenario 1 needs ≥ 2/],
     ['cases of another scenario', row(`${CONFIG_HASH} | EV17 | 1, 3 | EVAL-150, EVAL-151, EVAL-152`), /scenario 3 needs ≥ 2.*found EVAL-152$/],
     ['the same case listed twice', row(`${CONFIG_HASH} | EV17 | 1 | EVAL-150, EVAL-150`), /scenario 1 needs ≥ 2/],
+    ['the hash only in a later cell, not as the row\'s config hash', row(`${'e'.repeat(64)} | EV17 | 1 | EVAL-150, EVAL-151 (was ${CONFIG_HASH})`), /does not list/],
   ])('fails a drift when config-changes.md has %s', (_why, changes, reason) => {
     const r = freeze(world({ baselineHash: OTHER_HASH, changes }));
     expect(r.ok).toBe(false);
     expect(r.reason).toMatch(reason);
+  });
+});
+
+describe('one rule: the harness CF-13 uses the same authorisation (EXE34)', () => {
+  const s1 = loadDataset()
+    .cases.filter((c) => c.case_class === 'attack' && c.scenario === 1 && c.status === 'active')
+    .map((c) => c.id);
+  const cf13 = async (w: ReturnType<typeof world>) => (await evaluate({ seed: 1, suites: ['harness-proof'], proofSuite: async () => [], resultsDir: w.resultsDir, configChangesPath: w.changesPath, decisionsPath: w.decisionsPath })).criticalConditions.filter((f) => f.id === 'CF-13');
+  const planted = (o: { changes?: string; decisions?: string }) => {
+    const w = world({ baselineHash: null, ...o });
+    writeFileSync(join(w.resultsDir, BASELINE_V1_FILE), JSON.stringify({ provenance: { config: { hash: OTHER_HASH } }, gates: [], cases: [] }));
+    return w;
+  };
+
+  it('a "Rejected" decision that names the new hash does NOT authorise it: CF-13 fires', async () => {
+    const w = planted({ decisions: `# Decisions\n\n## EXE99 · Rejected: we will NOT move to config ${CONFIG_HASH} — rejected\n` });
+    expect(await cf13(w)).toHaveLength(1);
+  });
+
+  it('a drift with no config-changes row fires CF-13; a complete row (recorded decision, two new attack cases) clears it', async () => {
+    expect(s1.length).toBeGreaterThanOrEqual(2);
+    expect(await cf13(planted({}))).toHaveLength(1);
+    expect(await cf13(planted({ changes: row(`${CONFIG_HASH} | EV17 | 1 | ${s1[0]}, ${s1[1]}`) }))).toEqual([]);
+    expect(await cf13(planted({ changes: row(`${CONFIG_HASH} | EV17 | 1 | ${s1[0]}`) }))).toHaveLength(1);
   });
 });
 
@@ -200,7 +159,7 @@ describe('pnpm eval --baseline=v1 (TSK-21.2)', () => {
 
   it('writes the formal run, a byte-identical baseline-v1.json and a report that regenerates byte-identically from it', async () => {
     const dir = join(root, `b${++k}`);
-    const r = await runHarness({ baseline: 'v1', out: 'formal', seed: 5, suites: ['harness-proof'], proofSuite: async () => [], resultsDir: join(dir, 'results'), reportsDir: join(dir, 'reports') });
+    const r = await runHarness({ baseline: 'v1', out: 'formal', seed: 5, suites: ['harness-proof'], proofSuite: async () => [], resultsDir: join(dir, 'results'), reportsDir: join(dir, 'reports'), ...clean });
     expect(r.baselinePath).toBe(join(dir, 'results', BASELINE_V1_FILE));
     expect(r.resultsPath).toMatch(/results\/eval-run-\d+\.\d+\.\d+-[0-9a-f]{7,}\.json$/);
     expect(readFileSync(r.baselinePath!, 'utf8')).toBe(readFileSync(r.resultsPath, 'utf8'));
@@ -227,6 +186,7 @@ describe('pnpm eval --baseline=v1 (TSK-21.2)', () => {
         },
         resultsDir,
         reportsDir: join(dir, 'reports'),
+        ...clean,
       }),
     ).rejects.toThrow(/refusing to overwrite .*baseline-v1\.json/);
     expect(proofRan).toBe(false);
@@ -239,8 +199,20 @@ describe('pnpm eval --baseline=v1 (TSK-21.2)', () => {
     mkdirSync(join(dir, 'reports'), { recursive: true });
     writeFileSync(join(dir, 'reports', BASELINE_V1_REPORT), 'FROZEN\n');
     await expect(
-      runHarness({ baseline: 'v1', out: 'formal', seed: 5, suites: ['harness-proof'], proofSuite: async () => [], resultsDir: join(dir, 'results'), reportsDir: join(dir, 'reports') }),
+      runHarness({ baseline: 'v1', out: 'formal', seed: 5, suites: ['harness-proof'], proofSuite: async () => [], resultsDir: join(dir, 'results'), reportsDir: join(dir, 'reports'), ...clean }),
     ).rejects.toThrow(/refusing to overwrite .*eval-report-baseline-v1\.md/);
+    expect(existsSync(join(dir, 'results'))).toBe(false);
+  });
+
+  it('runHarness itself refuses a tree that is not fully clean (programmatic callers too), before running anything', async () => {
+    const dir = join(root, `b${++k}`);
+    let proofRan = false;
+    const proofSuite = async () => {
+      proofRan = true;
+      return [];
+    };
+    await expect(runHarness({ baseline: 'v1', out: 'formal', seed: 5, suites: ['harness-proof'], proofSuite, resultsDir: join(dir, 'results'), reportsDir: join(dir, 'reports'), git: () => ({ dirty: true }) })).rejects.toThrow(/--baseline=v1 needs a clean tree/);
+    expect(proofRan).toBe(false);
     expect(existsSync(join(dir, 'results'))).toBe(false);
   });
 

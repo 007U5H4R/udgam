@@ -13,13 +13,15 @@ import { falsePositiveRate, type FalsePositives } from '../scorers/false-positiv
 import { HARNESS_SUITES, inScope, integrity, type Integrity } from '../scorers/harness-integrity';
 import { rate, type Rate } from '../scorers/wilson';
 import { fixtureFiles, generateDeviceKeys, loadHarnessInputs, type DeviceKeys, type HarnessInputs } from './context';
-import { loadDataset, type EvalCase, type Suite } from './dataset';
+import { loadDataset, type Dataset, type EvalCase, type Suite } from './dataset';
 import { mulberry32 } from './fixtures';
 import { liveAgreement, missingLiveVars, renderAgreement } from './live-agreement';
 import { buildCase as realBuildCase, type BuiltCase } from './mutate';
 import { runProofSuite, type ProofCaseResult, type ProofSuiteOptions } from './suites/proof';
 import { startAnvil } from '../../src/lib/ledger/evm/foundry';
+import { checkConfigFreeze, CONFIG_CHANGES_PATH, DECISIONS_PATH } from './config-freeze';
 import { gitFacts, provenance, REPO_ROOT, type Provenance } from './provenance';
+import { treeState } from './tree-state';
 import { renderReportFromResults } from './report';
 import { isFileStem, REPORTS_DIR, RESULTS_DIR, reportPathFor, writeReport, writeResults, type Out } from './results';
 
@@ -137,7 +139,18 @@ export type RunOptions = {
   evmRpcUrl?: string;
   /** `--baseline=v1`: also freeze the run as baseline-v1 (formal output only; never overwrites). */
   baseline?: 'v1';
-};
+  /** The tree `--baseline=v1` must find clean (default: this repository, see baselineTree). */
+  git?: () => { dirty: boolean };
+} & FreezePaths;
+
+/**
+ * The tree as `--baseline=v1` needs it: fully clean, with not even an untracked formal output, since the
+ * baseline is the first step of the M-001 sequence (docs/exec/m-001-formal-run.md). Fails closed.
+ */
+export function baselineTree(): { dirty: boolean } {
+  const t = treeState();
+  return { dirty: t.dirty || t.formalOutputs.length > 0 };
+}
 
 /** The frozen M-001 baseline (EV13) and its report; written once by `--baseline=v1`, never overwritten. */
 export const BASELINE_V1_FILE = 'baseline-v1.json';
@@ -503,19 +516,33 @@ function readResultsFile(path: string, need: ('timestampUtc' | 'cases' | 'gates'
   return { state: 'ok', data: data as ResultsFile };
 }
 
-/** Whether decisions.md names `hash` (an EV/TP decision authorising a config change). Unreadable → no. */
-function decisionsName(hash: string): boolean {
-  try {
-    return readFileSync(join(REPO_ROOT, 'decisions.md'), 'utf8').includes(hash);
-  } catch {
-    return false; // no decisions file: nothing authorises a drift (fails closed)
-  }
+/** Where the config-change authorisation is read (test hooks; default evals/config-changes.md and decisions.md). */
+export type FreezePaths = { configChangesPath?: string; decisionsPath?: string };
+
+/**
+ * CF-13's input from a read of baseline-v1. A drift is authorised only by the one shared rule
+ * (config-freeze.ts, EXE34): a config-changes.md row with a recorded TP/EV decision and two new attack
+ * cases per affected scenario. A bare mention of the hash in decisions.md authorises nothing.
+ */
+function driftOf(v1: Read, resultsDir: string, cases: EvalCase[], paths: FreezePaths): RunFacts['configDrift'] {
+  if (v1.state === 'bad') return { error: v1.problem };
+  if (v1.state !== 'ok') return undefined;
+  const baselineHash = v1.data.provenance.config.hash;
+  const authorised =
+    baselineHash === CONFIG_HASH ||
+    checkConfigFreeze({ resultsDir, configHash: CONFIG_HASH, changesPath: paths.configChangesPath ?? CONFIG_CHANGES_PATH, decisionsPath: paths.decisionsPath ?? DECISIONS_PATH, cases }).ok;
+  return { baselineHash, currentHash: CONFIG_HASH, authorised };
+}
+
+/** CF-13's input judged now: the config drift against `resultsDir`/baseline-v1.json (undefined before it exists). */
+export function configDriftOf(resultsDir: string = RESULTS_DIR, o: FreezePaths & { cases?: EvalCase[] } = {}): RunFacts['configDrift'] {
+  return driftOf(readResultsFile(join(resultsDir, BASELINE_V1_FILE), ['gates']), resultsDir, o.cases ?? loadDataset().cases, o);
 }
 
 type PriorRuns = { comparison: Comparison; configDrift: RunFacts['configDrift']; problems: string[] };
 
 /** Compare with the latest formal run and the newest baseline, and check config drift against baseline-v1. */
-function priorRunsOf(results: CaseResult[], resultsDir: string): PriorRuns {
+function priorRunsOf(results: CaseResult[], resultsDir: string, cases: EvalCase[], paths: FreezePaths): PriorRuns {
   const problems: string[] = [];
   const formal = existsSync(resultsDir) ? readdirSync(resultsDir).filter((f) => /^eval-run-.*\.json$/.test(f)) : [];
   let previous: { file: string; data: ResultsFile } | null = null;
@@ -538,13 +565,8 @@ function priorRunsOf(results: CaseResult[], resultsDir: string): PriorRuns {
 
   // baseline-v1 freezes cfg-1 (EV13): CF-13 fires on an unauthorised drift, or when it cannot be checked.
   const v1 = readResultsFile(join(resultsDir, 'baseline-v1.json'), ['gates']);
-  let configDrift: RunFacts['configDrift'];
-  if (v1.state === 'bad') {
-    problems.push(v1.problem);
-    configDrift = { error: v1.problem };
-  } else if (v1.state === 'ok') {
-    configDrift = { baselineHash: v1.data.provenance.config.hash, currentHash: CONFIG_HASH, authorised: decisionsName(CONFIG_HASH) };
-  }
+  const configDrift = driftOf(v1, resultsDir, cases, paths);
+  if (v1.state === 'bad') problems.push(v1.problem);
 
   // The newest baseline that exists is the comparison point; an unreadable one is a problem, never a
   // silent fall-back to an older baseline.
@@ -658,7 +680,7 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
     integ.ok = false;
     integ.problems.push(`${networkCalls.length} network call(s) attempted during the run`);
   }
-  const prior = priorRunsOf(cases, resultsDir);
+  const prior = priorRunsOf(cases, resultsDir, dataset.cases, opts);
   if (prior.problems.length > 0) {
     integ.ok = false;
     integ.problems.push(...prior.problems);
@@ -716,6 +738,68 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
   };
 }
 
+export type Regated = { gates: Gate[]; criticalConditions: FiredCondition[]; integrity: Integrity; problems: string[] };
+
+const verdictOutcome = (o: string) => o === 'passed' || o === 'failed';
+
+/**
+ * Re-derive a results file's gates and critical conditions from its own cases (TSK-21.4; TASK-22 fix
+ * round 1: the release trusts no stored pass flag). Each case's dataset facts (suite, status, class,
+ * scenario, milestone, expectations, critical conditions) come from `dataset`, not the file. A verifier
+ * case's outcome and `detected` are re-derived from its stored verify() result by case-assertions; a proof
+ * case may claim `passed` only when every stored assertion passed. Thresholds are this file's constants.
+ * What the cases cannot show (the file's own problems with earlier results files, its network calls) is
+ * kept from the file, so a regated result can only be stricter. CF-13 is judged from `configDrift` (the
+ * caller's, now). `problems` lists every way the stored file disagrees with the recomputation.
+ */
+export function regate(r: ResultsFile, dataset: Pick<Dataset, 'cases'>, milestone: Milestone, configDrift?: RunFacts['configDrift']): Regated {
+  const problems: string[] = [];
+  const byId = new Map(dataset.cases.map((c) => [c.id, c]));
+  const cases = r.cases.map((stored): CaseResult => {
+    const c = byId.get(stored.id);
+    if (!c) return stored; // integrity() reports it
+    const x: CaseResult = { ...stored, ...metaOf(c, milestone) };
+    if (x.suite === 'harness-verifier' && verdictOutcome(x.outcome)) {
+      if (!x.result) {
+        problems.push(`${x.id} says ${x.outcome} without a verify() result`);
+        return { ...x, outcome: 'failed', detected: c.case_class === 'attack' ? false : null };
+      }
+      const a = assertCase(c, x.result);
+      const outcome = (x.missingChecks ?? []).length > 0 ? 'not_yet_implemented' : a.pass ? 'passed' : 'failed';
+      const detected = c.case_class === 'attack' ? (a.detected ?? false) : null;
+      if (outcome !== x.outcome) problems.push(`${x.id} says ${x.outcome}, its verify() result gives ${outcome}`);
+      if (detected !== x.detected) problems.push(`${x.id} says detected=${x.detected}, its verify() result gives ${detected}`);
+      return { ...x, outcome, detected };
+    }
+    if (x.suite === 'harness-proof' && x.outcome === 'passed' && (x.assertions.length === 0 || x.assertions.some((a) => !a.pass))) {
+      problems.push(`${x.id} says passed, but its assertions do not all pass`);
+      return { ...x, outcome: 'failed' };
+    }
+    return x;
+  });
+  const suites = r.provenance.suites ?? [...HARNESS_SUITES];
+  const integ = integrity(dataset as { cases: EvalCase[] }, cases, { suites });
+  const extra = [...(r.runtime.networkCalls.length > 0 ? [`${r.runtime.networkCalls.length} network call(s) attempted during the run`] : []), ...(r.totals?.problems ?? [])];
+  for (const p of extra) if (!integ.problems.includes(p)) integ.problems.push(p);
+  integ.ok = integ.problems.length === 0;
+  const scoped = cases.filter((c) => c.inMilestoneScope);
+  const cfs = criticalConditions(scoped, { integrity: integ, configDrift }).fired;
+  const gates = gatesOf(scoped, suites, detectionRate(scoped), falsePositiveRate(scoped), integ, cfs);
+
+  const verdict = (g: Pick<Gate, 'display' | 'pass'>) => `${g.display} ${g.pass ? 'PASS' : 'FAIL'}`;
+  for (const g of gates) {
+    const s = r.gates.find((x) => x.id === g.id);
+    if (!s) problems.push(`gate ${g.id}: absent from the file, its cases give ${verdict(g)}`);
+    else if (s.pass !== g.pass || s.display !== g.display) problems.push(`gate ${g.id}: the file says ${verdict(s)}, its cases give ${verdict(g)}`);
+  }
+  for (const s of r.gates) if (!gates.some((g) => g.id === s.id)) problems.push(`gate ${s.id}: in the file, but the harness has no such gate`);
+  const ids = (fs: FiredCondition[]) => fs.map((f) => f.id).sort().join(', ') || 'none';
+  if (ids(r.criticalConditions ?? []) !== ids(cfs)) problems.push(`critical conditions: the file says ${ids(r.criticalConditions ?? [])}, its cases give ${ids(cfs)}`);
+  const pass = gates.every((g) => g.pass) && cfs.length === 0;
+  if ((r.summary.exitCode === 0) !== pass) problems.push(`summary.exitCode ${r.summary.exitCode} contradicts the recomputed gates (${pass ? 'PASS' : 'FAIL'})`);
+  return { gates, criticalConditions: cfs, integrity: integ, problems };
+}
+
 export type HarnessRun = { results: ResultsFile; resultsPath: string; reportPath: string; exitCode: 0 | 1; baselinePath?: string; baselineReportPath?: string };
 
 /**
@@ -729,6 +813,7 @@ export async function runHarness(opts: RunOptions = {}): Promise<HarnessRun> {
   const reportsDir = opts.reportsDir ?? REPORTS_DIR;
   if (opts.baseline) {
     if (out !== 'formal') throw new Error('--baseline=v1 writes formal results only (--out=formal)');
+    if ((opts.git ?? baselineTree)().dirty) throw new Error('--baseline=v1 needs a clean tree at the gate commit (git status is not clean); nothing was run');
     refuseExistingBaseline(resultsDir, reportsDir);
   }
   const results = await evaluate(opts);
@@ -900,7 +985,7 @@ export async function main(
   }
   if (args.baseline) {
     // TSK-21.3 runs on a clean tree at the gate commit: the baseline's provenance must name that commit.
-    if ((deps.git ?? gitFacts)().dirty) {
+    if ((deps.git ?? baselineTree)().dirty) {
       io.error('--baseline=v1 needs a clean tree at the gate commit (git status is not clean); nothing was run.');
       return 2;
     }
@@ -913,7 +998,7 @@ export async function main(
   }
   let r: Awaited<ReturnType<Runner>>;
   try {
-    r = await run(args);
+    r = await run({ ...args, ...(deps.git ? { git: deps.git } : {}) });
   } catch (e) {
     io.error(`pnpm eval crashed (exit 2, not a gate result): ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`);
     return 2;

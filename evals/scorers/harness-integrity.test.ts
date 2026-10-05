@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { integrity } from './harness-integrity';
+import { integrity, releaseIntegrity } from './harness-integrity';
 import { caseResult, evalCase } from './testing';
 
 // harness-integrity (evaluation-plan §8, EVAL-092, CF-12): every case the harness must run is in the
@@ -51,5 +51,14 @@ describe('integrity', () => {
   it('limits scope to the selected suites', () => {
     const r = integrity(dataset, all().filter((x) => x.suite === 'harness-verifier'), { suites: ['harness-verifier'] });
     expect(r).toMatchObject({ ok: true, active: 3 });
+  });
+});
+
+describe('releaseIntegrity (the release reconciliation, S7-release)', () => {
+  it('passes only with nothing missing, nothing skipped and no problem', () => {
+    expect(releaseIntegrity({ missing: 0, skipped: 0 }, [])).toEqual({ ok: true, detail: '0 missing; 0 skipped' });
+    expect(releaseIntegrity({ missing: 1, skipped: 0 }, [])).toEqual({ ok: false, detail: '1 missing; 0 skipped' });
+    expect(releaseIntegrity({ missing: 0, skipped: 2 }, [])).toEqual({ ok: false, detail: '0 missing; 2 skipped' });
+    expect(releaseIntegrity({ missing: 0, skipped: 0 }, ['e2e: the run exited 1'])).toEqual({ ok: false, detail: '0 missing; 0 skipped; e2e: the run exited 1' });
   });
 });

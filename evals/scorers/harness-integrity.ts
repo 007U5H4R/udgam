@@ -51,3 +51,13 @@ export function integrity(dataset: { cases: EvalCase[] }, results: CaseResult[],
 
   return { ok: problems.length === 0, active: scope.length, passed, failed, notYetImplemented, errored, skipped, problems };
 }
+
+/**
+ * The release's reconciliation (technical-plan TSK-21.4, S7-release): every in-scope dataset case has a
+ * status from real evidence — none missing, none only skipped — and no integrity problem was found (a
+ * stale, failed or altered input, an unknown EVAL ID, an unmapped M3 case). Applied by release.ts.
+ */
+export function releaseIntegrity(totals: { missing: number; skipped: number }, problems: string[]): { ok: boolean; detail: string } {
+  const ok = totals.missing === 0 && totals.skipped === 0 && problems.length === 0;
+  return { ok, detail: [`${totals.missing} missing`, `${totals.skipped} skipped`, ...problems].join('; ') };
+}

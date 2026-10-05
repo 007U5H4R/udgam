@@ -11,7 +11,7 @@ export type CriticalConditions = { fired: FiredCondition[] };
 export type RunFacts = {
   integrity?: { ok: boolean; problems: string[] };
   /**
-   * baseline-v1's frozen config hash vs this run's; `authorised` = an EV/TP decision names the new hash.
+   * baseline-v1's frozen config hash vs this run's; `authorised` = the shared rule in evals/harness/config-freeze.ts accepts it (EXE34).
    * `{ error }` = baseline-v1 exists but cannot be read, parsed or lacks its hash: CF-13 fails closed.
    */
   configDrift?: { baselineHash: string; currentHash: string; authorised: boolean } | { error: string };
@@ -59,7 +59,7 @@ export function criticalConditions(results: CaseResult[], run: RunFacts = {}): C
   if (drift && 'error' in drift) {
     fired.push({ id: 'CF-13', caseIds: [], reason: `baseline-v1 cannot be checked for config drift: ${drift.error}` });
   } else if (drift && drift.baselineHash !== drift.currentHash && !drift.authorised) {
-    fired.push({ id: 'CF-13', caseIds: [], reason: `config hash ${drift.currentHash} differs from baseline-v1 (${drift.baselineHash}) with no decision naming it` });
+    fired.push({ id: 'CF-13', caseIds: [], reason: `config hash ${drift.currentHash} differs from baseline-v1 (${drift.baselineHash}) and evals/config-changes.md does not authorise it (config-freeze.ts)` });
   }
 
   return { fired: fired.sort((a, b) => a.id.localeCompare(b.id)) };
