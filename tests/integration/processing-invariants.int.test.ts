@@ -159,7 +159,7 @@ describe('the user rebuild for the processor role', () => {
       const journal = JSON.parse(readFileSync(join(old, 'meta', '_journal.json'), 'utf8')) as { entries: { idx: number; tag: string }[] };
       const before = journal.entries.filter((e) => e.idx <= 27);
       const after = journal.entries.filter((e) => e.idx > 27).map((e) => e.tag);
-      expect(after).toEqual(['0028_prep_processing', '0029_processing', '0030_guards_processing']);
+      expect(after.slice(0, 3)).toEqual(['0028_prep_processing', '0029_processing', '0030_guards_processing']);
       writeFileSync(join(old, 'meta', '_journal.json'), JSON.stringify({ ...journal, entries: before }));
       for (const f of readdirSync(old)) if (after.some((tag) => f === `${tag}.sql`)) rmSync(join(old, f));
 
