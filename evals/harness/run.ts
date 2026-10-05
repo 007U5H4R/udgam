@@ -18,6 +18,7 @@ import { mulberry32 } from './fixtures';
 import { liveAgreement, missingLiveVars, renderAgreement } from './live-agreement';
 import { buildCase as realBuildCase, type BuiltCase } from './mutate';
 import { runProofSuite, type ProofCaseResult, type ProofSuiteOptions } from './suites/proof';
+import { startAnvil } from '../../src/lib/ledger/evm/foundry';
 import { gitFacts, provenance, REPO_ROOT, type Provenance } from './provenance';
 import { renderReportFromResults } from './report';
 import { isFileStem, REPORTS_DIR, RESULTS_DIR, reportPathFor, writeReport, writeResults, type Out } from './results';
@@ -40,6 +41,13 @@ import { isFileStem, REPORTS_DIR, RESULTS_DIR, reportPathFor, writeReport, write
 // GFW_API_KEY, CDSE_CLIENT_ID and CDSE_CLIENT_SECRET and exits 2 naming the missing ones; never in CI.
 
 export type ConfigMode = 'full' | 'ledger-only';
+/**
+ * `--ledger=evm` (TSK-24.8, EVAL-103): start a local Anvil (pinned Foundry, killed by PID at the end),
+ * build the harness-proof batch on the EVM ledger adapter, and run EVAL-058–063 plus EVAL-103 on it. The
+ * only network the run may use is that chain's loopback RPC, counted in runtime.localChainRpcCalls;
+ * anything else is still refused (EVAL-091). Default `hashchain`: EVAL-103 is reported, not run.
+ */
+export type LedgerMode = 'hashchain' | 'evm';
 export type ProviderMode = 'fixture' | 'live';
 
 /**
@@ -95,7 +103,7 @@ export type ResultsFile = {
   /** The run's milestone scope; out-of-scope cases are in `cases` but outside every gate (absent in older files). */
   scope?: { milestone: Milestone; outOfScope: { id: string; suite: string; milestone: string; outcome: string; notes: string[] }[] };
   cases: CaseResult[];
-  runtime: { networkCalls: string[]; executionOrder: string[] };
+  runtime: { networkCalls: string[]; executionOrder: string[]; localChainRpcCalls?: number };
 };
 
 export type RunOptions = {
@@ -118,6 +126,10 @@ export type RunOptions = {
   caseTimeoutMs?: number;
   /** The harness-proof suite (default runProofSuite, TKT-15); run at most once per evaluate(). */
   proofSuite?: (o: ProofSuiteOptions) => Promise<ProofCaseResult[]>;
+  /** Ledger adapter for the harness-proof suite (default hashchain). */
+  ledger?: LedgerMode;
+  /** With ledger evm: an already running chain's RPC (tests); otherwise the harness starts Anvil. */
+  evmRpcUrl?: string;
 };
 
 /** A case that has not settled after this long is recorded as errored (reason: timeout). */
@@ -143,6 +155,7 @@ type SuiteEnv = {
   buildCase: NonNullable<RunOptions['buildCase']>;
   /** The proof suite's results, computed on first use and shared by every harness-proof case. */
   proofResults: () => Promise<ProofCaseResult[]>;
+  ledger: LedgerMode;
 };
 export type SuiteRunner = (c: EvalCase, env: SuiteEnv) => Promise<Omit<CaseResult, keyof CaseMeta | 'durationMs'>>;
 type CaseMeta = Pick<CaseResult, 'id' | 'suite' | 'datasetStatus' | 'caseClass' | 'scenario' | 'priority' | 'criticalConditions' | 'pair' | 'tags' | 'expected' | 'milestone' | 'inMilestoneScope' | 'faultInjected'>;
@@ -231,9 +244,9 @@ async function withWatchdog(body: Promise<SuiteBody>, ms: number): Promise<Suite
 
 const notBuilt = (why: string): SuiteBody => ({ outcome: 'not_yet_implemented', missingChecks: [], result: null, assertions: [], detected: null, error: null, notes: [why] });
 
-/** harness-proof cases whose runner arrives with a later ticket: reported as not_yet_implemented, never dropped. */
-const PROOF_LATER: Record<string, string> = {
-  'EVAL-103': 'EVM anchoring (M-002) arrives with TKT-23 (TSK-24.8); the harness-proof suite does not run it yet',
+/** harness-proof cases that need the EVM ledger adapter: reported as not_yet_implemented (never dropped) on hashchain. */
+const PROOF_EVM_ONLY: Record<string, string> = {
+  'EVAL-103': 'EVAL-103 runs only with --ledger=evm (Anvil, TSK-24.8); this run used the hash-chain adapter',
 };
 
 /** One proof case's assertions: EVAL-058 coverage by both verifiers, each tamper variant's step by both, EVAL-066's vectors. */
@@ -263,8 +276,8 @@ function proofAssertions(r: ProofCaseResult): CaseResult['assertions'] {
  * documented step (both columns are kept in `proof`).
  */
 const proofSuite: SuiteRunner = async (c, env) => {
-  const later = PROOF_LATER[c.id];
-  if (later) return notBuilt(later);
+  const evmOnly = PROOF_EVM_ONLY[c.id];
+  if (evmOnly && env.ledger !== 'evm') return notBuilt(evmOnly);
   let results: ProofCaseResult[];
   try {
     results = await env.proofResults();
@@ -566,16 +579,35 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
   const dataset = loadDataset(opts.datasetPath);
   const inputs = loadHarnessInputs(dataset);
   const keys = await generateDeviceKeys(dataset);
+  const ledger = opts.ledger ?? 'hashchain';
   const runProof = opts.proofSuite ?? runProofSuite;
   let proofRun: Promise<ProofCaseResult[]> | undefined;
-  const proofResults = () => (proofRun ??= runProof({ datasetPath: opts.datasetPath }));
-  const env: SuiteEnv = { inputs, keys, registry, enabled, buildCase: opts.buildCase ?? realBuildCase, proofResults };
+  // --ledger=evm: the chain is started once, on first use by a harness-proof case, and stopped below.
+  let chain: Awaited<ReturnType<typeof startAnvil>> | undefined;
+  let chainUrl: string | undefined = opts.evmRpcUrl;
+  const evmChain = async () => {
+    if (!chainUrl) {
+      chain = await startAnvil();
+      chainUrl = chain.rpcUrl;
+    }
+    return { rpcUrl: chainUrl };
+  };
+  const proofResults = () =>
+    (proofRun ??= ledger === 'evm' ? evmChain().then((evm) => runProof({ datasetPath: opts.datasetPath, evm })) : runProof({ datasetPath: opts.datasetPath }));
+  const env: SuiteEnv = { inputs, keys, registry, enabled, buildCase: opts.buildCase ?? realBuildCase, proofResults, ledger };
 
-  // Offline by construction (S7, EVAL-091): any fetch during the run is refused and recorded.
+  // Offline by construction (S7, EVAL-091): any fetch during the run is refused and recorded. The one
+  // exception is the local chain's loopback RPC under --ledger=evm, counted separately.
   const networkCalls: string[] = [];
+  let localChainRpcCalls = 0;
   const realFetch = globalThis.fetch;
-  globalThis.fetch = (async (input: Parameters<typeof fetch>[0]) => {
-    networkCalls.push(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    if (ledger === 'evm' && chainUrl && /^http:\/\/127\.0\.0\.1:\d+\/?$/.test(chainUrl) && url.replace(/\/$/, '') === chainUrl.replace(/\/$/, '')) {
+      localChainRpcCalls++;
+      return realFetch(input, init);
+    }
+    networkCalls.push(url);
     throw new Error('network access is disabled during pnpm eval');
   }) as typeof fetch;
 
@@ -585,6 +617,9 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
   );
   const cases: CaseResult[] = [];
   try {
+    // --ledger=evm: start the chain, deploy and anchor the batch before the cases, outside the per-case
+    // watchdog (it sends one transaction per ledger entry). A failure is kept and errors every proof case.
+    if (ledger === 'evm' && order.some((c) => c.suite === 'harness-proof')) await proofResults().catch(() => undefined);
     for (const c of order) {
       const started = performance.now();
       const run = SUITES[c.suite as keyof typeof SUITES];
@@ -595,6 +630,7 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
     }
   } finally {
     globalThis.fetch = realFetch;
+    await chain?.stop();
   }
   cases.sort((a, b) => a.id.localeCompare(b.id));
 
@@ -631,6 +667,7 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
     seed,
     startedAt,
     durationMs: Math.round(performance.now() - t0),
+    ledger,
   });
 
   return {
@@ -657,7 +694,7 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
     comparison: prior.comparison,
     scope: { milestone, outOfScope: outOfScope.map((c) => ({ id: c.id, suite: c.suite, milestone: c.milestone ?? '—', outcome: c.outcome, notes: c.notes })) },
     cases,
-    runtime: { networkCalls, executionOrder: order.map((c) => c.id) },
+    runtime: { networkCalls, executionOrder: order.map((c) => c.id), ...(ledger === 'evm' ? { localChainRpcCalls } : {}) },
   };
 }
 
@@ -676,8 +713,8 @@ export async function runHarness(opts: RunOptions = {}): Promise<{ results: Resu
 
 export function parseArgs(
   argv: string[],
-): Required<Pick<RunOptions, 'config' | 'provider' | 'suites' | 'out' | 'milestone'>> & Pick<RunOptions, 'seed' | 'name' | 'reportName'> & { record: boolean } {
-  const o = { config: 'full' as ConfigMode, provider: 'fixture' as ProviderMode, suites: [...HARNESS_SUITES] as Suite[], out: 'local' as Out, milestone: DEFAULT_MILESTONE, record: false } as ReturnType<typeof parseArgs>;
+): Required<Pick<RunOptions, 'config' | 'provider' | 'suites' | 'out' | 'milestone' | 'ledger'>> & Pick<RunOptions, 'seed' | 'name' | 'reportName'> & { record: boolean } {
+  const o = { config: 'full' as ConfigMode, provider: 'fixture' as ProviderMode, suites: [...HARNESS_SUITES] as Suite[], out: 'local' as Out, milestone: DEFAULT_MILESTONE, ledger: 'hashchain' as LedgerMode, record: false } as ReturnType<typeof parseArgs>;
   for (const arg of argv) {
     const m = /^--([a-z-]+)=(.*)$/.exec(arg);
     const [flag, value] = m ? [m[1], m[2]!] : arg === '--record' ? ['record', ''] : [arg, ''];
@@ -697,6 +734,10 @@ export function parseArgs(
         o.suites = list as Suite[];
         break;
       }
+      case 'ledger':
+        if (value !== 'hashchain' && value !== 'evm') throw new Error(`--ledger must be hashchain or evm, got ${value}`);
+        o.ledger = value;
+        break;
       case 'milestone':
         if (!(MILESTONES as readonly string[]).includes(value)) throw new Error(`--milestone must be ${MILESTONES.join(', ')}; got ${value}`);
         o.milestone = value as Milestone;
@@ -731,7 +772,7 @@ export function parseArgs(
 function summaryLines(r: ResultsFile, resultsPath: string, reportPath: string): string[] {
   const t = r.totals;
   return [
-    `pnpm eval — ${r.summary.overall} (config ${r.provenance.config.mode}, seed ${r.provenance.seed}, ${r.provenance.durationMs} ms)`,
+    `pnpm eval — ${r.summary.overall} (config ${r.provenance.config.mode}, ledger adapter: ${r.provenance.ledger}, seed ${r.provenance.seed}, ${r.provenance.durationMs} ms)`,
     `cases: ${t.active} active · ${t.passed} passed · ${t.failed} failed (${t.notYetImplemented} not yet implemented) · ${t.errored} errored · ${t.skipped} skipped`,
     ...(r.scope ? [`milestone scope ${r.scope.milestone}: ${r.scope.outOfScope.length === 0 ? 'every case in scope' : `${r.scope.outOfScope.map((c) => `${c.id} (${c.milestone}, ${c.outcome})`).join(', ')} out of scope, reported separately and not in any gate`}`] : []),
     ...r.gates.map((g) => `  ${g.pass ? 'PASS' : 'FAIL'}  ${g.id.padEnd(8)} ${g.display} (target ${g.target})`),

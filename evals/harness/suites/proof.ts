@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { jcs, jwkThumbprint, sha256Hex, verify } from '../../../src/lib/crypto';
+import { checkFeedAnchors } from '../../../src/lib/ledger/evm/verify-anchors';
 import { verifyFeed, type VerifierKey } from '../../../src/lib/ledger/proof';
 import { applyTamper, TAMPER_VARIANTS, type TamperVariant } from '../../../src/lib/ledger/testing/tamper';
 import { scoreProofRun, type ProofScore, type VerifierOutcome } from '../../scorers/proof-verifier';
@@ -18,11 +19,17 @@ import { buildProofFixture } from '../proof-fixture';
 //
 // The batch is proof-fixture.ts: a temporary libSQL file and a throwaway ledger key in a temp
 // directory (never ./data). The seven tamper variants come from src/lib/ledger/testing/tamper.ts.
+//
+// With `evm` (pnpm eval --ledger=evm, TSK-24.8) the same batch is built on the EVM ledger adapter against
+// a local chain, so EVAL-058–063 run on a feed whose entries carry `evm` anchors, and EVAL-103 also
+// passes only when every one of them did and every closure entry's txHash / blockNumber match the chain.
 
 const ROOT = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const TSX = join(ROOT, 'node_modules', '.bin', 'tsx');
 const CLEAN_ROOM_CLI = join(ROOT, 'evals', 'scorers', 'independent-verifier', 'cli.ts');
 const PROOF_CASES = ['EVAL-058', 'EVAL-059', 'EVAL-060', 'EVAL-061', 'EVAL-062', 'EVAL-063', 'EVAL-066'] as const;
+/** EVAL-103 re-runs these on the EVM adapter (TC-083). */
+const EVM_RERUN = ['EVAL-058', 'EVAL-059', 'EVAL-060', 'EVAL-061', 'EVAL-062', 'EVAL-063'] as const;
 const execFileAsync = promisify(execFile);
 /**
  * The clean-room child's time limit. The whole suite runs inside the first harness-proof case's 30 s
@@ -59,7 +66,15 @@ export type ProofCaseResult = {
   detail?: string;
 };
 
-export type ProofSuiteOptions = { datasetPath?: string; cryptoVectorsPath?: string; proofVectorsPath?: string; events?: number; plots?: number };
+export type ProofSuiteOptions = {
+  datasetPath?: string;
+  cryptoVectorsPath?: string;
+  proofVectorsPath?: string;
+  events?: number;
+  plots?: number;
+  /** Build the batch on the EVM ledger adapter against this chain, and add EVAL-103 (TSK-24.8). */
+  evm?: { rpcUrl: string };
+};
 
 /** Dataset `proof_tamper` targets (and chain_order variants) → the S6 tamper variants. */
 const TARGET_VARIANT: Record<string, TamperVariant> = {
@@ -141,7 +156,7 @@ const asReceived = (f: unknown) => JSON.parse(JSON.stringify(f)) as unknown;
 /** Run EVAL-058–063 and EVAL-066 and return one result per case (never skipping a case). */
 export async function runProofSuite(opts: ProofSuiteOptions = {}): Promise<ProofCaseResult[]> {
   const dataset = JSON.parse(await readFile(opts.datasetPath ?? join(ROOT, 'evals/eval-dataset.json'), 'utf8')) as { cases: DatasetCase[] };
-  const cases = PROOF_CASES.map((id) => {
+  const cases = [...PROOF_CASES, ...(opts.evm ? (['EVAL-103'] as const) : [])].map((id) => {
     const c = dataset.cases.find((x) => x.id === id);
     if (!c) throw new Error(`proof suite: ${id} is not in the dataset`);
     return c;
@@ -153,7 +168,7 @@ export async function runProofSuite(opts: ProofSuiteOptions = {}): Promise<Proof
     tampers: { variant: string; expectedStep: string; keys?: { keys: VerifierKey[] }; feed: unknown }[];
   };
 
-  const fx = await buildProofFixture({ events: opts.events, plots: opts.plots });
+  const fx = await buildProofFixture({ events: opts.events, plots: opts.plots, evm: opts.evm });
   try {
     const keys = fx.keyDocument.keys as VerifierKey[];
 
@@ -230,6 +245,26 @@ export async function runProofSuite(opts: ProofSuiteOptions = {}): Promise<Proof
           variants: [],
           cleanRoom: { status: 'ran', detail: said(clean[0]!) },
           detail: `library ${said(lib[0]!)}, clean-room ${said(clean[0]!)}; ${fx.closure.length} closure entries under ${fx.feed.checkpoints.length} checkpoints`,
+        });
+        continue;
+      }
+      if (c.id === 'EVAL-103') {
+        // Every other case has been pushed already (EVAL-103 is last in `cases`).
+        const rerun = EVM_RERUN.map((id) => results.find((r) => r.id === id));
+        const rerunOk = rerun.every((r) => r?.status === 'passed');
+        const anchors = fx.evm ? await checkFeedAnchors(fx.feed, fx.evm.registry) : { ok: false, checked: 0, anchored: 0, problems: ['the fixture was not built on the EVM adapter'] };
+        const closureAnchored = anchors.ok && anchors.checked === fx.closure.length;
+        const where = fx.evm ? `chain ${fx.evm.deployment.chainId}, registry ${fx.evm.deployment.registry}` : 'no chain';
+        results.push({
+          ...base,
+          status: rerunOk && closureAnchored ? 'passed' : 'failed',
+          variants: rerun.flatMap((r) => r?.variants ?? []),
+          cleanRoom: { status: 'ran', detail: `clean-room on the EVM feed: ${said(clean[0]!)}` },
+          detail: [
+            `EVAL-058–063 on the EVM adapter: ${rerun.map((r, i) => `${EVM_RERUN[i]} ${r?.status ?? 'missing'}`).join(', ')}`,
+            `${anchors.anchored}/${fx.closure.length} closure entries anchored with txHash and blockNumber matching the chain (${where})`,
+            ...anchors.problems.slice(0, 5),
+          ].join('; '),
         });
         continue;
       }

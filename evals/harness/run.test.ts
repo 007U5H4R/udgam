@@ -205,10 +205,11 @@ describe('harness-proof suite (TSK-15.8, TSK-18.6, S6-lib)', () => {
       expect(byId.get(id)!.inMilestoneScope, id).toBe(true);
     }
 
-    // EVAL-103 (EVM anchoring, M-002) is reported as not yet implemented, never dropped, and sits
-    // outside the M1 scope: counted in the totals, listed separately, not pooled into S6-lib.
+    // EVAL-103 (EVM anchoring, M-002) runs only with --ledger=evm (TSK-24.8): on the default hash-chain
+    // adapter it is reported as not yet implemented, never dropped, and sits outside the M1 scope:
+    // counted in the totals, listed separately, not pooled into S6-lib.
     expect(byId.get('EVAL-103')).toMatchObject({ outcome: 'not_yet_implemented', milestone: 'M2', inMilestoneScope: false });
-    expect(byId.get('EVAL-103')!.notes.join(' ')).toMatch(/TKT-23/);
+    expect(byId.get('EVAL-103')!.notes.join(' ')).toMatch(/--ledger=evm/);
     expect(run.totals).toMatchObject({ ok: true, active: 8, passed: 7, notYetImplemented: 1, errored: 0, skipped: 0 });
     expect(run.scope).toEqual({ milestone: 'M1', outOfScope: [expect.objectContaining({ id: 'EVAL-103', milestone: 'M2', outcome: 'not_yet_implemented' })] });
     const s6 = run.gates.find((g) => g.id === 'S6-lib')!;
