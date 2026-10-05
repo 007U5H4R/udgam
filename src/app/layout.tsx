@@ -1,21 +1,31 @@
 import type { Metadata, Viewport } from "next";
-import { Figtree, Noto_Sans_Kannada } from "next/font/google";
+import localFont from "next/font/local";
 import { cookies } from "next/headers";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
 import { isLang, LANG_COOKIE } from "../lib/i18n";
 import "./globals.css";
 
-const figtree = Figtree({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+// Self-hosted (SIL OFL 1.1, files from @fontsource 5.3.0; licences beside them in ./fonts) so `next build`
+// needs no network: next/font/google's build-time download made CI's build step fail intermittently.
+const figtree = localFont({
+  src: [
+    { path: "./fonts/figtree-latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/figtree-latin-500-normal.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/figtree-latin-600-normal.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/figtree-latin-700-normal.woff2", weight: "700", style: "normal" },
+    { path: "./fonts/figtree-latin-800-normal.woff2", weight: "800", style: "normal" },
+  ],
   display: "swap",
   variable: "--font-figtree",
 });
 
-const notoSansKannada = Noto_Sans_Kannada({
-  subsets: ["kannada"],
-  weight: ["400", "600", "700"],
+const notoSansKannada = localFont({
+  src: [
+    { path: "./fonts/noto-sans-kannada-kannada-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/noto-sans-kannada-kannada-600-normal.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/noto-sans-kannada-kannada-700-normal.woff2", weight: "700", style: "normal" },
+  ],
   display: "swap",
   variable: "--font-noto-sans-kannada",
 });

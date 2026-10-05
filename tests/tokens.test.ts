@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 // TC-004: the frozen mockup `:root` tokens are copied verbatim into src/app/tokens.css.
@@ -31,9 +31,19 @@ describe('design tokens (TC-004)', () => {
     expect(ours['banner-h']).toBeUndefined();
   });
 
-  it('configures Figtree and Noto Sans Kannada', () => {
+  it('configures Figtree and Noto Sans Kannada (self-hosted, every weight present)', () => {
     const layout = readFileSync('src/app/layout.tsx', 'utf8');
-    expect(layout).toMatch(/Figtree\(/);
-    expect(layout).toMatch(/Noto_Sans_Kannada\(/);
+    expect(layout).toContain('variable: "--font-figtree"');
+    expect(layout).toContain('variable: "--font-noto-sans-kannada"');
+    for (const w of ['400', '500', '600', '700', '800']) {
+      const f = `fonts/figtree-latin-${w}-normal.woff2`;
+      expect(layout).toContain(`./${f}`);
+      expect(existsSync(`src/app/${f}`), f).toBe(true);
+    }
+    for (const w of ['400', '600', '700']) {
+      const f = `fonts/noto-sans-kannada-kannada-${w}-normal.woff2`;
+      expect(layout).toContain(`./${f}`);
+      expect(existsSync(`src/app/${f}`), f).toBe(true);
+    }
   });
 });
