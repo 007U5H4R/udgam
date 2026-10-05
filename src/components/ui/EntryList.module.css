@@ -29,7 +29,9 @@
 }
 .bad {
   background: var(--bad-tint);
-  color: var(--bad-ink);
+  /* DES-216: --bad-ink lightened toward white so "Does not match" (15 px) reaches the 7:1 outdoor target
+     on its tinted row (5.21:1 before); the same hue, no new colour. Print sets its own ink. */
+  color: color-mix(in srgb, var(--bad-ink) 60%, #fff);
 }
 .plain {
   background: rgba(255, 255, 255, 0.07);
