@@ -1,7 +1,7 @@
 {
   "$schema": "./eval-dataset.schema.json",
-  "dataset_version": "0.6.2",
-  "status": "Stage 3 seed. Representative cases only; Stage 7 extends to about 40 legitimate and at least 10 attack cases per scenario 1-4, appending new IDs after the last one used here. IDs are never renumbered or reused. 0.2.0 (Stage 6, TP23): added Milestone 2 cases EVAL-093 to EVAL-105; EVAL-054 and EVAL-068 activated by TP5 and TP7. 0.3.0 (Stage 7, TKT-08): added scenario 1 attack cases EVAL-110 to EVAL-113 (scenario 1 to 11 active S1 cases). 0.4.0 (Stage 7, TKT-07): added plot-laundering fixtures X08 to X10 and scenario 3 attack cases EVAL-106 to EVAL-108 (scenario 3 to 10 active S1 cases). 0.5.0 (Stage 7, TKT-09): added scenario 2 replay cases EVAL-114 to EVAL-117 and scenario 4 yield cases EVAL-118 to EVAL-121 (each scenario to 10 active S1 cases); input.context.crop overrides a fixture plot's crop (EVAL-121). 0.6.0 (Stage 7, EXE10): added EVAL-122 and EVAL-123. 0.6.1 (Stage 7, TKT-23, D9): EVAL-105 expected.behavior names the addendum screens (wording only). 0.6.2 (Stage 7, TKT-23 fix round, D10): EVAL-105 expected.behavior adds the refund variant, /admin/agreements and /processor/batches/[batchId] (wording only).",
+  "dataset_version": "0.7.0",
+  "status": "Stage 3 seed. Representative cases only; Stage 7 extends to about 40 legitimate and at least 10 attack cases per scenario 1-4, appending new IDs after the last one used here. IDs are never renumbered or reused. 0.2.0 (Stage 6, TP23): added Milestone 2 cases EVAL-093 to EVAL-105; EVAL-054 and EVAL-068 activated by TP5 and TP7. 0.3.0 (Stage 7, TKT-08): added scenario 1 attack cases EVAL-110 to EVAL-113 (scenario 1 to 11 active S1 cases). 0.4.0 (Stage 7, TKT-07): added plot-laundering fixtures X08 to X10 and scenario 3 attack cases EVAL-106 to EVAL-108 (scenario 3 to 10 active S1 cases). 0.5.0 (Stage 7, TKT-09): added scenario 2 replay cases EVAL-114 to EVAL-117 and scenario 4 yield cases EVAL-118 to EVAL-121 (each scenario to 10 active S1 cases); input.context.crop overrides a fixture plot's crop (EVAL-121). 0.6.0 (Stage 7, EXE10): added EVAL-122 and EVAL-123. 0.6.1 (Stage 7, TKT-23, D9): EVAL-105 expected.behavior names the addendum screens (wording only). 0.6.2 (Stage 7, TKT-23 fix round, D10): EVAL-105 expected.behavior adds the refund variant, /admin/agreements and /processor/batches/[batchId] (wording only). 0.7.0 (Stage 7, owner decisions EXE23): EVAL-116 expects \"fail over 24 h\" (OD-2); EVAL-049 submits its 0.30 x U as pickings of at most 500 kg (season_cumulative split_kg_max, OD-3).",
   "plan": "evaluation-plan.md (project root, authoritative)",
   "conventions": {
     "evidence_matching": "Scorer lowercases both the evidence sentence and each expected substring and strips all whitespace before a substring test, so '182 m' matches '182m' and '182 M'.",
@@ -630,7 +630,7 @@
       "feature": "verifier", "category": "security", "suite": "harness-verifier",
       "case_class": "attack", "scenario": 4, "gates": ["S1"], "critical_conditions": ["CF-01"],
       "priority": "critical", "automated": true, "milestone": "M1", "status": "active",
-      "input": { "plot": "P01", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "season_cumulative", "ratio_before_event": 1.80, "ratio_after_event": 2.10 } ] },
+      "input": { "plot": "P01", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "season_cumulative", "ratio_before_event": 1.80, "ratio_after_event": 2.10, "split_kg_max": 500 } ] },
       "expected": { "verdict": "Rejected", "catching_checks": ["yield_plausibility"], "hard_fail_checks": ["yield_plausibility"], "behavior": "Uses the season cumulative, not this capture's kg alone." },
       "failure_conditions": ["Check evaluates the single capture's kg instead of the season cumulative"],
       "notes": "The five earlier captures (up to 1.80 x U, flagged from 1.50 x U) are not re-scored retroactively in M1; the report states this as a known limitation.",
@@ -1400,7 +1400,7 @@
       "priority": "high", "automated": true, "milestone": "M1", "status": "active",
       "depends_on": ["EV7"],
       "input": { "plot": "P01", "device": "D-A1", "base_case": "EVAL-002", "mutations": [ { "op": "exif_time", "mode": "offset", "offset_min": -11520 } ] },
-      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["exif_time_agreement"], "check_status": { "exif_time_agreement": "fail" }, "evidence_substrings": { "exif_time_agreement": ["8 days", "fail over 7 days"] } },
+      "expected": { "acceptable_verdicts": ["Needs Review", "Rejected"], "catching_checks": ["exif_time_agreement"], "check_status": { "exif_time_agreement": "fail" }, "evidence_substrings": { "exif_time_agreement": ["8 days", "fail over 24 h"] } },
       "failure_conditions": ["Verified", "exif_time_agreement only flags a gap over 7 days"],
       "tags": ["single-signal", "boundary"]
     },

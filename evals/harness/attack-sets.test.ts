@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { generateDeviceKeys, loadHarnessInputs, type DeviceKeys, type HarnessInputs } from './context';
 import { loadDataset, type EvalCase } from './dataset';
+import { verify } from '../../src/lib/verification/verify';
 import { buildCase, InvalidMutationParam } from './mutate';
 import { knownLimitationRows } from './report';
 import type { ResultsFile } from './run';
@@ -79,10 +80,26 @@ describe('harness extensions the new cases use (TSK-09.7)', () => {
     await expect(build(bad)).rejects.toThrow(/context.crop/);
   });
 
-  it('notes a picking the capture schema would refuse (EVAL-049: 3000 kg), and none for EVAL-120 (400 kg)', async () => {
-    const salami = await build(byId.get('EVAL-049')!);
+  it('EVAL-049 split into pickings is Rejected for the right reason: yield_plausibility fails at 2.10x U (EXE23 OD-3)', async () => {
+    const b = await build(byId.get('EVAL-049')!);
+    const r = await verify(b.submission, b.context);
+    expect(r.verdict).toBe('Rejected');
+    const y = r.checks.find((x) => x.id === 'yield_plausibility')!;
+    expect(y).toMatchObject({ status: 'fail', hardFail: true });
+    expect(y.evidence.replace(/\s/g, '').toLowerCase()).toContain('2.10x');
+    expect(r.checks.filter((x) => x.status === 'fail').map((x) => x.id)).toEqual(['yield_plausibility']);
+  });
+
+  it('notes a picking the capture schema would refuse (EVAL-049 as one 3000 kg picking), and none for EVAL-120 (400 kg)', async () => {
+    const c = byId.get('EVAL-049')!;
+    const unsplit = { ...c, input: { ...c.input, mutations: [{ op: 'season_cumulative', ratio_before_event: 1.8, ratio_after_event: 2.1 }] } };
+    const salami = await build(unsplit);
     expect(salami.submission.payload.cherryKg).toBe(3000);
     expect(salami.notes).toEqual([expect.stringContaining('outside the capture schema')]);
+    // EXE23 OD-3: EVAL-049 itself now arrives as six 500 kg pickings, each within the schema.
+    const split = await build(c);
+    expect(split.submission.payload.cherryKg).toBe(500);
+    expect(split.notes.some((n) => n.includes('outside the capture schema'))).toBe(false);
     const small = await build(byId.get('EVAL-120')!);
     expect(small.submission.payload.cherryKg).toBe(400);
     expect(small.notes).toEqual([]);

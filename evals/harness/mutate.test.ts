@@ -241,11 +241,13 @@ describe('season_cumulative', () => {
     expect(Math.abs(ratioU(b, b.context.seasonCherryKgBefore + b.submission.payload.cherryKg) - 2.05)).toBeLessThan(0.001);
   });
 
-  it('1.8 → 2.1 sets both sides: before 1.8 ± 0.001, after 2.1 ± 0.001 (EVAL-049)', async () => {
+  it('1.8 → 2.1 in pickings of ≤ 500 kg: 1.8 + 0.25 ± 0.001 before this 500 kg picking, 2.1 ± 0.001 after (EVAL-049, EXE23 OD-3)', async () => {
     const b = await build('EVAL-049');
-    expect(Math.abs(ratioU(b, b.context.seasonCherryKgBefore) - 1.8)).toBeLessThan(0.001);
+    expect(b.submission.payload.cherryKg).toBe(500);
+    expect(b.priorPickings!.map((p) => p.payload.cherryKg)).toEqual([500, 500, 500, 500, 500]);
+    expect(Math.abs(ratioU(b, b.context.seasonCherryKgBefore - 2500) - 1.8)).toBeLessThan(0.001);
+    expect(Math.abs(ratioU(b, b.context.seasonCherryKgBefore) - 2.05)).toBeLessThan(0.001);
     expect(Math.abs(ratioU(b, b.context.seasonCherryKgBefore + b.submission.payload.cherryKg) - 2.1)).toBeLessThan(0.001);
-    expect(Number.isInteger(b.submission.payload.cherryKg * 2)).toBe(true);
   });
 
   describe('split_kg_max (EXE23 OD-3: the event as several pickings, none over the capture limit)', () => {
