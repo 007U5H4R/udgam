@@ -11,7 +11,7 @@ import { newId } from '../ids';
 import type { Grade } from './grades';
 import { createBatch } from '../batches/create';
 import { transferBatch } from '../custody/transfer';
-import { fundFromForm, gradeFromForm, settleFromForm } from './actions';
+import { failureOf, fundFromForm, gradeFromForm, settleFromForm } from './actions';
 import { ChainError } from './chain';
 import { AgreementError, createAgreement, fundAgreement, gradeBatch, refundAgreement } from './service';
 import { createFakeChain, type FakeChain } from './testing/fake-chain';
@@ -118,6 +118,11 @@ describe('action outcomes (review minor 5, spec minors 1 and 6)', () => {
     expect(await gradeFromForm(t.db, me, form({ agreementId: id, batchId, grade: '90' }), o())).toEqual({ ok: true, agreementId: id });
     expect(await gradeFromForm(t.db, me, form({ agreementId: id, batchId, grade: '80' }), o())).toEqual({ ok: false, state: { failure: 'changed', values: { grade: '80' } } });
     expect(chain.sends.fund).toBe(1);
+  });
+
+  it('invalid_grade gets its own words: the grade field asks for one of the five grades, not "This agreement changed" (TKT-25 r2 nit)', () => {
+    expect(failureOf(new AgreementError('invalid_grade'), 'grade')).toEqual({ ok: false, state: { fieldErrors: { grade: 'Choose one of the five grades.' } } });
+    expect(failureOf(new AgreementError('wrong_state'), 'grade')).toEqual({ ok: false, state: { failure: 'changed' } });
   });
 
   it('a settle the ledger turns away is "turned_away": nothing recorded, the agreement stays funded', async () => {
