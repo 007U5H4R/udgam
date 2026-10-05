@@ -13,6 +13,23 @@ export type ReadFormResult = { ok: true; form: FormData } | { ok: false; reason:
  * holds even if a body runs past it), `bad_form` when the body breaks off or is not multipart.
  */
 export async function readFormWithin(req: Request, deadlineMs: number, maxBytes: number = MAX_BODY_BYTES): Promise<ReadFormResult> {
+  const read = await readBodyWithin(req, deadlineMs, maxBytes);
+  if (!read.ok) return read;
+  try {
+    return { ok: true, form: await new Response(new Blob(read.chunks), { headers: { 'content-type': req.headers.get('content-type') ?? '' } }).formData() };
+  } catch {
+    return { ok: false, reason: 'bad_form' };
+  }
+}
+
+export type ReadBodyResult = { ok: true; chunks: Uint8Array<ArrayBuffer>[]; total: number } | { ok: false; reason: 'timeout' | 'bad_form' | 'too_large' };
+
+/**
+ * The request's raw body as the chunks that arrived, if they all arrive within `deadlineMs` and come to
+ * at most `maxBytes` (also read by the photo staging route, TKT-30, whose body is the image itself).
+ * Reasons as for readFormWithin.
+ */
+export async function readBodyWithin(req: Request, deadlineMs: number, maxBytes: number): Promise<ReadBodyResult> {
   if (!req.body) return { ok: false, reason: 'bad_form' };
   const reader = req.body.getReader();
   const stop = () => void reader.cancel().catch(() => undefined);
@@ -42,10 +59,5 @@ export async function readFormWithin(req: Request, deadlineMs: number, maxBytes:
   } finally {
     clearTimeout(timer);
   }
-  try {
-    const bytes = new Blob(chunks);
-    return { ok: true, form: await new Response(bytes, { headers: { 'content-type': req.headers.get('content-type') ?? '' } }).formData() };
-  } catch {
-    return { ok: false, reason: 'bad_form' };
-  }
+  return { ok: true, chunks, total };
 }

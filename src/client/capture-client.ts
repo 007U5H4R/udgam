@@ -6,6 +6,7 @@ import type { CheckId, CheckStatus } from '../lib/verification/types';
 import { advanceDevice, answeredItems, bumpAttempt, deleteOutbox, listOutbox, loadSigner, markAnswered, putOutbox, type Advance, type OutboxItem } from './capture-store';
 import type { GpsWatch } from './gps';
 import { signCapture } from './sign';
+import { forgetStaged, stagedHashes } from './stage-client';
 
 // Sending a capture (technical-plan §3.1, §9, TSK-10.9). The phone builds the payload from the photos'
 // hashes (taken when each photo was accepted), canonicalises and signs it, writes it to the outbox
@@ -28,13 +29,42 @@ export type SendResult =
 export type SignedCapture = { payload: string; signature: string; files: Blob[] };
 
 type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
-export type SendOptions = { onCheck?: (id: CheckId, status: CheckStatus) => void; signal?: AbortSignal; fetchImpl?: FetchLike };
+export type SendOptions = {
+  onCheck?: (id: CheckId, status: CheckStatus) => void;
+  signal?: AbortSignal;
+  fetchImpl?: FetchLike;
+  /** Photos the server holds already (TKT-30); defaults to what stage-client.ts staged on this page. */
+  staged?: ReadonlySet<string>;
+};
 
-export function captureForm({ payload, signature, files }: SignedCapture): FormData {
+/** The signed photo hashes, in payload order (empty when the payload cannot be read). */
+function signedHashes(payload: string): string[] {
+  try {
+    const media = (JSON.parse(payload) as { media?: unknown }).media;
+    return Array.isArray(media) ? media.map((m) => (m && typeof m === 'object' ? String((m as { sha256?: unknown }).sha256) : '')) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The multipart capture body. Photos named in `staged` (TSK-30.4) go by hash in the `staged` field, not
+ * as bytes; the rest are file parts photo0.. in payload order. The signed payload is the same either way.
+ */
+export function captureForm({ payload, signature, files }: SignedCapture, staged: ReadonlySet<string> = new Set()): FormData {
   const fd = new FormData();
   fd.set('payload', payload);
   fd.set('signature', signature);
-  files.forEach((f, i) => fd.set(`photo${i}`, f));
+  const hashes = signedHashes(payload);
+  const named: string[] = [];
+  let k = 0;
+  files.forEach((f, i) => {
+    const h = hashes[i];
+    if (h !== undefined && hashes.length === files.length && staged.has(h)) {
+      if (!named.includes(h)) named.push(h);
+    } else fd.set(`photo${k++}`, f);
+  });
+  if (named.length > 0) fd.set('staged', JSON.stringify(named));
   return fd;
 }
 
@@ -52,8 +82,11 @@ function parseLine(raw: string): Line | null {
   }
 }
 
-/** Every refusal code the capture route and its auth guard answer with (boundary.ts, parse.ts, route.ts, guards.ts). */
-type AppRefusal = FormReason | BoundaryReason | 'device_not_owned' | 'rate_limited' | 'unauthenticated' | 'forbidden';
+/**
+ * Every refusal code the capture route and its auth guard answer with (boundary.ts, parse.ts, route.ts,
+ * guards.ts). Not media_not_staged (TKT-30): that is no refusal, the phone resends the bytes.
+ */
+type AppRefusal = Exclude<FormReason, 'media_not_staged'> | BoundaryReason | 'device_not_owned' | 'rate_limited' | 'unauthenticated' | 'forbidden';
 const APP_REFUSAL: Record<AppRefusal, true> = {
   length_required: true,
   body_too_large: true,
@@ -116,12 +149,32 @@ function retryAfter(res: Response): number | undefined {
   return Number.isFinite(after) && after > 0 ? after : undefined;
 }
 
-/** POST one signed capture and follow its NDJSON stream (TP12). Never throws. */
+/** The server did not have a photo the phone named as staged (409 media_not_staged): send the bytes. */
+type NotStaged = { kind: 'not_staged' };
+
+/**
+ * POST one signed capture and follow its NDJSON stream (TP12). Photos already staged go by hash; if the
+ * server no longer has one (expired, swept), it answers 409 media_not_staged and the capture is sent once
+ * more with every photo's bytes (TSK-30.4). Never throws.
+ */
 export async function sendCapture(capture: SignedCapture, opts: SendOptions = {}): Promise<SendResult> {
+  const staged = opts.staged ?? stagedHashes();
+  const named = signedHashes(capture.payload).filter((h) => staged.has(h));
+  if (named.length > 0) {
+    const r = await sendOnce(capture, staged, opts);
+    if (r.kind === 'verdict') forgetStaged(named); // the server has moved them into the media store
+    if (r.kind !== 'not_staged') return r;
+    forgetStaged(named);
+  }
+  const r = await sendOnce(capture, new Set(), opts);
+  return r.kind === 'not_staged' ? { kind: 'retryable', cause: 'server' } : r;
+}
+
+async function sendOnce(capture: SignedCapture, staged: ReadonlySet<string>, opts: SendOptions): Promise<SendResult | NotStaged> {
   const fetchImpl = opts.fetchImpl ?? ((url, init) => fetch(url, init));
   let res: Response;
   try {
-    res = await fetchImpl('/api/capture', { method: 'POST', body: captureForm(capture), signal: opts.signal, credentials: 'same-origin' });
+    res = await fetchImpl('/api/capture', { method: 'POST', body: captureForm(capture, staged), signal: opts.signal, credentials: 'same-origin' });
   } catch {
     return { kind: 'retryable', cause: 'offline' };
   }
@@ -141,9 +194,10 @@ export async function sendCapture(capture: SignedCapture, opts: SendOptions = {}
 
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
   let buffer = '';
-  const handle = (raw: string): SendResult | null => {
+  const handle = (raw: string): SendResult | NotStaged | null => {
     const line = parseLine(raw);
     if (!line) return null;
+    if ('t' in line && line.t === 'rejected' && line.reason === 'media_not_staged' && res.status === 409) return { kind: 'not_staged' };
     if ('t' in line && line.t === 'check') {
       try {
         opts.onCheck?.(line.id, line.status);
