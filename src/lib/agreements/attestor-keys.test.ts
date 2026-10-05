@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { Writable } from 'node:stream';
@@ -62,6 +62,27 @@ describe('buyer-org attestor keys (TSK-25.5)', () => {
     vi.resetModules();
     expect(await (await mod()).orgAddress('ORG-BUYER1')).toBe(a);
     expect(statSync(path).mode & 0o777).toBe(0o600);
+  });
+
+  it('tightens a loose keys/evm directory to 0700 on load and says so (final branch review finding 3)', async () => {
+    const a = await (await mod()).orgAddress('ORG-BUYER1');
+    const path = (await mod()).orgKeyPath('ORG-BUYER1');
+    chmodSync(dirname(path), 0o755);
+    vi.resetModules();
+    lines.length = 0;
+    expect(await (await mod()).orgAddress('ORG-BUYER1')).toBe(a);
+    expect(statSync(dirname(path)).mode & 0o777).toBe(0o700);
+    expect(lines.join('')).toContain('agreements.org_key_dir_mode_tightened');
+  });
+
+  it('generating into an existing loose keys/evm directory leaves it 0700 (final branch review finding 3)', async () => {
+    const dir = join(dataDir, 'keys', 'evm');
+    mkdirSync(dir, { recursive: true, mode: 0o755 });
+    chmodSync(dir, 0o755);
+    const { orgAddress, orgKeyPath } = await mod();
+    await orgAddress('ORG-BUYER4');
+    expect(statSync(orgKeyPath('ORG-BUYER4')).mode & 0o777).toBe(0o600);
+    expect(statSync(dir).mode & 0o777).toBe(0o700);
   });
 
   it('never logs the key (redaction): only the address appears', async () => {

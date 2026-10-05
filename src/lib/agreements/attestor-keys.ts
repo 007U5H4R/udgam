@@ -1,18 +1,16 @@
-import { randomBytes } from 'node:crypto';
-import { chmod, link, mkdir, open, readFile, stat, unlink } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { keccak256, recoverTypedDataAddress, toBytes, type Address, type Hex } from 'viem';
 import { generatePrivateKey, privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { env } from '../config/env';
 import { runtimePath } from '../config/runtime-path';
-import { isNodeError } from '../crypto/key-file';
-import { log } from '../log';
+import { loadOrCreateKeyFile, type KeyFileCodec } from '../crypto/key-file';
 
 // Server-held EVM keys per organisation (technical-plan TSK-25.5, TP15 pattern). SERVER-ONLY.
 //
 // Each buyer organisation has one secp256k1 key at DATA_DIR/keys/evm/<orgId>.key (one 0x-hex line, 0600
-// in a 0700 directory, generated on first use like the operator key: a complete temp file hard-linked
-// into place, so concurrent first calls agree on one key). It is the buyer's escrow wallet (approve,
+// in a 0700 directory, generated on first use by the shared key-file routine, crypto/key-file.ts, like
+// the operator key: a complete temp file hard-linked into place, so concurrent first calls agree on one
+// key; loose file and directory modes are tightened). It is the buyer's escrow wallet (approve,
 // fund, refund) and its quality-grade attestor: the grade is an EIP-712 QualityGrade signature that
 // ContractFarming recovers. It proves which buyer ACCOUNT decided, not possession of a personal device
 // key, and the UI and docs say so. An FPO organisation's key only gives it a payee address. The key is
@@ -62,46 +60,18 @@ async function readKey(path: string): Promise<Hex> {
   return text as Hex;
 }
 
-async function generate(path: string, orgId: string): Promise<Hex> {
-  await mkdir(resolve(path, '..'), { recursive: true, mode: 0o700 });
-  const key = generatePrivateKey();
-  const tmp = `${path}.${process.pid}.${randomBytes(8).toString('hex')}.tmp`;
-  try {
-    const file = await open(tmp, 'wx', 0o600);
-    try {
-      await file.writeFile(`${key}\n`);
-      await file.sync();
-    } finally {
-      await file.close();
-    }
-    await link(tmp, path);
-  } catch (err) {
-    if (isNodeError(err, 'EEXIST')) return readKey(path);
-    throw err;
-  } finally {
-    await unlink(tmp).catch(() => undefined);
-  }
-  log.info({ orgId, address: privateKeyToAccount(key).address }, 'agreements.org_key_generated');
-  return key;
-}
+const codec: KeyFileCodec<Hex> = {
+  read: readKey,
+  async create() {
+    const key = generatePrivateKey();
+    return { contents: `${key}\n`, value: key };
+  },
+  generatedFields: (key) => ({ address: privateKeyToAccount(key).address }),
+};
 
-async function loadOrCreate(path: string, orgId: string): Promise<Hex> {
-  let key: Hex;
-  try {
-    key = await readKey(path);
-  } catch (err) {
-    if (isNodeError(err, 'ENOENT')) return generate(path, orgId);
-    throw err;
-  }
-  try {
-    if ((await stat(path)).mode & 0o077) {
-      await chmod(path, 0o600);
-      log.warn({ orgId, to: '600' }, 'agreements.org_key_mode_tightened');
-    }
-  } catch {
-    log.warn({ orgId }, 'agreements.org_key_mode_unchecked');
-  }
-  return key;
+/** The key at `path`, created on first use; file and directory modes tightened (crypto/key-file.ts). */
+function loadOrCreate(path: string, orgId: string): Promise<Hex> {
+  return loadOrCreateKeyFile(path, codec, { logPrefix: 'agreements.org_key', logFields: { orgId } });
 }
 
 const accounts = new Map<string, Promise<PrivateKeyAccount>>();
