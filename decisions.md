@@ -762,3 +762,22 @@ The owner's open review items stay listed for the owner and are not treated as a
 **Still open:** OD-5 (D5's "when" line on Needs a check) and OD-8 (the certificate size budget and S4 host).
 
 **Rejected.** Changing any threshold, weight or cfg-1 value: none of these decisions touches them (CF-13).
+
+## EXE24 · OD-5 and OD-8, decided by the orchestrator on the owner's behalf — accepted (owner delegated, 2026-10-05)
+**Context.** The owner said: "for remaining decisions take decision on my behalf". These choices are recorded as delegated; the owner may revisit them at Stage 8.
+
+**OD-5: the "when" on Needs a check (amends D5).** Needs a check names who checks (the FPO office) and where the answer will appear (Pickings), and says nothing is needed from the farmer. It promises no time.
+- The farmer copy is: "The office will look at this. You'll see the answer in Pickings. You don't need to do anything." This is implemented in the follow-up task, with Kannada marked for native review.
+- A per-FPO response time can be added later, once an FPO commits to one: an org-level setting shown only when set.
+- **Rejected:** "Usually within 1 working day". No FPO has committed to it, and an unkept promise to farmers erodes trust (DISC/Design.md trust principles).
+
+**OD-8: the certificate size budget (amends technical-plan §18).** A combined HTML+JS ≤ 150 KB gzip can't be met on Next 16, because the framework alone is about 141 KB. The budget is restated:
+- the certificate's own client JS above the framework baseline is ≤ 60 KB gzip (it measures about 25 KB);
+- the /verify HTML for a 50-event batch is ≤ 120 KB gzip (it measures about 104 KB);
+- verifying 50 entries takes ≤ 300 ms at 4× throttle (unchanged);
+- S4 < 3 s (EV10) is unchanged and is measured formally in TKT-21 on a quiet host, with server response time reported separately.
+
+The feed embed contract (technical-plan §8.4, docs/proof-feed.md) is unchanged. Removing the RSC duplicate of the feed is a later optimisation.
+- **Rejected:** keeping the unmeetable 150 KB, which would be a permanent recorded miss; and fetching the feed in a second round trip, which breaks §18 and S4.
+
+S4's threshold and every cfg-1 value are unchanged (CF-13).

@@ -498,7 +498,7 @@ Threats and their owners: forged/tampered captures (signature + canonical-bytes 
 
 ## 18. Performance budgets
 - **S3 ≤ 30 s (EV9).** Placeholder budget: GPS 0 s (fix already held, TP13) + hash/sign < 0.5 s + upload 3 × 4 MB at 5 Mbit/s ≈ 19.2 s + verify ≤ 10 s (remote phase cap; typical cache-warm < 1 s) + commit/response < 0.5 s ≈ 30 s worst case. The worst case sits on the gate, so TKT-30 (TP13, approved as TP28) stages each photo when "Use this photo" is tapped, taking upload off the Submit-to-verdict path: with staging complete, t0→t1 ≈ hash/sign + a few-KB request + verify + commit, about 11 s worst case. If staging hasn't finished at Submit, the remaining bytes go in the capture request as before. Photo size and network stay placeholders because HR3 was waived (TP29).
-- **S4 < 3 s (EV10).** Feed embedded in the page (no second round trip), no map tiles, no web fonts blocking (`display:swap`), verification in a microtask loop with WebCrypto; budget: HTML+JS ≤ 150 KB gzip for `/verify`, verification of 50 entries ≤ 300 ms at 4× throttle.
+- **S4 < 3 s (EV10).** Feed embedded in the page (no second round trip), no map tiles, no web fonts blocking (`display:swap`), verification in a microtask loop with WebCrypto; budget: HTML+JS ≤ 150 KB gzip for `/verify`, verification of 50 entries ≤ 300 ms at 4× throttle. *(Amended by EXE24: certificate client JS above the Next framework baseline ≤ 60 KB gzip; /verify HTML for 50 events ≤ 120 KB gzip; the 300 ms verify budget and S4 are unchanged.)*
 - **Capture page JS** ≤ 200 KB gzip excluding the admin map chunk.
 
 ## 19. Risks
