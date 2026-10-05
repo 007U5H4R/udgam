@@ -43,7 +43,7 @@ function messages(err: unknown): string {
 /** The refusal a database guard (admin_override_guards, admin_decision_update_guards, batch invariants) raised, or null for anything else. */
 export function refusalFromDb(err: unknown): ReviewErrorCode | null {
   const m = messages(err);
-  if (m.includes('hard-failed run cannot be overridden')) return 'hard_fail_final';
+  if (m.includes('hard-failed run cannot be overridden') || m.includes('a hard fail is final')) return 'hard_fail_final';
   if (m.includes('event is in a batch')) return 'batched';
   if (m.includes('decided by an admin') || m.includes('override already exists') || m.includes('admin_overrides.run_id')) return 'already_decided';
   if (m.includes('only the latest run') || m.includes('only a Needs Review run') || m.includes('verification run already exists') || m.includes('verification_runs.event_id'))

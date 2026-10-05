@@ -164,6 +164,43 @@ describe('admin decision update guards (TKT-12 fix round 1)', () => {
     await expect(override('AO-2', 'VR-1', 'INSERT', 'Rejected')).rejects.toThrow('event is in a batch');
   });
 
+  it('the reason check also refuses blank-rendering characters and tag characters; ZWJ/ZWNJ only inside Kannada (TKT-12 r2 N2, N5, N6)', async () => {
+    await event('HE-1', 1);
+    await run('VR-1', 'HE-1', 1, 'Needs Review', [OK]);
+    for (const reason of [
+      '⠀'.repeat(12),
+      'Checkedㅤin person',
+      'Checkedᅟin person',
+      'Checkedᅠin person',
+      'Checkedﾠin person',
+      'Checked in person \u{E0001}',
+      'Checked in person \u{E0020}\u{E0041}\u{E007F}',
+      'Checked in‍ person',
+      'Checked in‌ person',
+      '‍ಕಚೇರಿ ಪರಿಶೀಲನೆ',
+      'ಕಚೇರಿ ಪರಿಶೀಲನೆ‌',
+      'ಕಚೇರಿ‍ person checked',
+    ]) {
+      await expect(reasonInsert(reason), JSON.stringify(reason)).rejects.toThrow('hidden or control characters');
+    }
+    expect(await one(`SELECT COUNT(*) AS n FROM admin_overrides`)).toEqual({ n: 0 });
+    await reasonInsert('ಕಚೇರಿಯಲ್ಲಿ ಕರ‍್ನಾಟಕದ ತೂಕ ಪರಿಶೀಲನೆ'); // ZWJ inside a Kannada run (arkavattu) is allowed
+    expect(await one(`SELECT COUNT(*) AS n FROM admin_overrides`)).toEqual({ n: 1 });
+  });
+
+  it('no new run after a hard-failed run of the same event, so a clean run cannot be slipped in and overridden (CF-06, TKT-12 r2 N3)', async () => {
+    await event('HE-2', 2);
+    await run('VR-1', 'HE-2', 1, 'Rejected', [OK, HARD]);
+    await expect(run('VR-2', 'HE-2', 2, 'Needs Review', [OK])).rejects.toThrow('a hard fail is final: no new run after a hard-failed run');
+    expect(await one(`SELECT COUNT(*) AS n FROM verification_runs WHERE event_id = 'HE-2'`)).toEqual({ n: 1 });
+    expect(await one(`SELECT final_verdict FROM harvest_events WHERE id = 'HE-2'`)).toEqual({ final_verdict: 'Rejected' });
+    // an event whose runs have no hard fail still takes a re-run
+    await event('HE-3', 3);
+    await run('VR-3', 'HE-3', 1, 'Needs Review', [OK]);
+    await run('VR-4', 'HE-3', 2, 'Verified', [OK]);
+    expect(await one(`SELECT COUNT(*) AS n FROM verification_runs WHERE event_id = 'HE-3'`)).toEqual({ n: 2 });
+  });
+
   it('a reason with hidden or control characters is refused (zero-width spaces, bidi override, separators)', async () => {
     await event('HE-1', 1);
     await run('VR-1', 'HE-1', 1, 'Needs Review', [OK]);
