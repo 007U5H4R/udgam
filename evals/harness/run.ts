@@ -21,6 +21,7 @@ import { runProofSuite, type ProofCaseResult, type ProofSuiteOptions } from './s
 import { startAnvil } from '../../src/lib/ledger/evm/foundry';
 import { checkConfigFreeze, CONFIG_CHANGES_PATH, DECISIONS_PATH } from './config-freeze';
 import { gitFacts, provenance, REPO_ROOT, type Provenance } from './provenance';
+import type { Readiness } from './readiness';
 import { treeState } from './tree-state';
 import { renderReportFromResults } from './report';
 import { isFileStem, REPORTS_DIR, RESULTS_DIR, reportPathFor, writeReport, writeResults, type Out } from './results';
@@ -141,20 +142,32 @@ export type RunOptions = {
   baseline?: 'v1';
   /** The tree `--baseline=v1` must find clean (default: this repository, see baselineTree). */
   git?: () => { dirty: boolean };
+  /** `pnpm eval:ready` as `--baseline=v1` must find it READY (default: checkReadiness on the dataset and registry). */
+  readiness?: () => Pick<Readiness, 'ready' | 'checks'>;
 } & FreezePaths;
 
 /**
  * The tree as `--baseline=v1` needs it: fully clean, with not even an untracked formal output, since the
  * baseline is the first step of the M-001 sequence (docs/exec/m-001-formal-run.md). Fails closed.
  */
-export function baselineTree(): { dirty: boolean } {
-  const t = treeState();
+export function baselineTree(o: { cwd?: string } = {}): { dirty: boolean } {
+  const t = treeState(o);
   return { dirty: t.dirty || t.formalOutputs.length > 0 };
 }
 
 /** The frozen M-001 baseline (EV13) and its report; written once by `--baseline=v1`, never overwritten. */
 export const BASELINE_V1_FILE = 'baseline-v1.json';
 export const BASELINE_V1_REPORT = 'eval-report-baseline-v1.md';
+
+/**
+ * Throw unless `pnpm eval:ready` is READY for M1 (TASK-22 re-review R-2): baseline-v1 is written once, so a
+ * NOT READY dataset is refused before the run. The HR3 warning (TP29) is a warning, never a refusal.
+ */
+async function refuseNotReady(o: Pick<RunOptions, 'readiness' | 'datasetPath' | 'registry'>): Promise<void> {
+  const { checkReadiness } = await import('./readiness'); // dynamic: readiness.ts imports this module
+  const r = o.readiness ? o.readiness() : checkReadiness(loadDataset(o.datasetPath), o.registry ?? REGISTRY, { milestone: 'M1' });
+  if (!r.ready) throw new Error(`--baseline=v1 needs pnpm eval:ready READY for M1; NOT READY: ${r.checks.filter((c) => !c.pass).map((c) => `${c.id} (${c.detail})`).join(', ')}`);
+}
 
 /** Throw if a baseline-v1 file or its report already exists (checked before any run). */
 function refuseExistingBaseline(resultsDir: string, reportsDir: string): void {
@@ -613,6 +626,7 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
   const suites = opts.suites ?? [...HARNESS_SUITES];
   const milestone = opts.milestone ?? DEFAULT_MILESTONE;
   const seed = opts.seed ?? Date.now() % 2 ** 31;
+  const seedPolicy = opts.seed === undefined ? 'default' : 'chosen';
   const registry = opts.registry ?? REGISTRY;
   const enabled = mode === 'ledger-only' ? LEDGER_ONLY : [...CHECK_IDS];
 
@@ -705,6 +719,7 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
     provider,
     suites,
     seed,
+    seedPolicy,
     startedAt,
     durationMs: Math.round(performance.now() - t0),
     ledger,
@@ -815,6 +830,7 @@ export async function runHarness(opts: RunOptions = {}): Promise<HarnessRun> {
     if (out !== 'formal') throw new Error('--baseline=v1 writes formal results only (--out=formal)');
     if ((opts.git ?? baselineTree)().dirty) throw new Error('--baseline=v1 needs a clean tree at the gate commit (git status is not clean); nothing was run');
     refuseExistingBaseline(resultsDir, reportsDir);
+    await refuseNotReady(opts);
   }
   const results = await evaluate(opts);
   const resultsPath = writeResults(results, { out, dir: resultsDir, name: opts.name });
@@ -910,8 +926,9 @@ export function parseArgs(
       o.name !== undefined && '--name',
       o.reportName !== undefined && '--report-name',
       o.record && '--record',
+      o.seed !== undefined && '--seed',
     ].filter(Boolean);
-    if (bad.length > 0) throw new Error(`--baseline=v1 is the full M1 run (all checks, both suites, fixture provider, hash-chain ledger, formal output); it cannot take ${bad.join(', ')}`);
+    if (bad.length > 0) throw new Error(`--baseline=v1 is the full M1 run (all checks, both suites, fixture provider, hash-chain ledger, the harness's default seed, formal output); it cannot take ${bad.join(', ')}`);
     o.out = 'formal';
   }
   return o;
@@ -952,7 +969,7 @@ export async function main(
   argv: string[],
   run: Runner = runHarness,
   io: Pick<Console, 'log' | 'error'> = console,
-  deps: { env?: Record<string, string | undefined>; live?: LiveRunner; git?: () => { dirty: boolean }; resultsDir?: string; reportsDir?: string } = {},
+  deps: { env?: Record<string, string | undefined>; live?: LiveRunner; git?: () => { dirty: boolean }; readiness?: RunOptions['readiness']; resultsDir?: string; reportsDir?: string } = {},
 ): Promise<0 | 1 | 2> {
   let args: ReturnType<typeof parseArgs>;
   try {
@@ -991,6 +1008,7 @@ export async function main(
     }
     try {
       refuseExistingBaseline(deps.resultsDir ?? RESULTS_DIR, deps.reportsDir ?? REPORTS_DIR);
+      await refuseNotReady({ readiness: deps.readiness });
     } catch (e) {
       io.error(`${(e as Error).message}; nothing was run.`);
       return 2;
@@ -998,7 +1016,7 @@ export async function main(
   }
   let r: Awaited<ReturnType<Runner>>;
   try {
-    r = await run({ ...args, ...(deps.git ? { git: deps.git } : {}) });
+    r = await run({ ...args, ...(deps.git ? { git: deps.git } : {}), ...(deps.readiness ? { readiness: deps.readiness } : {}) });
   } catch (e) {
     io.error(`pnpm eval crashed (exit 2, not a gate result): ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`);
     return 2;

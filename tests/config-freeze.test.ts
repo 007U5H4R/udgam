@@ -49,12 +49,15 @@ function world(o: { baselineHash?: string | null; baselineText?: string; baselin
 }
 
 const CASES: FreezeInput['cases'] = [
-  { id: 'EVAL-022', case_class: 'attack', scenario: 1 },
-  { id: 'EVAL-150', case_class: 'attack', scenario: 1 },
-  { id: 'EVAL-151', case_class: 'attack', scenario: 1 },
-  { id: 'EVAL-152', case_class: 'attack', scenario: 3 },
-  { id: 'EVAL-153', case_class: 'attack', scenario: 3 },
-  { id: 'EVAL-154', case_class: 'legitimate', scenario: null },
+  { id: 'EVAL-022', case_class: 'attack', scenario: 1, status: 'active' },
+  { id: 'EVAL-150', case_class: 'attack', scenario: 1, status: 'active' },
+  { id: 'EVAL-151', case_class: 'attack', scenario: 1, status: 'active' },
+  { id: 'EVAL-152', case_class: 'attack', scenario: 3, status: 'active' },
+  { id: 'EVAL-153', case_class: 'attack', scenario: 3, status: 'active' },
+  { id: 'EVAL-154', case_class: 'legitimate', scenario: null, status: 'active' },
+  { id: 'EVAL-155', case_class: 'attack', scenario: 1, status: 'retired' },
+  { id: 'EVAL-156', case_class: 'attack', scenario: 1, status: 'retired' },
+  { id: 'EVAL-157', case_class: 'attack', scenario: 1, status: 'pending_decision' },
 ];
 const row = (cells: string) => `| Config hash | Decision | Scenarios | New attack cases |\n|---|---|---|---|\n| ${cells} |\n`;
 const freeze = (w: ReturnType<typeof world>, configHash = CONFIG_HASH) => checkConfigFreeze({ ...w, configHash, cases: CASES });
@@ -93,6 +96,16 @@ describe('the frozen verification config (TSK-21.2, EV13, CF-13)', () => {
     expect(freeze(world({ baselineText: JSON.stringify({ provenance: { config: { hash: OTHER_HASH } } }) }))).toMatchObject({ ok: false, reason: 'baseline-v1 lacks cases' });
   });
 
+  it('a decision heading inside a fenced code block or an HTML comment is not a recorded decision', () => {
+    const changes = row(`${CONFIG_HASH} | EV17 | 1 | EVAL-150, EVAL-151`);
+    for (const decisions of ['# Decisions\n\n```\n## EV17 · accepted\n```\n', '# Decisions\n\n<!--\n## EV17 · accepted\n-->\n']) {
+      expect(freeze(world({ baselineHash: OTHER_HASH, changes, decisions }))).toMatchObject({ ok: false, reason: expect.stringMatching(/EV17 is not recorded in decisions\.md/) });
+    }
+    // a real heading after a closed block still counts, and a table row after a closed comment still counts
+    const after = `<!-- draft -->\n\`\`\`\nx\n\`\`\`\n${changes}`;
+    expect(freeze(world({ baselineHash: OTHER_HASH, changes: after, decisions: '```\nx\n```\n## EV17 · accepted\n' })).ok).toBe(true);
+  });
+
   it('passes a drift that config-changes.md authorises: a recorded EV decision and two new attack cases per affected scenario', () => {
     const w = world({ baselineHash: OTHER_HASH, changes: row(`${CONFIG_HASH} | EV17 | 1, 3 | EVAL-150, EVAL-151, EVAL-152, EVAL-153`) });
     expect(freeze(w)).toMatchObject({ ok: true, reason: expect.stringMatching(/authorised by EV17/) });
@@ -110,6 +123,14 @@ describe('the frozen verification config (TSK-21.2, EV13, CF-13)', () => {
     ['cases of another scenario', row(`${CONFIG_HASH} | EV17 | 1, 3 | EVAL-150, EVAL-151, EVAL-152`), /scenario 3 needs ≥ 2.*found EVAL-152$/],
     ['the same case listed twice', row(`${CONFIG_HASH} | EV17 | 1 | EVAL-150, EVAL-150`), /scenario 1 needs ≥ 2/],
     ['the hash only in a later cell, not as the row\'s config hash', row(`${'e'.repeat(64)} | EV17 | 1 | EVAL-150, EVAL-151 (was ${CONFIG_HASH})`), /does not list/],
+    // TASK-22 re-review R-3 / Q-3: only active attack cases measure anything, so only they authorise.
+    ['two retired attack cases', row(`${CONFIG_HASH} | EV17 | 1 | EVAL-155, EVAL-156`), /scenario 1 needs ≥ 2 new attack cases.*found none$/],
+    ['one retired and one pending_decision attack case', row(`${CONFIG_HASH} | EV17 | 1 | EVAL-155, EVAL-157`), /scenario 1 needs ≥ 2 new attack cases.*found none$/],
+    ['one active and one retired attack case', row(`${CONFIG_HASH} | EV17 | 1 | EVAL-150, EVAL-156`), /scenario 1 needs ≥ 2 new attack cases.*found EVAL-150$/],
+    // Re-review nits R-6 / Q-8: a row inside an HTML comment or a fenced code block is not a row.
+    ['the row only inside an HTML comment', `<!--\n${row(`${CONFIG_HASH} | EV17 | 1 | EVAL-150, EVAL-151`)}-->\n`, /does not list/],
+    ['the row only inside a fenced code block', `\`\`\`\n${row(`${CONFIG_HASH} | EV17 | 1 | EVAL-150, EVAL-151`)}\`\`\`\n`, /does not list/],
+    ['the row only inside a one-line HTML comment', `<!-- | ${CONFIG_HASH} | EV17 | 1 | EVAL-150, EVAL-151 | -->\n`, /does not list/],
   ])('fails a drift when config-changes.md has %s', (_why, changes, reason) => {
     const r = freeze(world({ baselineHash: OTHER_HASH, changes }));
     expect(r.ok).toBe(false);
@@ -155,6 +176,43 @@ describe('pnpm eval --baseline=v1 (TSK-21.2)', () => {
     expect(() => parseArgs(['--baseline=v1', '--milestone=M2'])).toThrow(/--baseline=v1/);
     expect(() => parseArgs(['--baseline=v1', '--ledger=evm'])).toThrow(/--baseline=v1/);
     expect(() => parseArgs(['--baseline=v1', '--name=x'])).toThrow(/--baseline=v1/);
+    // TASK-22 re-review R-5 / Q-4: the formal harness run takes the harness's default seed, never a chosen one
+    expect(() => parseArgs(['--baseline=v1', '--seed=999'])).toThrow(/--baseline=v1 .*cannot take --seed/);
+  });
+
+  it('records whether the seed was the default or chosen with --seed (the release takes only the default)', async () => {
+    const base = { suites: ['harness-proof' as const], proofSuite: async () => [], resultsDir: join(root, `b${++k}`) };
+    expect((await evaluate(base)).provenance.seedPolicy).toBe('default');
+    expect((await evaluate({ ...base, seed: 3 })).provenance).toMatchObject({ seed: 3, seedPolicy: 'chosen' });
+  });
+
+  // TASK-22 re-review R-2 / Q-5: the baseline is written once (EV13), so it refuses a NOT READY dataset up front.
+  const NOT_READY = { ready: false, checks: [{ id: 'scenario-3', pass: false, detail: '9 active attack cases (need ≥ 10)' }] };
+
+  it('runHarness refuses --baseline=v1 when pnpm eval:ready is NOT READY, before running anything', async () => {
+    const dir = join(root, `b${++k}`);
+    let proofRan = false;
+    const proofSuite = async () => {
+      proofRan = true;
+      return [];
+    };
+    await expect(
+      runHarness({ baseline: 'v1', out: 'formal', suites: ['harness-proof'], proofSuite, resultsDir: join(dir, 'results'), reportsDir: join(dir, 'reports'), ...clean, readiness: () => NOT_READY }),
+    ).rejects.toThrow('--baseline=v1 needs pnpm eval:ready READY for M1; NOT READY: scenario-3 (9 active attack cases (need ≥ 10))');
+    expect(proofRan).toBe(false);
+    expect(existsSync(join(dir, 'results'))).toBe(false);
+  });
+
+  it('the CLI exits 2 on --baseline=v1 when NOT READY, and never calls the runner', async () => {
+    let ran = false;
+    const errors: string[] = [];
+    const runner = async () => {
+      ran = true;
+      throw new Error('should not run');
+    };
+    expect(await main(['--baseline=v1'], runner, { log: () => {}, error: (s: string) => errors.push(s) }, { ...clean, readiness: () => NOT_READY, resultsDir: join(root, `b${++k}`), reportsDir: join(root, `b${k}`, 'reports') })).toBe(2);
+    expect(errors.join('\n')).toMatch(/NOT READY: scenario-3/);
+    expect(ran).toBe(false);
   });
 
   it('writes the formal run, a byte-identical baseline-v1.json and a report that regenerates byte-identically from it', async () => {

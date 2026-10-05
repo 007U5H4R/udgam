@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { createServer, type AddressInfo, type Server } from 'node:net';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { runSuite, sidecarPath, suiteCommands, type SuiteCommand, type SuiteRunRecord } from './test-suites';
+import { portInUse, runSuite, sidecarPath, suiteCommands, type SuiteCommand, type SuiteRunRecord } from './test-suites';
 import type { TreeState } from './tree-state';
 
 // eval:integration / eval:e2e run records (TASK-22 fix round 1): every suite report gets a sidecar
@@ -63,5 +64,39 @@ describe('suite commands name the Playwright port they will serve', () => {
     expect(suiteCommands('e2e', '/out', { env: { E2E_PORT: '3760' } }).map((c) => c.port)).toEqual([3760, 3760]);
     expect(suiteCommands('integration', '/out')[0]!.port).toBeUndefined();
     expect(sidecarPath('/out/e2e-demo.json')).toBe('/out/e2e-demo.run.json');
+  });
+});
+
+// Re-review nit Q-7: Playwright's `localhost` may reach a server bound to ::1 only, so both loopbacks are probed.
+describe('portInUse probes both loopback addresses', () => {
+  const listen = (host: string) =>
+    new Promise<Server | null>((done) => {
+      const s = createServer();
+      s.once('error', () => done(null)); // e.g. no IPv6 in this sandbox
+      s.listen(0, host, () => done(s));
+    });
+  const close = (s: Server) => new Promise<void>((done) => s.close(() => done()));
+
+  it.each([['127.0.0.1'], ['::1']])('a server bound only to %s is found; the port is free once it closes', async (host) => {
+    const s = await listen(host);
+    if (!s) return; // this host has no such loopback: nothing can bind there, nothing to find
+    const port = (s.address() as AddressInfo).port;
+    expect(await portInUse(port)).toBe(true);
+    await close(s);
+    expect(await portInUse(port)).toBe(false);
+  });
+
+  it.each([
+    ['::1', true],
+    ['127.0.0.1', true],
+    ['neither', false],
+  ])('row %#: an injected probe where only %s accepts gives %s, and both loopbacks are asked', async (open, inUse) => {
+    const asked: string[] = [];
+    const probe = async (host: string, port: number) => {
+      asked.push(`${host} ${port}`);
+      return host === open;
+    };
+    expect(await portInUse(3100, probe)).toBe(inUse);
+    expect(asked.sort()).toEqual(['127.0.0.1 3100', '::1 3100']);
   });
 });

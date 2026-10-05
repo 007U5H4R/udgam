@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
+import { baselineTree } from './run';
 import { isFormalOutput, parsePorcelain, treeState } from './tree-state';
 
 // The release's tree check (TASK-22 fix round 1): a tree is clean for the M-001 sequence when nothing
@@ -88,6 +89,34 @@ describe('treeState in a real git repository', () => {
     git(c, 'commit', '-q', '-m', 'baseline');
     writeFileSync(join(c, 'evals', 'results', 'baseline-v1.json'), '{"a":2}');
     expect(treeState({ cwd: c })).toMatchObject({ dirty: true, changes: [' M evals/results/baseline-v1.json'] });
+  });
+
+  // TASK-22 re-review R-4 / Q-1: an index flag hides a modified tracked file from `git status`.
+  it.each([
+    ['skip-worktree', '--skip-worktree'],
+    ['assume-unchanged', '--assume-unchanged'],
+  ])('a tracked file flagged %s makes it dirty, edited or not (git status cannot see it)', (flag, option) => {
+    const dir = repo(`flag-${flag}`);
+    git(dir, 'update-index', option, 'README');
+    expect(treeState({ cwd: dir })).toMatchObject({ dirty: true, changes: [`${flag} README`] });
+    writeFileSync(join(dir, 'README'), 'edited behind the flag\n');
+    expect(git(dir, 'status', '--porcelain')).toBe(''); // the probe: git status is blind to it
+    expect(treeState({ cwd: dir })).toMatchObject({ dirty: true, changes: [`${flag} README`] });
+    expect(baselineTree({ cwd: dir })).toEqual({ dirty: true }); // --baseline=v1 refuses it too
+  });
+
+  it('both flags on one file are named once, as skip-worktree', () => {
+    const dir = repo('flag-both');
+    git(dir, 'update-index', '--skip-worktree', 'README');
+    git(dir, 'update-index', '--assume-unchanged', 'README');
+    expect(treeState({ cwd: dir })).toMatchObject({ dirty: true, changes: ['skip-worktree README'] });
+  });
+
+  it('baselineTree: a clean repository is clean; an untracked formal output is not (the baseline is step 3)', () => {
+    const dir = repo('baseline-tree');
+    expect(baselineTree({ cwd: dir })).toEqual({ dirty: false });
+    writeFileSync(join(dir, 'evals', 'results', 'baseline-v1.json'), '{}');
+    expect(baselineTree({ cwd: dir })).toEqual({ dirty: true });
   });
 
   it('fails closed outside a git repository: unknown commit, dirty', () => {

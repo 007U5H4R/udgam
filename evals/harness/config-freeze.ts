@@ -10,8 +10,9 @@ import { REPO_ROOT } from './provenance';
 // Once evals/results/baseline-v1.json exists, CONFIG_HASH must equal its provenance.config.hash, unless
 // evals/config-changes.md has a table row whose FIRST cell is the new hash, naming a TP/EV decision that
 // is recorded as `## <ID> ` in decisions.md and, for every scenario the change affects, at least two NEW
-// attack-case IDs (absent from baseline-v1) that exist in the dataset as attack cases of that scenario
-// (evaluation-plan §10). A bare mention of the hash anywhere in decisions.md authorises nothing. Before
+// attack-case IDs (absent from baseline-v1) that exist in the dataset as ACTIVE attack cases of that
+// scenario (evaluation-plan §10; a retired or pending_decision case runs in no gate, so it measures
+// nothing). Rows and headings inside HTML comments or fenced code blocks do not count. A bare mention of the hash anywhere in decisions.md authorises nothing. Before
 // baseline-v1 exists the guard passes vacuously. It fails closed: an unreadable or malformed baseline is
 // a failure, never "absent".
 //
@@ -30,8 +31,32 @@ export type FreezeInput = {
   configHash: string;
   changesPath: string;
   decisionsPath: string;
-  cases: Pick<EvalCase, 'id' | 'case_class' | 'scenario'>[];
+  cases: Pick<EvalCase, 'id' | 'case_class' | 'scenario' | 'status'>[];
 };
+
+/**
+ * The text a reader sees: HTML comments (`<!-- … -->`, even across lines) and fenced code blocks (``` or
+ * ~~~) are blanked, so a row or a heading quoted inside one never counts (re-review nits R-6 / Q-8).
+ */
+export function visibleMarkdown(text: string): string {
+  const noComments = text.replace(/<!--[\s\S]*?(?:-->|$)/g, (m) => m.replace(/[^\n]/g, ''));
+  let fence: string | null = null;
+  return noComments
+    .split('\n')
+    .map((line) => {
+      const f = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1];
+      if (fence === null && f) {
+        fence = f;
+        return '';
+      }
+      if (fence !== null) {
+        if (f && f[0] === fence[0] && f.length >= fence.length && line.trim() === f) fence = null;
+        return '';
+      }
+      return line;
+    })
+    .join('\n');
+}
 
 const readOrNull = (path: string): string | null => {
   try {
@@ -71,7 +96,7 @@ export function checkConfigFreeze(i: FreezeInput): Freeze {
   }
   if (changes === null) return { ok: false, reason: `${drift}, and there is no evals/config-changes.md authorising it` };
   const cellsOf = (l: string) => l.split('|').slice(1, -1).map((c) => c.trim());
-  const row = changes
+  const row = visibleMarkdown(changes)
     .split('\n')
     .filter((l) => l.trim().startsWith('|'))
     .map(cellsOf)
@@ -88,7 +113,7 @@ export function checkConfigFreeze(i: FreezeInput): Freeze {
   } catch {
     decisions = ''; // unreadable: nothing is recorded (fails closed below)
   }
-  if (!new RegExp(`^## ${decision} `, 'm').test(decisions)) return { ok: false, reason: `${drift}: decision ${decision} is not recorded in decisions.md` };
+  if (!new RegExp(`^## ${decision} `, 'm').test(visibleMarkdown(decisions))) return { ok: false, reason: `${drift}: decision ${decision} is not recorded in decisions.md` };
 
   const scenarios = [...scenarioCell.matchAll(/\d+/g)].map((m) => Number(m[0]));
   if (scenarios.length === 0) return { ok: false, reason: `${drift}: the row names no affected scenario` };
@@ -98,7 +123,7 @@ export function checkConfigFreeze(i: FreezeInput): Freeze {
   for (const s of scenarios) {
     const fresh = listed.filter((id) => {
       const c = byId.get(id);
-      return c !== undefined && c.case_class === 'attack' && c.scenario === s && !inBaseline.has(id);
+      return c !== undefined && c.status === 'active' && c.case_class === 'attack' && c.scenario === s && !inBaseline.has(id);
     });
     if (new Set(fresh).size < 2) {
       return { ok: false, reason: `${drift}: scenario ${s} needs ≥ 2 new attack cases already in the dataset (and not in baseline-v1); found ${fresh.length === 0 ? 'none' : fresh.join(', ')}` };

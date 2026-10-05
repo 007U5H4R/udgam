@@ -86,10 +86,18 @@ export type SuiteRunRecord = {
 
 export const sidecarPath = (reportFile: string) => reportFile.replace(/\.json$/, '.run.json');
 
-/** Whether something already accepts connections on localhost:port. */
-export function portInUse(port: number): Promise<boolean> {
+/**
+ * Whether something already accepts connections on localhost:port, on either loopback: Playwright's
+ * `localhost` may reach a server bound to ::1 only (TASK-22 re-review nit Q-7). `probe` is a test hook.
+ */
+export async function portInUse(port: number, probe: (host: string, port: number) => Promise<boolean> = accepts): Promise<boolean> {
+  return (await Promise.all(['127.0.0.1', '::1'].map((host) => probe(host, port)))).some(Boolean);
+}
+
+/** Whether host:port accepts a TCP connection (an error, such as no IPv6, is "no"). */
+function accepts(host: string, port: number): Promise<boolean> {
   return new Promise((done) => {
-    const s = createConnection({ host: '127.0.0.1', port });
+    const s = createConnection({ host, port });
     s.once('connect', () => {
       s.destroy();
       done(true);

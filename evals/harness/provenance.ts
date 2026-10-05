@@ -43,6 +43,8 @@ export type Provenance = {
   os: { platform: string; arch: string };
   suites: Suite[];
   seed: number;
+  /** `default`: the harness picked the seed; `chosen`: --seed set it (a formal release takes only `default`). Absent in older results. */
+  seedPolicy?: 'default' | 'chosen';
   timestampUtc: string;
   durationMs: number;
 };
@@ -87,6 +89,7 @@ export type ProvenanceInput = {
   provider: 'fixture' | 'live';
   suites: Suite[];
   seed: number;
+  seedPolicy: 'default' | 'chosen';
   startedAt: Date;
   durationMs: number;
   environment?: 'local' | 'ci';
@@ -128,6 +131,7 @@ export function provenance(i: ProvenanceInput): Provenance {
     os: { platform: platform(), arch: arch() },
     suites: i.suites,
     seed: i.seed,
+    seedPolicy: i.seedPolicy,
     timestampUtc: i.startedAt.toISOString(),
     durationMs: i.durationMs,
   };

@@ -17,7 +17,7 @@ During the sequence the tree must hold the gate commit, unchanged. The only extr
 - `evals/results/baseline-perf-v1.json`
 - `evals/reports/eval-report-*.md`
 
-Anything else makes the tree dirty: a modified tracked file (a committed results file included) or any other untracked file. Git-ignored files never count, so the suite reports under `evals/results/local/` are fine.
+Anything else makes the tree dirty: a modified tracked file (a committed results file included) or any other untracked file. So does a tracked file flagged `--skip-worktree` or `--assume-unchanged` (`git ls-files -v` shows `S` or a lower-case tag), because `git status` cannot see its edits. Clear such flags with `git update-index --no-skip-worktree --no-assume-unchanged <file>` before step 1. Git-ignored files never count, so the suite reports under `evals/results/local/` are fine.
 
 ## The sequence
 
@@ -27,9 +27,9 @@ Run every step in the same checkout, at the same HEAD. Do not commit, check out,
    - `git status --porcelain --untracked-files=all` prints nothing.
    - Run `pnpm install --frozen-lockfile`.
    - No server may be listening on the Playwright ports: `E2E_PORT` if set, else 3100 for e2e and 3330 for the demo. `eval:e2e` refuses a port that is already served, because Playwright would reuse that server and it may run other code.
-2. **`pnpm eval:ready`.** It must print READY, with the HR3 `WARNING:` line (TP29).
+2. **`pnpm eval:ready`.** It must print READY, with the HR3 `WARNING:` line (TP29). Steps 3 and 5 check this themselves and refuse a NOT READY dataset; the HR3 warning stays a warning, and the release report prints it.
 3. **`pnpm eval --baseline=v1`.**
-   - It refuses a tree that is not fully clean, and refuses if the baseline already exists.
+   - It refuses a tree that is not fully clean, a NOT READY dataset, and `--seed` (the formal run takes the harness's default seed, recorded as `provenance.seedPolicy: default`). It also refuses if the baseline already exists.
    - It writes:
      - `evals/results/eval-run-{appVersion}-{sha}.json`
      - `evals/results/baseline-v1.json` (a byte-identical copy)
@@ -54,8 +54,11 @@ Run every step in the same checkout, at the same HEAD. Do not commit, check out,
 
    - It refuses (exit 2, nothing run) when:
      - the tree is dirty;
-     - `--reuse` is given;
-     - `--harness` or `--perf` is missing, or not in `evals/results/`.
+     - `--reuse` is given, or the milestone is not M1;
+     - `pnpm eval:ready` is NOT READY;
+     - a formal release file of this commit already exists (`eval-run-v1-release-{sha}.json` or any `-rN`): a formal release runs once per commit, so a failed attempt is recorded, never retried until it passes;
+     - `--harness` or `--perf` is missing, not in `evals/results/`, or not a regular file (a symlink is refused);
+     - the `--harness` file was not made with the step 3 options: full config, fixture provider, both harness suites, the hash-chain ledger, milestone M1 and the default seed.
    - Then it runs `eval:integration` and `eval:e2e` itself, into `evals/results/local/`. Each report gets a run record (`*.run.json`) with the commit and tree state before and after, the exit code and the report's SHA-256.
    - It writes `evals/results/eval-run-v1-release-{sha}.json` and `evals/reports/eval-report-v1.md`.
    - Exit 1 is a gate result, not an error. Record it; do not change thresholds or cases (TSK-21.6).
@@ -81,7 +84,7 @@ Each of these is a problem. A problem fails `S7-release`, and the harness-integr
 - **A suite report.**
   - It has no run record, or its record names another commit or a dirty tree before or after the run.
   - The run was refused or exited non-zero.
-  - Its SHA-256 differs from the one its run left.
+  - Its SHA-256 differs from the one its run left. The run record guards against a stale report or an accident, not against forgery: whoever edits the git-ignored report can also edit its record.
   - Vitest reports `success` other than true.
   - Playwright reports `stats.unexpected > 0`, reports errors, or has no `stats`.
 - **A test title.**

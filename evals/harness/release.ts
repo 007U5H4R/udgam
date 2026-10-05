@@ -1,14 +1,14 @@
 import { createHash } from 'node:crypto';
-import { readFileSync, rmSync } from 'node:fs';
+import { lstatSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { basename, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { REGISTRY } from '../../src/lib/verification/registry';
 import { S4_THRESHOLD_MS } from '../perf/s4-certificate';
 import type { RunFacts } from '../scorers/critical-conditions';
-import { releaseIntegrity } from '../scorers/harness-integrity';
+import { HARNESS_SUITES, releaseIntegrity } from '../scorers/harness-integrity';
 import { loadDataset, type Dataset, type EvalCase, type Suite } from './dataset';
 import { REPO_ROOT, type Provenance } from './provenance';
-import { checkReadiness, readinessLines } from './readiness';
+import { checkReadiness, readinessLines, type Readiness } from './readiness';
 import { REPORTS_DIR, RESULTS_DIR, reportPathFor, writeReport, writeResults, type Out } from './results';
 import { configDriftOf, DEFAULT_MILESTONE, isolateDataDir, MILESTONES, regate, runHarness, type Gate, type Milestone, type ResultsFile } from './run';
 import { runSuite, sidecarPath, SUITE_REPORTS, type SuiteReport, type SuiteRunRecord } from './test-suites';
@@ -49,6 +49,12 @@ import { treeState, type TreeState } from './tree-state';
 // - Nothing stored is trusted: the harness gates are re-derived from the file's own cases (run.ts regate)
 //   and S4 from the perf file's raw timings and S4_THRESHOLD_MS; any disagreement names the file.
 // - Formal output takes no --reuse, and needs --harness and --perf files in the results directory.
+// - A formal release (TASK-22 re-review) also refuses, before anything runs: a milestone other than M1;
+//   `pnpm eval:ready` NOT READY (the HR3 warning, TP29, stays a warning and is printed in the report); an
+//   existing formal release file of this commit (-rN included), so an attempt is never rerun until it
+//   passes; a --harness or --perf that is not a regular file (a symlink included); and a harness file not
+//   made with the formal M-001 options (full config, fixture provider, both harness suites, the hash-chain
+//   ledger, milestone M1, and the harness's default seed rather than one chosen with --seed).
 // Every problem fails S7-release, which the harness-integrity scorer decides (releaseIntegrity).
 // Exit codes: 0 every release gate passes; 1 a gate failed; 2 bad usage, a refused formal run, or a crash.
 
@@ -605,13 +611,71 @@ export function loadPerf(file: string, head: Pick<TreeState, 'commit' | 'shortSh
   return { evidence: r.evidence, source: { name: 'perf', file: rel(file), sha256: sha256(p.text), command: null, exitCode: null, tests: p.data.runs?.length ?? 0, evalTests: 1, errors: [...r.problems, ...(prov ? [prov] : [])] } };
 }
 
+/** The options `pnpm eval --baseline=v1` runs with (run.ts parseArgs): the only harness run a formal M1 release takes. */
+export function formalHarnessProblems(r: Pick<ResultsFile, 'provenance' | 'scope'>): string[] {
+  const p = r.provenance;
+  const out: string[] = [];
+  const suites = [...(p?.suites ?? [])].sort();
+  if (p?.config?.mode !== 'full') out.push(`config.mode is ${String(p?.config?.mode)}, not full`);
+  if (p?.provider !== 'fixture') out.push(`provider is ${String(p?.provider)}, not fixture`);
+  if (suites.join() !== [...HARNESS_SUITES].sort().join()) out.push(`suites are ${suites.join(', ') || 'none'}, not ${HARNESS_SUITES.join(', ')}`);
+  if (p?.ledger !== 'hashchain') out.push(`ledger is ${String(p?.ledger)}, not hashchain`);
+  if (r.scope?.milestone !== 'M1') out.push(`milestone is ${String(r.scope?.milestone)}, not M1`);
+  if (p?.seedPolicy === 'chosen') out.push(`the seed ${p.seed} was chosen with --seed, not the harness default`);
+  else if (p?.seedPolicy !== 'default') out.push('it records no seed policy, so the default seed cannot be shown');
+  return out;
+}
+
+/** Why a formal input path is not a plain file, or null. */
+function notRegularFile(flag: string, path: string): string | null {
+  try {
+    const st = lstatSync(path);
+    if (st.isSymbolicLink()) return `${flag} must be a regular file, not a symlink: ${rel(path)}`;
+    if (!st.isFile()) return `${flag} must be a regular file, not a directory: ${rel(path)}`;
+    return null;
+  } catch {
+    return `${flag} names no file: ${rel(path)}`;
+  }
+}
+
+/** Formal release files of `head` already in `resultsDir` (eval-run-v1-release-<sha>[-rN].json, any SHA length). */
+function releasesOf(head: Pick<TreeState, 'commit'>, resultsDir: string): string[] {
+  let names: string[];
+  try {
+    names = readdirSync(resultsDir);
+  } catch {
+    return [];
+  }
+  return names.filter((n) => {
+    const m = new RegExp(`^eval-run-${RELEASE_TAG}-release-([0-9a-f]{4,40})(?:-r\\d+)?\\.json$`).exec(n);
+    return m !== null && head.commit.startsWith(m[1]!);
+  });
+}
+
 /** Why a formal release must not run (nothing is run or written), or [] when it may. */
-export function formalRefusals(args: ReleaseArgs, head: TreeState, resultsDir: string): string[] {
+export function formalRefusals(args: ReleaseArgs, head: TreeState, resultsDir: string, readiness: Pick<Readiness, 'ready' | 'checks'>): string[] {
   const out: string[] = [];
   if (head.dirty) out.push(`the tree has changes outside the untracked formal outputs: ${head.changes.join(', ')}`);
+  if (args.milestone !== 'M1') out.push(`--out=formal is defined for --milestone=M1 (the M-001 gate) only; got ${args.milestone}`);
+  if (!readiness.ready) out.push(`pnpm eval:ready is NOT READY for ${args.milestone}: ${readiness.checks.filter((c) => !c.pass).map((c) => `${c.id} (${c.detail})`).join(', ')}`);
+  for (const name of releasesOf(head, resultsDir)) out.push(`a formal release of ${head.shortSha} already exists (${name}): a formal release runs once per commit, and an earlier attempt is never rerun until it passes`);
   for (const [flag, path] of [['--harness', args.harness], ['--perf', args.perf]] as const) {
     if (!path) out.push(`${flag}=<file> is required: the formal inputs are the files the M-001 sequence wrote in ${rel(resultsDir)}/`);
     else if (resolve(path, '..') !== resolve(resultsDir)) out.push(`${flag} must name a formal file in ${rel(resultsDir)}/, got ${rel(path)}`);
+    else {
+      const bad = notRegularFile(flag, path);
+      if (bad) out.push(bad);
+      else if (flag === '--harness') {
+        let h: ResultsFile;
+        try {
+          h = readJson<ResultsFile>(path).data;
+        } catch (e) {
+          out.push(`--harness is not readable JSON: ${(e as Error).message.split('\n')[0]}`);
+          continue;
+        }
+        for (const p of formalHarnessProblems(h)) out.push(`--harness is not the formal M-001 harness run (pnpm eval --baseline=v1): ${p}`);
+      }
+    }
   }
   return out;
 }
@@ -627,6 +691,8 @@ export type ReleaseDeps = {
   runSuite?: (suite: 'integration' | 'e2e', outDir: string, opts: { evm?: boolean; env?: NodeJS.ProcessEnv }) => Promise<unknown>;
   /** The environment the spawned suites get. */
   childEnv?: NodeJS.ProcessEnv;
+  /** `pnpm eval:ready` for the dataset (default checkReadiness with the registry). */
+  readiness?: (dataset: Pick<Dataset, 'cases'>, milestone: Milestone) => Readiness;
 };
 
 export async function main(argv: string[], io: Pick<Console, 'log' | 'error'> = console, deps: ReleaseDeps = {}): Promise<0 | 1 | 2> {
@@ -644,14 +710,15 @@ export async function main(argv: string[], io: Pick<Console, 'log' | 'error'> = 
   const resultsDir = args.dir ?? formalDir;
   const suiteDir = join(resultsDir, 'local');
   const head = git();
+  const dataset = deps.dataset ?? loadDataset();
+  const readiness = (deps.readiness ?? ((ds, m) => checkReadiness(ds, REGISTRY, { milestone: m })))(dataset, args.milestone);
   if (args.out === 'formal') {
-    const refusals = formalRefusals(args, head, formalDir);
+    const refusals = formalRefusals(args, head, formalDir, readiness);
     if (refusals.length > 0) {
       io.error(`eval:release --out=formal refused; nothing was run or written:\n${refusals.map((r) => `  - ${r}`).join('\n')}`);
       return 2;
     }
   }
-  const dataset = deps.dataset ?? loadDataset();
 
   if (!args.reuse) {
     for (const suite of ['integration', 'e2e'] as const) await (deps.runSuite ?? runSuite)(suite, suiteDir, { evm: suite === 'integration' && args.milestone !== 'M1', env: deps.childEnv ?? process.env });
@@ -675,7 +742,7 @@ export async function main(argv: string[], io: Pick<Console, 'log' | 'error'> = 
     harness: { results: harness.data, file: harnessFile, text: harness.text },
     suites,
     perf,
-    readiness: readinessLines(checkReadiness(dataset as Dataset, REGISTRY, { milestone: args.milestone })),
+    readiness: readinessLines(readiness),
     git: { ...head, dirty: head.dirty || end.dirty || changed.length > 0, changes: [...new Set([...head.changes, ...end.changes, ...changed])] },
     configDrift: configDriftOf(formalDir, { cases: dataset.cases }),
     startedAt,
