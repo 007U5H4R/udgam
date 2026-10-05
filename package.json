@@ -21,7 +21,11 @@
     "eval": "tsx evals/harness/run.ts",
     "eval:validate": "tsx evals/harness/dataset.ts --validate",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/lib/db/migrate.ts"
+    "db:migrate": "tsx src/lib/db/migrate.ts",
+    "test:evm": "vitest run --project evm",
+    "contracts:build": "cd contracts && \"$HOME/.foundry/bin/forge\" build",
+    "contracts:test": "cd contracts && \"$HOME/.foundry/bin/forge\" test -vv",
+    "contracts:deploy": "tsx scripts/evm-deploy.ts"
   },
   "dependencies": {
     "@libsql/client": "0.18.0",
@@ -43,6 +47,7 @@
     "react-dom": "19.3.0",
     "react-leaflet": "5.0.0",
     "sharp": "0.35.5",
+    "viem": "2.56.9",
     "zod": "4.6.5"
   },
   "devDependencies": {
