@@ -38,12 +38,27 @@ import { captureForm, photosFor, signedCapture } from './capture';
 // the media and the seed files under DATA_DIR are removed and everything is migrated and built again.
 // The ledger key and the admins' signing keys under DATA_DIR/keys are kept.
 //
-// Demo data only: fixture satellite answers, fictional farmers and AI-generated photos (TP29). It refuses
-// NODE_ENV=production outside the Playwright server (E2E=1; EXE12). Passwords are generated per run into
+// Demo data only: fixture satellite answers, fictional farmers and AI-generated photos (TP29). It runs only
+// with NODE_ENV explicitly development or test, or on the Playwright server (E2E=1; EXE12), and refuses
+// before touching DATA_DIR otherwise (seedAllowed). Passwords are generated per run into
 // DATA_DIR/seed-credentials.txt (0600) and never printed; the seeded phones' keys go to
 // DATA_DIR/seed-keys/ (0600), used only by the seeder. It prints counts and the credentials file's path.
 
 export const SEED_NOT_EMPTY = 'DATA_DIR is not empty — use --reset';
+export const SEED_REFUSED =
+  'the demo seed runs only with NODE_ENV=development or NODE_ENV=test, or on the Playwright server (E2E=1): it builds fixture data (EXE12). Nothing was changed.';
+
+/**
+ * May the demo seed run here? Only when NODE_ENV is EXPLICITLY `development` or `test`, or on the
+ * Playwright server (E2E=1). env.ts defaults an unset NODE_ENV to `development`, so the raw variable is
+ * checked too, as scripts/seed-accounts.ts does: an operator shell on the production host has no
+ * NODE_ENV, and `pnpm seed --reset` there would delete the database, the ledger and the media.
+ */
+export function seedAllowed(): boolean {
+  if (env.E2E === '1') return true;
+  const explicit = process.env.NODE_ENV; // not a secret; only whether it was set, and to what
+  return (explicit === 'development' || explicit === 'test') && env.NODE_ENV === explicit;
+}
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -267,7 +282,8 @@ export async function runSeed(db: Db, { dataDir, now = new Date() }: { dataDir: 
  * then migrates a new one. Resolves with the counts.
  */
 export async function seed({ reset = false, now }: { reset?: boolean; now?: Date } = {}): Promise<SeedCounts> {
-  if (env.NODE_ENV === 'production' && env.E2E !== '1') throw new Error('the demo seed does not run in production (fixture data, EXE12)');
+  // Before anything under DATA_DIR is touched (--reset deletes the database, the ledger and the media).
+  if (!seedAllowed()) throw new Error(SEED_REFUSED);
   const dataDir = env.DATA_DIR;
   if (reset) {
     closeDb();

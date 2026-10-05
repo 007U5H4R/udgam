@@ -10,8 +10,8 @@
 
 | Command | What it does |
 |---|---|
-| `pnpm seed` | Builds the demo state in `DATA_DIR` (default `./data`). It refuses a database that already holds data: "DATA_DIR is not empty — use --reset". |
-| `pnpm seed --reset` | Removes `DATA_DIR/{udgam.db*, media, attestations, staging, demo, seed-keys, seed-credentials.txt}` and builds again. The provenance tables refuse DELETE, so the database file is recreated, never emptied. The ledger key and the admins' signing keys in `DATA_DIR/keys` are kept. |
+| `NODE_ENV=development pnpm seed` | Builds the demo state in `DATA_DIR` (default `./data`). It refuses a database that already holds data: "DATA_DIR is not empty — use --reset". |
+| `NODE_ENV=development pnpm seed --reset` | Removes `DATA_DIR/{udgam.db*, media, attestations, staging, demo, seed-keys, seed-credentials.txt}` and builds again. The provenance tables refuse DELETE, so the database file is recreated, never emptied. The ledger key and the admins' signing keys in `DATA_DIR/keys` are kept. |
 | `pnpm demo` | Runs the Playwright demo (`playwright.demo.config.ts`) at 375 px and 1280 px. It does a fresh `seed --reset` into `.e2e-demo-data`, then `next build` and `next start` with `DEMO_MODE=1 E2E=1` on port `E2E_PORT` (default 3330). |
 
 `pnpm seed` prints one line: the counts and the path of the credentials file. It never prints a password.
@@ -50,7 +50,7 @@ The demo state:
 ## Where the demo may run (EXE12)
 
 - **The demo runs on fixture data.** It runs only under the Playwright demo config, or on a development server.
-- **The seed refuses `NODE_ENV=production`** unless `E2E=1`.
+- **The seed runs only when `NODE_ENV` is explicitly `development` or `test`, or with `E2E=1`** (the Playwright server). Otherwise it refuses before touching `DATA_DIR`. An unset `NODE_ENV` is refused too: an operator shell on a production host usually has none, and `--reset` there would delete the database, the ledger and the media.
 - **`/admin/demo`, the page that submits the staged attacks, is test-only.** It answers 404 unless `DEMO_MODE=1`, and it is never on in a production deployment. In production mode, only the Playwright server (`E2E=1`) has it.
 - **Never set `E2E` in a deployment.** It also exposes the test-only routes (`/__test__/*`, the certificate tamper mode). A public demo deployment uses live satellite providers and real captures, not this seed.
 
