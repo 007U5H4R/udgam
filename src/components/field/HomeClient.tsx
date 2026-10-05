@@ -20,6 +20,7 @@ import { Ic } from './icons';
 import { LanguageChip } from './LanguageChip';
 import { Lit } from './Lit';
 import { PendingList } from './PendingRow';
+import { isOffline, whenOnline } from './offline';
 import { useGps } from './useGps';
 
 // Home (final/index.html #s1, TSK-10.5): header with the wordmark and the language chip, the greeting
@@ -80,9 +81,10 @@ export function HomeClient({
     return <Lit k="home.outside" vars={{ plot: plot.name, m }} lit="plot" lang={lang} />;
   }
 
+  // DES-002: offline, the app never navigates (the sheet closes; the deep link is left once online).
   function closeHelp() {
     setHelpShown(false);
-    if (helpOpen) router.replace('/field'); // leave the /field/help deep link
+    if (helpOpen && !isOffline()) router.replace('/field'); // leave the /field/help deep link
   }
 
   // The language sheet, opened from the chip or from the Help sheet. On the /field/help deep link the
@@ -90,7 +92,7 @@ export function HomeClient({
   // link is left for /field once the language sheet closes.
   function setLanguageSheet(open: boolean) {
     setLangOpen(open);
-    if (!open && helpOpen) router.replace('/field');
+    if (!open && helpOpen && !isOffline()) router.replace('/field');
   }
 
   return (
@@ -136,11 +138,11 @@ export function HomeClient({
       </GlassCard>
 
       {plot && enrolled === false ? (
-        <Pill className="record" icon={<Ic name="seal" />} onClick={() => router.push('/enrol')}>
+        <Pill className="record" icon={<Ic name="seal" />} onClick={() => whenOnline(() => router.push('/enrol'))}>
           {tr('home.setUp')}
         </Pill>
       ) : (
-        <Pill className="record" icon={<Ic name="camera" />} disabled={!plot} onClick={() => plot && router.push(`/field/record?plot=${encodeURIComponent(plot.id)}`)}>
+        <Pill className="record" icon={<Ic name="camera" />} disabled={!plot} onClick={() => plot && whenOnline(() => router.push(`/field/record?plot=${encodeURIComponent(plot.id)}`))}>
           {tr('home.record')}
         </Pill>
       )}
@@ -177,7 +179,7 @@ export function HomeClient({
               aria-pressed={p.id === plot?.id}
               onClick={() => {
                 setChoosing(false);
-                router.replace(`/field?plot=${encodeURIComponent(p.id)}`);
+                whenOnline(() => router.replace(`/field?plot=${encodeURIComponent(p.id)}`));
               }}
             >
               {tr('home.plotChoice', { plot: p.name, farmer: p.farmerName })}

@@ -249,6 +249,7 @@ export const en = {
   'pend.sending': 'Sending…',
   'pend.kept': 'Nothing is lost: your pickings are still saved on this phone.',
   'pend.unreadable': "This saved picking can't be sent. Show this phone to the office.",
+  'offline.body': 'This screen needs the network. Nothing is lost: pickings saved on this phone stay here until you send them.',
   // The Pickings tab (TKT-11, #s8)
   'pk.title': 'Your pickings',
   'pk.loading': 'Loading your pickings…',

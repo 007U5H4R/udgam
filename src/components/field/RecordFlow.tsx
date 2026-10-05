@@ -14,6 +14,7 @@ import { hydratedAttr, useHydrated } from './useHydrated';
 import { initialFlow, kgValue, photoProblem, reduce, usedPhotos, type Slot } from './record-flow';
 import { ReviewStep } from './ReviewStep';
 import { sendPicking, settleAction } from './send-picking';
+import { whenOnline } from './offline';
 import { useGps } from './useGps';
 import { SavedSheet } from './SavedSheet';
 import { VerdictStep } from './VerdictStep';
@@ -183,7 +184,7 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
           plotName={plot.name}
           gps={gps.state}
           previews={previews}
-          onBack={() => router.push('/field')}
+          onBack={() => whenOnline(() => router.push('/field'))}
           onCamera={openCamera}
           onContinue={() => dispatch({ type: 'continue' })}
         />
@@ -233,7 +234,7 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
           plotName={plot.name}
           kg={kgValue(flow.kg) ?? 0}
           motion={!reduced}
-          onDone={() => router.push('/field')}
+          onDone={() => whenOnline(() => router.push('/field'))}
         />
       ) : null}
       {screen === 'saved' && sheetError && sheetError.kind !== 'rejected' ? (
@@ -248,7 +249,7 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
           kg={kgValue(flow.kg) ?? 0}
           plotName={plot.name}
           onRetry={() => void send()}
-          onLater={() => router.push('/field')}
+          onLater={() => whenOnline(() => router.push('/field'))}
         />
       ) : null}
     </>

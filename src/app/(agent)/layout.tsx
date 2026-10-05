@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import '../../styles/field.css';
+import { OfflineSheet } from '../../components/field/OfflineSheet';
 import { requireSession } from '../_auth/require';
+import { langFromCookies } from './field/route-state';
 
 // Signed-in surfaces are per request: never prerendered or cached.
 export const dynamic = 'force-dynamic';
@@ -10,5 +12,11 @@ export const dynamic = 'force-dynamic';
 // its page concurrently, and a layout never protects an action.
 export default async function AgentLayout({ children }: { children: ReactNode }) {
   await requireSession('agent');
-  return children;
+  // DES-002 (EXE40): with no network a tap that would leave the page shows the saved-on-phone sheet instead.
+  return (
+    <>
+      {children}
+      <OfflineSheet lang={await langFromCookies()} />
+    </>
+  );
 }

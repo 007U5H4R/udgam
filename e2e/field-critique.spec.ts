@@ -129,7 +129,7 @@ test('DES-008, DES-009, DES-023 (Kannada): verdict words, the language chip and 
   expect(h1).toBeCloseTo(1.35, 2);
 
   // Help legend: each chip sits on its own line above its explanation; a one-word verdict is one line
-  await page.getByRole('navigation', { name: 'Main' }).locator('.tab').nth(2).click();
+  await page.locator('nav.tabbar .tab').nth(2).click();
   const legend = page.getByTestId('help-verdicts').locator('.help-row');
   await expect(legend).toHaveCount(3);
   for (let i = 0; i < 3; i++) {
@@ -153,4 +153,56 @@ test('DES-008, DES-009, DES-023 (Kannada): verdict words, the language chip and 
   await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
   const state = page.locator('.slot[data-state="next"] .s-state > span');
   expect(await state.evaluate(lines)).toBe(1);
+});
+
+test('DES-002: offline, a tab or the Record pill keeps the app and shows the saved-on-phone sheet', async ({ page, context }) => {
+  const seed = seedCaptureWorld({ events: ['38.5:Verified'] });
+  await openField(page, context, seed);
+  await context.setOffline(true);
+  const offline = page.getByTestId('offline-sheet');
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Pickings' }).click();
+  await expect(offline).toBeVisible();
+  await expect(offline.getByRole('heading')).toHaveText('No network here');
+  await expect(offline).toContainText('Nothing is lost: pickings saved on this phone stay here until you send them.');
+  await expect(page).toHaveURL(/\/field$/);
+  expect(page.url()).not.toContain('chrome-error');
+  await offline.getByRole('button', { name: 'Close' }).click();
+  await expect(offline).toBeHidden();
+
+  await page.getByRole('button', { name: "Record today's picking" }).click();
+  await expect(offline).toBeVisible();
+  await expect(page).toHaveURL(/\/field$/);
+  await offline.getByRole('button', { name: 'Close' }).click();
+
+  await context.setOffline(false);
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Pickings' }).click();
+  await expect(page).toHaveURL(/\/field\/pickings$/);
+  await expect(offline).toBeHidden();
+});
+
+test('DES-002: offline, Send now stays on Pickings with the saved row and says nothing is lost; online it sends', async ({ page, context }) => {
+  const seed = seedCaptureWorld();
+  await openField(page, context, seed);
+  await page.route('**/api/capture', (r) => r.abort('internetdisconnected'));
+  await typePicking(page, seed, { photos: 1 });
+  await page.locator('#send-btn').click();
+  await page.getByTestId('saved-sheet').getByRole('button', { name: 'Try later' }).click();
+  await expect(page).toHaveURL(/\/field$/);
+  await page.unroute('**/api/capture');
+  await page.goto('/field/pickings');
+  const pending = page.getByTestId('pending-rows').locator('li');
+  await expect(pending).toHaveCount(1);
+
+  await context.setOffline(true);
+  await pending.getByRole('button', { name: 'Send now' }).click();
+  const offline = page.getByTestId('offline-sheet');
+  await expect(offline).toBeVisible();
+  await expect(page).toHaveURL(/\/field\/pickings$/);
+  await expect(page.getByTestId('pending-note')).toHaveText('No network here. Nothing is lost: your pickings are still saved on this phone.');
+  await expect(pending).toHaveCount(1);
+  await offline.getByRole('button', { name: 'Close' }).click();
+
+  await context.setOffline(false);
+  await pending.getByRole('button', { name: 'Send now' }).click();
+  await expect(page.getByTestId('pending-rows')).toHaveCount(0, { timeout: 90_000 });
 });

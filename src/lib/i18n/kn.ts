@@ -174,6 +174,7 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'pend.sending': 'ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
   'pend.kept': 'ಏನೂ ಕಳೆದುಹೋಗಿಲ್ಲ: ನಿಮ್ಮ ಕೊಯ್ಲುಗಳು ಇನ್ನೂ ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಲಾಗಿವೆ.', // REVIEW: native speaker
   'pend.unreadable': 'ಉಳಿಸಿದ ಈ ಕೊಯ್ಲನ್ನು ಕಳುಹಿಸಲಾಗುವುದಿಲ್ಲ. ಈ ಫೋನನ್ನು ಕಚೇರಿಗೆ ತೋರಿಸಿ.', // REVIEW: native speaker
+  'offline.body': 'ಈ ಪರದೆಗೆ ನೆಟ್‌ವರ್ಕ್ ಬೇಕು. ಏನೂ ಕಳೆದುಹೋಗಿಲ್ಲ: ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಿದ ಕೊಯ್ಲುಗಳು ನೀವು ಕಳುಹಿಸುವವರೆಗೆ ಇಲ್ಲೇ ಇರುತ್ತವೆ.', // REVIEW: native speaker
   'pk.title': 'ನಿಮ್ಮ ಕೊಯ್ಲುಗಳು', // REVIEW: native speaker
   'pk.loading': 'ನಿಮ್ಮ ಕೊಯ್ಲುಗಳನ್ನು ತೆರೆಯಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
   'pk.emptyBody': 'ನೀವು ಕಳುಹಿಸಿದ ಕೊಯ್ಲುಗಳು ಕಚೇರಿ ಕಂಡದ್ದರೊಂದಿಗೆ ಇಲ್ಲಿ ಕಾಣುತ್ತವೆ.', // REVIEW: native speaker
