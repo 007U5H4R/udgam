@@ -188,4 +188,18 @@ describe('T3: the agreement card on a delivered batch (spec review minor 7)', ()
     // another FPO sees nothing for this batch
     expect(await agreementForBatch(t.db, 'ORG-OTHER', batchId)).toBeNull();
   });
+
+  it('picks, in one query, the agreement the batch is delivered under: same crop, in that buyer\'s custody (TKT-25 r2 nit)', async () => {
+    const { agreementForBatch } = await import('./read');
+    const terms = { fpoOrg: w.orgId, agreedKg: 500, minGrade: 80 as const, amountPaise: 5_000_000, deadlineDate: '2099-12-31' };
+    const { agreementId: delivered } = await createAgreement(t.db, { buyerOrg, userId: buyerUser, values: { ...terms, crop: 'arabica' } }, o());
+    // newer, but another crop
+    await createAgreement(t.db, { buyerOrg, userId: buyerUser, values: { ...terms, crop: 'robusta' } }, o());
+    // newer, but another buyer: the batch is not in its custody
+    const otherBuyer = await seedBuyer(t.db);
+    const otherUser = newId('USR-');
+    await writeTx(t.db, (tx) => tx.insert(user).values({ id: otherUser, name: 'Buyer 2', email: `${otherUser.toLowerCase()}@b2.test`, role: 'buyer', orgId: otherBuyer }).then(() => undefined));
+    await createAgreement(t.db, { buyerOrg: otherBuyer, userId: otherUser, values: { ...terms, crop: 'arabica' } }, o());
+    expect(await agreementForBatch(t.db, w.orgId, batchId)).toMatchObject({ agreementId: delivered });
+  });
 });
