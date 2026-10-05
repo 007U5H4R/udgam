@@ -153,20 +153,23 @@ test.describe('certificate entries, organic line, files and limits (TSK-16.5)', 
 });
 
 test.describe('certificate responsive and accessibility gates (TSK-16.11, @eval EVAL-087, EVAL-089, TC-080, TC-081)', () => {
-  test('no horizontal scroll and no serious or critical axe violation: verified, loading, mismatch, not found', async ({ page }) => {
-    for (const [path, final] of [
-      [certificateUrl(seeded), 'verified'],
-      [certificateUrl(seeded, '&state=loading'), null],
-      [certificateUrl(seeded, '&state=mismatch'), 'mismatch'],
-      [`/verify/${seeded.batchId}?h=000000000000`, null],
-    ] as const) {
+  // One test per state (TASK-17 fix round 1): each is one navigation and one axe scan, so it fits the
+  // default timeout under a loaded host; the four used to share one 30 s budget.
+  for (const [name, extra, final] of [
+    ['verified', '', 'verified'],
+    ['loading', '&state=loading', null],
+    ['mismatch', '&state=mismatch', 'mismatch'],
+    ['not found', null, null],
+  ] as const) {
+    test(`no horizontal scroll and no serious or critical axe violation: ${name}`, async ({ page }) => {
+      const path = extra === null ? `/verify/${seeded.batchId}?h=000000000000` : certificateUrl(seeded, extra);
       await page.goto(path);
       if (final) expect(await proofFinalState(page), path).toBe(final);
       else await page.waitForLoadState('networkidle');
       await noHorizontalScroll(page);
       await noSeriousAxeViolations(page);
-    }
-  });
+    });
+  }
 
   test('tab order follows the page: proof panel → (map) → entries → downloads', async ({ page }) => {
     await openVerified(page);

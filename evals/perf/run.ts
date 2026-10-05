@@ -57,6 +57,8 @@ const s = result.summary;
 console.log(
   `S4 ${result.pass ? 'PASS' : 'FAIL'}: ${result.runs.length} runs, ${result.runs.filter((r) => r.finalState === 'verified').length} verified` +
     (s ? `, p50 ${s.p50} ms, p95 ${s.p95} ms, max ${s.max} ms (threshold ${s.thresholdMs} ms)` : '') +
+    (result.verify ? `\n  verify (proof-start → proof-final): p50 ${result.verify.p50} ms, max ${result.verify.max} ms (§18 budget ${result.verify.thresholdMs} ms, reported only)` : '') +
+    (result.server ? `\n  server response (requestStart → responseStart): p50 ${result.server.p50} ms, max ${result.server.max} ms (reported only)` : '') +
     `\nwrote ${file}`,
 );
 process.exit(result.pass ? 0 : 1);

@@ -1,11 +1,16 @@
 import { expect, test, type Page } from '@playwright/test';
 import { DEMO_ACCOUNTS, SEED_PASSWORD, seedAccounts, signIn } from './helpers/auth';
+import { certificateUrl, proofFinalState, seedCertificate } from './helpers/certificate';
 import { stubTiles } from './helpers/stubs';
 
 // TSK-19.5 · TC-076 (technical-plan §16): pages carry the nonce CSP and the static security headers,
 // and no page violates its policy (the console and `securitypolicyviolation` events are both watched).
 
-test.beforeAll(() => seedAccounts());
+let cert: ReturnType<typeof seedCertificate>;
+test.beforeAll(() => {
+  seedAccounts();
+  cert = seedCertificate({ events: 3, plots: 3 });
+});
 
 /** Collect CSP violations from the console and from the page's securitypolicyviolation events. */
 async function watchViolations(page: Page): Promise<string[]> {
@@ -49,10 +54,13 @@ async function expectSecureHeaders(page: Page, path: string, tileHost?: string) 
 }
 
 test.describe('TC-076 security headers and CSP', () => {
-  test('public pages: /sign-in and /verify/{id}?h=', async ({ page }) => {
+  test('public pages: /sign-in and /verify/{id}?h= (a verified certificate and a not-found one)', async ({ page }) => {
     const violations = await watchViolations(page);
     await expectSecureHeaders(page, '/sign-in');
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+    // TASK-17 fix round 1: a real certificate, verified in the browser under its nonce CSP
+    await expectSecureHeaders(page, certificateUrl(cert));
+    expect(await proofFinalState(page)).toBe('verified');
     await visit(page, '/verify/B-0000TEST?h=000000000000');
     expect(violations).toEqual([]);
   });

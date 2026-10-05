@@ -13,7 +13,10 @@ import s from './ProofPanel.module.css';
 // key from /.well-known/udgam-ledger-key (never from the feed), runs verifyFeed with a progress callback
 // and shows loading → verified | mismatch. `document.body.dataset.state` drives the page's CSS (in
 // mismatch no green renders anywhere), `performance.mark('proof-final')` marks the end for S4, and a
-// live region announces each state. On a mismatch a beacon reports the failing step, nothing else.
+// live region announces each state. On a mismatch a beacon reports the failing step, nothing else; each
+// page view sends one `certificate.viewed` beacon (batch id only; TASK-17 fix round 1, §15).
+// `performance.mark('proof-start')` marks the start of verifyFeed, so §18's verify budget is measured on
+// its own (proof-start → proof-final).
 // Ported from .design/exploration/final/verify.html "1 · proof".
 
 export type ForcedProofState = 'loading' | 'mismatch' | null;
@@ -24,8 +27,6 @@ type Props = {
   batchId: string;
   /** Dev-only forced state (?state=, never in a production deployment): loading holds, mismatch is simulated. */
   forced?: ForcedProofState;
-  /** Test-only key URL override (E2E tamper mode); defaults to the fixed well-known path. */
-  keyUrl?: string;
 };
 
 type KeyDocument = { keys: VerifierKey[] };
@@ -56,19 +57,20 @@ function setBody(state: ProofUiState['status']): void {
   document.body.dataset.state = state === 'unavailable' ? 'loading' : state;
 }
 
-function markFinal(): void {
+function mark(name: 'proof-start' | 'proof-final'): void {
   try {
-    performance.clearMarks('proof-final');
-    performance.mark('proof-final');
+    performance.clearMarks(name);
+    performance.mark(name);
   } catch {
     // performance marks are best effort
   }
 }
+const markFinal = () => mark('proof-final');
 
-function report(batchId: string, step: string): void {
+/** One closed telemetry event (lib/certificate/telemetry.ts) by sendBeacon; never affects the page. */
+function send(event: { event: 'certificate.viewed'; batchId: string } | { event: 'certificate.proof_failed'; step: string; batchId: string }): void {
   try {
-    const body = new Blob([JSON.stringify({ event: 'certificate.proof_failed', step, batchId })], { type: 'application/json' });
-    navigator.sendBeacon?.('/api/telemetry', body);
+    navigator.sendBeacon?.('/api/telemetry', new Blob([JSON.stringify(event)], { type: 'application/json' }));
   } catch {
     // telemetry never affects the page
   }
@@ -80,11 +82,12 @@ function entriesOf(feed: unknown): { seq?: unknown }[] {
   return Array.isArray(entries) ? (entries as { seq?: unknown }[]) : [];
 }
 
-export function ProofPanel({ entryCount, batchId, forced = null, keyUrl = LEDGER_KEY_URL }: Props) {
+export function ProofPanel({ entryCount, batchId, forced = null }: Props) {
   const stored = useProofState();
   // Before the panel has read the feed (server render, first paint) the count comes from the page.
   const state: ProofUiState = stored.status === 'loading' && stored.total === 0 ? { ...stored, total: entryCount } : stored;
   const run = useRef(0);
+  const viewed = useRef<string | null>(null);
 
   const verify = useCallback(async () => {
     const id = ++run.current;
@@ -108,7 +111,7 @@ export function ProofPanel({ entryCount, batchId, forced = null, keyUrl = LEDGER
       return;
     }
 
-    const doc = await fetchKeys(keyUrl);
+    const doc = await fetchKeys(LEDGER_KEY_URL);
     if (!live()) return;
     if (!doc) {
       setProofState({ status: 'unavailable' });
@@ -117,6 +120,7 @@ export function ProofPanel({ entryCount, batchId, forced = null, keyUrl = LEDGER
       return;
     }
     const publishedKid = typeof doc.keys[0]?.kid === 'string' ? doc.keys[0].kid : null;
+    mark('proof-start');
     const outcome = await verifyFeed(feed, doc.keys, {
       onProgress: (done, n) => {
         if (live()) setProofState({ status: 'loading', done, total: n });
@@ -129,10 +133,17 @@ export function ProofPanel({ entryCount, batchId, forced = null, keyUrl = LEDGER
     } else {
       setProofState(mismatch(outcome, publishedKid));
       setBody('mismatch');
-      report(batchId, outcome.step);
+      send({ event: 'certificate.proof_failed', step: outcome.step, batchId });
     }
     markFinal();
-  }, [batchId, entryCount, forced, keyUrl]);
+  }, [batchId, entryCount, forced]);
+
+  // One view per page view: not again on "Check again", nor on a development double mount.
+  useEffect(() => {
+    if (viewed.current === batchId) return;
+    viewed.current = batchId;
+    send({ event: 'certificate.viewed', batchId });
+  }, [batchId]);
 
   useEffect(() => {
     void verify();

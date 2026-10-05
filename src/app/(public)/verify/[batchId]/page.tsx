@@ -105,7 +105,7 @@ export default async function CertificatePage({ params, searchParams }: Props) {
   // S4: the browser starts fetching the ledger key with the page, not after hydration (ProofPanel reuses it).
   preload(LEDGER_KEY_URL, { as: 'fetch', crossOrigin: 'anonymous' });
   const view = buildCertificateView(feed);
-  const window = view.harvestWindow ? istRange(view.harvestWindow.from, view.harvestWindow.to) : null;
+  const harvestRange = view.harvestWindow ? istRange(view.harvestWindow.from, view.harvestWindow.to) : null;
 
   return (
     <div className={c.page}>
@@ -121,7 +121,7 @@ export default async function CertificatePage({ params, searchParams }: Props) {
             <h1 className={c.h1} id="h1">
               {certCopy.headline(kgShort(view.headline.quantityKg), view.headline.crop, view.headline.farmCount, view.headline.district)}
             </h1>
-            <p className={c.meta}>{certCopy.meta(view.headline.region, window)}</p>
+            <p className={c.meta}>{certCopy.meta(view.headline.region, harvestRange)}</p>
           </section>
         </div>
 
@@ -152,7 +152,7 @@ export default async function CertificatePage({ params, searchParams }: Props) {
                 region: view.headline.region,
                 variety: view.headline.crop,
                 farms: String(view.headline.farmCount),
-                window: window ?? '',
+                window: harvestRange ?? '',
                 quantity: certCopy.origin.kgCherry(kg1(view.headline.quantityKg)),
               },
             ]}

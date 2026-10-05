@@ -56,7 +56,7 @@ function Evidence({ row }: { row: EntryRow }): ReactNode {
     <>
       {row.override ? (
         <p className={s.ov} data-testid="override-reason">
-          <b>{certCopy.entries.override(row.override.word)}</b> · {certCopy.entries.reason}: {row.override.reason}
+          <b>{certCopy.entries.override(row.override.word)}</b> · {certCopy.entries.reason}: <bdi>{row.override.reason}</bdi>
         </p>
       ) : null}
       <ul className={s.ev} data-testid="evidence">

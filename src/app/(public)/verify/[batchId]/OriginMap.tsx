@@ -1,13 +1,17 @@
 import { CertIcon } from '../../../../components/ui/CertIcon';
 import { certCopy, ha1, kg1 } from '../../../../lib/certificate/copy';
-import { MAP_BOX, originMapPaths } from '../../../../lib/certificate/map';
+import { fitLabel, MAP_BOX, originMapPaths } from '../../../../lib/certificate/map';
 import type { CertificateView } from '../../../../lib/certificate/view-model';
 import c from './certificate.module.css';
 
 // "Where it was grown" (verify.html "3 · origin map card"): the batch's plots as glowing outlines on one
 // dark SVG map (no tiles, Design.md §25), drawn from the polygons anchored in the feed, then each farm by
 // its producer ID with its area, pickings and kilograms, and its latest forest-loss result verbatim (a
-// "(demo data)" label included, EXE12).
+// "(demo data)" label included, EXE12). A plot's label stays inside its outline (TASK-17 fix round 1): it
+// is squeezed to fit, or left out when the plot is too small (the farm list carries the same text).
+
+/** Share of a plot's box width a label may use (a plot is narrower than its box away from the centre). */
+const LABEL_ROOM = 0.8;
 
 const CONTOURS = (() => {
   const out: string[] = [];
@@ -52,14 +56,20 @@ export function OriginMap({ view }: { view: CertificateView }) {
           ))}
           {paths.map((p) => {
             const plot = byPlot.get(p.plotId)!;
+            const room = p.label.w * LABEL_ROOM;
+            const main = p.label.h >= 32 ? fitLabel(plot.producerId, 26, room) : null;
+            const sub = main && p.label.h >= 64 ? fitLabel(ha1(plot.areaHa), 22, room) : null;
+            if (!main) return null;
             return (
               <g key={`${p.plotId}-label`} aria-hidden="true">
-                <text className={c.mLabel} x={p.label.x} y={p.label.y} textAnchor="middle">
+                <text className={c.mLabel} x={p.label.x} y={p.label.y} textAnchor="middle" lengthAdjust="spacingAndGlyphs" textLength={main.textLength}>
                   {plot.producerId}
                 </text>
-                <text className={c.mSub} x={p.label.x} y={p.label.y + 28} textAnchor="middle">
-                  {ha1(plot.areaHa)}
-                </text>
+                {sub ? (
+                  <text className={c.mSub} x={p.label.x} y={p.label.y + 28} textAnchor="middle" lengthAdjust="spacingAndGlyphs" textLength={sub.textLength}>
+                    {ha1(plot.areaHa)}
+                  </text>
+                ) : null}
               </g>
             );
           })}
