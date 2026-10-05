@@ -23,7 +23,7 @@ function expectInSeason(nowIso: string, seasonStart: string) {
     expect(Date.parse(t), `${t} on or after the season start`).toBeGreaterThanOrEqual(Date.parse(seasonStart));
     expect(Date.parse(t) + MAX_RECEIPT_MS, `${t} received before now`).toBeLessThan(now.getTime());
   }
-  // one phone's captures move forward in time, and each receipt lands before the next capture
+  // one phone's captures move forward in time, more than 30 s apart
   for (let i = 1; i < times.length; i++) expect(Date.parse(times[i]!) - Date.parse(times[i - 1]!)).toBeGreaterThan(30_000);
   return ys;
 }

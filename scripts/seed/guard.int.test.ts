@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -135,5 +136,35 @@ describe('--reset deletes only the database the app opens (review minor 1)', () 
   it('accepts a DATABASE_URL that names DATA_DIR/udgam.db by another spelling (past the reset check)', async () => {
     const { run } = await load({ NODE_ENV: 'test', DATABASE_URL: `file:${join(DATA_DIR, '.', 'media', '..', 'udgam.db')}` });
     expect(run.resetTargetsDataDir()).toBe(true);
+  });
+});
+
+/** Every file under `dir` and its sha256 (the DATA_DIR before and after a refused run). */
+function snapshot(dir: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const name of readdirSync(dir, { recursive: true, encoding: 'utf8' })) {
+    const path = join(dir, name);
+    if (statSync(path).isFile()) out[name] = createHash('sha256').update(readFileSync(path)).digest('hex');
+  }
+  return out;
+}
+
+describe('the season room is checked before --reset (TASK-21 re-review minor 1)', () => {
+  it('1 Oct 00:05 IST: `pnpm seed --reset` refuses with the season message and leaves DATA_DIR unchanged', async () => {
+    const { run } = await load({ NODE_ENV: 'test' });
+    const before = snapshot(DATA_DIR);
+    expect(before['udgam.db']).toBeDefined();
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-09-30T18:35:00.000Z') }); // 1 Oct 2026 00:05 IST
+    let r: { code: number; error: string };
+    try {
+      r = await runMain(run, ['--reset']);
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(r.code).toBe(1);
+    expect(r.error).toBe('seed: the coffee season began at 00:00 IST; run the seed after 00:10 IST, so Y01’s pickings fit in the new season');
+    expect(snapshot(DATA_DIR)).toEqual(before);
+    expect(readFileSync(SENTINEL, 'utf8')).toBe('real photo bytes');
+    expect(await orgCount()).toBe(1);
   });
 });

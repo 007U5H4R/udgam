@@ -10,9 +10,10 @@ import { SEED } from './data';
 // expects. Usually the run ends 90 minutes before `now`, its pickings 150 minutes apart. Early in a season
 // there is less room, so the run is squeezed in: it ends a quarter of the season's elapsed time before
 // `now` (at most 90 min), starts a tenth of it after the season start (at most 10 min), and its spacing
-// shrinks to fit, in whole seconds. In the season's first 10 minutes there is not room enough for eight
-// pickings at least ~55 s apart (each receipt before the next capture), so the seed refuses and says when
-// to run it (SEASON_JUST_STARTED), rather than placing pickings in the previous season or in the future.
+// shrinks to fit, in whole seconds: at 00:10 IST the pickings are 55 s apart. A receipt trails its capture
+// by 40 to 68 s (run.ts), so near 00:10 a receipt may land after the next picking's capture; the receipts
+// still arrive in order, each before `now`. Before 00:10 IST the seed refuses and says when to run it
+// (SEASON_JUST_STARTED), rather than placing pickings in the previous season or in the future.
 // The other pickings go back from Y01's first, three hours apart, so one phone's moves between plots stay
 // plausible; they may fall in the previous season, which only lowers their own plots' totals.
 
