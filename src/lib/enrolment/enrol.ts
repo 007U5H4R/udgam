@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { importPublicJwk, jwkThumbprint, publicMembers, type PublicJwk } from '../crypto';
-import { writeTx, type Db } from '../db/client';
+import { writeTx, type Db, type Tx } from '../db/client';
 import { devices, user } from '../db/schema';
 import { newId } from '../ids';
 import { append } from '../ledger/hashchain';
@@ -51,6 +51,31 @@ async function publicKeyOf(jwk: unknown): Promise<PublicJwk | null> {
 }
 
 /**
+ * The enrolment's write, in the caller's transaction: the device row (chain at seq 0, no previous event)
+ * and its `device_enrolled` entry {deviceId, agentId, thumbprint}, the key's RFC 7638 thumbprint. Also
+ * used by the test and tracer seeds (scripts/tracer-world.ts, tests/helpers/batch-*.ts), so they anchor
+ * exactly what enrolment does. `publicJwk` must already be the key's public members.
+ */
+export async function anchorEnrolledDevice(
+  tx: Tx,
+  { deviceId, agentId, publicJwk, enrolledAt }: { deviceId: string; agentId: string; publicJwk: PublicJwk; enrolledAt: string },
+): Promise<{ thumbprint: string; anchorSeq: number }> {
+  const thumbprint = await jwkThumbprint(publicJwk);
+  const anchor = await append(tx, 'device_enrolled', { deviceId, agentId, thumbprint });
+  await tx.insert(devices).values({
+    id: deviceId,
+    agentId,
+    publicKeyJwk: JSON.stringify(publicJwk),
+    keyThumbprint: thumbprint,
+    enrolledAt,
+    lastSeq: 0,
+    lastEventHash: null,
+    anchorSeq: anchor.seq,
+  });
+  return { thumbprint, anchorSeq: anchor.seq };
+}
+
+/**
  * Enrol a phone for the signed-in agent with a one-time code. In one write transaction: the key must
  * be new, the code must redeem for this agent (5 per code, 10 per IP per hour), then the device row
  * and its `device_enrolled` entry {deviceId, agentId, thumbprint} are written. A refusal still commits
@@ -73,18 +98,7 @@ export async function enrolDevice(
     if (!r.ok) return r;
 
     const deviceId = newId('DV-');
-    const enrolledAt = now.toISOString();
-    const anchor = await append(tx, 'device_enrolled', { deviceId, agentId: r.agentId, thumbprint });
-    await tx.insert(devices).values({
-      id: deviceId,
-      agentId: r.agentId,
-      publicKeyJwk: JSON.stringify(pub),
-      keyThumbprint: thumbprint,
-      enrolledAt,
-      lastSeq: 0,
-      lastEventHash: null,
-      anchorSeq: anchor.seq,
-    });
+    await anchorEnrolledDevice(tx, { deviceId, agentId: r.agentId, publicJwk: pub, enrolledAt: now.toISOString() });
     log.info({ deviceId, agentId: r.agentId }, 'enrol.device_enrolled');
     return { ok: true, deviceId, seq: 0, lastEventHash: null };
   });

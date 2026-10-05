@@ -1,7 +1,8 @@
 import { hashPassword } from 'better-auth/crypto';
-import { jwkThumbprint, publicMembers } from '../src/lib/crypto';
+import { publicMembers } from '../src/lib/crypto';
 import { writeTx, type Db } from '../src/lib/db/client';
-import { account, agentPlots, devices, farmers, organisations, plots, user } from '../src/lib/db/schema';
+import { account, agentPlots, farmers, organisations, plots, user } from '../src/lib/db/schema';
+import { anchorEnrolledDevice } from '../src/lib/enrolment/enrol';
 import { seedYieldReference } from '../src/lib/db/seed/yield-reference';
 import { newId } from '../src/lib/ids';
 import { append } from '../src/lib/ledger/hashchain';
@@ -10,8 +11,8 @@ import { P01_AREA_HA, P01_INSIDE, P01_POLYGON } from './tracer-plot';
 export { P01_AREA_HA, P01_INSIDE, P01_POLYGON };
 
 // The TKT-02 tracer's world: one FPO, one farmer, plot P01 (scripts/tracer-plot.ts), the FPO's field
-// agent (a Better Auth user, TKT-04) with P01 assigned (TKT-05) and one phone enrolled to that agent. Used by the seed script and the integration tests; TKT-05/06 replace it with real enrolment
-// and plot registration.
+// agent (a Better Auth user, TKT-04) with P01 assigned (TKT-05) and one phone enrolled to that agent. Used by the seed script and the integration tests. The phone
+// is anchored by enrolment's own write (anchorEnrolledDevice): device_enrolled {deviceId, agentId, thumbprint}.
 
 /** `prefix` + 8 random Crockford base32 characters. */
 export const randomId = (prefix: string): string => newId(prefix);
@@ -47,7 +48,6 @@ export async function seedTracerWorld(
     agentEmail: `${agentId.toLowerCase()}@tracer.udgam.test`,
   };
   const jwk = publicMembers(publicJwk);
-  const kid = await jwkThumbprint(jwk);
   const ts = now.toISOString();
   const passwordHash = agentPassword === undefined ? undefined : await hashPassword(agentPassword);
   await writeTx(db, async (tx) => {
@@ -77,15 +77,8 @@ export async function seedTracerWorld(
     });
     // The agent may capture on P01 (agent_plots, TKT-05): the capture boundary refuses unassigned plots.
     await tx.insert(agentPlots).values({ agentId: world.agentId, plotId: world.plotId, assignedAt: ts });
-    const deviceAnchor = await append(tx, 'device_enrolled', { deviceId: world.deviceId, agentId: world.agentId, kid, publicJwk: jwk, enrolledAt: ts });
-    await tx.insert(devices).values({
-      id: world.deviceId,
-      agentId: world.agentId,
-      publicKeyJwk: JSON.stringify(jwk),
-      keyThumbprint: kid,
-      enrolledAt: ts,
-      anchorSeq: deviceAnchor.seq,
-    });
+    // The phone, anchored exactly as enrolment anchors it: device_enrolled {deviceId, agentId, thumbprint}.
+    await anchorEnrolledDevice(tx, { deviceId: world.deviceId, agentId: world.agentId, publicJwk: jwk, enrolledAt: ts });
   });
   // The TP6 yield reference the capture's yield_plausibility reads (the server seeds it at boot, TKT-09).
   await seedYieldReference(db);
