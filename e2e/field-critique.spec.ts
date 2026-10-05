@@ -220,3 +220,21 @@ test('DES-003: the Home plot card clips the contour lines that run past its glas
   expect(m.past).toBe(true); // the lines are drawn wider than the card …
   expect(m.overflow).toBe('hidden'); // … and the card clips them
 });
+
+test('DES-007: the current language and the current plot carry a check mark, not colour alone', async ({ page, context }) => {
+  const seed = seedCaptureWorld({ plots: ['P02', 'P01'] });
+  await openField(page, context, seed);
+  await page.getByRole('button', { name: 'Language' }).click();
+  const lang = page.getByRole('dialog', { name: 'ಭಾಷೆ · Language' });
+  await expect(lang.getByRole('button', { name: 'English' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(lang.getByRole('button', { name: 'English' }).locator('svg.ic')).toHaveCount(1);
+  await expect(lang.getByRole('button', { name: /ಕನ್ನಡ/ }).locator('svg.ic')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('button', { name: 'Change plot' }).click();
+  const plots = page.getByRole('dialog', { name: 'Choose a plot' });
+  const pressed = plots.locator('button[aria-pressed="true"]');
+  await expect(pressed).toHaveCount(1);
+  await expect(pressed.locator('svg.ic')).toHaveCount(1);
+  await expect(plots.locator('button[aria-pressed="false"] svg.ic')).toHaveCount(0);
+});

@@ -177,6 +177,7 @@ export function HomeClient({
               key={p.id}
               variant="ghost"
               aria-pressed={p.id === plot?.id}
+              icon={p.id === plot?.id ? <Ic name="check" /> : undefined} // DES-007: a mark, not colour alone
               onClick={() => {
                 setChoosing(false);
                 whenOnline(() => router.replace(`/field?plot=${encodeURIComponent(p.id)}`));
