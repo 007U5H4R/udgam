@@ -353,7 +353,16 @@ The feed of batch `B` contains, from the ledger (evaluation-plan §4.6):
   what the contract decided. The grade in `quality_attestation` is signed by the server on behalf of
   the buyer organisation's account (an EIP-712 signature by a server-held key, carried in
   `payload.eip712`), so it proves which account graded, not possession of a personal device key. The
-  contract enforces the arithmetic and the grade signature.
+  contract enforces the arithmetic and the grade signature, and pays one batch out at most once across
+  every agreement.
+  Neither entry carries the agreement's terms (agreed quantity, minimum grade, price, deadline). A
+  `settlement` names each condition not met by its code in `payload.reasons` (`quantity`, `grade`,
+  `all_verified`; empty when released) beside the observed values `deliveredKg`, `grade`, `pickings`,
+  `verifiedPickings` and `allVerified`; the value-vs-threshold wording is shown only to the agreement's
+  two parties. Settlements anchored before this rule carried `reasons` as `{ condition, text }` objects
+  whose text named the thresholds. The `AgreementCreated` contract event carries a hash of the terms, not
+  the terms; but the escrow's storage is readable by anyone who can query the chain it runs on, so the
+  terms are private only as far as that chain's access is (in the MVP, a local chain the server runs).
 
 Payload members a verifier relies on (all others are informational and covered by the hashes):
 

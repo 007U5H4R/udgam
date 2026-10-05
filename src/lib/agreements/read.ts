@@ -4,7 +4,7 @@ import { agreements, batches, custodyTransfers, organisations, qualityAttestatio
 import { formatKg1, formatInr, istDate } from './format';
 import { isGrade, type Grade } from './grades';
 import { deliveredBatchIds, type AgreementRow } from './service';
-import { judge, settlementFacts, type ConditionResult, type Reason } from './settle';
+import { judge, settlementFacts, type Condition, type ConditionResult, type Reason } from './settle';
 
 // What the agreement screens show (Design.md §28.1, §28.7). SERVER-ONLY. Org scope always comes from the
 // caller's session: buyer reads filter by buyer_org, FPO reads by fpo_org. Status words and marks follow
@@ -49,14 +49,26 @@ export type AgreementView = {
   deadlinePassed: boolean;
 };
 
-const parseReasons = (s: string): Reason[] => {
+const CONDITIONS: readonly Condition[] = ['quantity', 'grade', 'all_verified'];
+
+/**
+ * A settlement's reasons as value vs threshold. The row stores condition codes only (the terms are
+ * private and stay out of the anchored payload); the texts are rebuilt from the row's observed values
+ * and this agreement's terms. Rows written before that change stored `{ condition, text }`: their codes
+ * are read the same way.
+ */
+function reasonsOf(s: typeof settlements.$inferSelect, a: AgreementRow): Reason[] {
+  let raw: unknown;
   try {
-    const v = JSON.parse(s) as unknown;
-    return Array.isArray(v) ? (v as Reason[]) : [];
+    raw = JSON.parse(s.reasons);
   } catch {
     return [];
   }
-};
+  if (!Array.isArray(raw)) return [];
+  const codes = raw.map((r: unknown) => (typeof r === 'string' ? r : (r as { condition?: unknown } | null)?.condition)).filter((c): c is Condition => CONDITIONS.includes(c as Condition));
+  const results = judge({ deliveredKg: s.deliveredKg, pickings: s.pickings, verifiedPickings: s.verifiedPickings, grade: isGrade(s.grade) ? s.grade : null }, a);
+  return results.filter((r) => codes.includes(r.condition)).map((r) => ({ condition: r.condition, text: r.text }));
+}
 
 /** "2 conditions are not met" / "1 condition is not met". */
 export const conditionsNotMet = (n: number): string => (n === 1 ? '1 condition not met' : `${n} conditions not met`);
@@ -145,7 +157,7 @@ async function view(db: Db, a: AgreementRow, orgNames: Map<string, string>, now:
     buyerName: orgNames.get(a.buyerOrg) ?? '',
     fpoName: orgNames.get(a.fpoOrg) ?? '',
     delivered,
-    settlements: rows.map((s) => ({ id: s.id, batchId: s.batchId, outcome: s.outcome, reasons: parseReasons(s.reasons), createdAt: s.createdAt, txHash: s.txHash, blockNumber: s.blockNumber, deliveredKg: s.deliveredKg, grade: s.grade, pickings: s.pickings, verifiedPickings: s.verifiedPickings })),
+    settlements: rows.map((s) => ({ id: s.id, batchId: s.batchId, outcome: s.outcome, reasons: reasonsOf(s, a), createdAt: s.createdAt, txHash: s.txHash, blockNumber: s.blockNumber, deliveredKg: s.deliveredKg, grade: s.grade, pickings: s.pickings, verifiedPickings: s.verifiedPickings })),
     deadlinePassed: now.getTime() > Date.parse(a.deadline),
   };
 }

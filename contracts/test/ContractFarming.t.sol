@@ -29,6 +29,7 @@ contract ContractFarmingTest is Test {
     uint256 internal constant START_BALANCE = 10_000_000;
     uint64 internal deadline;
 
+    event AgreementCreated(bytes32 indexed id, address indexed buyer, address fpoPayee, bytes32 termsHash);
     event Funded(bytes32 indexed id, uint256 amount);
     event Settled(bytes32 indexed id, bytes32 indexed batchIdHash, address fpoPayee, uint256 amount);
     event SettlementRejected(bytes32 indexed id, bytes32 indexed batchIdHash, uint8 reasons);
@@ -462,5 +463,15 @@ contract ContractFarmingTest is Test {
         assertTrue(farming.batchReleased(BATCH));
         assertEq(token.balanceOf(fpo), AMOUNT);
         _reconcile();
+    }
+
+    // ── review nit: the creation event carries a hash of the terms, not the terms ────────────────
+
+    function test_CreatedEventCarriesTermsHashOnly() public {
+        bytes32 termsHash = keccak256(abi.encode(uint256(500_000), uint8(80), uint256(5_000_000), deadline));
+        assertEq(farming.termsHash(AGREED_GRAMS, MIN_GRADE, AMOUNT, deadline), termsHash);
+        vm.expectEmit(true, true, false, true);
+        emit AgreementCreated(ID, buyer, fpo, termsHash);
+        _create();
     }
 }

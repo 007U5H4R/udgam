@@ -18,8 +18,9 @@ import { escrowFromEnv } from './env-chain';
 // and the member events from the batch's anchored batch_created payload, each member's final verdict
 // from harvest_events, and the buyer's signed grade from quality_attestations. It sends them to
 // ContractFarming.settle (outside any DB transaction), waits for the receipt, and records the outcome
-// the CONTRACT decided — with each condition not met named as value vs threshold — as a settlement
-// row plus its signed anchor, in one writeTx. A release also closes the agreement (status settled).
+// the CONTRACT decided — each condition not met named by its code, with the observed values (never the
+// agreed terms: the settlement is in the batch's public proof feed) — as a settlement row plus its
+// signed anchor, in one writeTx. The caller gets each reason as value vs threshold for its private screen. A release also closes the agreement (status settled).
 // Trust, stated plainly: delivered kg and "all Verified" are this server's attestation; the grade is
 // signed by the server on behalf of the buyer's account; the contract does the arithmetic.
 
@@ -136,6 +137,9 @@ export async function settleBatch(db: Db, input: SettleInput, o: ServiceOptions 
   // The contract decided; name each condition its bitmask says was not met, value vs threshold.
   const results = judge(facts, a);
   const reasons: Reason[] = out.released ? [] : results.filter((r) => (out.reasons & REASON_BITS[r.condition]) !== 0).map((r) => ({ condition: r.condition, text: r.text }));
+  // Anchored and stored: condition codes only. The texts name the agreed kg and the minimum grade, which
+  // are private terms (Design.md §28.4); the screens rebuild them from the agreement row (read.ts).
+  const codes: Condition[] = reasons.map((r) => r.condition);
   const outcome = out.released ? 'released' : 'not_released';
   const ts = (o.now ?? (() => new Date()))().toISOString();
 
@@ -158,7 +162,7 @@ export async function settleBatch(db: Db, input: SettleInput, o: ServiceOptions 
       allVerified,
       grade,
       outcome,
-      reasons,
+      reasons: codes,
       chain: { chainId: c.chainId, contract: c.escrow, txHash: out.txHash, blockNumber: out.blockNumber },
       signedBy: input.userId,
       ts,
@@ -175,7 +179,7 @@ export async function settleBatch(db: Db, input: SettleInput, o: ServiceOptions 
       allVerified,
       grade,
       outcome,
-      reasons: JSON.stringify(reasons),
+      reasons: JSON.stringify(codes),
       txHash: out.txHash,
       blockNumber: out.blockNumber,
       settledBy: input.userId,
