@@ -70,7 +70,9 @@ const markFinal = () => mark('proof-final');
 /** One closed telemetry event (lib/certificate/telemetry.ts) by sendBeacon; never affects the page. */
 function send(event: { event: 'certificate.viewed'; batchId: string } | { event: 'certificate.proof_failed'; step: string; batchId: string }): void {
   try {
-    navigator.sendBeacon?.('/api/telemetry', new Blob([JSON.stringify(event)], { type: 'application/json' }));
+    // Failures go to their own rate-limit bucket (TASK-17 r2 N2), so views never crowd them out.
+    const url = event.event === 'certificate.proof_failed' ? '/api/telemetry?e=proof_failed' : '/api/telemetry';
+    navigator.sendBeacon?.(url, new Blob([JSON.stringify(event)], { type: 'application/json' }));
   } catch {
     // telemetry never affects the page
   }

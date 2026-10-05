@@ -57,11 +57,15 @@ async function settle(pred: () => boolean, ms = 10_000) {
   }
 }
 
-/** Every beacon body sent so far, parsed (all go to /api/telemetry). */
+/**
+ * Every beacon body sent so far, parsed. Views go to /api/telemetry, proof failures to
+ * /api/telemetry?e=proof_failed (their own rate-limit bucket, TASK-17 r2 N2).
+ */
 async function sent(): Promise<unknown[]> {
   const calls = beacon.mock.calls as [string, Blob][];
-  expect(calls.every(([url]) => url === '/api/telemetry')).toBe(true);
-  return Promise.all(calls.map(async ([, blob]) => JSON.parse(await blob.text()) as unknown));
+  const bodies = await Promise.all(calls.map(async ([, blob]) => JSON.parse(await blob.text()) as { event: string }));
+  calls.forEach(([url], i) => expect(url).toBe(bodies[i]!.event === 'certificate.proof_failed' ? '/api/telemetry?e=proof_failed' : '/api/telemetry'));
+  return bodies;
 }
 const VIEWED = { event: 'certificate.viewed', batchId: FEED.batchId };
 

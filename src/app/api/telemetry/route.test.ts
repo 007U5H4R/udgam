@@ -123,7 +123,7 @@ describe('POST /api/telemetry body bounds (TASK-17 fix round 1)', () => {
     expect((await post(padded)).status).toBe(400);
   });
 
-  it('stops reading a streamed body that runs past 512 bytes, whatever it declared: 413 after 9 chunks of 64 bytes', async () => {
+  it('stops reading a streamed body that runs past 512 bytes, whatever it declared: 413 within 10 chunks of 64 bytes', async () => {
     const { req, pulled } = endless({ 'content-length': '100' });
     const res = await POST(req);
     expect(res.status).toBe(413);
@@ -139,6 +139,21 @@ describe('POST /api/telemetry rate limit (TASK-17 fix round 1)', () => {
     await post(VIEW, { 'x-forwarded-for': '198.51.100.1, 203.0.113.9' });
     expect(consume).toHaveBeenCalledTimes(1);
     expect(consume.mock.calls[0]!.slice(1)).toEqual(['telemetry:ip:203.0.113.9', 30, 600]);
+  });
+
+  it('a proof failure sent to ?e=proof_failed counts on its own bucket, 30 per 10 minutes (TASK-17 r2 N2)', async () => {
+    const failed = JSON.stringify({ event: 'certificate.proof_failed', batchId: 'B-7K2M9Q4D', step: 'entry-hash' });
+    const h = { ...BASE_HEADERS, 'content-length': String(failed.length) };
+    const res = await POST(new Request('http://localhost/api/telemetry?e=proof_failed', { method: 'POST', body: failed, headers: h }));
+    expect(res.status).toBe(204);
+    expect(consume.mock.calls[0]!.slice(1)).toEqual(['telemetry:failed:ip:203.0.113.9', 30, 600]);
+  });
+
+  it('the failure bucket carries proof failures only: a view sent to it is 400 and not logged', async () => {
+    const h = { ...BASE_HEADERS, 'content-length': String(VIEW.length) };
+    const res = await POST(new Request('http://localhost/api/telemetry?e=proof_failed', { method: 'POST', body: VIEW, headers: h }));
+    expect(res.status).toBe(400);
+    expect(info).not.toHaveBeenCalled();
   });
 
   it('keys an IPv6 client by its /64', async () => {
