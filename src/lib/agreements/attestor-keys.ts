@@ -1,9 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import { chmod, link, mkdir, open, readFile, stat, unlink } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { keccak256, recoverTypedDataAddress, toBytes, type Address, type Hex } from 'viem';
 import { generatePrivateKey, privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { env } from '../config/env';
+import { runtimePath } from '../config/runtime-path';
 import { isNodeError } from '../crypto/key-file';
 import { log } from '../log';
 
@@ -52,7 +53,7 @@ export class OrgKeyInvalid extends Error {
 /** DATA_DIR/keys/evm/<orgId>.key */
 export function orgKeyPath(orgId: string, dataDir: string = env.DATA_DIR): string {
   if (!ORG_ID.test(orgId)) throw new TypeError('organisation EVM key: invalid organisation id');
-  return resolve(join(dataDir, 'keys', 'evm', `${orgId}.key`));
+  return runtimePath(dataDir, 'keys', 'evm', `${orgId}.key`);
 }
 
 async function readKey(path: string): Promise<Hex> {

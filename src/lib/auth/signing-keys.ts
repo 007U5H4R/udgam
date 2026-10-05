@@ -1,5 +1,5 @@
-import { join, resolve } from 'node:path';
 import { env } from '../config/env';
+import { runtimePath } from '../config/runtime-path';
 import { sign, type PublicJwk } from '../crypto';
 import { loadOrCreateP256KeyFile, type P256KeyFile } from '../crypto/key-file';
 
@@ -28,7 +28,7 @@ const loaded = new Map<string, Promise<P256KeyFile>>();
 
 function keyPath(userId: string): string {
   if (!USER_ID.test(userId)) throw new TypeError('signing key: invalid user id');
-  return resolve(join(env.DATA_DIR, 'keys', 'users', `${userId}.jwk`));
+  return runtimePath(env.DATA_DIR, 'keys', 'users', `${userId}.jwk`);
 }
 
 function userKey(userId: string): Promise<P256KeyFile> {
