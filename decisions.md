@@ -706,3 +706,14 @@ Each guarantee has a named test in TKT-09.
 - Letter grades: confused with Indian bean-size grades such as "Plantation A".
 - A fifth admin rail item for agreements: it changes the frozen IA.
 - Showing agreement terms or payments on the public certificate: commercial terms are private.
+
+## EXE22 · Owner waiver: go straight from Stage 7 into Stage 8 — accepted (owner, 2026-10-05)
+**Context.** CLAUDE.md requires a human gate after every stage. The owner also asked for speed ("Time matters").
+**Decision (owner).** "Once stage 7 is done, directly move to stage 8." When Stage 7 is complete, the session:
+- writes the final Stage 7 report;
+- prepares HR1, HR2 and HR6 in docs/exec/;
+- rewrites HANDOFF.md;
+- pushes, then starts Stage 8 (Design Critique, skill bw-design-critique) without waiting for approval.
+
+The owner's open review items stay listed for the owner and are not treated as approved. These are the M-001 owner decisions (docs/exec/m-001-gate.md OD-1 to OD-8), D9/D10, which are pending owner review at Stage 8, and the Kannada native review.
+**Rejected.** Stopping at the Stage 7 gate (the owner asked not to).
