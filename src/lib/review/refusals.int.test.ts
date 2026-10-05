@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { seedFpo, type FpoWorld } from '../../../tests/helpers/batch-fixtures';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
-import { checksWith, seedReviewCapture } from '../../../tests/helpers/review-world';
+import { addRun, checksWith, seedReviewCapture } from '../../../tests/helpers/review-world';
 import { createBatch } from '../batches/create';
 import { writeTx } from '../db/client';
 import { adminOverrides, ledgerEntries, verificationRuns } from '../db/schema';
@@ -189,6 +189,14 @@ describe("the database's override refusals map to named codes", () => {
     expect(refusalFromDb(await rawOverride(verified.runId, REASON))).toBe('not_reviewable');
     const c = await seedReviewCapture(t.db, a, { checks: cloudy });
     expect(refusalFromDb(await rawOverride(c.runId, '\u200B'.repeat(12)))).toBe('reason_has_control');
+    expect(refusalFromDb(await rawOverride(c.runId, '\u2800'.repeat(12)))).toBe('reason_has_control'); // a braille blank (TKT-12 r2 N2)
     expect(await t.db.$count(adminOverrides)).toBe(0);
+  });
+
+  it('a new run after a hard-failed run of the same event → hard_fail_final (CF-06, TKT-12 r2 N3)', async () => {
+    const hard = await seedReviewCapture(t.db, a, { checks: checksWith({ photo_uniqueness: { status: 'fail', hardFail: true } }) });
+    const err = await addRun(t.db, hard.eventId, 2, checksWith()).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(refusalFromDb(err)).toBe('hard_fail_final');
   });
 });

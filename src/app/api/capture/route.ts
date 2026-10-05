@@ -4,7 +4,7 @@ import { BODY_READ_DEADLINE_MS, BUSY_RETRY_AFTER_SEC } from '../../../lib/captur
 import { checkContentLength } from '../../../lib/capture/parse';
 import { runCapture, type CaptureEvent } from '../../../lib/capture/pipeline';
 import { readFormWithin } from '../../../lib/capture/read-form';
-import { consume, IP_LIMIT, ipKey } from '../../../lib/capture/rate-limit';
+import { consume, IP_LIMIT, ipKey, refund } from '../../../lib/capture/rate-limit';
 import { localStagingStore } from '../../../lib/capture/staging';
 import { clientIp } from '../../../lib/client-ip';
 import { env } from '../../../lib/config/env';
@@ -57,9 +57,10 @@ export async function POST(req: Request): Promise<Response> {
 
   let db: Db;
   let perIp: Awaited<ReturnType<typeof consume>>;
+  const ip = { key: ipKey(clientIp(req.headers)), at: new Date() };
   try {
     db = await getDbReady();
-    perIp = await consume(db, ipKey(clientIp(req.headers)), IP_LIMIT.limit, IP_LIMIT.windowSec);
+    perIp = await consume(db, ip.key, IP_LIMIT.limit, IP_LIMIT.windowSec, ip.at);
   } catch (err) {
     log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'capture.route_failed');
     return new Response(line({ t: 'error', retryable: true }), { status: 503, headers: HEADERS });
@@ -75,14 +76,14 @@ export async function POST(req: Request): Promise<Response> {
   try {
     return await accept(req, agent, db, slot.release, () => {
       handedOff = true;
-    });
+    }, ip);
   } finally {
     if (!handedOff) slot.release();
   }
 }
 
 /** The capture from the body read on, holding a slot; `handOff` marks that the capture now owns it. */
-async function accept(req: Request, agent: Guarded, db: Db, release: () => void, handOff: () => void): Promise<Response> {
+async function accept(req: Request, agent: Guarded, db: Db, release: () => void, handOff: () => void, ip: { key: string; at: Date }): Promise<Response> {
   const read = await readFormWithin(req, BODY_READ_DEADLINE_MS);
   if (!read.ok) {
     if (read.reason === 'timeout') {
@@ -150,6 +151,14 @@ async function accept(req: Request, agent: Guarded, db: Db, release: () => void,
   })();
 
   const f = await first;
+  // A 409 media_not_staged is not an attempt; its resend with the bytes is (TKT-30 review #5).
+  if (f?.t === 'rejected' && f.reason === 'media_not_staged') {
+    try {
+      await refund(db, ip.key, IP_LIMIT.windowSec, ip.at);
+    } catch (err) {
+      log.warn({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'capture.refund_failed');
+    }
+  }
   const status = f?.t === 'rejected' ? f.status : f?.t === 'error' ? 503 : 200;
   const headers: Record<string, string> = { ...HEADERS };
   if (f?.t === 'rejected' && f.retryAfterSec !== undefined) headers['Retry-After'] = String(f.retryAfterSec);

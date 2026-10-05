@@ -93,6 +93,33 @@ describe('POST /api/capture', () => {
     expect(res.status).toBe(400);
   });
 
+  it('a 409 media_not_staged spends no per-address token: the resend is the one that counts (TKT-30 review #5)', async () => {
+    const { POST } = await import('./route');
+    const bytes = fakeJpeg('never-staged');
+    const payload = {
+      v: 1 as const,
+      plotId: world.plotId,
+      deviceId: world.deviceId,
+      seq: 1,
+      prevEventHash: 'genesis',
+      capturedAt: new Date().toISOString(),
+      gps: { ...P01_INSIDE, accuracyM: 8 },
+      cherryKg: 42.5,
+      media: [{ sha256: await sha256Hex(bytes), size: bytes.length, mime: 'image/jpeg' }],
+    };
+    const signed = jcs(payload);
+    const fd = new FormData();
+    fd.set('payload', signed);
+    fd.set('signature', await sign(dev.pair.privateKey, signed));
+    fd.set('staged', JSON.stringify([payload.media[0]!.sha256]));
+    const res = await POST(await multipartRequest('http://localhost/api/capture', fd, { cookie: agentCookie, 'x-forwarded-for': '203.0.113.44' }));
+    expect(res.status).toBe(409);
+    expect(await lines(res)).toMatchObject([{ t: 'rejected', reason: 'media_not_staged' }]);
+    const ipTokens = async () =>
+      Number((await t.client.execute({ sql: "SELECT COALESCE(SUM(count), 0) AS n FROM rate_limits WHERE key = 'capture:ip:203.0.113.44'" })).rows[0]?.n);
+    expect(await ipTokens()).toBe(0);
+  });
+
   it('declares the Node runtime and no caching', async () => {
     const mod = await import('./route');
     expect(mod.runtime).toBe('nodejs');

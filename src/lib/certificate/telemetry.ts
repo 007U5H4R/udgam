@@ -9,6 +9,15 @@ export const TELEMETRY_MAX_BYTES = 512;
 /** Beacons per client address (an IPv6 /64, lib/client-ip.ts) per window (TASK-17 fix round 1). */
 export const TELEMETRY_IP_LIMIT = { limit: 30, windowSec: 10 * 60 } as const;
 export const telemetryIpKey = (ip: string) => `telemetry:ip:${ip}`;
+/**
+ * Proof-failure beacons per client address per window, in a bucket of their own (TASK-17 r2 N2): views
+ * from a shared address (an office, carrier-grade NAT) must not use up the §15 failure signal. The page
+ * sends failures to `/api/telemetry?e=proof_failed`.
+ */
+export const TELEMETRY_FAILED_IP_LIMIT = { limit: 30, windowSec: 10 * 60 } as const;
+export const telemetryFailedIpKey = (ip: string) => `telemetry:failed:ip:${ip}`;
+/** The query that routes a beacon to the failure bucket. */
+export const TELEMETRY_FAILED_QUERY = 'proof_failed';
 /** A beacon body arrives at once; one that trickles is dropped well before the server's request timeout. */
 export const TELEMETRY_READ_DEADLINE_MS = 5_000;
 

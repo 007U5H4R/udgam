@@ -69,7 +69,7 @@ test('TC-051 working: month header, verdict chips, reasons under Needs a check a
   await expect(needs.locator('.r-why')).toHaveText('The satellite picture for this month was cloudy. The office is checking it.');
 
   const rejected = page.locator(`li.row[data-event="${seed.events[2]!.eventId}"]`);
-  await expect(rejected.locator('.r-why > p')).toHaveText('Your phone was 212 m outside Plot 1.');
+  await expect(rejected.locator('.r-why > p')).toHaveText('Your phone was 212\u00a0m outside Plot 1.');
   const what = rejected.locator('details');
   await expect(what.locator('summary')).toHaveText('What can I do?');
   await expect(what.locator('p')).toBeHidden();

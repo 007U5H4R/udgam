@@ -104,6 +104,8 @@ jobs:
   setup-idempotent:
     name: setup-idempotent (TC-002)
     runs-on: ubuntu-latest
+    env:
+      CLOUD_SETUP_STRICT: '1' # a failed Foundry/solc download fails the first run, not the second
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

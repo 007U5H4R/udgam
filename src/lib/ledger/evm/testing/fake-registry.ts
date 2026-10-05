@@ -21,6 +21,8 @@ export type FakeRegistry = RegistryClient & {
   set(o: Partial<FakeRegistryOptions>): void;
   /** Mine `n` empty blocks. */
   mine(n: number): void;
+  /** Every anchoredLog(seq, fromBlock) call, as [seq, fromBlock]. */
+  anchoredLogFrom: [number, number | undefined][];
 };
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -72,8 +74,10 @@ export function fakeRegistry(opts: FakeRegistryOptions = {}): FakeRegistry {
       }),
     nextSeq: () => rpc('nextSeq', () => hashes.size + 1),
     blockNumber: () => rpc('blockNumber', () => block),
-    anchoredLog: (seq) =>
+    anchoredLogFrom: [],
+    anchoredLog: (seq, fromBlock) =>
       rpc('anchoredLog', () => {
+        reg.anchoredLogFrom.push([seq, fromBlock]);
         const r = receipts.get(seq);
         return r ? { ...r, seq, entryHash: hashes.get(seq)! } : null;
       }),

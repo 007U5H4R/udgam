@@ -1,4 +1,6 @@
-import type { Db } from '../db/client';
+import { and, eq, gt, sql } from 'drizzle-orm';
+import { writeTx, type Db } from '../db/client';
+import { rateLimits } from '../db/schema';
 import { hit } from '../rate-limit';
 
 // Capture rate limits (technical-plan §22 TSK-19.3, §16 "upload abuse", TC-074) on the shared
@@ -26,4 +28,19 @@ export async function consume(db: Db, key: string, limit: number, windowSec: num
   const nowSec = now.getTime() / 1000;
   const windowEnd = (Math.floor(nowSec / windowSec) + 1) * windowSec;
   return { ok: false, retryAfterSec: Math.max(1, Math.ceil(windowEnd - nowSec)) };
+}
+
+/**
+ * Give back one attempt counted on `key` in the window of `now` (TKT-30 review #5): a capture answered
+ * 409 media_not_staged is not an attempt, its resend with the bytes is, so the pair spends one token.
+ * A window that has rolled over since is left alone.
+ */
+export async function refund(db: Db, key: string, windowSec: number, now: Date): Promise<void> {
+  const windowStart = Math.floor(now.getTime() / 1000 / windowSec) * windowSec;
+  await writeTx(db, (tx) =>
+    tx
+      .update(rateLimits)
+      .set({ count: sql`${rateLimits.count} - 1` })
+      .where(and(eq(rateLimits.key, key), eq(rateLimits.windowStart, windowStart), gt(rateLimits.count, 0))),
+  );
 }

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { createClient } from '@libsql/client';
 import { expect, type Page } from '@playwright/test';
-import { demoPhoto, type SeededCapture } from './capture';
+import { demoPhoto, type SeededCapture, choosePhoto } from './capture';
 import { E2E_DATA_DIR } from './tracer';
 
 // Helpers for the TKT-11 field specs (field-retry, field-pickings, field-nav, field-language): the
@@ -43,7 +43,7 @@ export async function typePicking(page: Page, seed: SeededCapture, o: { photos?:
   const photos = o.photos ?? 3;
   await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
   for (const [i, slot] of SLOTS.slice(0, photos).entries()) {
-    await page.getByLabel(slot).setInputFiles({ name: `p${i}.jpg`, mimeType: 'image/jpeg', buffer: demoPhoto() });
+    await choosePhoto(page.getByLabel(slot), { name: `p${i}.jpg`, mimeType: 'image/jpeg', buffer: demoPhoto() });
     await page.getByRole('button', { name: 'Use this photo' }).click();
     if (i < photos - 1) await expect(page.getByRole('button', { name: 'Open camera' })).toBeVisible();
   }

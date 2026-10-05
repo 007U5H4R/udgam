@@ -87,6 +87,53 @@ describe('checkReason', () => {
   });
 });
 
+describe('TKT-12 re-review r2 (N1, N2, N5)', () => {
+  it('N1: ordinary number lists are not phone numbers: years, decimals, GPS without a comma', () => {
+    for (const r of [
+      'Seasons 2024 2025 2026 all fine',
+      'Weights 102.5 103.0 101.75 kg on three days',
+      'Phone fix 12.3375 75.8069 is inside plot',
+      'Fix 12.337512 75.806912 checked on the map',
+      '42.5 kg then 38.75 kg on the scale',
+      'Plot 1234, survey no. 56/7, 890 trees',
+      'Times 09:30-11:45 and 9.30 at the scale',
+      'Dates 2026-09-24, 24/09/2026 and 24/09/26 checked',
+      'ದಿನಾಂಕ ೨೪/೦೯/೨೦೨೬ ಪರಿಶೀಲಿಸಲಾಗಿದೆ',
+    ]) {
+      expect(hasPhoneNumber(r), r).toBe(false);
+      expect(checkReason(r), r).toEqual({ ok: true, reason: r });
+    }
+  });
+
+  it('N2(b): a phone number behind a comma, en dash, em dash, colon or middle dot is still refused', () => {
+    for (const r of ['call 98450,12345 please', 'call 98450–12345 please', 'call 98450—12345 please', 'call 98450:12345 please', 'call 98450·12345 please']) {
+      expect(hasPhoneNumber(r), r).toBe(true);
+      expect(checkReason(r), r).toEqual({ ok: false, code: 'reason_has_phone' });
+    }
+  });
+
+  it('N2(a): characters that render blank count as invisible', () => {
+    for (const blank of ['⠀', 'ㅤ', 'ᅟ', 'ᅠ', 'ﾠ']) {
+      expect(checkReason(blank.repeat(12)), blank.codePointAt(0)!.toString(16)).toEqual({ ok: false, code: 'reason_has_control' });
+      expect(checkReason(`Checked in${blank} person`), blank.codePointAt(0)!.toString(16)).toEqual({ ok: false, code: 'reason_has_control' });
+    }
+    // combining marks alone (or piled on one letter) are not ten visible characters
+    expect(checkReason('a' + '́'.repeat(12))).toEqual({ ok: false, code: 'reason_too_short' });
+    expect(checkReason('́'.repeat(12))).toEqual({ ok: false, code: 'reason_too_short' });
+    // Kannada vowel signs and viramas on their letters still count
+    expect(checkReason('ಕಚೇರಿ ಪರಿಶೀಲನೆ')).toEqual({ ok: true, reason: 'ಕಚೇರಿ ಪರಿಶೀಲನೆ' });
+  });
+
+  it('N5: ZWJ and ZWNJ are allowed only inside a Kannada script run (EXE19 consistency)', () => {
+    const arkavattu = 'ಕಚೇರಿಯಲ್ಲಿ ಕರ‍್ನಾಟಕದ ತೂಕ ಪರಿಶೀಲನೆ';
+    expect(checkReason(arkavattu)).toEqual({ ok: true, reason: arkavattu.normalize('NFKC') });
+    expect(checkReason('ಕಚೇರಿ ಪರಿಶೀಲನೆ ರ‌್ ಮಾಡಲಾಗಿದೆ')).toMatchObject({ ok: true });
+    for (const r of ['Checked in‍ person', 'Checked in‌ person', '‍ಕಚೇರಿ ಪರಿಶೀಲನೆ', 'ಕಚೇರಿ ಪರಿಶೀಲನೆ‍', 'ಕಚೇರಿ‍ person checked']) {
+      expect(checkReason(r), JSON.stringify(r)).toEqual({ ok: false, code: 'reason_has_control' });
+    }
+  });
+});
+
 describe('asciiDigits', () => {
   it('maps every Unicode decimal digit to its ASCII digit', () => {
     expect(asciiDigits('٠١٢٣٤٥٦٧٨٩')).toBe('0123456789'); // Arabic-Indic

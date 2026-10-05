@@ -137,10 +137,14 @@ export function createSentinelProvider(o: SentinelOptions) {
     });
   }
 
-  /** A token valid for at least another 60 s; concurrent callers share one token request, each bounded by its own signal. */
+  /**
+   * A token valid for at least another 60 s; concurrent callers share one token request, each bounded by
+   * its own signal. `force` asks for a fresh one even when the cached token is still valid; the cached
+   * token is replaced only when that request succeeds (fetchToken), so a failed probe costs the next
+   * capture nothing (TKT-07 r2 nit 3).
+   */
   async function accessToken(signal: AbortSignal | undefined, force = false): Promise<string> {
     if (!force && token && now().getTime() < token.expiresAt - TOKEN_MARGIN_MS) return token.value;
-    if (force) token = undefined;
     pending ??= sharedToken();
     return untilAborted(pending, signal);
   }

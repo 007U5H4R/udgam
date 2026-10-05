@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { writeTx, type Db, type Tx } from '../../db/client';
 import { evmAnchors } from '../../db/schema';
 import { log } from '../../log';
@@ -19,7 +19,7 @@ import type { AnchorReceipt, RegistryClient } from './client';
 //
 // Statuses: pending → anchored (terminal; tx_hash immutable, migration 0020). 'failed' is terminal too
 // and means the chain already holds a DIFFERENT hash at that seq: anchoring halts there until the
-// operator records one resolution (`pnpm ledger:evm:resolve`, migration 0023, docs/proof-feed.md §13.4).
+// operator records one resolution (`pnpm ledger:evm:resolve`, migration 0025, docs/proof-feed.md §13.4).
 // An anchor is recorded after `confirmations` blocks (deployment.json; 1 on Anvil).
 
 export type AnchorRunReport = {
@@ -121,6 +121,17 @@ export function createEvmLedger(o: EvmLedgerOptions): EvmLedger {
     });
   }
 
+  /** The block of the highest anchored seq below `seq`, where a log scan for `seq` can start. */
+  async function lastAnchoredBlock(seq: number): Promise<number | undefined> {
+    const [r] = await db
+      .select({ block: evmAnchors.blockNumber })
+      .from(evmAnchors)
+      .where(and(eq(evmAnchors.status, 'anchored'), lt(evmAnchors.seq, seq)))
+      .orderBy(desc(evmAnchors.seq))
+      .limit(1);
+    return r?.block ?? undefined;
+  }
+
   async function noteError(seq: number, attempts: number, reason: string): Promise<void> {
     await writeTx(db, (tx) =>
       tx
@@ -160,7 +171,6 @@ export function createEvmLedger(o: EvmLedgerOptions): EvmLedger {
   async function run(): Promise<AnchorRunReport> {
     const pending = await toAnchor();
     if (pending.length === 0) return { anchored: 0, pending: 0 };
-    await backfill(pending.filter((r) => !r.hasRow).map((r) => r.seq));
 
     let anchored = 0;
     // At most one error write per pass: every stop() ends the pass.
@@ -184,6 +194,8 @@ export function createEvmLedger(o: EvmLedgerOptions): EvmLedger {
       log.warn({ seq: pending[0]!.seq, failedSeq: failed.seq }, 'evm.anchor_halted');
       return { anchored: 0, pending: pending.length, stoppedAt: { seq: pending[0]!.seq, reason } };
     }
+    // Only a pass that is not halted backfills: a halted one writes nothing at all (§13.4).
+    await backfill(pending.filter((r) => !r.hasRow).map((r) => r.seq));
 
     let client: RegistryClient;
     let chainNext: number;
@@ -205,7 +217,8 @@ export function createEvmLedger(o: EvmLedgerOptions): EvmLedger {
           // null below nextSeq is an inconsistent read (a lagging replica): transient, retried next pass.
           if (onChain === null) return await stop(row, `registry read no hash at seq ${row.seq} below nextSeq ${chainNext}; retrying`);
           if (onChain !== row.entryHash) return await stop(row, `registry holds a different hash at seq ${row.seq}`, true);
-          const found = await client.anchoredLog(row.seq);
+          // Anchors are in seq order on chain, so the log is at or after the last anchored seq's block (r2 #4).
+          const found = await client.anchoredLog(row.seq, await lastAnchoredBlock(row.seq));
           if (!found) return await stop(row, `seq ${row.seq} is on chain but its EntryAnchored log was not found`);
           const depth = (await client.blockNumber()) - found.blockNumber + 1;
           if (depth < client.confirmations) return await stop(row, `seq ${row.seq} has ${depth} of ${client.confirmations} confirmations`);

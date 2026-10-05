@@ -337,7 +337,7 @@ describe("a batched event's facts are frozen (TC-059, EVAL-077)", () => {
     await batched();
     await expect(exec(`UPDATE verification_runs SET score = 1 WHERE event_id = 'HE-1'`)).rejects.toThrow(/frozen/);
     await expect(exec(`UPDATE verification_runs SET verdict = 'Rejected' WHERE event_id = 'HE-1'`)).rejects.toThrow(/frozen/);
-    // since TKT-12's 0019 every run is immutable once written, batched or not (verification_runs_immutable)
+    // since TKT-12's 0021 every run is immutable once written, batched or not (verification_runs_immutable)
     await expect(exec(`UPDATE verification_runs SET score = 81 WHERE event_id = 'HE-2'`)).rejects.toThrow(/frozen once written/);
   });
 

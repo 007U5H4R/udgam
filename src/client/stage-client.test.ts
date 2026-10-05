@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { captureForm, sendCapture } from './capture-client';
-import { forgetStaged, MAX_STAGING_IN_FLIGHT, resetStagingForTests, stagedHashes, stageEndMark, stagePhoto, stageStartMark, STAGED_TRUST_MS } from './stage-client';
+import { abortStaging, forgetStaged, MAX_STAGING_IN_FLIGHT, resetStagingForTests, stagedHashes, stageEndMark, stagePhoto, stageStartMark, STAGED_TRUST_MS } from './stage-client';
 
 // TSK-30.4 / TSK-30.5 (TC-094 d–e, client half): photos are staged in the background, at most two at a
 // time with no retry loop; Submit names staged photos by hash and sends only the rest; a 409
@@ -154,6 +154,37 @@ describe('Submit with staged photos (TC-094 d–e)', () => {
     const fetchImpl = vi.fn(async () => new Response(ndjson({ t: 'rejected', reason: 'media_hash_mismatch', status: 409 }), { status: 409 }));
     expect(await sendCapture(capture, { fetchImpl, staged: new Set([A]) })).toEqual({ kind: 'rejected', reason: 'media_hash_mismatch' });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('Send while stage uploads are in flight or queued aborts them and sends those photos inline, once (TKT-30 review #2)', async () => {
+    const signals: AbortSignal[] = [];
+    const stageFetch = vi.fn(
+      (_u: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          signals.push(init!.signal!);
+          init!.signal!.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+        }),
+    );
+    // three photos: two upload at once, the third waits in the queue
+    const uploads = [A, B, C].map((h, i) => stagePhoto(files[i]!, h, { deviceId: 'DV-1', fetchImpl: stageFetch }));
+    await vi.waitFor(() => expect(stageFetch).toHaveBeenCalledTimes(MAX_STAGING_IN_FLIGHT));
+    const bodies: FormData[] = [];
+    const captureFetch = vi.fn(async (_u: string, init?: RequestInit) => {
+      bodies.push(init?.body as FormData);
+      return new Response(ndjson(VERDICT), { status: 200 });
+    });
+    expect(await sendCapture(capture, { fetchImpl: captureFetch })).toMatchObject({ kind: 'verdict' });
+    expect(await Promise.all(uploads)).toEqual(['failed', 'failed', 'failed']);
+    expect(signals.every((s) => s.aborted)).toBe(true);
+    expect(stageFetch).toHaveBeenCalledTimes(MAX_STAGING_IN_FLIGHT); // the queued one never went up
+    expect(bodies[0]!.has('staged')).toBe(false);
+    expect([...bodies[0]!.keys()].filter((k) => k.startsWith('photo'))).toEqual(['photo0', 'photo1', 'photo2']);
+  });
+
+  it('abortStaging leaves photos already staged named by hash', async () => {
+    await stagePhoto(files[0]!, A, { deviceId: 'DV-1', fetchImpl: async () => created(A) });
+    abortStaging();
+    expect(stagedHashes()).toEqual(new Set([A]));
   });
 
   it('nothing staged: one request with every photo, as before', async () => {

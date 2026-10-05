@@ -22,11 +22,14 @@ afterEach(async () => {
 });
 
 const VIEW = JSON.stringify({ event: 'certificate.viewed', batchId: 'B-7K2M9Q4D' });
+const FAILED = JSON.stringify({ event: 'certificate.proof_failed', batchId: 'B-7K2M9Q4D', step: 'entry-hash' });
 
-async function beacon(ip: string): Promise<Response> {
+async function beacon(ip: string, kind: 'view' | 'failed' = 'view'): Promise<Response> {
   const { POST } = await import('./route');
-  const headers = { 'content-type': 'application/json', 'content-length': String(VIEW.length), 'x-forwarded-for': ip };
-  return POST(new Request('http://localhost/api/telemetry', { method: 'POST', body: VIEW, headers }));
+  const body = kind === 'view' ? VIEW : FAILED;
+  const url = kind === 'view' ? 'http://localhost/api/telemetry' : 'http://localhost/api/telemetry?e=proof_failed';
+  const headers = { 'content-type': 'application/json', 'content-length': String(body.length), 'x-forwarded-for': ip };
+  return POST(new Request(url, { method: 'POST', body, headers }));
 }
 
 describe('POST /api/telemetry per-address limit (TASK-17 fix round 1)', () => {
@@ -39,6 +42,13 @@ describe('POST /api/telemetry per-address limit (TASK-17 fix round 1)', () => {
     expect(retry).toBeGreaterThanOrEqual(1);
     expect(retry).toBeLessThanOrEqual(600);
     expect((await beacon('203.0.113.21')).status).toBe(204);
+  });
+
+  it('proof failures have their own bucket: after 30 views a failure is still accepted, and failures stop at their own 30 (TASK-17 r2 N2)', async () => {
+    for (let i = 1; i <= 30; i++) expect((await beacon('203.0.113.30')).status, `view ${i}`).toBe(204);
+    expect((await beacon('203.0.113.30')).status).toBe(429);
+    for (let i = 1; i <= 30; i++) expect((await beacon('203.0.113.30', 'failed')).status, `failure ${i}`).toBe(204);
+    expect((await beacon('203.0.113.30', 'failed')).status).toBe(429);
   });
 
   it('counts every address of one IPv6 /64 in one bucket', async () => {

@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createClient } from '@libsql/client';
 import { expect, test, type Page } from '@playwright/test';
-import { demoPhoto, expectNoHorizontalScroll, openField, seedCaptureWorld, type SeededCapture } from './helpers/capture';
+import { demoPhoto, expectNoHorizontalScroll, openField, seedCaptureWorld, type SeededCapture, choosePhoto } from './helpers/capture';
 import { E2E_DATA_DIR } from './helpers/tracer';
 
 // TSK-10.11 · the three verdict screens on one template: Verified (#s5), Needs a check (#s6), and Not
@@ -15,7 +15,7 @@ test.describe.configure({ timeout: 120_000 });
 
 async function record(page: Page, seed: SeededCapture, photo: Buffer, plot = seed.plots[0]!.id) {
   await page.goto(`/field/record?plot=${plot}`);
-  await page.getByLabel('The branch').setInputFiles({ name: 'branch.jpg', mimeType: 'image/jpeg', buffer: photo });
+  await choosePhoto(page.getByLabel('The branch'), { name: 'branch.jpg', mimeType: 'image/jpeg', buffer: photo });
   await page.getByRole('button', { name: 'Use this photo' }).click();
   await page.getByRole('button', { name: 'Continue with 1 photo' }).click();
   for (const k of ['4', '2', '.', '5']) await page.locator(`#keypad [data-k="${k}"]`).click();
@@ -59,7 +59,7 @@ test('Verified: the lit word, "Your 42.5 kg from Plot 1 is recorded.", three evi
   await expect(page.locator('.v-sub')).toHaveText('Your 42.5 kg from Plot 1 is recorded.');
   const lines = page.getByTestId('evidence').locator('li');
   await expect(lines).toHaveCount(3);
-  await expect(lines.first()).toHaveText(/^You were \d+ m inside Plot 1$/);
+  await expect(lines.first()).toHaveText(/^You were \d+\u00a0m inside Plot 1$/); // the number keeps its unit (no-break space)
   await expect(lines.nth(1)).toHaveText('1 new photo');
   await expect(page.locator('main button')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Done' })).toBeVisible();
@@ -94,8 +94,8 @@ test('Needs a check (weak GPS): amber cherry, the chip, "The office will check t
   await expect(page.locator('.status-row .vchip')).toHaveText('Needs a check');
   await expect(page.locator('#verdict-h')).toHaveText('The office will check this one');
   const lines = page.getByTestId('evidence').locator('li');
-  await expect(lines.first()).toHaveText('The GPS signal was weak (150 m).');
-  await expect(lines.last()).toContainText("The office will look at this. You don't need to do anything.");
+  await expect(lines.first()).toHaveText('The GPS signal was weak (150\u00a0m).');
+  await expect(lines.last()).toContainText("The office will look at this. You'll see the answer in Pickings. You don't need to do anything.");
   await expect(lines.last()).toContainText('Your 42.5 kg and photos are saved.');
   await expect(page.locator('main button')).toHaveCount(1);
 });
@@ -107,8 +107,8 @@ test('Needs a check (P09, satellite picture cloudy): the fixture-derived line en
   await expect(page.getByTestId('cherry')).toHaveClass(/\bamber\b/);
   await expect(page.locator('#verdict-h')).toHaveText('The office will check this one');
   const cloudy = page.getByTestId('evidence').locator('li', { hasText: 'The satellite picture for this month was cloudy.' });
-  await expect(cloudy).toHaveText(/\(demo data\)$/);
-  await expect(cloudy).toHaveText('The satellite picture for this month was cloudy. (demo data)');
+  await expect(cloudy).toHaveText(/\(demo\u00a0data\)$/);
+  await expect(cloudy).toHaveText('The satellite picture for this month was cloudy. (demo\u00a0data)');
   await expect(page.getByTestId('evidence')).toContainText('The office will look at this.');
 });
 
@@ -137,7 +137,7 @@ test('Not accepted at the boundary (plot no longer assigned): what happened and 
   const seed = seedCaptureWorld();
   await openField(page, context, seed);
   await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
-  await page.getByLabel('The branch').setInputFiles({ name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
+  await choosePhoto(page.getByLabel('The branch'), { name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
   await page.getByRole('button', { name: 'Use this photo' }).click();
   await page.getByRole('button', { name: 'Continue with 1 photo' }).click();
   await page.locator('#keypad [data-k="9"]').click();
@@ -162,7 +162,7 @@ test('no network at Send: the amber sheet says nothing is lost; Try again sends 
   await openField(page, context, seed);
   await page.route('**/api/capture', (r) => r.abort('internetdisconnected'));
   await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
-  await page.getByLabel('The branch').setInputFiles({ name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
+  await choosePhoto(page.getByLabel('The branch'), { name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
   await page.getByRole('button', { name: 'Use this photo' }).click();
   await page.getByRole('button', { name: 'Continue with 1 photo' }).click();
   for (const k of ['4', '2', '.', '5']) await page.locator(`#keypad [data-k="${k}"]`).click();
@@ -183,7 +183,7 @@ test('a picture the office cannot read (PNG) is refused on "Use this photo", bef
   await openField(page, context, seed);
   await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
   const png = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010806000000', 'hex');
-  await page.getByLabel('The branch').setInputFiles({ name: 'branch.png', mimeType: 'image/png', buffer: png });
+  await choosePhoto(page.getByLabel('The branch'), { name: 'branch.png', mimeType: 'image/png', buffer: png });
   await page.getByRole('button', { name: 'Use this photo' }).click();
   await expect(page.getByTestId('photo-error')).toHaveText('This photo is not a camera picture the office can read. Take it again with Open camera.');
   await expect(page.getByRole('button', { name: 'Use this photo' })).toBeDisabled();

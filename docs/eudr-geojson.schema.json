@@ -32,6 +32,13 @@
       "additionalProperties": false,
       "properties": { "type": { "const": "Point" }, "coordinates": { "$ref": "#/$defs/position" } }
     },
+    "multiPoint": {
+      "description": "A plot under 4 ha anchored as several parts: one interior point per part, in part order (EXE26).",
+      "type": "object",
+      "required": ["type", "coordinates"],
+      "additionalProperties": false,
+      "properties": { "type": { "const": "MultiPoint" }, "coordinates": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/position" } } }
+    },
     "polygon": {
       "description": "Outer ring only: holes are rejected by the EU system.",
       "type": "object",
@@ -73,7 +80,7 @@
           "pattern": "^([A-Z][A-Za-z]+( and [A-Z][A-Za-z]+)?, )?Karnataka$"
         },
         "Area": {
-          "description": "EU property, Points only. Hectares, two decimals; a plot shown as 4.00 ha or more is a Polygon, so a Point's Area is at most 3.99.",
+          "description": "EU property, Points and MultiPoints only. Hectares, two decimals (the whole plot's area); a plot shown as 4.00 ha or more is a Polygon or MultiPolygon, so a Point's or MultiPoint's Area is at most 3.99.",
           "type": "number",
           "exclusiveMinimum": 0,
           "maximum": 3.99
@@ -92,10 +99,10 @@
       "additionalProperties": false,
       "properties": {
         "type": { "const": "Feature" },
-        "geometry": { "oneOf": [{ "$ref": "#/$defs/point" }, { "$ref": "#/$defs/polygon" }, { "$ref": "#/$defs/multiPolygon" }] },
+        "geometry": { "oneOf": [{ "$ref": "#/$defs/point" }, { "$ref": "#/$defs/multiPoint" }, { "$ref": "#/$defs/polygon" }, { "$ref": "#/$defs/multiPolygon" }] },
         "properties": { "$ref": "#/$defs/properties" }
       },
-      "if": { "type": "object", "properties": { "geometry": { "type": "object", "properties": { "type": { "const": "Point" } } } } },
+      "if": { "type": "object", "properties": { "geometry": { "type": "object", "properties": { "type": { "enum": ["Point", "MultiPoint"] } } } } },
       "then": { "type": "object", "properties": { "properties": { "type": "object", "properties": { "Area": true }, "required": ["Area"] } } },
       "else": { "type": "object", "properties": { "properties": { "type": "object", "not": { "type": "object", "properties": { "Area": true }, "required": ["Area"] } } } }
     }

@@ -40,6 +40,16 @@ describe('district', () => {
     expect(['Kodagu', 'Chikkamagaluru']).not.toContain(districtAt({ lat, lng }));
   });
 
+  it.each([
+    ['Kasaragod town', 12.4996, 74.9869],
+    ['Perla', 12.66, 75.1],
+    ['Adoor', 12.52, 75.25],
+    ['Delampady', 12.567, 75.317],
+  ])('%s (%f N, %f E) in Kasaragod, Kerala, is never read as Dakshina Kannada: no district (TASK-17 r2 N1)', (_town, lat, lng) => {
+    expect(districtAt({ lat, lng })).toBeNull();
+    expect(districtOf([square(lng, lat)])).toBe('Karnataka'); // the neutral fallback
+  });
+
   it('the areas do not overlap: no vertex of one lies inside another', () => {
     for (const a of DISTRICT_AREAS) {
       for (const b of DISTRICT_AREAS) {

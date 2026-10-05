@@ -11,7 +11,7 @@ import {
   stageIpKey,
   stagePhoto,
   stagingDevice,
-  sweepExpired,
+  sweepStaging,
 } from '../../../../lib/capture/staging';
 import { clientIp } from '../../../../lib/client-ip';
 import { env } from '../../../../lib/config/env';
@@ -84,7 +84,7 @@ export async function POST(req: Request): Promise<Response> {
   try {
     const store = localStagingStore(env.DATA_DIR);
     const now = new Date();
-    await sweepExpired(db, store, now);
+    await sweepStaging(db, store, now); // expired rows, and orphaned temp and row-less files (TKT-30 review #3)
     const read = await readBodyWithin(req, BODY_READ_DEADLINE_MS, MAX_PHOTO_BYTES);
     if (!read.ok) {
       if (read.reason === 'timeout') return refuse(408, 'body_timeout');

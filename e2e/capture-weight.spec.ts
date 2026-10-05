@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { demoPhoto, openField, seedCaptureWorld, type SeededCapture } from './helpers/capture';
+import { demoPhoto, openField, seedCaptureWorld, type SeededCapture, choosePhoto } from './helpers/capture';
 
 // TSK-10.8 (s3-kg Weight) and TC-047: the keypad fills the lit number and the Send pill carries the
 // value; the hint is the farmer's own recent range (D6); tapping Send marks `udgam:t0-submit` (EV9 t0);
@@ -11,7 +11,7 @@ test.describe.configure({ timeout: 120_000 });
 /** From Home to the weight screen with one photo accepted. */
 async function toWeight(page: Page, seed: SeededCapture) {
   await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
-  await page.getByLabel('The branch').setInputFiles({ name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
+  await choosePhoto(page.getByLabel('The branch'), { name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
   await page.getByRole('button', { name: 'Use this photo' }).click();
   await page.getByRole('button', { name: 'Continue with 1 photo' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('How many kilos?');

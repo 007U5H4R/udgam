@@ -19,8 +19,8 @@ import { buildContext, refreshUnderLock } from './context';
 import { findAcceptedOutcome, winnerAfterUniqueViolation, type AcceptedOutcome } from './idempotency';
 import { claimedDeviceId, parseCaptureForm, type FormReason } from './parse';
 import { persistAccepted, persistRejected, type AppendFn, type RejectedCapture, type StoredMedia } from './persist';
-import { consume, DEVICE_LIMIT, deviceKey } from './rate-limit';
-import { consumeStaged, readStaged, type StagingStore } from './staging';
+import { consume, DEVICE_LIMIT, deviceKey, refund } from './rate-limit';
+import { claimStaged, consumeStaged, sweepStaging, type StagingStore } from './staging';
 
 // The capture pipeline (technical-plan §3.1). Emits NDJSON-able events: a `check` line as each check
 // finishes, then exactly one terminal line — `verdict` (only after COMMIT), `rejected` (boundary 4xx,
@@ -166,6 +166,14 @@ export async function runCapture(form: FormData, deps: CaptureDeps, emit: (line:
       log.warn({ errClass: errClass(err) }, 'capture.staged_cleanup_failed'); // they expire within the hour
     }
   }
+  // Every capture also sweeps expired and orphaned staged files (TKT-30 review #3), after its answer.
+  if (deps.staging) {
+    try {
+      await sweepStaging(deps.db, deps.staging, (deps.now ?? (() => new Date()))());
+    } catch (err) {
+      log.warn({ errClass: errClass(err) }, 'stage.sweep_failed');
+    }
+  }
 }
 
 /** The local checks whose inputs a concurrent commit can change (refreshUnderLock re-reads them). */
@@ -176,8 +184,8 @@ const LOCK_SENSITIVE = [chainContinuity, photoUniqueness, movementPlausibility, 
  * movement): the context read the seen photos, the phone's chain head, the agent's accepted count, the
  * phone's previous accepted capture and the plot's season kg before media storage and verification, so
  * captures in flight at once all saw the same values — two 400 kg captures could each pass yield at
- * 0.85x where one after the other the second flags at 1.70x. Re-read them inside the write transaction, re-run those (local, pure) checks against the fresh
- * values and re-score if any result changed. Remote checks do not read these values and are not re-run.
+ * 0.85x where one after the other the second flags at 1.70x. Re-read them inside the write transaction,
+ * re-run those (local, pure) checks against the fresh values and re-score if any result changed. Remote checks do not read these values and are not re-run.
  * Returns the result to commit: its verdict, checks and evidence are what is stored and anchored.
  *
  * The `check` lines already streamed for these checks may then be stale (e.g. yield said `ok`; the
@@ -275,8 +283,9 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
   // Rate limit on the phone the payload claims, before anything about it is verified (TSK-19.3), in the
   // signed-in agent's own bucket for that phone (fix round 1).
   const claimed = claimedDeviceId(form.get('payload'));
+  const counted = now();
   if (claimed) {
-    const rl = await consume(db, deviceKey(deps.agentId, claimed), DEVICE_LIMIT.limit, DEVICE_LIMIT.windowSec, now());
+    const rl = await consume(db, deviceKey(deps.agentId, claimed), DEVICE_LIMIT.limit, DEVICE_LIMIT.windowSec, counted);
     if (!rl.ok) return refuse({ reason: 'rate_limited', status: 429, retryAfterSec: rl.retryAfterSec });
   }
 
@@ -287,7 +296,8 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
     ? async (hashes: string[], deviceId: string) => {
         const found = new Map<string, Uint8Array>();
         for (const sha256 of hashes) {
-          const bytes = await readStaged(db, staging, { agentId: deps.agentId, deviceId, sha256, now: now() });
+          // A copy that no longer hashes is discarded and reads as missing (EXE25): 409, the phone resends.
+          const bytes = await claimStaged(db, staging, { agentId: deps.agentId, deviceId, sha256, now: now() }, log);
           if (bytes) found.set(sha256, bytes);
         }
         return found;
@@ -307,6 +317,8 @@ async function capture(form: FormData, deps: CaptureDeps, send: (line: CaptureEv
           if (prior) return replay(prior);
         }
       }
+      // Not an attempt: its resend is (TKT-30 review #5), so the phone's token is given back.
+      if (claimed) await refund(db, deviceKey(deps.agentId, claimed), DEVICE_LIMIT.windowSec, counted);
       return refuse({ reason: 'media_not_staged', status: 409, missing: parsed.missing ?? [] });
     }
     if (MEDIA_REASONS.has(parsed.reason) && payloadString !== undefined && signature !== undefined) {

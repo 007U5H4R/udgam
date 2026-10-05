@@ -10,6 +10,7 @@ import { t, type Lang } from '../../lib/i18n';
 import { VERDICT_IN_MARK } from '../ui/VerdictScreen';
 import { CheckingStep } from './CheckingStep';
 import { PhotosStep, SLOTS } from './PhotosStep';
+import { hydratedAttr, useHydrated } from './useHydrated';
 import { initialFlow, kgValue, photoProblem, reduce, usedPhotos, type Slot } from './record-flow';
 import { ReviewStep } from './ReviewStep';
 import { sendPicking, settleAction } from './send-picking';
@@ -55,6 +56,7 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
   /** A send is running: a second tap never signs a second copy. */
   const busy = useRef(false);
   const reduced = useReducedMotion();
+  const hydrated = useHydrated(); // QA-P5-7: the e2e waits for this before choosing a photo
   // The verdict whose screen is showing; until then the finished checking screen stays up.
   const [seenFor, setSeenFor] = useState<string | null>(null);
   const resultId = flow.step === 'verdict' ? (flow.result?.eventId ?? null) : null;
@@ -164,6 +166,7 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
           capture="environment"
           tabIndex={-1}
           aria-label={t(s.name, {}, lang)}
+          {...hydratedAttr(hydrated)}
           onChange={(e) => {
             const file = e.target.files?.[0];
             e.target.value = ''; // the same photo can be chosen again after Take again

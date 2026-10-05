@@ -4,10 +4,13 @@
 // 128.5 kg) and one Verified robusta picking — so parallel workers never fill the demo FPO's plot,
 // phone or batch lists. With `--transfer-to <orgId>` the three arabica pickings are also made into a
 // batch by that admin and transferred to that buyer (e.g. ORG-BUYER-A, seeded by seed-accounts.ts).
+// With `--attest <issuer>` the arabica plot also gets an organic certificate on record from that issuer
+// (QA-P5-2, TC-058 on the batch detail pages).
 // Prints one JSON line: IDs and the test-only password, never key material.
 //
-// Usage: NODE_ENV=test DATA_DIR=.e2e-data pnpm exec tsx e2e/helpers/seed-batches.ts [--transfer-to ORG-BUYER-A]
+// Usage: NODE_ENV=test DATA_DIR=.e2e-data pnpm exec tsx e2e/helpers/seed-batches.ts [--transfer-to ORG-BUYER-A] [--attest ISSUER]
 import { randomBytes } from 'node:crypto';
+import { attachAttestation } from '../../src/lib/attestations/attach';
 import { createBatch } from '../../src/lib/batches/create';
 import { transferBatch } from '../../src/lib/custody/transfer';
 import { closeDb, getDbReady } from '../../src/lib/db/client';
@@ -28,6 +31,8 @@ export type SeededBatches = {
 
 const flag = process.argv.indexOf('--transfer-to');
 const transferTo = flag > 0 ? process.argv[flag + 1] : undefined;
+const attestFlag = process.argv.indexOf('--attest');
+const attestIssuer = attestFlag > 0 ? process.argv[attestFlag + 1] : undefined;
 
 const db = await getDbReady();
 try {
@@ -43,6 +48,10 @@ try {
     arabica.push((await seedCapture(db, world, { crop: 'arabica', kg, score })).eventId);
   }
   const robusta = (await seedCapture(db, world, { crop: 'robusta', kg: 30, score: 88 })).eventId;
+  if (attestIssuer) {
+    const file = new TextEncoder().encode(`%PDF-1.7\ne2e certificate ${newId('')}\n%%EOF\n`);
+    await attachAttestation(db, { orgId: world.orgId, plotId: world.plots.arabica.plotId, file, issuer: attestIssuer, validFrom: '2026-01-01', validTo: '2036-01-01' });
+  }
   let batch: SeededBatches['batch'] = null;
   if (transferTo) {
     const b = await createBatch(db, { orgId: world.orgId, adminId: world.adminId, crop: 'arabica', eventIds: arabica });

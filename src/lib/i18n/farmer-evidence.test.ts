@@ -45,7 +45,7 @@ describe('farmerLines', () => {
   it('Verified: where, the photos and the forest map, in plain words with the evidence numbers', () => {
     const lines = farmerLines(result('Verified', clean), 'en', { plot: 'Plot 2' });
     expect(lines).toEqual([
-      { icon: 'location', text: 'You were 14 m inside Plot 2' },
+      { icon: 'location', text: 'You were 14\u00a0m inside Plot 2' }, // a number and its unit never wrap apart
       { icon: 'camera', text: '3 new photos, taken today' },
       { icon: 'tree', text: 'Forest map: no trees cleared since 2021' },
     ]);
@@ -64,7 +64,7 @@ describe('farmerLines', () => {
       ['anyFail'],
     );
     const lines = farmerLines(r, 'en', { plot: 'Plot 2' });
-    expect(lines[0]!.text).toContain('30 m');
+    expect(lines[0]!.text).toContain('30\u00a0m');
     expect(lines[0]!.icon).toBe('location');
   });
 
@@ -75,9 +75,9 @@ describe('farmerLines', () => {
         'en',
       )[0]!.text;
     // The photo is 3 days old while the clock is 23 h off (a flag): the photo is the reason.
-    expect(timeFail(4320, 1380)).toBe('The photo was taken 3 days before or after this picking.');
+    expect(timeFail(4320, 1380)).toBe('The photo was taken 3\u00a0days before or after this picking.');
     // The clock is 9 days off while the photo matches it.
-    expect(timeFail(2, 12_960)).toBe("This phone's clock is 9 days off.");
+    expect(timeFail(2, 12_960)).toBe("This phone's clock is 9\u00a0days off.");
   });
 
   it('ndvi_harvest_window unavailable (cloud): names the cloudy satellite picture and asks nothing of the farmer', () => {
@@ -118,6 +118,14 @@ describe('farmerLines', () => {
     }
   });
 
+  it('keeps every number with its unit on one line: metres, minutes and durations (QA-P5-8)', () => {
+    const move = result('Rejected', [check('movement_plausibility', 'fail', evidence.movement_plausibility.fail({ speedKmh: 338, distanceM: 90000, minutes: 16 }))]);
+    expect(farmerLines(move, 'en')[0]!.text).toBe('This picking is 90000\u00a0m from your last one, only 16\u00a0min later.');
+    expect(farmerLines(move, 'kn')[0]!.text).toContain('16\u00a0ನಿಮಿಷ');
+    const late = result('Needs Review', [check('exif_time_agreement', 'fail', evidence.exif_time_agreement.fail({ exifClientMin: 1441, clientServerMin: 0 }))], ['anyFail']);
+    expect(farmerLines(late, 'en')[0]!.text).toBe('The photo was taken 24\u00a0h\u00a01\u00a0min before or after this picking.');
+  });
+
   it('passes numbers through unchanged (the evidence says 18.0%, the farmer line says 18.0%)', () => {
     const r = result('Rejected', [check('deforestation_overlap', 'fail', evidence.deforestation_overlap.fail({ lossPct: 18 }), true)], ['anyFail']);
     expect(farmerLines(r, 'en')[0]!.text).toContain('18.0%');
@@ -138,12 +146,12 @@ describe('farmerLines: demo data (owner decision EXE12)', () => {
   it('Verified positives from fixture data: forest, canopy and satellite lines each end with "(demo data)"', () => {
     const lines = farmerLines(result('Verified', [check('signature_valid', 'ok', 'Signed'), fixture(forestOk), fixture(canopyOk), fixture(satOk)]), 'en');
     expect(lines).toEqual([
-      { icon: 'tree', text: 'Forest map: no trees cleared since 2021 (demo data)' },
-      { icon: 'tree', text: 'Satellite: trees on the plot all year (demo data)' },
-      { icon: 'cloud', text: 'Satellite: green trees this month (demo data)' },
+      { icon: 'tree', text: 'Forest map: no trees cleared since 2021 (demo\u00a0data)' },
+      { icon: 'tree', text: 'Satellite: trees on the plot all year (demo\u00a0data)' },
+      { icon: 'cloud', text: 'Satellite: green trees this month (demo\u00a0data)' },
     ]);
     const all3 = farmerLines(result('Verified', [...base, fixture(forestOk)]), 'en', { plot: 'Plot 2' });
-    expect(all3[2]).toEqual({ icon: 'tree', text: 'Forest map: no trees cleared since 2021 (demo data)' });
+    expect(all3[2]).toEqual({ icon: 'tree', text: 'Forest map: no trees cleared since 2021 (demo\u00a0data)' });
   });
 
   it('the same positives from live data carry no label', () => {
@@ -154,30 +162,30 @@ describe('farmerLines: demo data (owner decision EXE12)', () => {
   it('findings from fixture data: forest loss, no canopy, too few clear months, cloudy, little green', () => {
     expect(needs(fixture(check('deforestation_overlap', 'flag', evidence.deforestation_overlap.flag({ lossPct: 6 }))), 'flag:deforestation_overlap')).toEqual({
       icon: 'tree',
-      text: 'Forest map: 6.0% of the plot cleared since 2021. (demo data)',
+      text: 'Forest map: 6.0% of the plot cleared since 2021. (demo\u00a0data)',
     });
     expect(needs(fixture(check('ndvi_cultivation', 'fail', evidence.ndvi_cultivation.fail({ min: 0.2, max: 0.5, clearMonths: 10 }))), 'anyFail').text).toBe(
-      'The satellite does not see trees on the plot all year. (demo data)',
+      'The satellite does not see trees on the plot all year. (demo\u00a0data)',
     );
     expect(needs(fixture(check('ndvi_cultivation', 'unavailable', evidence.ndvi_cultivation.unavailable({ reason: 'few_clear_months', clearMonths: 3 }))), 'anyUnavailable').text).toBe(
-      'There are not enough clear satellite pictures of this plot yet. (demo data)',
+      'There are not enough clear satellite pictures of this plot yet. (demo\u00a0data)',
     );
     expect(needs(fixture(check('ndvi_harvest_window', 'unavailable', evidence.ndvi_harvest_window.unavailable({ reason: 'cloud' }))), 'anyUnavailable').text).toBe(
-      'The satellite picture for this month was cloudy. (demo data)',
+      'The satellite picture for this month was cloudy. (demo\u00a0data)',
     );
     expect(needs(fixture(check('ndvi_harvest_window', 'flag', evidence.ndvi_harvest_window.flag({ ndvi: 0.38 }))), 'flag:ndvi_harvest_window').text).toBe(
-      'The satellite sees little green on the plot this month (NDVI 0.38). (demo data)',
+      'The satellite sees little green on the plot this month (NDVI 0.38). (demo\u00a0data)',
     );
     const rejected = farmerLines(result('Rejected', [fixture(check('deforestation_overlap', 'fail', evidence.deforestation_overlap.fail({ lossPct: 18 }), true))], ['anyFail']), 'en');
-    expect(rejected[0]).toEqual({ icon: 'tree', text: 'Forest map: 18.0% of the plot cleared since 2021. (demo data)' });
+    expect(rejected[0]).toEqual({ icon: 'tree', text: 'Forest map: 18.0% of the plot cleared since 2021. (demo\u00a0data)' });
   });
 
   it('a capped-flag reason never turns an ok check of the same id into a finding', () => {
     const checks = [...clean.filter((c) => c.id !== 'gps_accuracy'), check('gps_accuracy', 'flag', evidence.gps_accuracy.flag({ accuracyM: 60 }))];
     const r = result('Needs Review', checks, ['flag:deforestation_overlap']); // deforestation_overlap is ok here
     expect(farmerLines(r, 'en').map((l) => l.text)).toEqual([
-      'The GPS signal was weak (60 m).',
-      "The office will look at this. You don't need to do anything.",
+      'The GPS signal was weak (60\u00a0m).',
+      "The office will look at this. You'll see the answer in Pickings. You don't need to do anything.",
     ]);
   });
 
@@ -193,12 +201,19 @@ describe('farmerLines: demo data (owner decision EXE12)', () => {
     );
   });
 
+  it('Needs a check names where the answer will appear, in both languages (EXE24 OD-5)', () => {
+    expect(en['fe.office']).toBe("The office will look at this. You'll see the answer in Pickings. You don't need to do anything.");
+    expect(kn['fe.office']).toBe('ಕಚೇರಿ ಇದನ್ನು ನೋಡುತ್ತದೆ. ಉತ್ತರವನ್ನು ನೀವು ಕೊಯ್ಲುಗಳು ಪುಟದಲ್ಲಿ ನೋಡುತ್ತೀರಿ. ನೀವು ಏನೂ ಮಾಡಬೇಕಿಲ್ಲ.');
+    expect(kn['fe.office']).toContain(kn['tabs.pickings']!); // the tab the farmer sees, by its own name
+  });
+
   it('Kannada lines carry the Kannada label', () => {
     const [line] = farmerLines(result('Verified', [fixture(forestOk)]), 'kn');
     expect(line!.text).toBe(`${kn['fe.forest.none']!.replace('{year}', '2021')}${kn['fe.demo']}`);
     expect(kn['fe.demo']).not.toBe(en['fe.demo']);
-    expect(en['fe.demo']).toBe(' (demo data)');
-    expect(en['fe.demo']).toBe(DEMO_DATA_SUFFIX);
+    expect(en['fe.demo']).toBe(' (demo\u00a0data)'); // never wraps inside itself (QA-P5-8)
+    expect(kn['fe.demo']).toBe(' (ಡೆಮೊ\u00a0ಡೇಟಾ)');
+    expect(en['fe.demo']).toBe(DEMO_DATA_SUFFIX.replace(' data', '\u00a0data'));
     expect(FIXTURE_MARK).toBe(DEMO_DATA_SUFFIX);
   });
 });

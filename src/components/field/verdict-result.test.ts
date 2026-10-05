@@ -54,7 +54,7 @@ describe('streamedResult + farmerLines: which reason Not accepted names', () => 
       line('gps_accuracy', 'fail', evidence.gps_accuracy.fail({ accuracyM: 150 })),
     ]);
     expect(farmerLines(streamedResult(v), 'en', { plot: 'Plot 1' })).toEqual([
-      { icon: 'location', text: 'Your phone was 30 m outside Plot 1.' },
+      { icon: 'location', text: 'Your phone was 30\u00a0m outside Plot 1.' },
       { icon: 'check', text: 'Stand inside Plot 1 and record the picking again. If you were inside, tell the office.', next: true },
     ]);
   });

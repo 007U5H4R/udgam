@@ -24,6 +24,8 @@ export type StageOptions = { mime?: string; slot?: number; deviceId?: string; fe
 
 const trusted = new Map<string, number>(); // sha256 → staged-until (this phone's clock, ms)
 const inFlight = new Map<string, Promise<'staged' | 'failed'>>();
+/** One per upload, running or queued: Send aborts them all (abortStaging). */
+const controllers = new Set<AbortController>();
 let running = 0;
 const queue: (() => void)[] = [];
 
@@ -64,10 +66,13 @@ export function stagePhoto(file: Blob, sha256: string, opts: StageOptions = {}):
 
 async function upload(file: Blob, sha256: string, opts: StageOptions, now: () => number): Promise<'staged' | 'failed'> {
   const fetchImpl = opts.fetchImpl ?? ((url, init) => fetch(url, init));
+  const ctl = new AbortController();
+  controllers.add(ctl);
   await take();
   const slot = opts.slot ?? 0;
   mark(stageStartMark(slot));
   try {
+    if (ctl.signal.aborted) return 'failed'; // Send came while this one was queued: it goes inline
     const deviceId = opts.deviceId ?? (await loadSigner())?.deviceId;
     if (!deviceId) return 'failed';
     const res = await fetchImpl('/api/capture/stage', {
@@ -75,18 +80,29 @@ async function upload(file: Blob, sha256: string, opts: StageOptions, now: () =>
       body: file,
       credentials: 'same-origin',
       headers: { 'Content-Type': opts.mime ?? (file.type || 'image/jpeg'), 'X-Udgam-Device': deviceId },
+      signal: ctl.signal,
     });
     if (res.status !== 201) return 'failed';
     const body = (await res.json()) as { sha256?: unknown };
-    if (body.sha256 !== sha256) return 'failed';
+    if (body.sha256 !== sha256 || ctl.signal.aborted) return 'failed';
     trusted.set(sha256, now() + STAGED_TRUST_MS);
     return 'staged';
   } catch {
     return 'failed';
   } finally {
+    controllers.delete(ctl);
     mark(stageEndMark(slot));
     give();
   }
+}
+
+/**
+ * Send has been tapped (TKT-30 review #2): abort every stage upload still running or queued, so those
+ * photos go once, inline with the capture, instead of twice at the same time. Photos already staged
+ * stay named by hash.
+ */
+export function abortStaging(): void {
+  for (const c of controllers) c.abort();
 }
 
 /** The photos this phone may name as staged at Submit (staged and still trusted). */
@@ -108,6 +124,7 @@ export function forgetStaged(hashes: Iterable<string>): void {
 export function resetStagingForTests(): void {
   trusted.clear();
   inFlight.clear();
+  controllers.clear();
   running = 0;
   queue.length = 0;
 }

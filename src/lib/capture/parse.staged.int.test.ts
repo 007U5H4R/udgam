@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { P01_INSIDE, seedTracerWorld, type TracerWorld } from '../../../scripts/tracer-world';
 import { fakeJpeg } from '../../../tests/helpers/capture';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
@@ -11,13 +11,14 @@ import { localMediaStore } from '../media/store';
 import type { CapturePayloadV1 } from '../verification/types';
 import { parseCaptureForm } from './parse';
 import { runCapture, type CaptureDeps, type CaptureEvent } from './pipeline';
+import { deviceKey } from './rate-limit';
 import { localStagingStore, stagePhoto, STAGE_TTL_MS, type StagingStore } from './staging';
 
 // TSK-30.3 · TC-094 (a–c): a capture may name photos it staged earlier (form field `staged`, a JSON array
 // of sha256) instead of sending their bytes. The staged bytes pass the same size, type and hash checks as
 // uploaded ones; a staged photo that is missing, expired, or another agent's or phone's answers 409
-// media_not_staged (nothing anchored: the phone resends the bytes); one changed on disk is refused as
-// media_hash_mismatch and anchored. After COMMIT the staged copies are in the media store and their rows
+// media_not_staged (nothing anchored: the phone resends the bytes); so is one changed on disk (EXE25: only
+// the server can have changed it, so it is discarded and the phone resends, never an anchored refusal). After COMMIT the staged copies are in the media store and their rows
 // are gone. A capture that sends every photo's bytes is unchanged (TC-043, pipeline.int.test.ts).
 
 const NOW = new Date('2026-10-14T04:12:34.000Z');
@@ -126,17 +127,39 @@ describe('captures with staged photos (TC-094)', () => {
     expect(shas).toEqual(await Promise.all(photos.map((p) => sha256Hex(p))));
   });
 
-  it('TC-094 (b) a staged file changed on disk → 409 media_hash_mismatch, anchored as a rejected event', async () => {
+  it('TC-094 (b) a staged file changed on disk → 409 media_not_staged naming it, nothing anchored; it is discarded and the resend is accepted (EXE25)', async () => {
     const w = await newWorld();
     const photos = [fakeJpeg('t-a'), fakeJpeg('t-b')];
     for (const p of photos) await stage(w, p);
-    await writeFile(join(t.dir, 'staging', w.world.agentId, await sha256Hex(photos[1]!)), fakeJpeg('t-b-edited'));
+    const changed = await sha256Hex(photos[1]!);
+    await writeFile(join(t.dir, 'staging', w.world.agentId, changed), fakeJpeg('t-b-edited'));
+    const ledger = await n(t.client, 'SELECT COUNT(*) AS n FROM ledger_entries');
+    const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
     const { fd } = await form(w, photos, { staged: [0, 1] });
-    const events = await run(fd, deps(w));
-    expect(events).toEqual([{ t: 'rejected', reason: 'media_hash_mismatch', status: 409 }]);
-    const ev = (await t.client.execute('SELECT boundary_status, boundary_reason FROM harvest_events')).rows.map((r) => ({ ...r }));
-    expect(ev).toEqual([{ boundary_status: 'rejected', boundary_reason: 'media_hash_mismatch' }]);
-    expect(await n(t.client, 'SELECT COUNT(*) AS n FROM media')).toBe(0);
+    const events = await run(fd, deps(w, { log: log as unknown as CaptureDeps['log'] }));
+    expect(events).toEqual([{ t: 'rejected', reason: 'media_not_staged', status: 409, missing: [changed] }]);
+    expect(await n(t.client, 'SELECT COUNT(*) AS n FROM harvest_events')).toBe(0);
+    expect(await n(t.client, 'SELECT COUNT(*) AS n FROM ledger_entries')).toBe(ledger);
+    // the changed copy is gone (row and file); the intact one stays for the resend to use
+    expect((await t.client.execute('SELECT sha256 FROM staged_media')).rows.map((r) => r.sha256)).toEqual([await sha256Hex(photos[0]!)]);
+    expect(existsSync(join(t.dir, 'staging', w.world.agentId, changed))).toBe(false);
+    expect(log.warn).toHaveBeenCalledWith({ reason: 'hash_mismatch' }, 'stage.integrity_failed');
+
+    const { fd: resend } = await form(w, photos, { staged: [0] });
+    expect((await run(resend, deps(w))).at(-1)).toMatchObject({ t: 'verdict' });
+  });
+
+  it('the media_not_staged round spends no rate-limit token: only the resend counts (TKT-30 review #5)', async () => {
+    const w = await newWorld();
+    const photo = fakeJpeg('refund');
+    const { fd } = await form(w, [photo], { staged: [0] }); // never staged
+    expect(await run(fd, deps(w))).toMatchObject([{ t: 'rejected', reason: 'media_not_staged', status: 409 }]);
+    const tokens = async () =>
+      Number((await t.client.execute({ sql: 'SELECT COALESCE(SUM(count), 0) AS n FROM rate_limits WHERE key = ?', args: [deviceKey(w.world.agentId, w.world.deviceId)] })).rows[0]?.n);
+    expect(await tokens()).toBe(0);
+    const { fd: resend } = await form(w, [photo]);
+    expect((await run(resend, deps(w))).at(-1)).toMatchObject({ t: 'verdict' });
+    expect(await tokens()).toBe(1);
   });
 
   it('TC-094 (c) agent B naming agent A’s staged photo → 409 media_not_staged with the missing hashes; nothing anchored', async () => {
@@ -192,21 +215,23 @@ describe('captures with staged photos (TC-094)', () => {
     const w = await newWorld();
     const photo = fakeJpeg('bad-field');
     await stage(w, photo);
+    const ledger = await n(t.client, 'SELECT COUNT(*) AS n FROM ledger_entries');
     for (const stagedField of ['not json', '{}', '["ABC"]', JSON.stringify(['f'.repeat(64)]), JSON.stringify([]), JSON.stringify(Array(4).fill('a'.repeat(64)))]) {
       const { fd } = await form(w, [photo], { staged: [0], stagedField });
-      expect(await parseCaptureForm(fd, { loadStaged: async () => new Map() })).toMatchObject({ ok: false, status: 400, reason: 'bad_form' });
+      expect(await run(fd, deps(w)), stagedField).toEqual([{ t: 'rejected', reason: 'bad_form', status: 400 }]);
     }
     expect(await n(t.client, 'SELECT COUNT(*) AS n FROM harvest_events')).toBe(0);
+    expect(await n(t.client, 'SELECT COUNT(*) AS n FROM ledger_entries')).toBe(ledger);
   });
 
-  it('staged bytes pass the same type check: a staged file that is no longer a JPEG → 415 media_type, anchored', async () => {
+  it('a staged file that is no longer a JPEG no longer hashes either: 409 media_not_staged, nothing anchored (EXE25)', async () => {
     const w = await newWorld();
     const photo = fakeJpeg('typed');
     await stage(w, photo);
     await writeFile(join(t.dir, 'staging', w.world.agentId, await sha256Hex(photo)), 'plain text now');
     const { fd } = await form(w, [photo], { staged: [0] });
-    expect(await run(fd, deps(w))).toEqual([{ t: 'rejected', reason: 'media_type', status: 415 }]);
-    expect(await n(t.client, "SELECT COUNT(*) AS n FROM harvest_events WHERE boundary_reason = 'media_type'")).toBe(1);
+    expect(await run(fd, deps(w))).toEqual([{ t: 'rejected', reason: 'media_not_staged', status: 409, missing: [await sha256Hex(photo)] }]);
+    expect(await n(t.client, 'SELECT COUNT(*) AS n FROM harvest_events')).toBe(0);
   });
 
   it('staged photos count towards the 1–3 photo limit (media_count)', async () => {

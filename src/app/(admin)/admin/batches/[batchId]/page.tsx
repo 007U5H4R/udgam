@@ -4,15 +4,18 @@ import { TransferForm } from '../../../../../components/admin/TransferForm';
 import { CustodyChain, LockedLine } from '../../../../../components/buyer/CustodyChain';
 import { Icon } from '../../../../../components/buyer/Icon';
 import screen from '../../../../../components/buyer/BatchScreen.module.css';
+import { PlotAttestationLine } from '../../../../../components/ui/AttestationLine';
 import { BatchQr } from '../../../../../components/ui/BatchQr';
 import { GlassCard } from '../../../../../components/ui/GlassCard';
 import { RailShell } from '../../../../../components/ui/Rail';
 import { formatKg, formatScore, istDateTime } from '../../../../../lib/batches/format';
 import { agreementForBatch } from '../../../../../lib/agreements/read';
+import { batchAttestations } from '../../../../../lib/attestations/for-batch';
 import { getOrgBatch, listOrgBatches, listRecipientOrgs } from '../../../../../lib/batches/read';
 import { getDbReady } from '../../../../../lib/db/client';
 import { userName } from '../../../../../lib/enrolment/phones';
 import { t } from '../../../../../lib/i18n';
+import { istDate } from '../../../../../lib/verification/evidence';
 import { requireSession, scopedById } from '../../../../_auth/require';
 import { BatchList } from '../BatchList';
 import { cropLabel, pickingsLabel } from '../../../../../components/buyer/labels';
@@ -30,7 +33,13 @@ export default async function BatchDetailPage({ params }: Props) {
   const { batchId } = await params;
   const db = await getDbReady();
   const batch = scopedById(await getOrgBatch(db, me.orgId, batchId));
-  const [batches, buyers, name] = await Promise.all([listOrgBatches(db, me.orgId), batch.status === 'open' ? listRecipientOrgs(db) : [], userName(db, me.userId)]);
+  const [batches, buyers, name, organic] = await Promise.all([
+    listOrgBatches(db, me.orgId),
+    batch.status === 'open' ? listRecipientOrgs(db) : [],
+    userName(db, me.userId),
+    batchAttestations(db, batch.batchId), // TC-058: the organic line per member plot (QA-P5-2)
+  ]);
+  const today = istDate(new Date().toISOString());
   const certificate = `/verify/${encodeURIComponent(batch.batchId)}?h=${batch.shortHash}`;
   // M-002 touch point T3 (Design.md §28, TKT-25): the agreement a delivered batch was graded or settled under.
   const agreement = batch.status === 'transferred' ? await agreementForBatch(db, me.orgId, batch.batchId) : null;
@@ -80,6 +89,7 @@ export default async function BatchDetailPage({ params }: Props) {
                     <b>{t('batches.detail.member', { plot: m.plotName, producer: m.producerId })}</b>
                     <span className={screen.kg}>{t('batches.kg', { kg: formatKg(m.cherryKg) })}</span>
                     <span className={screen.meta}>{t('batches.detail.memberFacts', { when: istDateTime(m.receivedAt), score: formatScore(m.score) })}</span>
+                    <PlotAttestationLine record={organic.get(m.plotName)} today={today} />
                   </li>
                 ))}
               </ul>

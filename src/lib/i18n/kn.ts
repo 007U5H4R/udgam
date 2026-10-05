@@ -215,7 +215,7 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'fe.photoTime.none': 'ಫೋಟೋದಲ್ಲಿ ಸಮಯ ಉಳಿಸಿಲ್ಲ.', // REVIEW: native speaker
   'fe.photoTime.far': 'ಫೋಟೋವನ್ನು ಈ ಕೊಯ್ಲಿನ {d} ಮೊದಲು ಅಥವಾ ನಂತರ ತೆಗೆಯಲಾಗಿದೆ.', // REVIEW: native speaker
   'fe.photoTime.clock': 'ಈ ಫೋನಿನ ಗಡಿಯಾರ {d} ತಪ್ಪಾಗಿದೆ.', // REVIEW: native speaker
-  'fe.move.far': 'ಈ ಕೊಯ್ಲು ನಿಮ್ಮ ಹಿಂದಿನದರಿಂದ {m} ದೂರ, ಕೇವಲ {min} ನಿಮಿಷ ನಂತರ.', // REVIEW: native speaker
+  'fe.move.far': 'ಈ ಕೊಯ್ಲು ನಿಮ್ಮ ಹಿಂದಿನದರಿಂದ {m} ದೂರ, ಕೇವಲ {min}\u00a0ನಿಮಿಷ ನಂತರ.', // REVIEW: native speaker
   'fe.move.clock': 'ನಿಮ್ಮ ಹಿಂದಿನ ಕೊಯ್ಲಿನ ನಂತರ ಫೋನಿನ ಸಮಯ ಮುಂದೆ ಹೋಗಿಲ್ಲ.', // REVIEW: native speaker
   'fe.photos.new': '{n} ಹೊಸ ಫೋಟೋಗಳು', // REVIEW: native speaker
   'fe.photos.newToday': '{n} ಹೊಸ ಫೋಟೋಗಳು, ಇಂದು ತೆಗೆದವು', // REVIEW: native speaker
@@ -241,8 +241,8 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'fe.yield.high': 'ಈ ಹಂಗಾಮಿನ ಒಟ್ಟು ಕೊಯ್ಲು ಈ ತೋಟದ ಸಾಮಾನ್ಯ ಇಳುವರಿಯ {x} ಆಗಿದೆ.', // REVIEW: native speaker
   'fe.yield.none': 'ಈ ಬೆಳೆಯ ಸಾಮಾನ್ಯ ಇಳುವರಿ ಇನ್ನೂ ದಾಖಲಾಗಿಲ್ಲ.', // REVIEW: native speaker
   'fe.threw': 'ಒಂದು ಪರಿಶೀಲನೆ ನಡೆಯಲಿಲ್ಲ. ಕಚೇರಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸುತ್ತದೆ.', // REVIEW: native speaker
-  'fe.demo': ' (ಡೆಮೊ ಡೇಟಾ)', // REVIEW: native speaker (EXE12 "(demo data)" label; starts with a space)
-  'fe.office': 'ಕಚೇರಿ ಇದನ್ನು ನೋಡುತ್ತದೆ. ನೀವು ಏನೂ ಮಾಡಬೇಕಿಲ್ಲ.', // REVIEW: native speaker
+  'fe.demo': ' (ಡೆಮೊ\u00a0ಡೇಟಾ)', // REVIEW: native speaker (EXE12 "(demo data)" label; starts with a space)
+  'fe.office': 'ಕಚೇರಿ ಇದನ್ನು ನೋಡುತ್ತದೆ. ಉತ್ತರವನ್ನು ನೀವು ಕೊಯ್ಲುಗಳು ಪುಟದಲ್ಲಿ ನೋಡುತ್ತೀರಿ. ನೀವು ಏನೂ ಮಾಡಬೇಕಿಲ್ಲ.', // REVIEW: native speaker (EXE24 OD-5 draft)
   'fe.todo.photos': 'ಇಂದಿನ ಕೊಯ್ಲಿನ ಹೊಸ ಫೋಟೋಗಳನ್ನು ತೆಗೆದು ಮತ್ತೆ ದಾಖಲಿಸಿ.', // REVIEW: native speaker
   'fe.todo.seal': 'ಈ ಫೋನನ್ನು ಮತ್ತೆ ಸಿದ್ಧಪಡಿಸಲು ಕಚೇರಿಗೆ ಕೇಳಿ.', // REVIEW: native speaker
   'fe.todo.location': '{plot} ಒಳಗೆ ನಿಂತು ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ. ನೀವು ಒಳಗೇ ಇದ್ದರೆ, ಕಚೇರಿಗೆ ತಿಳಿಸಿ.', // REVIEW: native speaker

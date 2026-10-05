@@ -12,10 +12,10 @@ import { E2E_DATA_DIR } from './helpers/tracer';
 
 test.beforeAll(() => seedAccounts());
 
-function seedBatches(transferTo?: string): SeededBatches {
+function seedBatches(transferTo?: string, attestIssuer?: string): SeededBatches {
   const env: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: 'test', DATA_DIR: E2E_DATA_DIR, LOG_LEVEL: 'silent' };
   delete env.DATABASE_URL;
-  const args = ['e2e/helpers/seed-batches.ts', ...(transferTo ? ['--transfer-to', transferTo] : [])];
+  const args = ['e2e/helpers/seed-batches.ts', ...(transferTo ? ['--transfer-to', transferTo] : []), ...(attestIssuer ? ['--attest', attestIssuer] : [])];
   const out = execFileSync('./node_modules/.bin/tsx', args, { env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
   return JSON.parse(out.trim().split('\n').pop()!) as SeededBatches;
 }
@@ -222,6 +222,42 @@ test.describe('buyer list and detail (TSK-14.6, TC-060, EVAL-080)', () => {
     await expect(page).toHaveURL(new RegExp(`/verify/${batchId}\\?h=${shortHash}$`));
     await expect(page.locator('body')).toHaveAttribute('data-state', 'verified', { timeout: 20_000 });
     await expect(page.getByText('Verified on this device just now')).toBeVisible();
+  });
+
+  test('the organic line shows on both batch detail pages for an attested member plot, and only there (QA-P5-2, TC-058)', async ({ page }) => {
+    test.setTimeout(90_000);
+    const LINE = 'Certified by E2E Organic Body — certificate on record · valid 1 Jan 2026–1 Jan 2036';
+    const attested = seedBatches('ORG-BUYER-A', 'E2E Organic Body');
+    // another FPO's batch, also held by buyer A, has no certificate on record: the first FPO's never shows on it
+    const plain = seedBatches('ORG-BUYER-A');
+    /** Sign in as someone else in this project's own page (its viewport kept). */
+    const signInAs = async (email: string, password: string) => {
+      await page.context().clearCookies();
+      await signIn(page, email, password);
+    };
+
+    await signInAs(attested.adminEmail, attested.testOnlyAdminPassword);
+    await page.goto(`/admin/batches/${attested.batch!.batchId}`);
+    const members = page.getByRole('region', { name: 'Pickings in this batch' });
+    await expect(members.getByTestId('attestation-line')).toHaveCount(3); // one per picking of the attested plot
+    await expect(members.getByTestId('attestation-line').first()).toHaveText(LINE);
+    await expect(members.getByTestId('attestation-line').first().locator('bdi')).toHaveText('E2E Organic Body');
+    await checkSurface(page);
+
+    await signInAs(plain.adminEmail, plain.testOnlyAdminPassword);
+    await page.goto(`/admin/batches/${plain.batch!.batchId}`);
+    await expect(page.getByRole('heading', { level: 2, name: plain.batch!.batchId })).toBeVisible();
+    await expect(page.getByTestId('attestation-line')).toHaveCount(0);
+
+    await signInAs(DEMO_ACCOUNTS.buyerA.email, SEED_PASSWORD);
+    await page.goto(`/buyer/batches/${attested.batch!.batchId}`);
+    const plots = page.getByRole('region', { name: 'Plots and producers' });
+    await expect(plots.getByTestId('attestation-line')).toHaveCount(1);
+    await expect(plots.getByTestId('attestation-line')).toHaveText(LINE);
+    await checkSurface(page);
+    await page.goto(`/buyer/batches/${plain.batch!.batchId}`);
+    await expect(page.getByRole('heading', { level: 2, name: plain.batch!.batchId })).toBeVisible();
+    await expect(page.getByTestId('attestation-line')).toHaveCount(0);
   });
 
   test("buyer B does not see buyer A's batch, and opening it is a 404 (EVAL-080, TC-019)", async ({ page }) => {

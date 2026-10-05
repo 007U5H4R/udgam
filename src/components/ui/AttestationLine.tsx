@@ -46,3 +46,8 @@ export function AttestationLine(props: AttestationLineProps) {
     </p>
   );
 }
+
+/** A batch member plot's line (QA-P5-2): its latest attestation's line, or nothing when it has none. */
+export function PlotAttestationLine({ record, today }: { record: Omit<AttestationLineProps, 'today'> | undefined; today: string }) {
+  return record ? <AttestationLine issuer={record.issuer} validFrom={record.validFrom} validTo={record.validTo} today={today} /> : null;
+}

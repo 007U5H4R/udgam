@@ -10,7 +10,7 @@ import { log } from '../../log';
 // mismatch cannot pass unnoticed. After investigating (`pnpm ledger:audit`), the operator records ONE
 // resolution on the row with `pnpm ledger:evm:resolve --seq=N --reason="…"`: the row stays `failed`
 // (the proof keeps saying so and the audit keeps naming the seq), the reason and time are written once
-// and are then immutable (migration 0023), and anchoring resumes with the next seq. Nothing is deleted
+// and are then immutable (migration 0025), and anchoring resumes with the next seq. Nothing is deleted
 // or rewritten, on chain or in the ledger.
 
 export const MIN_REASON_LENGTH = 10;

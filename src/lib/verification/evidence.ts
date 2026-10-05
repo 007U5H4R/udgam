@@ -26,6 +26,35 @@ export function dur(min: number): string {
   if (h < 48) return `${h} h`;
   return `${Math.round(mins / 1440)} days`;
 }
+/** The minutes a `dur` text stands for ("24 h" → 1440), so its side of a limit can be checked. */
+function durMinutes(min: number): number {
+  const mins = Math.round(Math.abs(min));
+  if (mins < 120) return mins;
+  const h = Math.round(mins / 60);
+  return h < 48 ? h * 60 : Math.round(mins / 1440) * 1440;
+}
+/** Whole minutes as days, hours and minutes, zero parts left out: 10081 → "7 days 1 min", 1441 → "24 h 1 min". */
+function exactDur(mins: number): string {
+  const days = mins >= 48 * 60 ? Math.floor(mins / 1440) : 0;
+  const h = Math.floor((mins - days * 1440) / 60);
+  const rest = mins - days * 1440 - h * 60;
+  if (mins < 120) return `${mins} min`;
+  return [days ? `${days} days` : '', h ? `${h} h` : '', rest ? `${rest} min` : ''].filter(Boolean).join(' ');
+}
+/**
+ * A time gap judged against `limits` (minutes; over a limit is the worse side), written so the shown value
+ * never sits on the wrong side of any of them (EXE18's rounding rule, QA-P5-5). The coarse `dur` when it
+ * keeps every side ("25 h"); else the whole minutes in days, hours and minutes ("24 h 1 min"), and a
+ * fraction past a limit rounds up past it, toward the verdict (10.4 min over 10 reads "11 min").
+ */
+export function gapDur(min: number, limits: readonly number[]): string {
+  const x = Math.abs(min);
+  const sameSide = (shownMin: number) => limits.every((l) => x > l === shownMin > l);
+  if (sameSide(durMinutes(x))) return dur(x);
+  let mins = Math.round(x);
+  for (const l of limits) if (x > l && mins <= l) mins = Math.floor(l) + 1;
+  return exactDur(mins);
+}
 /** Calendar date in IST (UTC+05:30) by explicit offset, never the host zone. */
 export const istDate = (iso: string): string => new Date(Date.parse(iso) + IST_OFFSET_MS).toISOString().slice(0, 10);
 /** Calendar month in IST, `YYYY-MM`. */
@@ -72,9 +101,10 @@ const yieldLine = (r: number) =>
 
 type TimeGaps = { exifClientMin: number | null; clientServerMin: number };
 function timeLine({ exifClientMin, clientServerMin }: TimeGaps): string {
-  const clock = `phone clock ${dur(clientServerMin)} from server (limit ${dur(C.exifTime.maxClientServerMin)})`;
+  const T = C.exifTime;
+  const clock = `phone clock ${gapDur(clientServerMin, [T.maxClientServerMin, T.clientServerFailAfterMin])} from server (limit ${dur(T.maxClientServerMin)})`;
   if (exifClientMin === null) return `Photo has no time data; ${clock}`;
-  return `Photo time ${dur(exifClientMin)} from capture time (limit ${dur(C.exifTime.maxExifClientMin)}); ${clock}`;
+  return `Photo time ${gapDur(exifClientMin, [T.maxExifClientMin, T.exifFailAfterMin])} from capture time (limit ${dur(T.maxExifClientMin)}); ${clock}`;
 }
 /** The fail limit(s) actually crossed (EXE10): "fail over 24 h" for the EXIF gap, "fail over 7 days" for the clock. */
 function timeFailLimits({ exifClientMin, clientServerMin }: TimeGaps): string {
