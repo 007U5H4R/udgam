@@ -19,6 +19,7 @@ import { liveAgreement, missingLiveVars, renderAgreement } from './live-agreemen
 import { buildCase as realBuildCase, type BuiltCase } from './mutate';
 import { runProofSuite, type ProofCaseResult, type ProofSuiteOptions } from './suites/proof';
 import { startAnvil } from '../../src/lib/ledger/evm/foundry';
+import { checkConfigFreeze, CONFIG_CHANGES_PATH, DECISIONS_PATH } from './config-freeze';
 import { gitFacts, provenance, REPO_ROOT, type Provenance } from './provenance';
 import { renderReportFromResults } from './report';
 import { isFileStem, REPORTS_DIR, RESULTS_DIR, reportPathFor, writeReport, writeResults, type Out } from './results';
@@ -137,7 +138,7 @@ export type RunOptions = {
   evmRpcUrl?: string;
   /** `--baseline=v1`: also freeze the run as baseline-v1 (formal output only; never overwrites). */
   baseline?: 'v1';
-};
+} & FreezePaths;
 
 /** The frozen M-001 baseline (EV13) and its report; written once by `--baseline=v1`, never overwritten. */
 export const BASELINE_V1_FILE = 'baseline-v1.json';
@@ -503,30 +504,33 @@ function readResultsFile(path: string, need: ('timestampUtc' | 'cases' | 'gates'
   return { state: 'ok', data: data as ResultsFile };
 }
 
-/** Whether decisions.md names `hash` (an EV/TP decision authorising a config change). Unreadable → no. */
-function decisionsName(hash: string): boolean {
-  try {
-    return readFileSync(join(REPO_ROOT, 'decisions.md'), 'utf8').includes(hash);
-  } catch {
-    return false; // no decisions file: nothing authorises a drift (fails closed)
-  }
-}
+/** Where the config-change authorisation is read (test hooks; default evals/config-changes.md and decisions.md). */
+export type FreezePaths = { configChangesPath?: string; decisionsPath?: string };
 
-function driftOf(v1: Read): RunFacts['configDrift'] {
+/**
+ * CF-13's input from a read of baseline-v1. A drift is authorised only by the one shared rule
+ * (config-freeze.ts, EXE34): a config-changes.md row with a recorded TP/EV decision and two new attack
+ * cases per affected scenario. A bare mention of the hash in decisions.md authorises nothing.
+ */
+function driftOf(v1: Read, resultsDir: string, cases: EvalCase[], paths: FreezePaths): RunFacts['configDrift'] {
   if (v1.state === 'bad') return { error: v1.problem };
-  if (v1.state === 'ok') return { baselineHash: v1.data.provenance.config.hash, currentHash: CONFIG_HASH, authorised: decisionsName(CONFIG_HASH) };
-  return undefined;
+  if (v1.state !== 'ok') return undefined;
+  const baselineHash = v1.data.provenance.config.hash;
+  const authorised =
+    baselineHash === CONFIG_HASH ||
+    checkConfigFreeze({ resultsDir, configHash: CONFIG_HASH, changesPath: paths.configChangesPath ?? CONFIG_CHANGES_PATH, decisionsPath: paths.decisionsPath ?? DECISIONS_PATH, cases }).ok;
+  return { baselineHash, currentHash: CONFIG_HASH, authorised };
 }
 
 /** CF-13's input judged now: the config drift against `resultsDir`/baseline-v1.json (undefined before it exists). */
-export function configDriftOf(resultsDir: string = RESULTS_DIR): RunFacts['configDrift'] {
-  return driftOf(readResultsFile(join(resultsDir, BASELINE_V1_FILE), ['gates']));
+export function configDriftOf(resultsDir: string = RESULTS_DIR, o: FreezePaths & { cases?: EvalCase[] } = {}): RunFacts['configDrift'] {
+  return driftOf(readResultsFile(join(resultsDir, BASELINE_V1_FILE), ['gates']), resultsDir, o.cases ?? loadDataset().cases, o);
 }
 
 type PriorRuns = { comparison: Comparison; configDrift: RunFacts['configDrift']; problems: string[] };
 
 /** Compare with the latest formal run and the newest baseline, and check config drift against baseline-v1. */
-function priorRunsOf(results: CaseResult[], resultsDir: string): PriorRuns {
+function priorRunsOf(results: CaseResult[], resultsDir: string, cases: EvalCase[], paths: FreezePaths): PriorRuns {
   const problems: string[] = [];
   const formal = existsSync(resultsDir) ? readdirSync(resultsDir).filter((f) => /^eval-run-.*\.json$/.test(f)) : [];
   let previous: { file: string; data: ResultsFile } | null = null;
@@ -549,7 +553,7 @@ function priorRunsOf(results: CaseResult[], resultsDir: string): PriorRuns {
 
   // baseline-v1 freezes cfg-1 (EV13): CF-13 fires on an unauthorised drift, or when it cannot be checked.
   const v1 = readResultsFile(join(resultsDir, 'baseline-v1.json'), ['gates']);
-  const configDrift = driftOf(v1);
+  const configDrift = driftOf(v1, resultsDir, cases, paths);
   if (v1.state === 'bad') problems.push(v1.problem);
 
   // The newest baseline that exists is the comparison point; an unreadable one is a problem, never a
@@ -664,7 +668,7 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
     integ.ok = false;
     integ.problems.push(`${networkCalls.length} network call(s) attempted during the run`);
   }
-  const prior = priorRunsOf(cases, resultsDir);
+  const prior = priorRunsOf(cases, resultsDir, dataset.cases, opts);
   if (prior.problems.length > 0) {
     integ.ok = false;
     integ.problems.push(...prior.problems);

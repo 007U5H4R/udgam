@@ -677,7 +677,7 @@ export async function main(argv: string[], io: Pick<Console, 'log' | 'error'> = 
     perf,
     readiness: readinessLines(checkReadiness(dataset as Dataset, REGISTRY, { milestone: args.milestone })),
     git: { ...head, dirty: head.dirty || end.dirty || changed.length > 0, changes: [...new Set([...head.changes, ...end.changes, ...changed])] },
-    configDrift: configDriftOf(formalDir),
+    configDrift: configDriftOf(formalDir, { cases: dataset.cases }),
     startedAt,
     durationMs: Math.round(performance.now() - t0),
   });
