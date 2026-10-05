@@ -867,3 +867,10 @@ No threshold, eval case or cfg-1 value changes (CF-13).
 - An output above input is accepted and flagged, as the spec says (the brief's "never more than input" was a wording slip).
 
 **Open, with follow-up queued:** if the step is missing, a hand-on to a processor can show publicly as "Handed to buyer". The certificate should label the recipient by its org type, which the feed carries, and verifiers don't detect step omission. Recorded for the owner.
+
+## EXE32 · A lone processor hop with no step is a known certificate gap — accepted (orchestrator, under the owner's delegation, 2026-10-05)
+**Context.** Follow-up 2 now labels a hop "Handed to a processor" with the flag "No processing step recorded" whenever the recipient later hands the batch on. The signed `custody_transfer` payload carries no organisation type, so one case remains: a batch with a single FPO→processor hop, no later hop, and no step in the feed. It still reads "Handed to buyer". This happens either because the step isn't recorded yet, or because a server leaves it out.
+**Decision.** The gap is accepted for the MVP and documented in docs/proof-feed.md's limitations and in HANDOFF. The fix is a **later ticket** (before any processor pilot): add a signed `toOrgType` (`buyer`|`processor`) to new `custody_transfer` payloads (an additive field; old entries keep verifying), and have both verifiers label a hop from it.
+**Rejected:**
+- Changing the custody payload contract inside a review follow-up.
+- Treating every unfollowed hop as incomplete: that would flag every legitimate buyer hop.

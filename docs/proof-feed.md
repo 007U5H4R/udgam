@@ -456,6 +456,8 @@ device's `device_enrolled` is therefore detected even though the removed entries
 absent, and so is a batch that lists a capture hash its member event does not carry. The omissions
 that cannot be detected are listed in §1.
 
+**Known limitation (EXE32).** A `custody_transfer` payload carries no recipient organisation type. A hop whose recipient later hands the batch on is labelled a processor hop. A batch with a single hop to a processor, no later hop and no `processing_step` in the feed reads as a hand-off to a buyer. A signed `toOrgType` on new custody transfers is planned.
+
 ## 10. Verification steps
 
 Run the steps in this order and stop at the first failure. Report the step name and, where given, the
