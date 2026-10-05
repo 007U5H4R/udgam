@@ -37,7 +37,20 @@ async function screenChecks(page: Page) {
   await noHorizontalScroll(page);
 }
 
+/**
+ * A screen with the plot editor is scanned only once its map has settled: Leaflet (loaded after the page,
+ * browser-only) has drawn its controls, the attribution names the tile provider, and every requested
+ * tile has loaded. Under load a scan right after navigation would see a half-built map.
+ */
+async function mapSettled(page: Page) {
+  if ((await page.getByRole('region', { name: /^(Draw|Edit) the boundary$/ }).count()) === 0) return;
+  await expect(page.locator('.leaflet-control-attribution')).toContainText('Powered by Esri');
+  await expect(page.locator('img.leaflet-tile-loaded').first()).toBeAttached();
+  await expect(page.locator('img.leaflet-tile:not(.leaflet-tile-loaded)')).toHaveCount(0);
+}
+
 async function noSeriousAxeViolations(page: Page) {
+  await mapSettled(page);
   const { violations } = await new AxeBuilder({ page }).analyze();
   expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
 }
@@ -134,6 +147,28 @@ test.describe('TKT-06 admin plots', () => {
     await expect(page.getByRole('heading', { name: 'Add a plot', level: 2 })).toBeVisible();
     await screenChecks(page);
     await noSeriousAxeViolations(page);
+  });
+
+  test('the map attribution links are underlined, not told apart by colour alone, even before any tile arrives (TC-081)', async ({ page }) => {
+    // Hold every tile. With imagery behind the attribution axe can only mark its links "needs review";
+    // with none it judges them, which is how a loaded parallel run first caught Leaflet's colour-only link.
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    await page.route('**/{server.arcgisonline.com,api.maptiler.com,*.arcgis.com}/**', async (route) => {
+      await held;
+      await route.fallback().catch(() => undefined);
+    });
+    await page.goto('/admin/plots/new');
+    await expect(page.locator('.leaflet-control-attribution')).toContainText('Powered by Esri');
+    await expect(page.locator('img.leaflet-tile-loaded')).toHaveCount(0);
+    const links = page.locator('.leaflet-control-attribution a');
+    await expect(links.first()).toBeVisible();
+    for (const link of await links.all()) {
+      expect(await link.evaluate((a) => getComputedStyle(a).textDecorationLine)).toContain('underline');
+    }
+    const { violations } = await new AxeBuilder({ page }).withRules(['link-in-text-block']).analyze();
+    expect(violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
+    release();
   });
 
   test("another FPO's plot is a 404 (TC-019)", async ({ page, browser }) => {
