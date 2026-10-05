@@ -781,3 +781,8 @@ The feed embed contract (technical-plan §8.4, docs/proof-feed.md) is unchanged.
 - **Rejected:** keeping the unmeetable 150 KB, which would be a permanent recorded miss; and fetching the feed in a second round trip, which breaks §18 and S4.
 
 S4's threshold and every cfg-1 value are unchanged (CF-13).
+
+## EXE25 · A staged photo that fails its re-hash is treated as missing — accepted (orchestrator, under the owner's delegation, 2026-10-05; amends TC-094(b))
+**Context.** TKT-30's quality review found the following. The phone only names staged hashes that the server confirmed, so a staged file whose bytes no longer match at capture can only have changed on the server. TC-094(b) anchored this as the device's `media_hash_mismatch` rejection, and the phone then dropped a correct outbox copy. That contradicts TP28: the farmer never loses a photo.
+**Decision.** At capture, a re-hash mismatch on a staged file answers 409 `media_not_staged`, with nothing anchored and the file discarded. The phone resends the bytes inline, which are then verified normally. A mismatch on bytes the phone itself sent is still an anchored `media_hash_mismatch`.
+**Rejected.** Anchoring the server-side mismatch as the agent's refusal, which blames the agent and loses the photo.

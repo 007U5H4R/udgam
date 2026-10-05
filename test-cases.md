@@ -635,7 +635,7 @@ Not given a TC because an EVAL case already specifies them completely: S3 latenc
 - **Links:** M-001 · TKT-30 · TASK-31 · EVAL-070 · S1
 - **Type/Pri/Auto:** integration + e2e · P1 · A
 - **Steps:** (a) stage 3 photos, then submit a capture listing them as staged with no file parts; (b) the same, but tamper with one staged file on disk before Submit; (c) agent B submits a payload referencing agent A's staged hash; (d) at 375 px with the EV9 network profile (5 Mbit/s up, 80 ms), accept three 4 MB photos, wait until staging finishes, tap Submit; (e) let the staged files expire before Submit.
-- **Expected:** (a) the verdict and stored media equal those of a normal multipart capture of the same bytes; (b) → 4xx `media_hash_mismatch`, anchored as a rejected event; (c) → 409 `media_not_staged`; (d) the request after Submit carries no photo bytes, and the EVAL-070 timing split shows upload time outside t0→t1; (e) the client gets 409, resends the bytes once, and the verdict arrives with nothing lost.
+- **Expected:** (a) the verdict and stored media equal those of a normal multipart capture of the same bytes; (b) → 409 `media_not_staged` with nothing anchored, the client resends the bytes inline and the verdict arrives (amended by EXE25: a staged file that fails its re-hash is a server-side change, so it is treated as missing); (c) → 409 `media_not_staged`; (d) the request after Submit carries no photo bytes, and the EVAL-070 timing split shows upload time outside t0→t1; (e) the client gets 409, resends the bytes once, and the verdict arrives with nothing lost.
 - **Status:** Not run · **Finding:** —
 
 ## M-002 · Contract farming on real smart contracts
