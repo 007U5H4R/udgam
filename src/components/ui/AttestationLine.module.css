@@ -6,4 +6,6 @@
   font-weight: 600;
   line-height: 1.45;
   overflow-wrap: anywhere;
+  /* a full row inside a batch member's grid row (QA-P5-2); no effect outside a grid */
+  grid-column: 1 / -1;
 }

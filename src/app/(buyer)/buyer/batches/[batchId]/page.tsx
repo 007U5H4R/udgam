@@ -4,14 +4,17 @@ import { CustodyChain } from '../../../../../components/buyer/CustodyChain';
 import { Icon } from '../../../../../components/buyer/Icon';
 import screen from '../../../../../components/buyer/BatchScreen.module.css';
 import { cropLabel, pickingsLabel, plotsLabel } from '../../../../../components/buyer/labels';
+import { PlotAttestationLine } from '../../../../../components/ui/AttestationLine';
 import { BatchQr } from '../../../../../components/ui/BatchQr';
 import { GlassCard } from '../../../../../components/ui/GlassCard';
 import pill from '../../../../../components/ui/Pill.module.css';
+import { batchAttestations } from '../../../../../lib/attestations/for-batch';
 import { getBuyerBatch, listBuyerBatches } from '../../../../../lib/batches/buyer';
 import { formatKg, formatScore, istDateTime } from '../../../../../lib/batches/format';
 import { orgNames } from '../../../../../lib/batches/read';
 import { getDbReady } from '../../../../../lib/db/client';
 import { t } from '../../../../../lib/i18n';
+import { istDate } from '../../../../../lib/verification/evidence';
 import { requireSession, scopedById } from '../../../../_auth/require';
 import { BuyerList } from '../../BuyerList';
 
@@ -28,7 +31,8 @@ export default async function BuyerBatchPage({ params }: Props) {
   const { batchId } = await params;
   const db = await getDbReady();
   const batch = scopedById(await getBuyerBatch(db, me.orgId, batchId));
-  const [batches, names] = await Promise.all([listBuyerBatches(db, me.orgId), orgNames(db, [me.orgId])]);
+  const [batches, names, organic] = await Promise.all([listBuyerBatches(db, me.orgId), orgNames(db, [me.orgId]), batchAttestations(db, batch.batchId)]);
+  const today = istDate(new Date().toISOString()); // TC-058: the organic line per plot (QA-P5-2)
   const orgName = names.get(me.orgId) ?? '';
   const pickings = batch.plots.reduce((n, p) => n + p.pickings, 0);
 
@@ -79,6 +83,7 @@ export default async function BuyerBatchPage({ params }: Props) {
                   <b>{t('buyer.detail.producer', { plot: p.plotId, producer: p.producerId })}</b>
                   <span className={screen.kg}>{t('batches.kg', { kg: formatKg(p.cherryKg) })}</span>
                   <span className={screen.meta}>{pickingsLabel(p.pickings)}</span>
+                  <PlotAttestationLine record={organic.get(p.plotId)} today={today} />
                 </li>
               ))}
             </ul>
