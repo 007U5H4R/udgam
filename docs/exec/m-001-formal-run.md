@@ -39,7 +39,8 @@ Run every step in the same checkout, at the same HEAD. Do not commit, check out,
 4. **`pnpm eval:perf`.**
    - Start a production server outside the Playwright ports:
      - `pnpm build`
-     - `DATA_DIR=<scratch dir outside the repo> E2E=1 ./node_modules/.bin/next start -p <port> &`. Record its PID.
+     - `BETTER_AUTH_SECRET="$(openssl rand -hex 32)" BETTER_AUTH_URL=http://localhost:<port> REMOTE_SENSING_PROVIDER=fixture DATA_DIR=<scratch dir outside the repo> E2E=1 ./node_modules/.bin/next start -p <port> &`. Record its PID.
+     - The production server refuses to boot without `BETTER_AUTH_SECRET`. Generate a throwaway value in the shell, as `playwright.config.ts` does for its webServer. Never print, echo, store or commit it. The other variables mirror that webServer env. `E2E_FIXTURE_DELAY_MS` is left out because it only slows the capture flow, and `ARCGIS_API_KEY` is left out because the certificate requests no keyed tiles. The M-001 formal run first failed here without the secret and was resumed at step 4 with this line (candidate EXE).
    - Then run `pnpm eval:perf --target=http://localhost:<port> --only=s4 --runs=10 --data-dir=<same scratch dir> --out=evals/results/baseline-perf-v1.json`.
    - Stop the server by its PID.
    - The perf file records the git commit and a `dirty` flag. `dirty` counts the formal outputs from step 3 as clean.
