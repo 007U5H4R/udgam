@@ -36,6 +36,11 @@ import { isFileStem, REPORTS_DIR, RESULTS_DIR, reportPathFor, writeReport, write
 //
 // Exit codes: 0 = every gate passes; 1 = the run completed and a gate failed or a critical condition
 // fired; 2 = bad usage (an invalid flag) or a harness crash (the run did not complete).
+// `--baseline=v1` (TSK-21.2, EV13): the formal M-001 run on a clean tree. It writes the formal results
+// and report as usual, then a byte-identical copy at evals/results/baseline-v1.json and its report
+// evals/reports/eval-report-baseline-v1.md (rendered from that copy, so report.ts regenerates it
+// byte-identically, TC-016). It refuses (exit 2, nothing run) when either file already exists: the
+// baseline freezes cfg-1 and is never rewritten (tests/config-freeze.test.ts guards the hash after it).
 // `--provider=live` (TSK-07.7) runs no gate: it compares live GFW / Sentinel Hub answers for P01–P10
 // with the fixtures in an agreement report (live-agreement.ts; `--record` saves the answers). It needs
 // GFW_API_KEY, CDSE_CLIENT_ID and CDSE_CLIENT_SECRET and exits 2 naming the missing ones; never in CI.
@@ -130,7 +135,20 @@ export type RunOptions = {
   ledger?: LedgerMode;
   /** With ledger evm: an already running chain's RPC (tests); otherwise the harness starts Anvil. */
   evmRpcUrl?: string;
+  /** `--baseline=v1`: also freeze the run as baseline-v1 (formal output only; never overwrites). */
+  baseline?: 'v1';
 };
+
+/** The frozen M-001 baseline (EV13) and its report; written once by `--baseline=v1`, never overwritten. */
+export const BASELINE_V1_FILE = 'baseline-v1.json';
+export const BASELINE_V1_REPORT = 'eval-report-baseline-v1.md';
+
+/** Throw if a baseline-v1 file or its report already exists (checked before any run). */
+function refuseExistingBaseline(resultsDir: string, reportsDir: string): void {
+  for (const path of [join(resultsDir, BASELINE_V1_FILE), join(reportsDir, BASELINE_V1_REPORT)]) {
+    if (existsSync(path)) throw new Error(`refusing to overwrite ${relative(process.cwd(), path)}: baseline-v1 is frozen (EV13); it is written once and never rewritten`);
+  }
+}
 
 /** A case that has not settled after this long is recorded as errored (reason: timeout). */
 export const CASE_TIMEOUT_MS = 30_000;
@@ -698,23 +716,46 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
   };
 }
 
-/** Run, write the versioned results file, render its report from that file, and return the paths. */
-export async function runHarness(opts: RunOptions = {}): Promise<{ results: ResultsFile; resultsPath: string; reportPath: string; exitCode: 0 | 1 }> {
-  const results = await evaluate(opts);
+export type HarnessRun = { results: ResultsFile; resultsPath: string; reportPath: string; exitCode: 0 | 1; baselinePath?: string; baselineReportPath?: string };
+
+/**
+ * Run, write the versioned results file, render its report from that file, and return the paths. With
+ * `baseline: 'v1'`, also copy the results byte for byte to baseline-v1.json and render its report from
+ * that copy; both are created exclusively (`wx`), and an existing one stops the call before the run.
+ */
+export async function runHarness(opts: RunOptions = {}): Promise<HarnessRun> {
   const out = opts.out ?? 'local';
-  const resultsPath = writeResults(results, { out, dir: opts.resultsDir ?? RESULTS_DIR, name: opts.name });
-  const wanted = reportPathFor(resultsPath, { out, reportsDir: opts.reportsDir ?? REPORTS_DIR, reportName: opts.reportName });
-  const fromDisk = JSON.parse(readFileSync(resultsPath, 'utf8')) as ResultsFile;
+  const resultsDir = opts.resultsDir ?? RESULTS_DIR;
+  const reportsDir = opts.reportsDir ?? REPORTS_DIR;
+  if (opts.baseline) {
+    if (out !== 'formal') throw new Error('--baseline=v1 writes formal results only (--out=formal)');
+    refuseExistingBaseline(resultsDir, reportsDir);
+  }
+  const results = await evaluate(opts);
+  const resultsPath = writeResults(results, { out, dir: resultsDir, name: opts.name });
+  const wanted = reportPathFor(resultsPath, { out, reportsDir, reportName: opts.reportName });
+  const text = readFileSync(resultsPath, 'utf8');
+  const fromDisk = JSON.parse(text) as ResultsFile;
   const reportPath = writeReport(wanted, renderReportFromResults(fromDisk, resultsPath));
-  return { results, resultsPath, reportPath, exitCode: results.summary.exitCode };
+  const run: HarnessRun = { results, resultsPath, reportPath, exitCode: results.summary.exitCode };
+  if (opts.baseline) {
+    const baselinePath = join(resultsDir, BASELINE_V1_FILE);
+    writeFileSync(baselinePath, text, { flag: 'wx' });
+    const baselineReportPath = join(reportsDir, BASELINE_V1_REPORT);
+    mkdirSync(reportsDir, { recursive: true });
+    writeFileSync(baselineReportPath, renderReportFromResults(JSON.parse(readFileSync(baselinePath, 'utf8')) as ResultsFile, baselinePath), { flag: 'wx' });
+    Object.assign(run, { baselinePath, baselineReportPath });
+  }
+  return run;
 }
 
 // ── CLI ───────────────────────────────────────────────────────────────────────────────────────────
 
 export function parseArgs(
   argv: string[],
-): Required<Pick<RunOptions, 'config' | 'provider' | 'suites' | 'out' | 'milestone' | 'ledger'>> & Pick<RunOptions, 'seed' | 'name' | 'reportName'> & { record: boolean } {
+): Required<Pick<RunOptions, 'config' | 'provider' | 'suites' | 'out' | 'milestone' | 'ledger'>> & Pick<RunOptions, 'seed' | 'name' | 'reportName' | 'baseline'> & { record: boolean } {
   const o = { config: 'full' as ConfigMode, provider: 'fixture' as ProviderMode, suites: [...HARNESS_SUITES] as Suite[], out: 'local' as Out, milestone: DEFAULT_MILESTONE, ledger: 'hashchain' as LedgerMode, record: false } as ReturnType<typeof parseArgs>;
+  let outGiven = false;
   for (const arg of argv) {
     const m = /^--([a-z-]+)=(.*)$/.exec(arg);
     const [flag, value] = m ? [m[1], m[2]!] : arg === '--record' ? ['record', ''] : [arg, ''];
@@ -749,6 +790,11 @@ export function parseArgs(
       case 'out':
         if (value !== 'local' && value !== 'formal') throw new Error(`--out must be local or formal, got ${value}`);
         o.out = value;
+        outGiven = true;
+        break;
+      case 'baseline':
+        if (value !== 'v1') throw new Error(`--baseline must be v1, got ${value}`);
+        o.baseline = value;
         break;
       case 'name':
         if (!isFileStem(value)) throw new Error(`--name must be a plain file stem (letters, digits, . _ -), got "${value}"`);
@@ -766,6 +812,23 @@ export function parseArgs(
         throw new Error(`unknown flag ${arg}`);
     }
   }
+  if (o.baseline) {
+    // baseline-v1 is the whole M1 harness at the frozen config: full checks, both suites, fixture provider,
+    // hash-chain ledger, formal output under the standard names.
+    const bad = [
+      o.config !== 'full' && `--config=${o.config}`,
+      o.suites.length !== HARNESS_SUITES.length && `--suite=${o.suites.join(',')}`,
+      o.provider !== 'fixture' && `--provider=${o.provider}`,
+      o.ledger !== 'hashchain' && `--ledger=${o.ledger}`,
+      o.milestone !== 'M1' && `--milestone=${o.milestone}`,
+      outGiven && o.out !== 'formal' && `--out=${o.out}`,
+      o.name !== undefined && '--name',
+      o.reportName !== undefined && '--report-name',
+      o.record && '--record',
+    ].filter(Boolean);
+    if (bad.length > 0) throw new Error(`--baseline=v1 is the full M1 run (all checks, both suites, fixture provider, hash-chain ledger, formal output); it cannot take ${bad.join(', ')}`);
+    o.out = 'formal';
+  }
   return o;
 }
 
@@ -782,7 +845,7 @@ function summaryLines(r: ResultsFile, resultsPath: string, reportPath: string): 
   ];
 }
 
-type Runner = (o: RunOptions) => Promise<{ results: ResultsFile; resultsPath: string; reportPath: string; exitCode: 0 | 1 }>;
+type Runner = (o: RunOptions) => Promise<HarnessRun>;
 
 export type LiveRun = { reportPath: string; agreed: number; total: number; recorded: string[] };
 type LiveRunner = (o: { record: boolean; env: Record<string, string | undefined> }) => Promise<LiveRun>;
@@ -804,7 +867,7 @@ export async function main(
   argv: string[],
   run: Runner = runHarness,
   io: Pick<Console, 'log' | 'error'> = console,
-  deps: { env?: Record<string, string | undefined>; live?: LiveRunner } = {},
+  deps: { env?: Record<string, string | undefined>; live?: LiveRunner; git?: () => { dirty: boolean }; resultsDir?: string; reportsDir?: string } = {},
 ): Promise<0 | 1 | 2> {
   let args: ReturnType<typeof parseArgs>;
   try {
@@ -835,6 +898,19 @@ export async function main(
       return 2;
     }
   }
+  if (args.baseline) {
+    // TSK-21.3 runs on a clean tree at the gate commit: the baseline's provenance must name that commit.
+    if ((deps.git ?? gitFacts)().dirty) {
+      io.error('--baseline=v1 needs a clean tree at the gate commit (git status is not clean); nothing was run.');
+      return 2;
+    }
+    try {
+      refuseExistingBaseline(deps.resultsDir ?? RESULTS_DIR, deps.reportsDir ?? REPORTS_DIR);
+    } catch (e) {
+      io.error(`${(e as Error).message}; nothing was run.`);
+      return 2;
+    }
+  }
   let r: Awaited<ReturnType<Runner>>;
   try {
     r = await run(args);
@@ -843,6 +919,8 @@ export async function main(
     return 2;
   }
   for (const line of summaryLines(r.results, r.resultsPath, r.reportPath)) io.log(line);
+  if (r.baselinePath) io.log(`baseline-v1: ${relative(process.cwd(), r.baselinePath)} (config ${r.results.provenance.config.version} ${r.results.provenance.config.hash})`);
+  if (r.baselineReportPath) io.log(`baseline report: ${relative(process.cwd(), r.baselineReportPath)}`);
   return r.exitCode;
 }
 
