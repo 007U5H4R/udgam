@@ -68,15 +68,20 @@ export const DISTRICT_AREAS: readonly DistrictArea[] = [
   },
   {
     name: 'Dakshina Kannada',
+    // The south-west edge stays north and east of the Kerala border (Kasaragod district: Perla, Adoor,
+    // Delampady), conservatively: Sullia and Puttur are inside, Vitla and the border villages read as
+    // the state (TASK-17 r2 N1).
     ring: [
-      [75.25, 12.5],
+      [75.36, 12.52],
       [75.45, 12.5],
       [75.5, 12.7],
       [75.35, 12.95],
       [75.1, 13.05],
       [74.85, 12.95],
       [74.84, 12.82],
-      [75.1, 12.65],
+      [75.05, 12.79],
+      [75.2, 12.73],
+      [75.36, 12.66],
     ],
   },
 ];
