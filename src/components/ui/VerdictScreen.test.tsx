@@ -33,7 +33,7 @@ describe('VerdictScreen t1 (EV9)', () => {
       root.render(
         <>
           <VerdictScreen tone="ok" motion={false} heading="Verified" doneLabel="Done" onDone={() => undefined}>
-            <p>card</p>
+            <p data-testid="card" />
           </VerdictScreen>
           <After />
         </>,
