@@ -21,7 +21,7 @@
       "minItems": 2
     },
     "ring": {
-      "description": "A closed linear ring: at least 4 positions, the last equal to the first (closure is checked by the builder's tests; JSON Schema cannot compare items).",
+      "description": "A closed linear ring: at least 4 positions, the last equal to the first, and counter-clockwise (RFC 7946 §3.1.6, as an exterior ring). Closure and orientation are checked by the builder's tests; JSON Schema cannot compare items.",
       "type": "array",
       "minItems": 4,
       "items": { "$ref": "#/$defs/position" }
@@ -72,7 +72,12 @@
           "type": "string",
           "pattern": "^([A-Z][A-Za-z]+( and [A-Z][A-Za-z]+)?, )?Karnataka$"
         },
-        "Area": { "description": "EU property, Points only. Hectares, two decimals.", "type": "number", "exclusiveMinimum": 0 },
+        "Area": {
+          "description": "EU property, Points only. Hectares, two decimals; a plot shown as 4.00 ha or more is a Polygon, so a Point's Area is at most 3.99.",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 3.99
+        },
         "commodity": { "description": "Udgam property (ignored by the EU system).", "const": "coffee" },
         "hs_code": { "description": "Udgam property. Coffee, not roasted, not decaffeinated (EUDR Annex I, heading 0901).", "const": "0901 11" },
         "quantity_kg_cherry": { "description": "Udgam property. The whole batch's fresh-cherry kilograms (not per plot, and not the net mass of a DDS).", "type": "number", "minimum": 0 },

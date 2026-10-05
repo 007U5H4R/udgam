@@ -11,6 +11,7 @@ import type { ProofFeedV1 } from '../ledger/proof';
 // validated by docs/eudr-geojson.schema.json). A WGS84 FeatureCollection, one Feature per plot of the
 // batch, shaped to the European Commission's EUDR GeoJson File Description v1.5 (5 May 2025):
 //   - [longitude, latitude] at 6 decimals, consecutive duplicates removed after rounding;
+//   - rings follow RFC 7946's right-hand rule: an exterior ring counter-clockwise (a hole clockwise);
 //   - a plot of 4 ha or more is its Polygon (outer ring only, closed); a smaller plot is a Point on its
 //     surface with its `Area` in hectares;
 //   - EU properties ProducerName (the pseudonymous producer ID, never a name: EV16), ProducerCountry,
@@ -55,6 +56,21 @@ const round6 = (n: number): number => Math.round(n * SCALE) / SCALE;
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 const pos6 = (p: Position): Position => [round6(p[0]!), round6(p[1]!)];
 const samePos = (a: Position, b: Position) => a[0] === b[0] && a[1] === b[1];
+
+/** Twice the signed area of a closed ring in lon/lat (shoelace): positive when counter-clockwise. */
+function signedArea2(ring: Position[]): number {
+  let sum = 0;
+  for (let i = 1; i < ring.length; i++) sum += ring[i - 1]![0]! * ring[i]![1]! - ring[i]![0]! * ring[i - 1]![1]!;
+  return sum;
+}
+
+/** A closed ring reversed when its winding is not the wanted one (first and last positions stay equal). */
+const wound = (ring: Position[], ccw: boolean): Position[] => (signedArea2(ring) > 0 === ccw ? ring : [...ring].reverse());
+
+/** A polygon's rings under RFC 7946 §3.1.6: the exterior ring counter-clockwise, every hole clockwise. */
+export function orientRings(rings: Position[][]): Position[][] {
+  return rings.map((r, i) => wound(r, i === 0));
+}
 
 /** An outer ring at 6 decimals: consecutive duplicates dropped, closed. Null when fewer than 4 positions remain. */
 function cleanRing(ring: Position[]): Position[] | null {
@@ -107,14 +123,21 @@ export function interiorPoint(g: PlotPolygon): Position {
   return turfPoint;
 }
 
-/** The plot's geometry under TP24: Polygon / MultiPolygon (outer rings) at 4 ha or more, else a Point and its area. */
+/**
+ * The plot's geometry under TP24: at 4 ha or more (on the area at two decimals, as the product shows it) a
+ * Polygon, or a MultiPolygon for a plot anchored as several parts, each with its outer ring only, oriented
+ * counter-clockwise; else a Point on its surface and its area. A plot of 4 ha or more is never downgraded
+ * to a Point: a ring that collapses under rounding is an impossible state for a registered plot, so it throws.
+ */
 function geometryOf(plot: CertPlot): { geometry: EudrGeometry; area?: number } {
   const area = round2(plot.areaHa ?? areaHa(plot.polygon));
   if (area >= POLYGON_FROM_HA) {
     const rings = outerRings(plot.polygon).map(cleanRing);
-    if (rings.every((r): r is Position[] => r !== null)) {
-      return rings.length === 1 ? { geometry: { type: 'Polygon', coordinates: [rings[0]!] } } : { geometry: { type: 'MultiPolygon', coordinates: rings.map((r) => [r]) } };
+    if (!rings.every((r): r is Position[] => r !== null)) {
+      throw new Error(`EUDR export: plot ${plot.plotId} is ${area} ha but a ring has fewer than 4 positions after rounding to ${COORD_DECIMALS} decimals`);
     }
+    const parts = rings.map((r) => orientRings([r]));
+    return parts.length === 1 ? { geometry: { type: 'Polygon', coordinates: parts[0]! } } : { geometry: { type: 'MultiPolygon', coordinates: parts } };
   }
   return { geometry: { type: 'Point', coordinates: interiorPoint(plot.polygon) }, area };
 }
@@ -151,16 +174,20 @@ export function buildEudrGeoJson(feed: ProofFeedV1, baseUrl: string = env.PUBLIC
   return { type: 'FeatureCollection', features };
 }
 
+/** Coordinates (a position or nested arrays of them) as JSON text, every number with exactly 6 decimals. */
+function coordinatesText(c: unknown): string {
+  if (typeof c === 'number') return c.toFixed(COORD_DECIMALS);
+  if (Array.isArray(c)) return `[${c.map(coordinatesText).join(',')}]`;
+  throw new TypeError('EUDR export: a coordinate is neither a number nor an array');
+}
+
 /**
  * The file's bytes: JSON with every coordinate written with exactly 6 decimals ("12.420000", not "12.42"),
- * so a validator counting decimal digits sees the full precision. Parses back to the same object.
+ * so a validator counting decimal digits sees the full precision. Geometry is written by hand; everything
+ * else goes through JSON.stringify untouched. Parses back to the same object.
  */
 export function serializeEudrGeoJson(fc: EudrFeatureCollection): string {
-  const MARK = '\u0000';
-  const text = JSON.stringify(fc, (key, value: unknown) => {
-    if (key !== 'coordinates') return value;
-    const fix = (v: unknown): unknown => (typeof v === 'number' ? `${MARK}${v.toFixed(COORD_DECIMALS)}${MARK}` : Array.isArray(v) ? v.map(fix) : v);
-    return fix(value);
-  });
-  return text.replace(/"\\u0000(-?\d+\.\d+)\\u0000"/g, '$1');
+  const feature = (f: EudrFeature) =>
+    `{"type":"Feature","geometry":{"type":${JSON.stringify(f.geometry.type)},"coordinates":${coordinatesText(f.geometry.coordinates)}},"properties":${JSON.stringify(f.properties)}}`;
+  return `{"type":"FeatureCollection","features":[${fc.features.map(feature).join(',')}]}`;
 }

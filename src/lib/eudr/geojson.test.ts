@@ -1,13 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { booleanPointInPolygon } from '@turf/turf';
+import { booleanClockwise, booleanPointInPolygon } from '@turf/turf';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { describe, expect, it } from 'vitest';
 import { areaHa } from '../geo/area';
-import type { Polygon } from '../geo/types';
+import type { MultiPolygon, Polygon, Position } from '../geo/types';
 import type { ProofFeedV1 } from '../ledger/proof';
-import { buildEudrGeoJson, serializeEudrGeoJson, type EudrFeature } from './geojson';
+import { buildEudrGeoJson, orientRings, serializeEudrGeoJson, type EudrFeature } from './geojson';
 
 // TSK-17.1 · TC-070 (builder half) · EVAL-078 · TP24: the EUDR geolocation file is built from the proof
 // feed's payloads alone (TP16). The fixture feed (evals/fixtures/feeds/batch-3-events.json, three 2.0 ha
@@ -42,6 +42,19 @@ function withPolygons(polys: Polygon[]): ProofFeedV1 {
   }
   return f;
 }
+
+/** The fixture feed with plot 0's anchored polygon and area set (other plots unchanged). */
+function withPlot0(polygon: Polygon | MultiPolygon, area: number): ProofFeedV1 {
+  const f = structuredClone(FEED);
+  for (const e of f.entries) {
+    if ((e.kind !== 'plot_registered' && e.kind !== 'plot_edited') || e.payload.plotId !== PLOTS[0].plotId) continue;
+    e.payload.polygon = polygon as Polygon;
+    e.payload.areaHa = area;
+  }
+  return f;
+}
+
+const reversed = (p: Polygon): Polygon => ({ type: 'Polygon', coordinates: p.coordinates.map((r) => [...r].reverse()) });
 
 const MIXED = withPolygons([fixture('P01'), fixture('P10'), fixture('P03')]);
 const byProducer = (fc: { features: EudrFeature[] }, producerId: string) => fc.features.find((f) => f.properties.ProducerName === producerId)!;
@@ -202,7 +215,116 @@ describe('buildEudrGeoJson (TSK-17.1, TC-070, EVAL-078)', () => {
   });
 });
 
+describe('RFC 7946 §3.1.6 ring orientation (exterior counter-clockwise, holes clockwise)', () => {
+  it('a clockwise P03 exports counter-clockwise, closed, with the same vertices', () => {
+    const cw = reversed(fixture('P03'));
+    expect(booleanClockwise(cw.coordinates[0]!)).toBe(true); // the input really is clockwise
+    const fc = buildEudrGeoJson(withPolygons([fixture('P01'), fixture('P10'), cw]), BASE);
+    const ring = rings(byProducer(fc, 'PR-YQZGQHEX'))[0]!;
+    expect(booleanClockwise(ring)).toBe(false);
+    expect(ring.at(-1)).toEqual(ring[0]);
+    expect(ring).toHaveLength(fixture('P03').coordinates[0]!.length);
+    // the counter-clockwise fixtures stay as they are
+    expect(rings(byProducer(fc, 'PR-VVEWARBA'))[0]![1]).toEqual(fixture('P10').coordinates[0]![1]!.map((n) => Math.round(n * 1e6) / 1e6));
+  });
+
+  it('orientRings: a clockwise exterior turns counter-clockwise and a counter-clockwise hole turns clockwise', () => {
+    const outer: Position[] = [
+      [75.8, 12.5],
+      [75.8, 12.51],
+      [75.81, 12.51],
+      [75.81, 12.5],
+      [75.8, 12.5],
+    ]; // clockwise
+    const hole: Position[] = [
+      [75.804, 12.504],
+      [75.806, 12.504],
+      [75.806, 12.506],
+      [75.804, 12.506],
+      [75.804, 12.504],
+    ]; // counter-clockwise
+    const [o, h] = orientRings([outer, hole]);
+    expect(o).toEqual([
+      [75.8, 12.5],
+      [75.81, 12.5],
+      [75.81, 12.51],
+      [75.8, 12.51],
+      [75.8, 12.5],
+    ]);
+    expect(h).toEqual([
+      [75.804, 12.504],
+      [75.804, 12.506],
+      [75.806, 12.506],
+      [75.806, 12.504],
+      [75.804, 12.504],
+    ]);
+    expect(booleanClockwise(o!)).toBe(false);
+    expect(booleanClockwise(h!)).toBe(true);
+    // already right: unchanged
+    expect(orientRings([o!, h!])).toEqual([o, h]);
+  });
+
+  it('a multi-part plot of 4 ha or more exports as a MultiPolygon with every part counter-clockwise (spec A2)', () => {
+    const multi: MultiPolygon = { type: 'MultiPolygon', coordinates: [reversed(fixture('P03')).coordinates, fixture('P10').coordinates] };
+    const fc = buildEudrGeoJson(withPlot0(multi, 9.5), BASE);
+    const f = byProducer(fc, 'PR-0PDMRFJ3');
+    expect(f.geometry.type).toBe('MultiPolygon');
+    expect('Area' in f.properties).toBe(false);
+    const parts = (f.geometry as { coordinates: number[][][][] }).coordinates;
+    expect(parts).toHaveLength(2);
+    for (const part of parts) {
+      expect(part).toHaveLength(1);
+      expect(booleanClockwise(part[0]!)).toBe(false);
+      expect(part[0]!.at(-1)).toEqual(part[0]![0]);
+    }
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(SCHEMA);
+    expect(validate(fc), JSON.stringify(validate.errors)).toBe(true);
+  });
+});
+
+describe('the 4 ha line, on the area at two decimals (Q2, Q3)', () => {
+  it('3.994 ha (shown as 3.99 ha) is a Point with Area 3.99', () => {
+    const f = byProducer(buildEudrGeoJson(withPlot0(fixture('P03'), 3.994), BASE), 'PR-0PDMRFJ3');
+    expect(f.geometry.type).toBe('Point');
+    expect(f.properties.Area).toBe(3.99);
+  });
+
+  it('3.9997 ha (shown as 4.00 ha) is a Polygon with no Area', () => {
+    const f = byProducer(buildEudrGeoJson(withPlot0(fixture('P03'), 3.9997), BASE), 'PR-0PDMRFJ3');
+    expect(f.geometry.type).toBe('Polygon');
+    expect('Area' in f.properties).toBe(false);
+  });
+
+  it('a plot of 4 ha or more whose ring collapses after rounding throws, never a Point with Area of 4 or more', () => {
+    const tiny: Polygon = {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [75.8000001, 12.5000001],
+          [75.8000002, 12.5000001],
+          [75.8000002, 12.5000002],
+          [75.8000001, 12.5000001],
+        ],
+      ],
+    };
+    expect(() => buildEudrGeoJson(withPlot0(tiny, 4.5), BASE)).toThrow('EUDR export: plot PL-QZE72CD2 is 4.5 ha but a ring has fewer than 4 positions after rounding to 6 decimals');
+  });
+
+  it('the schema refuses a Point whose Area is 4 or more', () => {
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(SCHEMA);
+    const fc = buildEudrGeoJson(FEED, BASE);
+    fc.features[0]!.properties.Area = 4;
+    expect(validate(fc)).toBe(false);
+  });
+});
+
 describe('serializeEudrGeoJson (at least 6 decimal digits on the wire)', () => {
+  it('leaves string properties alone, even ones that look like the old coordinate marker', () => {
+    const fc = buildEudrGeoJson(FEED, BASE);
+    fc.features[0]!.properties.crop = '\u000012.5\u0000';
+    expect(JSON.parse(serializeEudrGeoJson(fc))).toEqual(fc);
+  });
+
   it('writes every coordinate with exactly 6 decimals and parses back to the builder output', () => {
     const fc = buildEudrGeoJson(MIXED, BASE);
     const text = serializeEudrGeoJson(fc);
