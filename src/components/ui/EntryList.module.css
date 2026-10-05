@@ -118,15 +118,49 @@
 .more summary {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   min-height: 48px;
   color: var(--accent);
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   border-radius: 12px;
+  list-style: none;
+}
+.more summary::-webkit-details-marker {
+  display: none;
 }
 .more[open] summary {
   min-height: 40px;
+}
+/* DES-205 / DES-218: the summary's words underlined, a chevron that turns, and "Hide checks" while open */
+.whenClosed,
+.whenOpen {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.more[open] .whenClosed,
+.more:not([open]) .whenOpen {
+  display: none;
+}
+.chev {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.2s ease;
+}
+.more[open] .chev {
+  transform: rotate(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .chev {
+    transition: none;
+  }
 }
 .ov {
   margin: 8px 0 0;
@@ -175,7 +209,8 @@
   border-top: 1px solid var(--hairline);
   border-bottom: 0;
 }
-.num {
+.num,
+.table th.num {
   text-align: right;
   padding-right: 0 !important;
 }

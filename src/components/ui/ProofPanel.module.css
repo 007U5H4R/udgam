@@ -176,6 +176,8 @@
   min-height: 48px;
   color: var(--accent);
   font-weight: 600;
+  /* DES-205: underlined (preflight removes the browser's underline), not colour alone */
+  text-decoration: underline;
   text-underline-offset: 3px;
 }
 .fingerprint {

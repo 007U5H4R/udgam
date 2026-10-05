@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { certCopy } from '../../lib/certificate/copy';
-import { CertMark, type CertMarkKind } from './CertIcon';
+import { CertIcon, CertMark, type CertMarkKind } from './CertIcon';
 import { useProofState, type ProofUiState } from './proof-state';
 import s from './EntryList.module.css';
 
@@ -66,7 +66,12 @@ function Evidence({ row }: { row: EntryRow }): ReactNode {
       </ul>
       {rest.length > 0 ? (
         <details className={s.more}>
-          <summary>{certCopy.entries.seeAll(rest.length)}</summary>
+          {/* DES-205: a chevron, not colour alone, marks the disclosure; DES-218: its words follow its state */}
+          <summary>
+            <span className={s.whenClosed}>{certCopy.entries.seeAll(rest.length)}</span>
+            <span className={s.whenOpen}>{certCopy.entries.hideChecks}</span>
+            <CertIcon name="chevron" className={s.chev} />
+          </summary>
           <ul className={s.ev}>
             {rest.map((e, i) => (
               <li key={i}>{e}</li>

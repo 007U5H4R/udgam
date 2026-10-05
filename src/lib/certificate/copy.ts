@@ -124,6 +124,7 @@ export const certCopy = {
     total: 'Total',
     kg: (kg: string) => `${kg} kg`,
     seeAll: (n: number) => `See all checks (${n} more)`,
+    hideChecks: 'Hide checks',
     override: (word: string) => `Decided by the office: ${word}`,
     reason: 'Reason',
     checking: 'Checking',
