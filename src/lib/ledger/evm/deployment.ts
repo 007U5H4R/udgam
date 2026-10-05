@@ -12,9 +12,14 @@ export const DeploymentSchema = z.object({
   registry: address,
   operator: address,
   deployedAtBlock: z.number().int().nonnegative(),
+  /** Blocks (including the anchor's own) before an anchor is recorded; absent = 1 (Anvil). */
+  confirmations: z.number().int().min(1).max(256).optional(),
 });
 
-export type Deployment = { chainId: number; registry: `0x${string}`; operator: `0x${string}`; deployedAtBlock: number };
+export type Deployment = { chainId: number; registry: `0x${string}`; operator: `0x${string}`; deployedAtBlock: number; confirmations?: number };
+
+/** Confirmations `pnpm contracts:deploy` writes: 1 on Anvil (it never reorganises), 12 on any other chain. */
+export const defaultConfirmations = (chainId: number): number => (chainId === 31337 ? 1 : 12);
 
 /** Anvil's default listen address, used when ANVIL_RPC_URL is unset. */
 export const DEFAULT_RPC_URL = 'http://127.0.0.1:8545';

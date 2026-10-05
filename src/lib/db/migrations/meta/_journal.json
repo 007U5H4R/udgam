@@ -169,6 +169,20 @@
       "when": 1791176117418,
       "tag": "0023_staged_media_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1791178812756,
+      "tag": "0024_evm_anchor_resolution_cols",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1791178815584,
+      "tag": "0025_evm_anchor_resolution",
+      "breakpoints": true
     }
   ]
 }

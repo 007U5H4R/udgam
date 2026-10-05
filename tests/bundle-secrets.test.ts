@@ -51,7 +51,7 @@ describe('check-bundle-secrets.sh', () => {
   it('passes a clean bundle', () => {
     const r = run();
     expect(r.status).toBe(0);
-    expect(r.stdout).toContain('none of 6 secret values');
+    expect(r.stdout).toContain('none of 7 secret values');
   });
 
   it('fails on a secret in a static chunk, naming the variable and not the value', () => {

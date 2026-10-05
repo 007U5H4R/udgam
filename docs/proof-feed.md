@@ -562,7 +562,7 @@ chain), to be checked there (§13.2).
 |---|---|---|
 | `anchored` | `chainId` (integer), `contract` (0x address, lowercase), `txHash` (0x + 64 hex), `blockNumber` (integer) | The registry at `contract` on chain `chainId` holds this entry's `entryHash` at its `seq`, written by transaction `txHash`, mined in block `blockNumber`. |
 | `pending` | — | Not on chain yet. The chain transaction cannot be part of the database transaction, so anchoring runs after the commit, in strict `seq` order; it can lag briefly, or longer while the chain is unreachable (it is retried). |
-| `failed` | — | The registry already holds a **different** hash at this `seq`. Anchoring stops at this entry until an operator resolves it. |
+| `failed` | — | The registry already holds a **different** hash at this `seq`. Anchoring halts at this entry until an operator records a resolution (§13.4). The entry stays `failed` after that. |
 
 ```jsonc
 { "seq": 612, "…": "…", "entryHash": "3f9a…",
@@ -581,6 +581,13 @@ A feed from a server running only the hash-chain adapter has no `evm` members.
 
 For an entry whose `evm.status` is `anchored`, after the entry has passed §10:
 
+0. **Pin the registry independently of the feed.** Take the expected `chainId` and registry address
+   (and its `operator()`) from a source you trust that the feed's server cannot rewrite in the same
+   response, for example the deployment published next to the ledger key at
+   `/.well-known/udgam-ledger-key` and recorded when you first trusted it, or an out-of-band
+   announcement. The feed's `chainId` and `contract` MUST equal the pinned values. The `evm` member is
+   not signed (§13.1): taking `contract` from the feed itself would let a server deploy a fresh
+   registry, anchor rewritten hashes there, and pass steps 1–3.
 1. Connect to an RPC endpoint of chain `chainId` (`eth_chainId` must return it).
 2. Call `entryHash(seq)` on `contract`. It MUST equal `0x` + the entry's `entryHash`.
 3. Fetch the receipt of `txHash`: it MUST have succeeded, be in block `blockNumber`, and contain an
@@ -589,6 +596,10 @@ For an entry whose `evm.status` is `anchored`, after the entry has passed §10:
 If step 2 fails, the stored ledger and the chain disagree about that entry: someone changed one of
 them after anchoring. The server's own audit (`pnpm ledger:audit`) runs the same comparison over the
 whole ledger, also recomputing each entry hash from the stored payload.
+
+A checker that fails an entry names the step: `evm-field` (not anchored, or no `evm`), `malformed`,
+`chain`, `contract` (step 0/1), `registry-hash` (step 2), `tx-not-found`, `tx-status`, `tx-block` or
+`log` (step 3). The server-side reference is `checkFeedAnchors` (`src/lib/ledger/evm/verify-anchors.ts`).
 
 ### 13.3 Scope and limits
 
@@ -600,3 +611,30 @@ whole ledger, also recomputing each entry hash from the stored payload.
   fixed at a given block, independently of the server's database and of the ledger key. It does not
   prove the payload is true (that is §9 and the verification checks), and a `pending` anchor proves
   nothing yet.
+- **Confirmations and reorganisations.** The server records an anchor only after the transaction has
+  `confirmations` blocks on top of and including its block (deployment.json; 1 on Anvil, which never
+  reorganises; `pnpm contracts:deploy` writes 12 for any other chain). A recorded anchor is immutable.
+  If a reorganisation deeper than that removes it, step 3 fails for that entry and
+  `pnpm ledger:audit` names its seq (`anchored-in-db-but-not-on-chain`, or a hash mismatch when another
+  transaction took the seq); that is an incident for the operator (§13.4), never repaired silently.
+- **Operator key.** `BatchRegistry.operator` is immutable: the key cannot be rotated. A lost or leaked
+  key means a new registry (and, for this ledger, the §13.4 path). This is accepted for milestone 2.
+
+### 13.4 Operator path for a `failed` anchor
+
+`failed` means the registry already holds a different hash at that `seq`, and the contract has no
+overwrite path, so that registry can never hold the ledger's hash there. Anchoring halts at the failed
+entry (nothing is retried and nothing is written while it is halted), so the mismatch cannot go
+unnoticed. The operator:
+
+1. runs `pnpm ledger:audit` and finds out why the registry holds another hash (a leaked operator key,
+   a second writer, a registry reused across databases);
+2. records the one resolution with
+   `pnpm ledger:evm:resolve --seq=N --reason="what happened and where it is documented"`.
+   The reason (10+ characters) and the time are written once on the failed row and can never be
+   changed or removed (database triggers, migration 0023);
+3. anchoring resumes with the next `seq`.
+
+The entry stays `failed` in every proof and the audit keeps naming it: a resolution acknowledges the
+mismatch, it does not hide it. When the registry itself cannot be trusted any more (a leaked operator
+key), the remedy is a new database and a new registry, which this version does not migrate.

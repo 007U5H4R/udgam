@@ -13,6 +13,10 @@ import { CONTRACTS_DIR, foundryBin, foundryEnv } from './foundry';
 const execFileAsync = promisify(execFile);
 const rpcUrl = inject('anvilRpcUrl');
 const h = (n: number) => n.toString(16).padStart(64, '0').replace(/^0/, 'a');
+const rpc = async (method: string, params: unknown[]): Promise<unknown> => {
+  const res = await fetch(rpcUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
+  return ((await res.json()) as { result?: unknown }).result;
+};
 
 let w: EvmWorld;
 beforeAll(async () => {
@@ -47,6 +51,41 @@ describe('createRegistryClient', () => {
     expect(await ro.entryHash(1)).toBe(h(1));
     await expect(ro.append(2, h(2))).rejects.toThrow(/read-only/);
     expect(() => createRegistryClient({ rpcUrl, deployment: w.deployment, operatorKey: generatePrivateKey() })).toThrow(/does not match/);
+  });
+
+  it('append waits for the deployment confirmations before it resolves (2 here: one more block)', async () => {
+    const c = createRegistryClient({ rpcUrl, deployment: { ...w.deployment, confirmations: 2 }, operatorKey: w.operatorKey });
+    expect(c.confirmations).toBe(2);
+    const seq = await c.nextSeq();
+    let settled = false;
+    const p = c.append(seq, h(seq)).finally(() => (settled = true));
+    await new Promise((r) => setTimeout(r, 2_000));
+    expect(settled).toBe(false);
+    await rpc('evm_mine', []);
+    const r = await p;
+    expect((await c.blockNumber()) - r.blockNumber + 1).toBeGreaterThanOrEqual(2);
+    expect(await c.entryHash(seq)).toBe(h(seq));
+  });
+
+  it('anchoredLog queries logs in bounded block ranges and still finds a log far from the deployment block', async () => {
+    const ranges: number[] = [];
+    const c = createRegistryClient({
+      rpcUrl,
+      deployment: w.deployment,
+      operatorKey: w.operatorKey,
+      logRangeBlocks: 8,
+      onFetchRequest: async (req) => {
+        const body = (await req.clone().json()) as { method: string; params: { fromBlock: string; toBlock: string }[] };
+        if (body.method === 'eth_getLogs') ranges.push(Number(BigInt(body.params[0]!.toBlock) - BigInt(body.params[0]!.fromBlock)) + 1);
+      },
+    });
+    await rpc('anvil_mine', ['0x1e']); // 30 empty blocks after the deployment
+    const seq = await c.nextSeq();
+    const sent = await c.append(seq, h(seq));
+    expect(await c.anchoredLog(seq)).toEqual({ seq, entryHash: h(seq), txHash: sent.txHash, blockNumber: sent.blockNumber });
+    expect(ranges.length).toBeGreaterThanOrEqual(4);
+    expect(Math.max(...ranges)).toBeLessThanOrEqual(8);
+    expect(await c.anchoredLog(seq + 50)).toBeNull();
   });
 
   it('the committed ABI equals `forge inspect BatchRegistry abi`', async () => {

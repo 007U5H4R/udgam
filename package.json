@@ -27,7 +27,8 @@
     "contracts:build": "cd contracts && \"$HOME/.foundry/bin/forge\" build",
     "contracts:test": "cd contracts && \"$HOME/.foundry/bin/forge\" test -vv",
     "contracts:deploy": "tsx scripts/evm-deploy.ts",
-    "ledger:audit": "tsx scripts/ledger-audit.ts"
+    "ledger:audit": "tsx scripts/ledger-audit.ts",
+    "ledger:evm:resolve": "tsx scripts/ledger-evm-resolve.ts"
   },
   "dependencies": {
     "@libsql/client": "0.18.0",
