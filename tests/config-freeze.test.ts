@@ -159,7 +159,7 @@ describe('pnpm eval --baseline=v1 (TSK-21.2)', () => {
 
   it('writes the formal run, a byte-identical baseline-v1.json and a report that regenerates byte-identically from it', async () => {
     const dir = join(root, `b${++k}`);
-    const r = await runHarness({ baseline: 'v1', out: 'formal', seed: 5, suites: ['harness-proof'], proofSuite: async () => [], resultsDir: join(dir, 'results'), reportsDir: join(dir, 'reports') });
+    const r = await runHarness({ baseline: 'v1', out: 'formal', seed: 5, suites: ['harness-proof'], proofSuite: async () => [], resultsDir: join(dir, 'results'), reportsDir: join(dir, 'reports'), ...clean });
     expect(r.baselinePath).toBe(join(dir, 'results', BASELINE_V1_FILE));
     expect(r.resultsPath).toMatch(/results\/eval-run-\d+\.\d+\.\d+-[0-9a-f]{7,}\.json$/);
     expect(readFileSync(r.baselinePath!, 'utf8')).toBe(readFileSync(r.resultsPath, 'utf8'));
@@ -186,6 +186,7 @@ describe('pnpm eval --baseline=v1 (TSK-21.2)', () => {
         },
         resultsDir,
         reportsDir: join(dir, 'reports'),
+        ...clean,
       }),
     ).rejects.toThrow(/refusing to overwrite .*baseline-v1\.json/);
     expect(proofRan).toBe(false);
@@ -198,8 +199,20 @@ describe('pnpm eval --baseline=v1 (TSK-21.2)', () => {
     mkdirSync(join(dir, 'reports'), { recursive: true });
     writeFileSync(join(dir, 'reports', BASELINE_V1_REPORT), 'FROZEN\n');
     await expect(
-      runHarness({ baseline: 'v1', out: 'formal', seed: 5, suites: ['harness-proof'], proofSuite: async () => [], resultsDir: join(dir, 'results'), reportsDir: join(dir, 'reports') }),
+      runHarness({ baseline: 'v1', out: 'formal', seed: 5, suites: ['harness-proof'], proofSuite: async () => [], resultsDir: join(dir, 'results'), reportsDir: join(dir, 'reports'), ...clean }),
     ).rejects.toThrow(/refusing to overwrite .*eval-report-baseline-v1\.md/);
+    expect(existsSync(join(dir, 'results'))).toBe(false);
+  });
+
+  it('runHarness itself refuses a tree that is not fully clean (programmatic callers too), before running anything', async () => {
+    const dir = join(root, `b${++k}`);
+    let proofRan = false;
+    const proofSuite = async () => {
+      proofRan = true;
+      return [];
+    };
+    await expect(runHarness({ baseline: 'v1', out: 'formal', seed: 5, suites: ['harness-proof'], proofSuite, resultsDir: join(dir, 'results'), reportsDir: join(dir, 'reports'), git: () => ({ dirty: true }) })).rejects.toThrow(/--baseline=v1 needs a clean tree/);
+    expect(proofRan).toBe(false);
     expect(existsSync(join(dir, 'results'))).toBe(false);
   });
 

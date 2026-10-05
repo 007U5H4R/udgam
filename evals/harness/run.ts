@@ -21,6 +21,7 @@ import { runProofSuite, type ProofCaseResult, type ProofSuiteOptions } from './s
 import { startAnvil } from '../../src/lib/ledger/evm/foundry';
 import { checkConfigFreeze, CONFIG_CHANGES_PATH, DECISIONS_PATH } from './config-freeze';
 import { gitFacts, provenance, REPO_ROOT, type Provenance } from './provenance';
+import { treeState } from './tree-state';
 import { renderReportFromResults } from './report';
 import { isFileStem, REPORTS_DIR, RESULTS_DIR, reportPathFor, writeReport, writeResults, type Out } from './results';
 
@@ -138,7 +139,18 @@ export type RunOptions = {
   evmRpcUrl?: string;
   /** `--baseline=v1`: also freeze the run as baseline-v1 (formal output only; never overwrites). */
   baseline?: 'v1';
+  /** The tree `--baseline=v1` must find clean (default: this repository, see baselineTree). */
+  git?: () => { dirty: boolean };
 } & FreezePaths;
+
+/**
+ * The tree as `--baseline=v1` needs it: fully clean, with not even an untracked formal output, since the
+ * baseline is the first step of the M-001 sequence (docs/exec/m-001-formal-run.md). Fails closed.
+ */
+export function baselineTree(): { dirty: boolean } {
+  const t = treeState();
+  return { dirty: t.dirty || t.formalOutputs.length > 0 };
+}
 
 /** The frozen M-001 baseline (EV13) and its report; written once by `--baseline=v1`, never overwritten. */
 export const BASELINE_V1_FILE = 'baseline-v1.json';
@@ -801,6 +813,7 @@ export async function runHarness(opts: RunOptions = {}): Promise<HarnessRun> {
   const reportsDir = opts.reportsDir ?? REPORTS_DIR;
   if (opts.baseline) {
     if (out !== 'formal') throw new Error('--baseline=v1 writes formal results only (--out=formal)');
+    if ((opts.git ?? baselineTree)().dirty) throw new Error('--baseline=v1 needs a clean tree at the gate commit (git status is not clean); nothing was run');
     refuseExistingBaseline(resultsDir, reportsDir);
   }
   const results = await evaluate(opts);
@@ -972,7 +985,7 @@ export async function main(
   }
   if (args.baseline) {
     // TSK-21.3 runs on a clean tree at the gate commit: the baseline's provenance must name that commit.
-    if ((deps.git ?? gitFacts)().dirty) {
+    if ((deps.git ?? baselineTree)().dirty) {
       io.error('--baseline=v1 needs a clean tree at the gate commit (git status is not clean); nothing was run.');
       return 2;
     }
@@ -985,7 +998,7 @@ export async function main(
   }
   let r: Awaited<ReturnType<Runner>>;
   try {
-    r = await run(args);
+    r = await run({ ...args, ...(deps.git ? { git: deps.git } : {}) });
   } catch (e) {
     io.error(`pnpm eval crashed (exit 2, not a gate result): ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`);
     return 2;
