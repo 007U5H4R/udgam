@@ -138,7 +138,7 @@ describe('listPickings', () => {
     expect(items.find((i) => i.eventId === rejected)).toMatchObject({
       verdict: 'Rejected',
       plotName: 'Plot 1',
-      reason: { icon: 'location', text: 'Your phone was 212 m outside Plot 1.' },
+      reason: { icon: 'location', text: 'Your phone was 212\u00a0m outside Plot 1.' },
       whatToDo: 'Stand inside Plot 1 and record the picking again. If you were inside, tell the office.',
     });
   });
