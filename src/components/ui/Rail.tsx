@@ -57,7 +57,7 @@ export type RailProps = {
 
 export function Rail({ current, me, reviewCount }: RailProps) {
   return (
-    <nav className={styles.rail} aria-label={t('rail.label')}>
+    <nav className={`${styles.rail} admin-rail`} aria-label={t('rail.label')}>
       <span className={styles.mark}>
         <Image src="/brand/cherry.svg" alt="" width={52} height={52} unoptimized />
         {t('app.name')}

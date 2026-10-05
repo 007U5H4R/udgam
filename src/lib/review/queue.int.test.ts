@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { seedFpo, type FpoWorld } from '../../../tests/helpers/batch-fixtures';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 import { addOverride, addRun, checksWith, seedReviewCapture } from '../../../tests/helpers/review-world';
-import { listReviewQueue } from './queue';
+import { countWaiting, listReviewQueue } from './queue';
 
 // TSK-12.1 (TC-054 query half): the review queue of one organisation. `waiting` = each event's latest
 // run when it is Needs Review, not overridden, and the event's final verdict is Needs Review, oldest
@@ -83,6 +83,21 @@ describe('listReviewQueue (TSK-12.1)', () => {
     expect(q.waiting).toEqual([]);
     expect(q.final.map((i) => i.runId)).toEqual([newer.runId, older.runId]);
     expect(q.final[0]).toMatchObject({ verdict: 'Rejected', headline: 'Photo already used', icon: 'camera' });
+  });
+
+  it('countWaiting counts what waits: latest run Needs Review, not overridden, this organisation only', async () => {
+    expect(await countWaiting(t.db, a.orgId)).toBe(0);
+    await seedReviewCapture(t.db, a, { checks: cloudy, receivedAt: at(0) }); // waits
+    const reran = await seedReviewCapture(t.db, a, { checks: cloudy, receivedAt: at(1) });
+    await addRun(t.db, reran.eventId, 2, cloudy); // waits once, with run 2
+    const cleared = await seedReviewCapture(t.db, a, { checks: cloudy, receivedAt: at(2) });
+    await addRun(t.db, cleared.eventId, 2, checksWith()); // Verified on run 2: not waiting
+    const decided = await seedReviewCapture(t.db, a, { checks: cloudy, receivedAt: at(3) });
+    await addOverride(t.db, decided.runId, a.adminId); // decided: not waiting
+    await seedReviewCapture(t.db, a, { checks: reused, receivedAt: at(4) }); // final, not waiting
+    await seedReviewCapture(t.db, b, { checks: cloudy, receivedAt: at(5) }); // FPO B
+    expect(await countWaiting(t.db, a.orgId)).toBe(2);
+    expect(await countWaiting(t.db, b.orgId)).toBe(1);
   });
 
   it('keeps at most 20 final items', async () => {

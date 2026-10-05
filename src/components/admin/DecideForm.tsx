@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, useTransition, type FormEvent } from 'react';
 import { overrideRun, rerunRun, type Refusal } from '../../app/(admin)/admin/review/actions';
 import { istClock, istDay } from '../../lib/review/copy';
-import { checkReason, REASON_MIN } from '../../lib/review/reason';
+import { checkReason, REASON_MIN, reasonLength } from '../../lib/review/reason';
 import { Pill } from '../ui/Pill';
 import pill from '../ui/Pill.module.css';
 import { VerdictMark } from '../ui/VerdictChip';
@@ -24,6 +24,7 @@ const MESSAGE: Record<Refusal['reason'], string> = {
   reason_too_short: `Write at least ${REASON_MIN} characters.`,
   reason_too_long: 'Keep the reason under 1,000 characters.',
   reason_has_phone: 'Take out the phone number: the reason is shown on the public certificate.',
+  reason_has_control: 'Take out the hidden characters (pasted text can carry them): the reason is shown on the public certificate.',
   hard_fail_final: "This one can't be changed: a check failed that can't be overruled.",
   already_decided: 'This picking was already decided. The page now shows that decision.',
   not_reviewable: 'This picking no longer needs a decision. The page now shows its latest result.',
@@ -62,7 +63,7 @@ export function DecideForm({
   const ids = useId();
 
   const decision = decided ?? local;
-  const len = reason.trim().length;
+  const len = reasonLength(reason);
   const ready = len >= REASON_MIN;
 
   useEffect(() => {

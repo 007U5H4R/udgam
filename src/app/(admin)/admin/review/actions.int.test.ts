@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cookieHeader } from '../../../../../tests/helpers/auth';
+import { addOrg, addUser, cookieHeader } from '../../../../../tests/helpers/auth';
 import { seedFpo, type FpoWorld } from '../../../../../tests/helpers/batch-fixtures';
 import { tempDb, type TempDb } from '../../../../../tests/helpers/db';
 import { checksWith, seedReviewCapture } from '../../../../../tests/helpers/review-world';
@@ -22,7 +22,7 @@ let t: TempDb;
 let a: FpoWorld;
 let b: FpoWorld;
 const PASSWORD = 'review action password';
-const cookies: Record<'a' | 'b', string> = { a: '', b: '' };
+const cookies: Record<'a' | 'b' | 'agent' | 'buyer', string> = { a: '', b: '', agent: '', buyer: '' };
 
 beforeEach(async () => {
   t = await tempDb();
@@ -39,6 +39,16 @@ beforeEach(async () => {
   ] as const) {
     cookies[k] = cookieHeader(await appAuth().api.signInEmail({ body: { email: w.adminEmail, password: PASSWORD }, asResponse: true }));
   }
+  // A signed-in agent of org a and a signed-in buyer: neither may call an admin action (403).
+  await addOrg(t.db, 'ORG-BUYER', 'buyer');
+  await addUser(t.db, { id: 'U-AGENT-A', email: 'agent@a.test', password: PASSWORD, role: 'agent', orgId: a.orgId });
+  await addUser(t.db, { id: 'U-BUYER', email: 'buyer@b.test', password: PASSWORD, role: 'buyer', orgId: 'ORG-BUYER' });
+  for (const [k, email] of [
+    ['agent', 'agent@a.test'],
+    ['buyer', 'buyer@b.test'],
+  ] as const) {
+    cookies[k] = cookieHeader(await appAuth().api.signInEmail({ body: { email, password: PASSWORD }, asResponse: true }));
+  }
 }, 30_000);
 afterEach(async () => {
   (await import('../../../../lib/db/client')).closeDb();
@@ -47,7 +57,7 @@ afterEach(async () => {
   await t.cleanup();
 });
 
-const as = (who: 'a' | 'b' | null) => {
+const as = (who: keyof typeof cookies | null) => {
   request.headers = new Headers(who ? { cookie: cookies[who] } : {});
 };
 const actions = () => import('./actions');
@@ -63,6 +73,32 @@ describe('review actions', () => {
     await expect(overrideRun({ runId: c.runId, newVerdict: 'Verified', reason: REASON })).rejects.toMatchObject({ status: 401 });
     await expect(rerunRun(c.runId)).rejects.toMatchObject({ status: 401 });
     expect(await t.db.$count(ledgerEntries)).toBe(before);
+  });
+
+  it('are admin-only: a signed-in agent or buyer gets 403 on each action, nothing written', async () => {
+    const c = await seedReviewCapture(t.db, a, { checks: cloudy });
+    const before = await t.db.$count(ledgerEntries);
+    const { overrideRun, rerunRun } = await actions();
+    for (const who of ['agent', 'buyer'] as const) {
+      as(who);
+      await expect(overrideRun({ runId: c.runId, newVerdict: 'Verified', reason: REASON }), who).rejects.toMatchObject({ name: 'AuthError', status: 403 });
+      await expect(rerunRun(c.runId), who).rejects.toMatchObject({ name: 'AuthError', status: 403 });
+    }
+    expect(await t.db.$count(ledgerEntries)).toBe(before);
+    expect(await t.db.$count(adminOverrides)).toBe(0);
+  });
+
+  it('overrideRun checks the reason on the server: hidden characters and a phone in other digits are refused (400), nothing written', async () => {
+    const c = await seedReviewCapture(t.db, a, { checks: cloudy });
+    const before = await t.db.$count(ledgerEntries);
+    const { overrideRun } = await actions();
+    as('a');
+    expect(await overrideRun({ runId: c.runId, newVerdict: 'Verified', reason: '\u200B'.repeat(12) })).toEqual({ ok: false, reason: 'reason_has_control', status: 400 });
+    expect(await overrideRun({ runId: c.runId, newVerdict: 'Verified', reason: 'Checked \u202Eenoz in person' })).toEqual({ ok: false, reason: 'reason_has_control', status: 400 });
+    expect(await overrideRun({ runId: c.runId, newVerdict: 'Verified', reason: 'call ९८४५०१२३४५ please' })).toEqual({ ok: false, reason: 'reason_has_phone', status: 400 });
+    expect(await overrideRun({ runId: c.runId, newVerdict: 'Verified', reason: 'call 98450_12345 please' })).toEqual({ ok: false, reason: 'reason_has_phone', status: 400 });
+    expect(await t.db.$count(ledgerEntries)).toBe(before);
+    expect(await t.db.$count(adminOverrides)).toBe(0);
   });
 
   it('overrideRun on a hard-failed run → 409 hard_fail_final, nothing anchored (TC-056, EVAL-076)', async () => {

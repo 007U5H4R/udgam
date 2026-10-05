@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { adminOverrides, farmers, harvestEvents, organisations, plots, user, verificationRuns } from '../db/schema';
 import { CONFIG } from '../verification/config';
@@ -73,9 +73,14 @@ function rows(db: Db, orgId: string) {
     .innerJoin(plots, eq(plots.id, harvestEvents.plotId))
     .innerJoin(farmers, eq(farmers.id, plots.farmerId))
     .leftJoin(adminOverrides, eq(adminOverrides.runId, latest.id));
-  const scope = and(eq(latest.rank, 1), eq(farmers.orgId, orgId), eq(harvestEvents.boundaryStatus, 'accepted'));
-  return { q, latest, scope };
+  return { q, latest, scope: scopeOf(latest, orgId) };
 }
+
+type Latest = ReturnType<typeof latestRuns>;
+/** Each event's latest run, accepted, in the organisation (joined to harvestEvents, plots and farmers). */
+const scopeOf = (latest: Latest, orgId: string) => and(eq(latest.rank, 1), eq(farmers.orgId, orgId), eq(harvestEvents.boundaryStatus, 'accepted'));
+/** Waits for a person: Needs Review, not overridden (left-joined adminOverrides), and still the event's final verdict. */
+const waits = (latest: Latest) => and(eq(latest.verdict, 'Needs Review'), isNull(adminOverrides.id), eq(harvestEvents.finalVerdict, 'Needs Review'));
 
 type Row = { runId: string; eventId: string; verdict: Verdict; score: number; checks: string; plotId: string | null; producerId: string; receivedAt: string; cherryKg: number | null };
 
@@ -103,7 +108,7 @@ function toItem(r: Row): QueueItem {
 export async function listReviewQueue(db: Db, orgId: string): Promise<ReviewQueue> {
   const w = rows(db, orgId);
   const waiting = await w.q
-    .where(and(w.scope, eq(w.latest.verdict, 'Needs Review'), isNull(adminOverrides.id), eq(harvestEvents.finalVerdict, 'Needs Review')))
+    .where(and(w.scope, waits(w.latest)))
     .orderBy(asc(harvestEvents.serverReceivedAt), asc(w.latest.id));
   const f = rows(db, orgId);
   const final = await f.q
@@ -115,7 +120,16 @@ export async function listReviewQueue(db: Db, orgId: string): Promise<ReviewQueu
 
 /** How many pickings wait for a person (the rail's Review count). */
 export async function countWaiting(db: Db, orgId: string): Promise<number> {
-  return (await listReviewQueue(db, orgId)).waiting.length;
+  const latest = latestRuns(db);
+  const [row] = await db
+    .select({ n: count() })
+    .from(latest)
+    .innerJoin(harvestEvents, eq(harvestEvents.id, latest.eventId))
+    .innerJoin(plots, eq(plots.id, harvestEvents.plotId))
+    .innerJoin(farmers, eq(farmers.id, plots.farmerId))
+    .leftJoin(adminOverrides, eq(adminOverrides.runId, latest.id))
+    .where(and(scopeOf(latest, orgId), waits(latest)));
+  return row?.n ?? 0;
 }
 
 /** The names the review screens show: the organisation (eyebrow) and the signed-in admin (rail). */
