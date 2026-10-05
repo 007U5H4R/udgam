@@ -50,7 +50,7 @@ export default async function AdminAgreementPage({ params, searchParams }: Props
   const head = <DetailHead eyebrow={t('agreements.detailEyebrow', { other: v.buyerName })} title={a.id} chip={<StatusChip status={{ mark: status.mark, word: status.short }} />} meta={meta} />;
 
   let detail;
-  if (forced === 'loading') detail = <DetailSkeleton />;
+  if (forced === 'loading') detail = <DetailSkeleton listTitle={listTitle} />;
   else if (ready) {
     detail = (
       <DetailColumn

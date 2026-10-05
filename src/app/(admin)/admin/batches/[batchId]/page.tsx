@@ -50,6 +50,8 @@ export default async function BatchDetailPage({ params }: Props) {
       <main className={`${screen.main} ${screen.detailOpen}`}>
         <BatchList orgName={batch.orgName} batches={batches} state={null} currentId={batch.batchId} primary={false} />
         <section className={screen.detail} aria-labelledby="d-h">
+          {/* the list's h1, visually hidden, for when the detail is the whole screen (< 1100 px; DES-103, §28.8) */}
+          <h1 className={screen.narrowH1}>{t('batches.title')}</h1>
           <div className={screen.dBody}>
             <Link className={screen.back} href="/admin/batches">
               <Icon name="arrowLeft" />

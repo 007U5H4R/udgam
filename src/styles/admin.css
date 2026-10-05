@@ -145,6 +145,14 @@
   color: #fff;
 }
 
+/* DES-103 (Design.md §28.8): a detail that is the whole screen repeats the list's h1, visually hidden;
+   side by side (≥ 1100 px) the list's h1 is the page's one h1. */
+@media (min-width: 1100px) {
+  .review .narrow-h1 {
+    display: none;
+  }
+}
+
 /* ── Verdict chips + marks (word + mark + colour) ── */
 .review .mk {
   width: 22px;

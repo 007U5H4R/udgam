@@ -29,7 +29,7 @@ export default async function NewAgreementPage({ searchParams }: Props) {
     <main className="review agr no-rail detail-open" data-state="working" id="main">
       <AgreementList side="buyer" orgName={orgName} items={items} state={forced === 'loading' ? 'loading' : items.length ? 'data' : 'empty'} />
       {forced === 'loading' ? (
-        <DetailSkeleton />
+        <DetailSkeleton listTitle={t('agreements.buyer.title')} />
       ) : (
         <DetailColumn backHref="/buyer/agreements" backLabel={t('agreements.back')} listTitle={t('agreements.buyer.title')}>
           <DetailHead eyebrow={t('agreements.eyebrow', { org: orgName })} title={t('agreements.new.title')} meta={t('agreements.new.meta')} />

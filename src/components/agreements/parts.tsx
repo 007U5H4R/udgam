@@ -110,18 +110,22 @@ export function ErrorCard({ title, body, retryHref }: { title: string; body: str
 }
 
 /** admin.html's detail skeleton. */
-export function DetailSkeleton() {
+export function DetailSkeleton({ listTitle }: { listTitle?: string } = {}) {
   return (
-    <section className="detail" aria-hidden="true">
-      <div className="d-body">
-        <div className="d-sk">
-          <span className="sk m" />
-          <span className="sk h" />
-          <span className="sk box" />
-          <span className="sk box2" />
+    <>
+      {/* a loading detail that is the whole screen keeps the list's h1, visually hidden (DES-103, §28.8) */}
+      {listTitle ? <h1 className="vh narrow-h1">{listTitle}</h1> : null}
+      <section className="detail" aria-hidden="true">
+        <div className="d-body">
+          <div className="d-sk">
+            <span className="sk m" />
+            <span className="sk h" />
+            <span className="sk box" />
+            <span className="sk box2" />
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }
 

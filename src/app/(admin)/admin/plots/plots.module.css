@@ -604,3 +604,20 @@
     animation: none;
   }
 }
+
+/* DES-103 (Design.md §28.8): a detail that is the whole screen repeats the list's h1, visually hidden;
+   side by side (≥ 1100 px) the list's h1 is the page's one h1. */
+.narrowH1 {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  margin: 0;
+}
+@media (min-width: 1100px) {
+  .narrowH1 {
+    display: none;
+  }
+}

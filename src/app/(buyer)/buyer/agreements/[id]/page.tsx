@@ -198,7 +198,7 @@ export default async function BuyerAgreementPage({ params, searchParams }: Props
     <main className="review agr no-rail detail-open" data-state="working" id="main">
       <AgreementList side="buyer" orgName={orgName} items={items} state={forced === 'loading' ? 'loading' : 'data'} currentId={a.id} />
       {forced === 'loading' ? (
-        <DetailSkeleton />
+        <DetailSkeleton listTitle={t('agreements.buyer.title')} />
       ) : (
         <DetailColumn backHref="/buyer/agreements" backLabel={t('agreements.back')} listTitle={t('agreements.buyer.title')}>
           <DetailHead eyebrow={t('agreements.detailEyebrow', { other: v.fpoName })} title={a.id} chip={<StatusChip status={{ mark: status.mark, word: status.short }} />} meta={meta} />

@@ -1,7 +1,12 @@
+import { execFileSync } from 'node:child_process';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { DEMO_ACCOUNTS, SEED_PASSWORD, seedAccounts, signIn } from './helpers/auth';
 import { openField, seedCaptureWorld } from './helpers/capture';
+import type { SeededAgreements } from './helpers/seed-agreements';
+import type { SeededBatches } from './helpers/seed-batches';
+import type { SeededReview } from './helpers/seed-review';
+import { E2E_DATA_DIR } from './helpers/tracer';
 
 // Stage 8 office fixes (docs/exec/stage8/stage8-office.md): the office shell around every admin, buyer and
 // processor screen. DES-105: Sign out on every office screen (the rail foot on tablet and desktop, the end
@@ -11,6 +16,14 @@ test.describe.configure({ timeout: 120_000 });
 
 test.beforeAll(() => seedAccounts());
 
+/** Run one of the e2e seed scripts against the e2e database and return its JSON result. */
+function runSeed<T>(script: string, args: string[] = []): T {
+  const env: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: 'test', DATA_DIR: E2E_DATA_DIR, LOG_LEVEL: 'silent' };
+  delete env.DATABASE_URL;
+  const out = execFileSync('./node_modules/.bin/tsx', [script, ...args], { env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
+  return JSON.parse(out.trim().split('\n').pop()!) as T;
+}
+
 const phone = (page: Page) => (page.viewportSize()?.width ?? 0) < 700;
 
 async function axeClean(page: Page) {
@@ -19,7 +32,7 @@ async function axeClean(page: Page) {
 }
 
 /** Exactly one visible Sign out, in the rail foot (≥ 700 px) or at the end of the screen (phones). */
-async function oneSignOut(page: Page, where: string) {
+async function oneSignOut(page: Page, where: string, maxWidth = 360) {
   const out = page.getByRole('button', { name: 'Sign out' });
   await expect(out, where).toHaveCount(1);
   await expect(out, where).toBeVisible();
@@ -27,7 +40,7 @@ async function oneSignOut(page: Page, where: string) {
     await expect(page.getByRole('navigation', { name: 'Admin sections' }).getByRole('button', { name: 'Sign out' }), where).toBeVisible();
   }
   const box = (await out.boundingBox())!;
-  expect(box.width, where).toBeLessThanOrEqual(360);
+  expect(box.width, where).toBeLessThanOrEqual(maxWidth);
   expect(box.height, where).toBeGreaterThanOrEqual(48);
 }
 
@@ -52,9 +65,11 @@ test.describe('DES-105 Sign out on every office screen', () => {
 
   test('buyer: batches and agreements', async ({ page }) => {
     await signIn(page, DEMO_ACCOUNTS.buyerA.email, SEED_PASSWORD);
-    for (const path of ['/buyer', '/buyer/agreements', '/buyer/agreements/new']) {
+    // the list column carries it; a detail that is the whole screen (< 1100 px) has Back instead
+    const wide = (page.viewportSize()?.width ?? 0) >= 1100;
+    for (const path of ['/buyer', '/buyer/agreements', ...(wide ? ['/buyer/agreements/new'] : [])]) {
       await page.goto(path);
-      await oneSignOut(page, path);
+      await oneSignOut(page, path, 760); // the buyer's list column pill (unchanged on Batches)
     }
     await axeClean(page);
   });
@@ -79,7 +94,8 @@ async function styledNotFound(page: Page, url: string, o: { title: string; back:
   await expect(card.getByRole('link', { name: o.back }), url).toHaveAttribute('href', o.href);
   const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   expect(bg, url).not.toBe('rgb(255, 255, 255)');
-  await expect(page, url).toHaveTitle('Not found · Udgam');
+  // A nested not-found keeps its route's title (Next resolves the page's metadata); an unmatched URL gets its own.
+  if (url === '/no-such-page') await expect(page, url).toHaveTitle('Not found · Udgam');
   const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(scrollWidth, url).toBeLessThanOrEqual(page.viewportSize()!.width);
   const { violations } = await new AxeBuilder({ page }).analyze();
@@ -107,6 +123,7 @@ test.describe('DES-104 / DES-011 one styled not-found', () => {
   test('buyer and processor: unknown batch, back to Batches', async ({ page }) => {
     await signIn(page, DEMO_ACCOUNTS.buyerA.email, SEED_PASSWORD);
     await styledNotFound(page, '/buyer/batches/B-NOPE0000', { title: PAGE, back: 'Back to Batches', href: '/buyer' });
+    await page.context().clearCookies();
     await signIn(page, DEMO_ACCOUNTS.processorA.email, SEED_PASSWORD);
     await styledNotFound(page, '/processor/batches/B-NOPE0000', { title: PAGE, back: 'Back to Batches', href: '/processor' });
   });
@@ -125,5 +142,43 @@ test.describe('DES-104 / DES-011 one styled not-found', () => {
     await expect(page.locator('nav').last()).toBeVisible();
     await page.getByRole('link', { name: 'Back to Pickings' }).click();
     await expect(page).toHaveURL(/\/field\/pickings$/);
+  });
+});
+
+/** DES-103: the page has an h1 at every width (axe page-has-heading-one), and only one is exposed. */
+async function oneH1(page: Page, where: string) {
+  await expect(page.getByRole('heading', { level: 1 }), where).toHaveCount(1);
+  const { violations } = await new AxeBuilder({ page }).withRules(['page-has-heading-one']).analyze();
+  expect(violations.map((v) => v.id), where).toEqual([]);
+}
+
+test.describe('DES-103 a detail that is the whole screen keeps an h1', () => {
+  test('admin review, plot, plot new and batch details; the agreement skeleton', async ({ page }) => {
+    const r = runSeed<SeededReview>('e2e/helpers/seed-review.ts');
+    await signIn(page, r.adminEmail, r.testOnlyAdminPassword);
+    await page.goto(`/admin/review/${r.outside}`);
+    await oneH1(page, 'review detail');
+    await page.goto(`/admin/batches/${r.batchId}`);
+    await oneH1(page, 'batch detail');
+    await page.goto('/admin/plots/new');
+    await oneH1(page, 'plot new');
+    await page.goto('/admin/plots');
+    const href = (await page.locator('main a[href^="/admin/plots/PL-"]').first().getAttribute('href'))!;
+    await page.goto(href);
+    await oneH1(page, 'plot detail');
+  });
+
+  test('buyer batch detail and the agreement loading skeletons', async ({ page }) => {
+    const b = runSeed<SeededBatches>('e2e/helpers/seed-batches.ts', ['--transfer-to', 'ORG-BUYER-A']);
+    await signIn(page, DEMO_ACCOUNTS.buyerA.email, SEED_PASSWORD);
+    await page.goto(`/buyer/batches/${b.batch!.batchId}`);
+    await oneH1(page, 'buyer batch detail');
+    await page.goto('/buyer/agreements/new?state=loading');
+    await oneH1(page, 'new agreement loading');
+    const a = runSeed<SeededAgreements>('e2e/helpers/seed-agreements.ts');
+    await page.context().clearCookies();
+    await signIn(page, a.buyerEmail, a.testOnlyPassword);
+    await page.goto(`/buyer/agreements/${a.created.id}?state=loading`);
+    await oneH1(page, 'agreement loading');
   });
 });

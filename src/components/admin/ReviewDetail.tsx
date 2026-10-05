@@ -126,6 +126,8 @@ export function ReviewDetail({ d, next, adminName, now = new Date() }: { d: Deta
   return (
     // tabIndex: at ≥ 1100 px the column scrolls on its own, so a keyboard user can focus and scroll it (axe scrollable-region-focusable)
     <section className="detail" aria-labelledby="d-h" tabIndex={0}>
+      {/* the list's h1, visually hidden, for when the detail is the whole screen (< 1100 px; DES-103, §28.8) */}
+      <h1 className="vh narrow-h1">Pickings to check</h1>
       <div className="d-body">
         <Link className="back d-back" href="/admin">
           <Icon name="arrowLeft" />
