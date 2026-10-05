@@ -19,7 +19,7 @@ import s from './demo.module.css';
 // its review page. No mockup: composed per TP17. Test-only: 404 unless DEMO_MODE=1 outside a production
 // deployment (attacks.ts demoEnabled).
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Demo tools · Udgam admin' };
+export const metadata: Metadata = { title: 'Demo tools · Udgam' };
 
 const CHECK_NAMES: Record<string, string> = {
   geofence: 'Inside the plot',

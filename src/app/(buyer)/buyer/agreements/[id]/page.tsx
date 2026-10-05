@@ -16,6 +16,7 @@ import { getDbReady } from '../../../../../lib/db/client';
 import { t } from '../../../../../lib/i18n';
 import { requireSession } from '../../../../_auth/require';
 import { fundAgreementAction, gradeBatchAction, refundAgreementAction } from '../actions';
+import { pageTitle } from '../../../../../lib/page-title';
 
 // /buyer/agreements/[id] (TSK-25.8, Design.md §28.1 screens 1, 3, 3r and 4): one agreement of the
 // buyer's organisation. Created → fund (what moves where, the three conditions, the refund date);
@@ -23,7 +24,10 @@ import { fundAgreementAction, gradeBatchAction, refundAgreementAction } from '..
 // money back; otherwise the terms with the latest result and its conditions, read-only. Another
 // organisation's agreement is a 404 like an unknown one (EVAL-080). `?state=loading|working` for e2e.
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Agreement · Udgam' };
+// DES-110: "<Screen> <ID> · Udgam", so two tabs or history entries can be told apart.
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  return { title: pageTitle('Agreement', (await params).id) };
+}
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 

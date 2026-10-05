@@ -13,6 +13,7 @@ import { userName } from '../../../../../lib/enrolment/phones';
 import { t } from '../../../../../lib/i18n';
 import { requireSession } from '../../../../_auth/require';
 import { settleAgreementAction } from '../actions';
+import { pageTitle } from '../../../../../lib/page-title';
 
 // /admin/agreements/[id] (TSK-25.8, Design.md §28.1 screen 5): the settlement panel. Ready: the three
 // conditions "Before settling", each as value vs threshold with Met / Not met, and Settle in the sticky
@@ -21,7 +22,10 @@ import { settleAgreementAction } from '../actions';
 // the chip stays "Ready to settle" and the inline error says nothing moved. Another FPO's agreement is a
 // 404 like an unknown one (EVAL-080). `?state=loading|working|turned-away` for e2e.
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Agreement · Udgam' };
+// DES-110: "<Screen> <ID> · Udgam", so two tabs or history entries can be told apart.
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  return { title: pageTitle('Agreement', (await params).id) };
+}
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 

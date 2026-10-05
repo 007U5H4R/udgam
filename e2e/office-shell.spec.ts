@@ -182,3 +182,29 @@ test.describe('DES-103 a detail that is the whole screen keeps an h1', () => {
     await oneH1(page, 'agreement loading');
   });
 });
+
+test.describe('DES-110 one title pattern: "<Screen> <ID> · Udgam"', () => {
+  test('lists and details on admin, buyer and processor', async ({ page }) => {
+    const a = runSeed<SeededAgreements>('e2e/helpers/seed-agreements.ts');
+    await signIn(page, a.ready.adminEmail, a.testOnlyPassword);
+    for (const [path, title] of [
+      ['/admin', 'Review · Udgam'],
+      ['/admin/phones', 'Phones · Udgam'],
+      ['/admin/plots', 'Plots · Udgam'],
+      ['/admin/batches', 'Batches · Udgam'],
+      [`/admin/agreements/${a.ready.id}`, `Agreement ${a.ready.id} · Udgam`],
+      [`/admin/batches/${a.ready.batchId}`, `Batch ${a.ready.batchId} · Udgam`],
+    ] as const) {
+      await page.goto(path);
+      await expect(page, path).toHaveTitle(title);
+    }
+    await page.context().clearCookies();
+    await signIn(page, a.buyerEmail, a.testOnlyPassword);
+    await page.goto(`/buyer/agreements/${a.released.id}`);
+    await expect(page).toHaveTitle(`Agreement ${a.released.id} · Udgam`);
+    await page.context().clearCookies();
+    await signIn(page, DEMO_ACCOUNTS.processorA.email, SEED_PASSWORD);
+    await page.goto('/processor');
+    await expect(page).toHaveTitle('Batches · Udgam');
+  });
+});

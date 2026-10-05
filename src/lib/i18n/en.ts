@@ -630,8 +630,7 @@ export const en = {
   'processor.detailLabel': 'Batch detail',
   'processor.railLabel': 'Processor sections',
   'processor.signOut': 'Sign out',
-  'processor.meta.list': 'Batches · Udgam processor',
-  'processor.meta.detail': 'Batch · Udgam processor',
+  'processor.meta.list': 'Batches · Udgam', // DES-110: one title pattern
   'processor.kg': '{kg} kg',
   'processor.row.id': '{id} · {crop}',
   'processor.row.from': 'From {org} · {when}',

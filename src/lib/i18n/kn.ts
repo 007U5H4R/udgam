@@ -583,8 +583,7 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'processor.detailLabel': 'ಬ್ಯಾಚ್ ವಿವರ', // REVIEW: native speaker
   'processor.railLabel': 'ಸಂಸ್ಕರಣಾಕಾರರ ವಿಭಾಗಗಳು', // REVIEW: native speaker
   'processor.signOut': 'ಸೈನ್ ಔಟ್', // REVIEW: native speaker
-  'processor.meta.list': 'ಬ್ಯಾಚ್‌ಗಳು · ಉದ್ಗಮ್ ಸಂಸ್ಕರಣಾಕಾರ', // REVIEW: native speaker
-  'processor.meta.detail': 'ಬ್ಯಾಚ್ · ಉದ್ಗಮ್ ಸಂಸ್ಕರಣಾಕಾರ', // REVIEW: native speaker
+  'processor.meta.list': 'ಬ್ಯಾಚ್‌ಗಳು · ಉದ್ಗಮ್', // REVIEW: native speaker
   'processor.kg': '{kg} ಕೆಜಿ', // REVIEW: native speaker
   'processor.row.id': '{id} · {crop}', // REVIEW: native speaker
   'processor.row.from': '{org} ಇಂದ · {when}', // REVIEW: native speaker
