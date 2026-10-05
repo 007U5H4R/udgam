@@ -1129,3 +1129,17 @@ baseline-v1 is frozen (EV13, EXE34).
 - **Wrong ID.** EXE40 parked "DES-218: the localhost absolute-URL fallback". In `docs/exec/stage8/stage8-public.md` that finding is **DES-219**; DES-218 is the static "See all checks" label, which was fixed. DES-219 is the one parked to TKT-28: requiring an https `PUBLIC_BASE_URL` in production would break `next start` on localhost for e2e.
 - **New finding, DES-221 (P2, accessibility).** Under a `kn` language cookie, the English-only certificate page renders `<html lang="kn">`, because the root layout sets `lang` from the cookie. Public `/verify` pages must declare `lang="en"`. Fixed in the Stage 8 follow-up and verified in the re-run.
 - **Display-only rewording.** The certificate's evidence copy is reworded for display only (DES-208, DES-213). Signed payloads, `evidence.ts` and the eval fixtures are unchanged.
+
+## EXE42 · Stage 8 field and office fix decisions — accepted (orchestrator, under the owner's delegation, 2026-10-05; pending owner review)
+**Field app**
+- **DES-002 (offline):** offline is detected from `navigator.onLine`, with no service worker (EXE40). A phone that reports online while the network is dead can still land on the browser's offline page when a tap changes page. This is accepted for the MVP.
+- **DES-019 (weight):** a weight is "unlikely" when it is more than 2× the farmer's highest recent picking or under half their lowest. The farmer confirms in place ("Yes, send N kg"). A refused key shows the half-kilo rule. With no recent range there is no hint (TC-047 unchanged).
+- **DES-021 (Sign out):** signing out leaves the phone's saved pickings and its key on the phone, so photos are never lost (TP28). The sheet says so.
+- **DES-001 (Help):** Language, This phone and Sign out move behind a "More" row in Help, so Close always stays in view. This changes Help's contents, not the frozen IA.
+- **DES-013 (un-enrolled phone):** a phone with no key goes to set-up, never to "Not accepted".
+
+**Office**
+- **DES-101 (graded status):** the buyer's graded status wording is added to Design.md §28.7, marked pending owner review.
+- **DES-112 (demo verdicts):** the Demo tools chips use the D5 farmer words ("Not accepted", "Needs a check"), while `data-verdict` keeps the system verdict. The EVAL-074 case and its expected verdicts are unchanged; only the e2e text assertion moved.
+- **DES-114 (settle label):** the sticky Settle label shortens to "Settle · ₹X", and the hint names the FPO. This deviates from the mockup's longer label, which wrapped at 375.
+- **Not-found pages:** one styled card (`NotFound`) serves the root and every signed-in route group. The public `/verify` 404 is unchanged (TP8). A not-found inside a route keeps that route's title.
