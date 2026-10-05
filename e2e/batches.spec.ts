@@ -101,10 +101,17 @@ test.describe('admin batches (TSK-14.5, TC-059, TC-060)', () => {
     await expect(form).toBeVisible();
     await expect(form.getByText('This is signed and recorded permanently.', { exact: false })).toBeVisible();
     const transfer = form.getByRole('button', { name: 'Sign and transfer' });
-    await expect(transfer).toBeDisabled();
+    await expect(transfer).toBeEnabled();
     await expectRail(page);
     await notCoveredByRail(page, transfer);
     await checkSurface(page);
+    // DES-109 (§28.7): nothing chosen → the field check under the select, focus on it, nothing recorded
+    await transfer.click();
+    const select = form.getByLabel('Hand to');
+    await expect(form.locator('#transfer-err')).toHaveText('Choose a buyer or processor from the list.');
+    await expect(select).toHaveAttribute('aria-invalid', 'true');
+    await expect(select).toBeFocused();
+    await expect(page.getByTestId('custody-line')).toHaveCount(0);
 
     await form.getByLabel('Hand to').selectOption({ label: 'Demo Buyer A' }); // M-002 T4: the label was "Buyer"
     await transfer.click();
