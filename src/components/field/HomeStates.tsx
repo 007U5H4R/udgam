@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { t, type Lang } from '../../lib/i18n';
 import pill from '../ui/Pill.module.css';
 import { GlassCard } from '../ui/GlassCard';
-import { TabBar } from '../ui/TabBar';
+import { TabBar, type Tab } from '../ui/TabBar';
 import { Ic } from './icons';
 
 // Home's loading and error states (Design.md §18; no mockup, composed per TP17): a skeleton of the plot
@@ -46,7 +46,11 @@ export function HomeSkeleton({ lang }: { lang: Lang }) {
   );
 }
 
-export function HomeError({ lang }: { lang: Lang }) {
+/**
+ * The error state. In a route's error boundary (error.tsx) `onRetry` re-renders the failed route and
+ * `tab` marks the tab the agent was on; rendered by a page, Try again simply reloads /field.
+ */
+export function HomeError({ lang, tab = 'home', onRetry }: { lang: Lang; tab?: Tab; onRetry?: () => void }) {
   return (
     <main className="screen has-tabs" aria-labelledby="s1-h">
       <Header lang={lang} />
@@ -56,11 +60,22 @@ export function HomeError({ lang }: { lang: Lang }) {
         </h1>
         <p className="facts">{t('home.error.body', {}, lang)}</p>
       </GlassCard>
-      <Link className={[pill.pill, pill.amber, 'record'].join(' ')} href="/field">
+      <Link
+        className={[pill.pill, pill.amber, 'record'].join(' ')}
+        href="/field"
+        onClick={
+          onRetry
+            ? (e) => {
+                e.preventDefault();
+                onRetry();
+              }
+            : undefined
+        }
+      >
         <Ic name="retry" />
         {t('home.error.retry', {}, lang)}
       </Link>
-      <TabBar current="home" lang={lang} />
+      <TabBar current={tab} lang={lang} />
     </main>
   );
 }

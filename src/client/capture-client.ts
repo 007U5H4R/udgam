@@ -315,9 +315,12 @@ export function outboxSend(item: Pick<OutboxItem, 'id' | 'payload' | 'signature'
   }
 }
 
-/** The pickings saved on this phone that still need sending (not those the server already answered), oldest first. */
+/**
+ * The pickings saved on this phone that still need sending, oldest first: not those the server already
+ * answered, whether that is flagged on the stored copy or, when even that write failed, owed in memory.
+ */
 export async function pendingItems(): Promise<OutboxItem[]> {
-  return (await listOutbox()).filter((i) => i.answered === undefined);
+  return (await listOutbox()).filter((i) => i.answered === undefined && !owed.has(i.id));
 }
 
 export type PendingResult = { id: string; result: SendResult };

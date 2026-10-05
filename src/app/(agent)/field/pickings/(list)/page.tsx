@@ -1,15 +1,14 @@
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
 import { monthYear } from '../../../../../components/field/format';
 import { PendingList } from '../../../../../components/field/PendingRow';
 import { PickingRow } from '../../../../../components/field/PickingRow';
-import { env } from '../../../../../lib/config/env';
 import { getDbReady } from '../../../../../lib/db/client';
 import { getHelpInfo, type HelpInfo } from '../../../../../lib/db/queries/field-help';
 import { listPickings, type PickingMonth } from '../../../../../lib/db/queries/pickings';
-import { isLang, LANG_COOKIE, t, type Lang } from '../../../../../lib/i18n';
+import { t, type Lang } from '../../../../../lib/i18n';
 import { log } from '../../../../../lib/log';
 import { requireSession } from '../../../../_auth/require';
+import { forcedState, langFromCookies, throwIfForced } from '../../route-state';
 import { PickingsFrame } from '../PickingsFrame';
 import { PickingsEmpty, PickingsError, PickingsSkeleton } from '../PickingsStates';
 
@@ -22,13 +21,6 @@ import { PickingsEmpty, PickingsError, PickingsSkeleton } from '../PickingsState
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Pickings · Udgam' };
 
-type Forced = 'loading' | 'empty' | 'error' | null;
-
-function forcedState(v: unknown): Forced {
-  if (env.NODE_ENV === 'production' && env.E2E !== '1') return null;
-  return v === 'loading' || v === 'empty' || v === 'error' ? v : null;
-}
-
 /** "7 pickings · Plot 2" (the plots of that month, in order of their latest picking). */
 function monthCount(m: PickingMonth, lang: Lang): string {
   const plots = [...new Set(m.items.map((i) => i.plotName))].join(', ');
@@ -37,9 +29,10 @@ function monthCount(m: PickingMonth, lang: Lang): string {
 
 export default async function Pickings({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const agent = await requireSession('agent');
-  const forced = forcedState((await searchParams).state);
-  const cookie = (await cookies()).get(LANG_COOKIE)?.value;
-  const lang: Lang = isLang(cookie) ? cookie : 'en';
+  const { state } = await searchParams;
+  throwIfForced(state);
+  const forced = forcedState(state);
+  const lang = await langFromCookies();
 
   if (forced === 'loading') return <PickingsSkeleton lang={lang} />;
   let months: PickingMonth[] | null = null;
