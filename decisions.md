@@ -706,3 +706,35 @@ Each guarantee has a named test in TKT-09.
 - Letter grades: confused with Indian bean-size grades such as "Plantation A".
 - A fifth admin rail item for agreements: it changes the frozen IA.
 - Showing agreement terms or payments on the public certificate: commercial terms are private.
+
+## D10 · M-002 addendum revision after review — accepted (approved under the owner's blanket waiver, pending owner review at Stage 8)
+**Context.** The spec and quality reviews of TASK-24 (TKT-23) both failed the addendum recorded in D9. Two findings were major. First, D9 gave the buyer surface a two-item rail (a floating tab bar on phones), which changes the frozen buyer IA in Design.md §5, while §28 said no frozen item changed. Second, the forms had no field-level validation state (WCAG 2.2 SC 3.3.1 and 3.3.3). The reviews also found that refund, settle, record step and hand on lacked error or working states; that "Ready to settle" used the amber Needs-a-check mark; that input formats were underspecified; that the touch points outside TKT-25's and TKT-26's owned files had no owner; and that EVAL-105 left out three routes. This entry was accepted under the owner's blanket Stage 7 waiver (EXE1). The owner has not yet reviewed it; that review happens at Stage 8. D9 stays as recorded; this entry supersedes the parts named below.
+**Decision.**
+- **Buyer IA.** The buyer has no rail and no tab bar, as frozen in §5. Agreements is reached from a ghost pill link, "Agreements with FPOs", in the buyer Batches header, just as admin reaches its agreements. The Agreements header links back to Batches. This supersedes D9's "The buyer surface gains the rail with Batches and Agreements".
+- **Touch points on existing M-001 screens.** Design.md §28 now lists all four, each a content-level addition with no frozen visual or IA change:
+  - T1, the buyer Batches header link;
+  - T2, the admin Batches header link "Agreements with buyers";
+  - T3, the admin batch detail's Agreement card and link;
+  - T4, processors in the Transfer custody recipients, with the label "Hand to".
+  This supersedes D9's "No frozen M-001 item changes". §28.10 asks the owner to confirm at Stage 8 that none of them counts as a freeze change.
+- **Ownership (§28.9).** T1, T2, T3 and `/admin/agreements/page.tsx` go to TKT-25 (TSK-25.8). T4, the processor's sign-in home and the certificate journey item go to TKT-26. Three files are shared by the two parallel tickets and are resolved at merge (EXE21): the admin batch detail page, the i18n files and the guard-coverage test.
+- **Field checks.**
+  - Every input has a designed invalid state: agreed kg, minimum grade, amount, deadline, quality grade, process, and input and output kg. Each uses `aria-invalid`, a message under the field linked by `aria-describedby`, and focus on the first such field. The value is kept.
+  - The plain, blame-free copy is in §28.7.
+  - Output above input is accepted and flagged as a gain in weight (EVAL-102), never refused.
+- **Action states.**
+  - Create, fund, take the money back, grade, settle, record step and hand on each have a working state and an action-error state. The refund variant honours every state.
+  - A settle that does not go through keeps the neutral *Ready to settle* chip. It is never shown as *Not released*.
+- **Status marks.** The list rows and the detail chip for *Ready to settle*, and for *Delivered · needs your grade* / *Needs your grade*, use the neutral `mk-na` mark. `mk-check` is kept for Not met, Not released and Flagged, and the full mapping is in §28.7.
+- **Input formats.**
+  - The amount field shows exactly what was typed, with no live grouping. Commas and paise are optional, and the hint reads the amount back as "₹1,50,000.00". The server stores paise.
+  - The deadline uses the native date picker for entry, and every display, including the hint, writes it as "31 Dec 2026", meaning the end of that day in IST.
+- **Processor name.** "Processor C-03" is used everywhere.
+- **EVAL-105.** It now also names the refund variant, `/admin/agreements` and `/processor/batches/[batchId]`. This is dataset 0.6.2, wording only; the gates, class and failure conditions are unchanged.
+**Rejected.**
+- Keeping the buyer rail and asking the owner to approve it as an IA extension: a header link meets the need without touching a frozen item, and admin already does the same.
+- A fifth admin rail item: the reason is unchanged from D9.
+- Live Indian digit grouping inside the amount field: the caret jumps, and many decimal keypads have no comma key.
+- A custom text date field in "31 Dec 2026" form: it is harder to enter on a phone than the native picker and needs its own parsing.
+- The amber Needs-a-check mark for statuses that wait on someone: in the frozen system that mark means something is not as agreed.
+- An error summary box above the forms: no form has more than six fields, and focus moves to the first field that needs a change.
