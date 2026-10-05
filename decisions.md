@@ -1085,3 +1085,14 @@ The freeze rule counts only active attack cases. Config-change rows in HTML comm
 - **Shared files.** `src/app/api/capture/route.ts` and `read-form.ts` were touched outside the owned files; the changes are small and additive (D7; spec finding 3).
 - **e2e.** The spec re-sets the emulated GPS fix just before Send (D8).
 - **Commit history.** The TSK-30.4 commit's spec fails on its own and is fixed in the TSK-30.5 commit. Interactive rebase is unavailable (D9; spec finding 2).
+
+## EXE38 · The S4 perf server needs a throwaway auth secret — accepted (orchestrator, 2026-10-05; amends the m-001-formal-run runbook, step 4)
+**Context.** At runbook step 4 the production perf server refused every request: `BETTER_AUTH_SECRET` is required when NODE_ENV=production, and the runbook's command didn't set one. The run stopped before writing `baseline-perf-v1.json` (perf files can't be rewritten).
+**Decision.** The step-4 server gets the same throwaway environment the e2e web server uses: `BETTER_AUTH_SECRET` generated in the shell at start (`openssl rand -hex 32`, never printed, written or committed), `BETTER_AUTH_URL` set to the server's own URL, and `REMOTE_SENSING_PROVIDER=fixture`. The runbook says so. The sandbox refused the inline command substitution, so the formal run put the same command in a scratch launcher script that holds only the generator, never the value.
+**Result.** M-001 formal run at gate commit eb321a1, formal commit d7124cb, report commit 24d40a8; the release exited 0.
+- S1 97.7 % (42/43), S1-floor 91.7 %;
+- S2 0/40;
+- S4 10/10 under 3 s (p50 2452 ms, max 2905 ms, 4-vCPU x64, load 0.3–1.4);
+- S6-lib 7/7, S7 Yes, S7-release Yes, CF 0.
+
+baseline-v1 is frozen (EV13, EXE34).
