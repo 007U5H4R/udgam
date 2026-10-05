@@ -133,7 +133,7 @@ test("TC-051 detail: a picking's photos, kg, IST time, plot, verdict chip, up to
   await expect(page.locator('main time')).toHaveText(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2} [A-Z][a-z]{2}, \d{2}:\d{2}$/);
   const photos = page.getByTestId('detail-photos').locator('img');
   await expect(photos).toHaveCount(2);
-  await expect(photos.first()).toHaveAttribute('alt', 'Photo 1');
+  await expect(photos.first()).toHaveAttribute('alt', ''); // DES-020: the caption "Photo 1" names it
   // the thumbnails load for their owner
   await expect.poll(() => photos.evaluateAll((imgs) => imgs.map((i) => (i as HTMLImageElement).naturalWidth > 0))).toEqual([true, true]);
   const lines = page.getByTestId('evidence').locator('li');

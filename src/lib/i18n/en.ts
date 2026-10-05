@@ -264,6 +264,7 @@ export const en = {
   'dt.title': '{kg} · {plot}',
   'dt.received': 'Received by the office',
   'dt.photo': 'Photo {n}',
+  'dt.photoMissing': 'Photo not available',
   'dt.seeAll': 'See all checks',
   'dt.state.ok': 'Passed',
   'dt.state.flag': 'Needs a look',

@@ -54,7 +54,8 @@ export function HomeError({ lang, tab = 'home', onRetry }: { lang: Lang; tab?: T
   return (
     <main className="screen has-tabs" aria-labelledby="s1-h">
       <Header lang={lang} />
-      <GlassCard as="article" className="plot-card" role="alert">
+      {/* DES-020: role="alert" is not allowed on an <article>: the card is a <div>. */}
+      <GlassCard className="plot-card" role="alert">
         <h1 className="h1 plot-h" id="s1-h" tabIndex={-1}>
           {t('home.error.title', {}, lang)}
         </h1>

@@ -688,6 +688,26 @@ html[lang='kn'] body {
   fill-opacity: 0.55;
 }
 
+/* DES-017: a thumbnail that did not load: a neutral tile, the camera icon and "Photo not available". */
+.slot .thumb .thumb-missing {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--ink-2);
+}
+.slot .thumb .thumb-missing .ic {
+  width: 28px;
+  height: 28px;
+}
+
 /* ── s3 Review ────────────────────────────────────────── */
 .photo-big {
   position: relative;

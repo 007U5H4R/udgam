@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { openField, seedCaptureWorld } from './helpers/capture';
 import { typePicking } from './helpers/field';
@@ -297,4 +298,29 @@ test('DES-016: "What can I do?" and "See all checks" carry a chevron that turns 
 
   await page.locator('li.row a.r-open').first().click();
   await expect(page.getByTestId('all-checks').locator('summary svg.chev')).toHaveCount(1);
+});
+
+/** Every axe rule that fails on the page (any impact). */
+const axeIds = async (page: Page) => (await new AxeBuilder({ page }).analyze()).violations.map((v) => v.id);
+
+test('DES-017, DES-020: a thumbnail that does not load is a "Photo not available" tile with alt=""; record steps, detail and error cards pass axe region, alt and role rules', async ({ page, context }) => {
+  const seed = seedCaptureWorld({ events: ['40:Verified'] });
+  await openField(page, context, seed);
+  // the seed's photo bytes are not an image, so the thumbnail fails to load
+  await page.goto(`/field/pickings/${seed.events[0]!.eventId}`);
+  const missing = page.getByTestId('detail-photos').getByTestId('thumb-missing');
+  await expect(missing.first()).toBeVisible();
+  await expect(missing.first()).toHaveText('Photo not available');
+  await expect(page.getByTestId('detail-photos').locator('img')).toHaveCount(0);
+  expect(await axeIds(page)).not.toContain('image-redundant-alt');
+
+  await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  expect(await axeIds(page)).not.toContain('region');
+
+  for (const path of ['/field/pickings?state=error', '/field?state=error']) {
+    await page.goto(path);
+    await expect(page.locator('main').getByRole('alert')).toBeVisible();
+    expect(await axeIds(page), path).not.toContain('aria-allowed-role');
+  }
 });

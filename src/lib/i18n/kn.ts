@@ -187,6 +187,7 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'dt.title': '{kg} · {plot}', // REVIEW: native speaker
   'dt.received': 'ಕಚೇರಿ ಸ್ವೀಕರಿಸಿದ ಸಮಯ', // REVIEW: native speaker
   'dt.photo': 'ಫೋಟೋ {n}', // REVIEW: native speaker
+  'dt.photoMissing': 'ಫೋಟೋ ಲಭ್ಯವಿಲ್ಲ', // REVIEW: native speaker
   'dt.seeAll': 'ಎಲ್ಲಾ ಪರಿಶೀಲನೆಗಳನ್ನು ನೋಡಿ', // REVIEW: native speaker
   'dt.state.ok': 'ಸರಿಯಾಗಿದೆ', // REVIEW: native speaker
   'dt.state.flag': 'ಒಮ್ಮೆ ನೋಡಬೇಕು', // REVIEW: native speaker

@@ -172,26 +172,30 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
 
   return (
     <>
-      {SLOTS.map((s, i) => (
-        <input
-          key={s.kind}
-          ref={(el) => {
-            inputs.current[i] = el;
-          }}
-          className="vh"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          tabIndex={-1}
-          aria-label={t(s.name, {}, lang)}
-          {...hydratedAttr(hydrated)}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            e.target.value = ''; // the same photo can be chosen again after Take again
-            if (file) dispatch({ type: 'take', slot: i as Slot, file });
-          }}
-        />
-      ))}
+      {/* DES-020: the camera inputs are opened only by "Open camera" / "Take again" (tabIndex -1), so they
+          are kept out of the accessibility tree instead of sitting outside every landmark. */}
+      <div aria-hidden="true">
+        {SLOTS.map((s, i) => (
+          <input
+            key={s.kind}
+            ref={(el) => {
+              inputs.current[i] = el;
+            }}
+            className="vh"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            tabIndex={-1}
+            aria-label={t(s.name, {}, lang)}
+            {...hydratedAttr(hydrated)}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = ''; // the same photo can be chosen again after Take again
+              if (file) dispatch({ type: 'take', slot: i as Slot, file });
+            }}
+          />
+        ))}
+      </div>
       {flow.step === 'photos' ? (
         <PhotosStep
           flow={flow}
