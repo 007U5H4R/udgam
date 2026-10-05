@@ -886,3 +886,9 @@ No threshold, eval case or cfg-1 value changes (CF-13).
 - **Shared enrolment write:** the seed helpers share enrolment's own `device_enrolled` write.
 - **Test files:** the demo specs are excluded from `pnpm test:e2e` by a file-name pattern.
 - **HR3:** TP29 replaces the plan's "BLOCKED: HR3 pending" step; the gate report prints the readiness warning.
+
+## EXE34 · One strict rule authorises a verification-config change after baseline-v1 — accepted (orchestrator, under the owner's delegation, 2026-10-05; tightens EV13/CF-13)
+**Context.** The TKT-21 Phase A review found two config-change rules. The harness's CF-13 check accepted any line of decisions.md that names the new hash, so even a "Rejected: … <hash>" line authorised the change permanently, decisions.md being append-only. The stricter rule in `tests/config-freeze.test.ts` never ran in the release.
+**Decision.** One shared function decides. A new config hash is authorised only by a row in `evals/config-changes.md` that names the hash, an existing TP/EV decision ID, and ≥ 2 new attack-case IDs per affected scenario already in the dataset (EV13). A mention in decisions.md alone authorises nothing. This only tightens the rule; it touches TKT-03's harness minimally, and behaves the same until baseline-v1 exists.
+**Also decided.** `eval:release` fails closed: every input must come from HEAD on a clean tree (except the formal output files), each gate is recomputed rather than trusted, and suite failures fail the release. Phase B follows the runbook in docs/exec/m-001-formal-run.md.
+**Rejected.** Keeping two rules.
