@@ -40,6 +40,18 @@ contract ContractFarming {
         Status status;
     }
 
+    /// @notice SettlementRejected reason bits: which condition was not met.
+    uint8 public constant REASON_QUANTITY = 1;
+    uint8 public constant REASON_GRADE = 2;
+    uint8 public constant REASON_VERIFIED = 4;
+
+    bytes32 public constant QUALITY_GRADE_TYPEHASH = keccak256("QualityGrade(bytes32 agreementId,bytes32 batchIdHash,uint8 grade)");
+    bytes32 private constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    bytes32 private constant NAME_HASH = keccak256("Udgam ContractFarming");
+    bytes32 private constant VERSION_HASH = keccak256("1");
+    /// secp256k1n / 2: signatures with a higher s are malleable twins and are refused.
+    uint256 private constant HALF_N = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
+
     address public immutable operator;
     IERC20Minimal public immutable token;
 
@@ -47,6 +59,8 @@ contract ContractFarming {
 
     event AgreementCreated(bytes32 indexed id, address indexed buyer, address fpoPayee, uint256 agreedGrams, uint8 minGrade, uint256 amount, uint64 deadline);
     event Funded(bytes32 indexed id, uint256 amount);
+    event Settled(bytes32 indexed id, bytes32 indexed batchIdHash, address fpoPayee, uint256 amount);
+    event SettlementRejected(bytes32 indexed id, bytes32 indexed batchIdHash, uint8 reasons);
     event Refunded(bytes32 indexed id, uint256 amount);
 
     error NotOperator();
@@ -55,6 +69,8 @@ contract ContractFarming {
     error BadTerms();
     error WrongStatus(Status status);
     error DeadlineNotPassed();
+    error DeadlinePassed();
+    error BadGradeSignature();
     error TransferFailed();
 
     constructor(address operator_, address token_) {
@@ -106,5 +122,53 @@ contract ContractFarming {
         a.status = Status.Refunded;
         if (!token.transfer(a.buyer, a.amount)) revert TransferFailed();
         emit Refunded(id, a.amount);
+    }
+
+    /// @notice Judge the three conditions for one delivered batch (operator only). Pays the FPO when all
+    /// hold; otherwise emits the failed conditions as a bitmask and stays funded. Reverts (nothing judged)
+    /// on a non-funded agreement, after the deadline, on a grade above 100 or on a grade signature that
+    /// does not recover to the agreement's attestor.
+    function settle(bytes32 id, bytes32 batchIdHash, uint256 deliveredGrams, bool allVerified, uint8 grade, bytes calldata gradeSig)
+        external
+        onlyOperator
+    {
+        Agreement storage a = agreements[id];
+        if (a.status != Status.Funded) revert WrongStatus(a.status);
+        if (block.timestamp > a.deadline) revert DeadlinePassed();
+        if (grade > 100) revert BadTerms();
+        if (_recover(gradeDigest(id, batchIdHash, grade), gradeSig) != a.buyerAttestor) revert BadGradeSignature();
+
+        uint8 reasons = 0;
+        if (deliveredGrams < a.agreedGrams) reasons |= REASON_QUANTITY;
+        if (grade < a.minGrade) reasons |= REASON_GRADE;
+        if (!allVerified) reasons |= REASON_VERIFIED;
+        if (reasons != 0) {
+            emit SettlementRejected(id, batchIdHash, reasons);
+            return;
+        }
+        a.status = Status.Settled;
+        if (!token.transfer(a.fpoPayee, a.amount)) revert TransferFailed();
+        emit Settled(id, batchIdHash, a.fpoPayee, a.amount);
+    }
+
+    /// @notice The EIP-712 domain separator (recomputed per call, so it always names this chain).
+    function domainSeparator() public view returns (bytes32) {
+        return keccak256(abi.encode(DOMAIN_TYPEHASH, NAME_HASH, VERSION_HASH, block.chainid, address(this)));
+    }
+
+    /// @notice The EIP-712 digest a buyer attestor signs for a grade.
+    function gradeDigest(bytes32 agreementId, bytes32 batchIdHash, uint8 grade) public view returns (bytes32) {
+        bytes32 structHash = keccak256(abi.encode(QUALITY_GRADE_TYPEHASH, agreementId, batchIdHash, grade));
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
+    }
+
+    /// 65-byte r‖s‖v signature → signer; address(0) for anything malformed or malleable.
+    function _recover(bytes32 digest, bytes calldata sig) private pure returns (address) {
+        if (sig.length != 65) return address(0);
+        bytes32 r = bytes32(sig[0:32]);
+        bytes32 s = bytes32(sig[32:64]);
+        uint8 v = uint8(sig[64]);
+        if (uint256(s) > HALF_N || (v != 27 && v != 28)) return address(0);
+        return ecrecover(digest, v, r, s);
     }
 }

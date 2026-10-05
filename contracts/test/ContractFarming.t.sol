@@ -18,9 +18,11 @@ contract ContractFarmingTest is Test {
     address internal fpo = makeAddr("fpo");
     address internal stranger = makeAddr("stranger");
     uint256 internal attestorKey = 0xA11CE;
+    uint256 internal otherKey = 0xB0B;
     address internal attestor;
 
     bytes32 internal constant ID = keccak256("AG-TEST0001");
+    bytes32 internal constant BATCH = keccak256("B-TEST0001");
     uint256 internal constant AGREED_GRAMS = 500_000; // 500.0 kg
     uint8 internal constant MIN_GRADE = 80; // Very good
     uint256 internal constant AMOUNT = 5_000_000; // ₹50,000.00 in paise
@@ -28,6 +30,8 @@ contract ContractFarmingTest is Test {
     uint64 internal deadline;
 
     event Funded(bytes32 indexed id, uint256 amount);
+    event Settled(bytes32 indexed id, bytes32 indexed batchIdHash, address fpoPayee, uint256 amount);
+    event SettlementRejected(bytes32 indexed id, bytes32 indexed batchIdHash, uint8 reasons);
     event Refunded(bytes32 indexed id, uint256 amount);
 
     function setUp() public {
@@ -52,6 +56,17 @@ contract ContractFarmingTest is Test {
         token.approve(address(farming), AMOUNT);
         farming.fund(ID);
         vm.stopPrank();
+    }
+
+    function _sign(uint256 key, bytes32 id, bytes32 batch, uint8 grade) internal view returns (bytes memory) {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(key, farming.gradeDigest(id, batch, grade));
+        return abi.encodePacked(r, s, v);
+    }
+
+    function _settle(uint256 grams, bool allVerified, uint8 grade) internal {
+        bytes memory sig = _sign(attestorKey, ID, BATCH, grade);
+        vm.prank(operator);
+        farming.settle(ID, BATCH, grams, allVerified, grade, sig);
     }
 
     /// Mock INR is only ever moved, never created or lost: buyer + escrow + FPO = what was minted.
@@ -179,6 +194,226 @@ contract ContractFarmingTest is Test {
         vm.warp(uint256(deadline) + 1);
         vm.prank(stranger);
         vm.expectRevert(ContractFarming.NotBuyer.selector);
+        farming.refund(ID);
+        _reconcile();
+    }
+
+    // ── TSK-25.3: settlement conditions (TC-084; EVAL-093–099) ───────────────────────────────────
+
+    /// All 8 (quantity met, grade met, all Verified) combinations: only all-true releases (EVAL-093);
+    /// the single-false rows are EVAL-094 (quantity), EVAL-095 (grade) and EVAL-096 (verification).
+    function test_TC084_AllEightCombinations() public {
+        for (uint256 i = 0; i < 8; i++) {
+            bool qty = i & 1 != 0;
+            bool grd = i & 2 != 0;
+            bool ver = i & 4 != 0;
+            uint256 snap = vm.snapshotState();
+            _create();
+            _fund();
+            uint256 grams = qty ? 512_000 : 499_500;
+            uint8 grade = grd ? 90 : 70;
+            uint8 expectReasons = (qty ? 0 : 1) | (grd ? 0 : 2) | (ver ? 0 : 4);
+            if (expectReasons == 0) {
+                vm.expectEmit(true, true, false, true);
+                emit Settled(ID, BATCH, fpo, AMOUNT);
+            } else {
+                vm.expectEmit(true, true, false, true);
+                emit SettlementRejected(ID, BATCH, expectReasons);
+            }
+            _settle(grams, ver, grade);
+            if (expectReasons == 0) {
+                assertEq(token.balanceOf(fpo), AMOUNT, "all-true releases exactly the amount");
+                assertEq(token.balanceOf(address(farming)), 0);
+                assertEq(uint8(_status()), uint8(ContractFarming.Status.Settled));
+            } else {
+                assertEq(token.balanceOf(fpo), 0, "a failed condition releases nothing");
+                assertEq(token.balanceOf(address(farming)), AMOUNT, "escrow unchanged");
+                assertEq(uint8(_status()), uint8(ContractFarming.Status.Funded), "stays funded");
+            }
+            _reconcile();
+            vm.revertToState(snap);
+        }
+    }
+
+    function test_EVAL093_ReleasesExactAmountAtTheBoundary() public {
+        _create();
+        _fund();
+        _settle(AGREED_GRAMS, true, MIN_GRADE); // exactly the agreed grams and exactly the minimum grade
+        assertEq(token.balanceOf(fpo), AMOUNT);
+        assertEq(uint8(_status()), uint8(ContractFarming.Status.Settled));
+        _reconcile();
+    }
+
+    function test_EVAL094_QuantityShortByHalfAKilogramRejected() public {
+        _create();
+        _fund();
+        vm.expectEmit(true, true, false, true);
+        emit SettlementRejected(ID, BATCH, 1);
+        _settle(499_500, true, 90);
+        assertEq(token.balanceOf(address(farming)), AMOUNT);
+        _reconcile();
+    }
+
+    function test_EVAL095_GradeBelowMinimumRejected() public {
+        _create();
+        _fund();
+        vm.expectEmit(true, true, false, true);
+        emit SettlementRejected(ID, BATCH, 2);
+        _settle(512_000, true, 70);
+        assertEq(token.balanceOf(address(farming)), AMOUNT);
+        _reconcile();
+    }
+
+    function test_EVAL096_NotAllVerifiedRejected() public {
+        _create();
+        _fund();
+        vm.expectEmit(true, true, false, true);
+        emit SettlementRejected(ID, BATCH, 4);
+        _settle(512_000, false, 90);
+        assertEq(token.balanceOf(address(farming)), AMOUNT);
+        _reconcile();
+    }
+
+    function test_RejectedThenLaterDeliverySettles() public {
+        _create();
+        _fund();
+        _settle(499_500, true, 90);
+        _settle(512_000, true, 90);
+        assertEq(token.balanceOf(fpo), AMOUNT);
+        _reconcile();
+    }
+
+    function test_EVAL097_SecondSettlementReverts() public {
+        _create();
+        _fund();
+        _settle(512_000, true, 90);
+        bytes memory sig = _sign(attestorKey, ID, BATCH, 90);
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(ContractFarming.WrongStatus.selector, ContractFarming.Status.Settled));
+        farming.settle(ID, BATCH, 512_000, true, 90, sig);
+        assertEq(token.balanceOf(fpo), AMOUNT, "released once");
+        _reconcile();
+    }
+
+    function test_EVAL098_NonOperatorSettleReverts() public {
+        _create();
+        _fund();
+        bytes memory sig = _sign(attestorKey, ID, BATCH, 90);
+        vm.prank(stranger);
+        vm.expectRevert(ContractFarming.NotOperator.selector);
+        farming.settle(ID, BATCH, 512_000, true, 90, sig);
+        vm.prank(buyer);
+        vm.expectRevert(ContractFarming.NotOperator.selector);
+        farming.settle(ID, BATCH, 512_000, true, 90, sig);
+        assertEq(token.balanceOf(address(farming)), AMOUNT);
+        _reconcile();
+    }
+
+    function test_EVAL099_WrongKeySignatureReverts() public {
+        _create();
+        _fund();
+        bytes memory sig = _sign(otherKey, ID, BATCH, 90);
+        vm.prank(operator);
+        vm.expectRevert(ContractFarming.BadGradeSignature.selector);
+        farming.settle(ID, BATCH, 512_000, true, 90, sig);
+        assertEq(token.balanceOf(address(farming)), AMOUNT);
+        _reconcile();
+    }
+
+    function test_EVAL099_SignatureOverDifferentGradeReverts() public {
+        _create();
+        _fund();
+        bytes memory sig = _sign(attestorKey, ID, BATCH, 70);
+        vm.prank(operator);
+        vm.expectRevert(ContractFarming.BadGradeSignature.selector);
+        farming.settle(ID, BATCH, 512_000, true, 90, sig);
+        _reconcile();
+    }
+
+    function test_EVAL099_SignatureOverDifferentBatchReverts() public {
+        _create();
+        _fund();
+        bytes memory sig = _sign(attestorKey, ID, keccak256("B-OTHER"), 90);
+        vm.prank(operator);
+        vm.expectRevert(ContractFarming.BadGradeSignature.selector);
+        farming.settle(ID, BATCH, 512_000, true, 90, sig);
+        _reconcile();
+    }
+
+    function test_MalformedSignaturesRevert() public {
+        _create();
+        _fund();
+        bytes memory good = _sign(attestorKey, ID, BATCH, 90);
+        vm.startPrank(operator);
+        vm.expectRevert(ContractFarming.BadGradeSignature.selector);
+        farming.settle(ID, BATCH, 512_000, true, 90, hex"1234");
+        // a high-s (malleable) twin of a valid signature is refused
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        assembly {
+            r := mload(add(good, 32))
+            s := mload(add(good, 64))
+            v := byte(0, mload(add(good, 96)))
+        }
+        uint256 n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
+        bytes memory twin = abi.encodePacked(r, bytes32(n - uint256(s)), v == 27 ? uint8(28) : uint8(27));
+        vm.expectRevert(ContractFarming.BadGradeSignature.selector);
+        farming.settle(ID, BATCH, 512_000, true, 90, twin);
+        vm.stopPrank();
+        _reconcile();
+    }
+
+    function test_GradeAbove100Reverts() public {
+        _create();
+        _fund();
+        bytes memory sig = _sign(attestorKey, ID, BATCH, 101);
+        vm.prank(operator);
+        vm.expectRevert(ContractFarming.BadTerms.selector);
+        farming.settle(ID, BATCH, 512_000, true, 101, sig);
+        _reconcile();
+    }
+
+    function test_SettleUnfundedReverts() public {
+        _create();
+        bytes memory sig = _sign(attestorKey, ID, BATCH, 90);
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(ContractFarming.WrongStatus.selector, ContractFarming.Status.Created));
+        farming.settle(ID, BATCH, 512_000, true, 90, sig);
+        _reconcile();
+    }
+
+    function test_SettleAfterDeadlineReverts() public {
+        _create();
+        _fund();
+        vm.warp(uint256(deadline) + 1);
+        bytes memory sig = _sign(attestorKey, ID, BATCH, 90);
+        vm.prank(operator);
+        vm.expectRevert(ContractFarming.DeadlinePassed.selector);
+        farming.settle(ID, BATCH, 512_000, true, 90, sig);
+        _reconcile();
+    }
+
+    function test_SettleAfterRefundReverts() public {
+        _create();
+        _fund();
+        vm.warp(uint256(deadline) + 1);
+        vm.prank(buyer);
+        farming.refund(ID);
+        bytes memory sig = _sign(attestorKey, ID, BATCH, 90);
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(ContractFarming.WrongStatus.selector, ContractFarming.Status.Refunded));
+        farming.settle(ID, BATCH, 512_000, true, 90, sig);
+        _reconcile();
+    }
+
+    function test_RefundAfterSettleReverts() public {
+        _create();
+        _fund();
+        _settle(512_000, true, 90);
+        vm.warp(uint256(deadline) + 1);
+        vm.prank(buyer);
+        vm.expectRevert(abi.encodeWithSelector(ContractFarming.WrongStatus.selector, ContractFarming.Status.Settled));
         farming.refund(ID);
         _reconcile();
     }
