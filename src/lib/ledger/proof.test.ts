@@ -404,8 +404,8 @@ describe('proof.ts and merkle.ts are isomorphic', () => {
   const specifiers = (file: string) =>
     [...readFileSync(new URL(file, import.meta.url), 'utf8').matchAll(/(?:import|export)[^'"]*?from\s*['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g)].map((m) => m[1] ?? m[2]);
 
-  it('import only lib/crypto, merkle.ts and zod (no node:*, db, env or keys)', () => {
-    expect(specifiers('./proof.ts').sort()).toEqual(['../crypto', './merkle', 'zod']);
+  it('import only lib/crypto, merkle.ts and zod/mini (no node:*, db, env or keys)', () => {
+    expect(specifiers('./proof.ts').sort()).toEqual(['../crypto', './merkle', 'zod/mini']);
     expect(specifiers('./merkle.ts')).toEqual(['../crypto']);
   });
 });

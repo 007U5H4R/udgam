@@ -1,10 +1,11 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { hexToBytes, bytesToHex, jcs, jwkThumbprint, sha256Hex, verify } from '../crypto';
 import { rootFromPath } from './merkle';
 
 // Proof feed v1: its shape and its verifier (technical-plan §8.3; the byte-level rules are in
 // docs/proof-feed.md). ISOMORPHIC: the certificate page runs this in the browser (TKT-16), so it
-// imports only lib/crypto, merkle.ts and zod — never node:*, the database or env (tested).
+// imports only lib/crypto, merkle.ts and zod/mini (the tree-shakeable build: the certificate's bundle
+// budget, technical-plan §18, TKT-16) — never node:*, the database or env (tested).
 
 export const PROOF_FEED_FORMAT = 'udgam-proof-feed/1';
 export const LEDGER_KEY_URL = '/.well-known/udgam-ledger-key';
@@ -12,9 +13,9 @@ export const LEDGER_KEY_URL = '/.well-known/udgam-ledger-key';
 /** Kinds whose payload carries its own signature: { …statement, kid, publicJwk, signature }. */
 export const SIGNED_KINDS = ['batch_created', 'custody_transfer', 'admin_override'] as const;
 
-const hex64 = z.string().regex(/^[0-9a-f]{64}$/);
-const b64u = z.string().regex(/^[A-Za-z0-9_-]+$/);
-const seqNo = z.number().int().min(1);
+const hex64 = z.string().check(z.regex(/^[0-9a-f]{64}$/));
+const b64u = z.string().check(z.regex(/^[A-Za-z0-9_-]+$/));
+const seqNo = z.int().check(z.minimum(1));
 
 // Unknown members are ignored (stripped), so later additive fields (M-002 `evm`) keep format /1.
 export const FeedCheckpointSchema = z.object({
@@ -24,28 +25,28 @@ export const FeedCheckpointSchema = z.object({
   merkleRoot: hex64,
   prevCheckpointHash: hex64,
   ts: z.string(),
-  kid: z.string().min(1),
+  kid: z.string().check(z.minLength(1)),
   signature: b64u,
 });
 
 export const FeedEntrySchema = z.object({
   seq: seqNo,
   prevHash: hex64,
-  kind: z.string().min(1),
+  kind: z.string().check(z.minLength(1)),
   payload: z.record(z.string(), z.unknown()),
   payloadHash: hex64,
   ts: z.string(),
   entryHash: hex64,
   checkpointId: seqNo,
-  leafIndex: z.number().int().min(0),
+  leafIndex: z.int().check(z.minimum(0)),
   path: z.array(hex64),
 });
 
 export const ProofFeedV1Schema = z.object({
   format: z.literal(PROOF_FEED_FORMAT),
-  batchId: z.string().min(1),
-  shortHash: z.string().regex(/^[0-9a-f]{12}$/),
-  ledgerKey: z.object({ kid: z.string().min(1), url: z.string().min(1) }),
+  batchId: z.string().check(z.minLength(1)),
+  shortHash: z.string().check(z.regex(/^[0-9a-f]{12}$/)),
+  ledgerKey: z.object({ kid: z.string().check(z.minLength(1)), url: z.string().check(z.minLength(1)) }),
   checkpoints: z.array(FeedCheckpointSchema),
   entries: z.array(FeedEntrySchema),
 });
@@ -259,6 +260,9 @@ function closureComplete(feed: ProofFeedV1, batch: FeedEntry): boolean {
  * signature; per entry (seq order) payloadHash, entryHash, Merkle path, payload signature; shortHash;
  * closure completeness. Keys must come from /.well-known/udgam-ledger-key, never from the feed.
  */
+/** Entries checked concurrently in verifyFeed (bounded so a very large feed does not start every digest at once). */
+const ENTRY_WINDOW = 32;
+
 export type VerifyFeedOptions = {
   /** Called after each entry passes steps 4–7 (`done` of `total` entries); the certificate's progress line (TKT-16). */
   onProgress?: (done: number, total: number) => void;
@@ -288,10 +292,22 @@ export async function verifyFeed(feed: unknown, keys: VerifierKey[], opts: Verif
     const bad = await checkCheckpoint(cp, keys);
     if (bad) return bad;
   }
-  for (const [i, entry] of f.entries.entries()) {
-    const bad = await checkEntry(entry, canonical[i] ?? null,byId.get(entry.checkpointId));
+  // Steps 4–7 per entry, ENTRY_WINDOW entries at a time: WebCrypto answers asynchronously, so checking a
+  // window concurrently overlaps its digests instead of waiting on each in turn (S4, TKT-16). The result is
+  // the same as one entry after another: within a window the first failure in feed order is reported, and
+  // no later window is started after a failure.
+  let done = 0;
+  for (let start = 0; start < f.entries.length; start += ENTRY_WINDOW) {
+    const window = f.entries.slice(start, start + ENTRY_WINDOW);
+    const results = await Promise.all(
+      window.map(async (entry, k) => {
+        const bad = await checkEntry(entry, canonical[start + k] ?? null, byId.get(entry.checkpointId));
+        if (!bad) opts.onProgress?.(++done, f.entries.length);
+        return bad;
+      }),
+    );
+    const bad = results.find((r) => r !== null);
     if (bad) return bad;
-    opts.onProgress?.(i + 1, f.entries.length);
   }
 
   const batches = f.entries.filter((e) => e.kind === 'batch_created' && e.payload.batchId === f.batchId);

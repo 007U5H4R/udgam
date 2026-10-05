@@ -42,7 +42,8 @@ function readFeed(): unknown {
 
 async function fetchKeys(url: string): Promise<KeyDocument | null> {
   try {
-    const res = await fetch(url, { cache: 'no-store', credentials: 'omit' });
+    // Default cache and credentials mode, so the page's <link rel="preload" as="fetch"> is reused (S4).
+    const res = await fetch(url);
     if (!res.ok) return null;
     const doc = (await res.json()) as { keys?: unknown };
     return Array.isArray(doc.keys) ? { keys: doc.keys as VerifierKey[] } : null;

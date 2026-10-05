@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { preload } from 'react-dom';
 import { AttestationLine } from '../../../../components/ui/AttestationLine';
 import { CertIcon } from '../../../../components/ui/CertIcon';
 import { EntryList, type EntryRow } from '../../../../components/ui/EntryList';
@@ -14,6 +15,7 @@ import { buildCertificateView, type CertificateView, type EntryVerdict } from '.
 import { env } from '../../../../lib/config/env';
 import { getDbReady } from '../../../../lib/db/client';
 import { resolveFeed } from '../../../../lib/ledger/feed';
+import { LEDGER_KEY_URL } from '../../../../lib/ledger/proof';
 import { publishedKeys } from '../../../../lib/ledger/keys';
 import c from './certificate.module.css';
 import { OriginMap } from './OriginMap';
@@ -85,6 +87,8 @@ export default async function CertificatePage({ params, searchParams }: Props) {
   // Test-only (E2E=1, never in a deployment): embed a forged copy so e2e can watch the browser catch it.
   const tamper = tamperFromSearchParams(sp, env);
   const feed = tamper ? await tamperedFeed(genuine, (await publishedKeys()).keys, tamper) : genuine;
+  // S4: the browser starts fetching the ledger key with the page, not after hydration (ProofPanel reuses it).
+  preload(LEDGER_KEY_URL, { as: 'fetch', crossOrigin: 'anonymous' });
   const view = buildCertificateView(feed);
   const window = view.harvestWindow ? istRange(view.harvestWindow.from, view.harvestWindow.to) : null;
 
