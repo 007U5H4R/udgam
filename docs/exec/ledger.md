@@ -230,3 +230,28 @@ Branch `build/stage7` (from `main` @ `b397c08`). Protocol: technical-plan.md §2
   - A container restart at about 15:00 UTC stopped all agents; they resumed from their transcripts, and no work was lost.
   - Semantic merge fixes are named in their merge commits (EXE21).
   - `/g1.txt` remains (the root-level `rm` is refused by the session's safety check).
+
+## Gate M-002: TKT-22 (TASK-23), TKT-23 (TASK-24), TKT-24 (TASK-25), TKT-25 (TASK-26), TKT-26 (TASK-27) · PASS · 2026-10-05
+Independent QA at 3b625cd (report: scratchpad `reports/M-002-qa.md`).
+
+**Gates:**
+- typecheck and lint: clean;
+- `test`: 2352/2352; `test:int`: 746/746; `test:evm`: 41/41; `contracts:test`: 47/47;
+- harness `--ledger=evm --milestone=M2`: PASS, S6-lib 8/8, EVAL-103 PASS. The M1 regression also passes;
+- `cloud-setup.sh` is idempotent, and `pnpm build` passes;
+- e2e (m2-agreements, m2-processing, batches, certificate × 4 viewports): 196/196. Three trace-file collisions during the parallel QA runs passed on a serial re-run.
+
+**Coverage:** TC-082–086 5/5; EVAL-093–105 13/13; acceptance criteria and Done gates 23/23. D9/D10 still await the owner's review at Stage 8.
+
+**Live checks (4/4):**
+- cross-buyer agreement access: 404;
+- no agreement terms in `/api/verify` (EXE29/EXE30);
+- a hand-on without a step is refused (`no_step`);
+- one batch can't release two escrows: on Anvil, the second settle is refused by both the service and the contract (`BatchAlreadyReleased`), and the FPO is paid once.
+
+**Screens:** 42 app vs 32 mockup screenshots at 375/1440 match `contract.html`. The only differences are font weight and an empty list-route detail pane.
+
+**Defects:**
+- **QA-M002-1 (low, P3):** after grading, the buyer's status reads "Funded · waiting for delivery" while the admin's reads "Ready to settle". Design §28.7 has no word for this state. Parked for Stage 8 copy; suggested: "Graded · waiting for the FPO to settle".
+- **QA-M002-2 (info):** a grade given under a second agreement stays in the public feed after payout under the first. Consistent with EXE29/EXE30.
+- **QA-M002-3 (info):** `src/lib/ledger/evm/deployment.ts:34` makes `next build` trace the whole project into the server output. Parked for TKT-27 (image size).
