@@ -53,17 +53,25 @@ export type RailProps = {
   me?: { name: string };
   /** Pickings waiting for review (the badge on Review); hidden when 0 or absent. */
   reviewCount?: number;
+  /**
+   * Another surface's items (M-002 processor, Design.md §28.2: one item, Batches → /processor), its nav
+   * label and the role line under the signed-in person. Absent: the admin's frozen four items.
+   */
+  items?: { id: RailSection; href: string }[];
+  label?: string;
+  roleLabel?: string;
 };
 
-export function Rail({ current, me, reviewCount }: RailProps) {
+export function Rail({ current, me, reviewCount, items, label, roleLabel }: RailProps) {
+  const shown = items ? items.map((i) => ({ ...i, label: ITEMS.find((x) => x.id === i.id)!.label })) : ITEMS;
   return (
-    <nav className={`${styles.rail} admin-rail`} aria-label={t('rail.label')}>
+    <nav className={`${styles.rail} admin-rail`} aria-label={label ?? t('rail.label')} data-n={shown.length}>
       <span className={styles.mark}>
         <Image src="/brand/cherry.svg" alt="" width={52} height={52} unoptimized />
         {t('app.name')}
       </span>
       <ul className={styles.list}>
-        {ITEMS.map((item) => (
+        {shown.map((item) => (
           <li key={item.id}>
             <Link className={styles.item} href={item.href} aria-current={item.id === current ? 'page' : undefined}>
               <span className={styles.ic}>
@@ -89,7 +97,7 @@ export function Rail({ current, me, reviewCount }: RailProps) {
           </span>
           <span>
             {me.name}
-            <small>{t('rail.role')}</small>
+            <small>{roleLabel ?? t('rail.role')}</small>
           </span>
         </p>
       ) : null}
@@ -98,9 +106,9 @@ export function Rail({ current, me, reviewCount }: RailProps) {
 }
 
 /** The admin screen layout: the rail and the screen's content beside it. */
-export function RailShell({ children, ...rail }: RailProps & { children: ReactNode }) {
+export function RailShell({ children, className, ...rail }: RailProps & { children: ReactNode; className?: string }) {
   return (
-    <div className={styles.shell}>
+    <div className={className ? `${styles.shell} ${className}` : styles.shell}>
       <Rail {...rail} />
       <div className={styles.main}>{children}</div>
     </div>

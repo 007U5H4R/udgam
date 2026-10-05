@@ -24,7 +24,23 @@ export type JourneyStep =
   | { kind: 'harvested'; from: string; to: string; farmCount: number }
   | { kind: 'checked'; pickings: number }
   | { kind: 'batched'; at: string; org: string }
-  | { kind: 'transferred'; at: string; from: string; org: string };
+  | { kind: 'transferred'; at: string; from: string; org: string }
+  /**
+   * M-002 (TKT-26, Design.md §28.4): a processor's step, between Batched and Handed to buyer. The hand to
+   * that processor is folded into it ("At Processor C-03"). `placeholder`: the band is not yet confirmed.
+   */
+  | {
+      kind: 'processed';
+      at: string;
+      process: string;
+      processor: string;
+      inputKg: number;
+      outputKg: number;
+      ratio: number;
+      band: [number, number];
+      status: 'ok' | 'flag';
+      placeholder: boolean;
+    };
 
 export type OriginRow = { plotId: string; producerId: string; areaHa: number | null; kg: number; pickings: number };
 
@@ -63,7 +79,7 @@ export type CertificateView = {
   unknownKinds: number;
 };
 
-const KNOWN = new Set(['plot_registered', 'plot_edited', 'device_enrolled', 'device_revoked', 'harvest_event', 'verification_run', 'admin_override', 'attestation', 'batch_created', 'custody_transfer', 'quality_attestation', 'settlement']);
+const KNOWN = new Set(['plot_registered', 'plot_edited', 'device_enrolled', 'device_revoked', 'harvest_event', 'verification_run', 'admin_override', 'attestation', 'batch_created', 'custody_transfer', 'processing_step', 'quality_attestation', 'settlement']);
 const VERDICTS: readonly string[] = ['Verified', 'Needs Review', 'Rejected'];
 const CROPS: Record<string, string> = { arabica: 'Arabica', robusta: 'Robusta' };
 
@@ -98,6 +114,7 @@ export function buildCertificateView(feed: ProofFeedV1): CertificateView {
   const overridesByEvent = new Map<string, FeedEntry[]>();
   const attestations: P[] = [];
   const custody: FeedEntry[] = [];
+  const steps: FeedEntry[] = [];
   let batch: FeedEntry | undefined;
   let unknownKinds = 0;
 
@@ -147,6 +164,9 @@ export function buildCertificateView(feed: ProofFeedV1): CertificateView {
         break;
       case 'custody_transfer':
         if (p.batchId === feed.batchId) custody.push(e);
+        break;
+      case 'processing_step':
+        if (p.batchId === feed.batchId) steps.push(e);
         break;
       default:
         if (!KNOWN.has(e.kind)) unknownKinds++;
@@ -228,7 +248,31 @@ export function buildCertificateView(feed: ProofFeedV1): CertificateView {
   if (harvestWindow) journey.push({ kind: 'harvested', ...harvestWindow, farmCount });
   if (members.length > 0) journey.push({ kind: 'checked', pickings: members.filter((m) => m.run).length });
   if (batch) journey.push({ kind: 'batched', at: str(batch.payload.ts) ?? batch.ts, org: str(batch.payload.orgId) ?? '' });
-  for (const c of custody) journey.push({ kind: 'transferred', at: str(c.payload.ts) ?? c.ts, from: str(c.payload.fromOrg) ?? '', org: str(c.payload.toOrg) ?? '' });
+  // Custody and processing steps in ledger order; a hand to an organisation that then records a step is
+  // shown as that step (Design.md §28.1 screen 7: one item between Batched and Handed to buyer).
+  const processors = new Set(steps.map((s) => str(s.payload.processorOrg)).filter((x): x is string => !!x));
+  for (const e of [...custody, ...steps].sort((a, b) => a.seq - b.seq)) {
+    const q = e.payload;
+    if (e.kind === 'custody_transfer') {
+      const to = str(q.toOrg) ?? '';
+      if (!processors.has(to)) journey.push({ kind: 'transferred', at: str(q.ts) ?? e.ts, from: str(q.fromOrg) ?? '', org: to });
+      continue;
+    }
+    const band = Array.isArray(q.band) ? q.band.map(num) : [];
+    journey.push({
+      kind: 'processed',
+      at: str(q.ts) ?? e.ts,
+      process: str(q.process) ?? '',
+      processor: str(q.processorName) ?? str(q.processorOrg) ?? '',
+      inputKg: num(q.inputKg) ?? 0,
+      outputKg: num(q.outputKg) ?? 0,
+      ratio: num(q.ratio) ?? 0,
+      band: [band[0] ?? 0, band[1] ?? 0],
+      // Anything but an explicit 'ok' reads as flagged: the page never presents a step as within range by default.
+      status: q.status === 'ok' ? 'ok' : 'flag',
+      placeholder: (str(q.evidence) ?? '').includes('placeholder range'),
+    });
+  }
 
   // Organic: the latest organic attestation (in seq order), with every member plot any organic one covers.
   const organicAll = attestations.filter((a) => (a.type ?? 'organic') === 'organic' && str(a.issuer) && memberPlots.has(str(a.plotId) ?? ''));

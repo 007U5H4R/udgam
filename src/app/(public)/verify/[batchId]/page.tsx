@@ -69,6 +69,14 @@ function journeySteps(view: CertificateView): TimelineStep[] {
         return { key: `b${i}`, step: j.batched, when: istDay(step.at), where: j.by(step.org) };
       case 'transferred':
         return { key: `t${i}`, step: j.handed, when: istDay(step.at), where: j.to(step.org) };
+      case 'processed':
+        return {
+          key: `p${i}`,
+          step: j.processed[step.process] ?? j.processedFallback,
+          when: istDay(step.at),
+          where: j.at(step.processor, step.inputKg, step.outputKg, step.ratio),
+          ...(step.status === 'flag' ? { flag: j.flagged(step.band[0], step.band[1], j.processWords[step.process] ?? step.process, step.placeholder) } : {}),
+        };
     }
   });
 }

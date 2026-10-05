@@ -69,9 +69,9 @@ afterAll(async () => {
 });
 
 describe('seed-accounts', () => {
-  it('seeds two FPOs, two buyers and one account per role and org; each signs in with its role and org', async () => {
+  it('seeds two FPOs, two buyers, a processor and one account per role and org; each signs in with its role and org', async () => {
     const auth = createAuth(t.db);
-    expect(Object.values(DEMO_ORGS).map((o) => o.type)).toEqual(['fpo', 'fpo', 'buyer', 'buyer']);
+    expect(Object.values(DEMO_ORGS).map((o) => o.type)).toEqual(['fpo', 'fpo', 'buyer', 'buyer', 'processor']);
     for (const acc of Object.values(DEMO_ACCOUNTS)) {
       const res = await auth.api.signInEmail({ body: { email: acc.email, password: PASSWORD }, asResponse: true });
       expect(res.status, acc.email).toBe(200);
@@ -83,7 +83,7 @@ describe('seed-accounts', () => {
     await seedAccounts(t.db, 'a different password');
     await seedAccounts(t.db, PASSWORD);
     const n = (await t.client.execute("SELECT COUNT(*) AS n FROM user WHERE id LIKE 'USR-%'")).rows[0]?.n;
-    expect(n).toBe(6);
+    expect(n).toBe(7); // six M-001 accounts + the M-002 processor (TKT-26)
     const res = await createAuth(t.db).api.signInEmail({ body: { email: DEMO_ACCOUNTS.adminA.email, password: PASSWORD }, asResponse: true });
     expect(res.status).toBe(200);
   });

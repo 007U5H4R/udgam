@@ -106,7 +106,7 @@ test.describe('admin batches (TSK-14.5, TC-059, TC-060)', () => {
     await notCoveredByRail(page, transfer);
     await checkSurface(page);
 
-    await form.getByLabel('Buyer').selectOption({ label: 'Demo Buyer A' });
+    await form.getByLabel('Hand to').selectOption({ label: 'Demo Buyer A' }); // M-002 T4: the label was "Buyer"
     await transfer.click();
 
     // after the transfer the form is replaced by the custody line

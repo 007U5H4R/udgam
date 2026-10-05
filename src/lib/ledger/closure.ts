@@ -37,8 +37,8 @@ export async function batchCreatedEntry(db: Reader, batchId: string) {
 }
 
 /**
- * Ledger seqs in the closure of `batchId`, sorted and unique: batch_created; every custody_transfer;
- * every quality_attestation and settlement of the batch (M-002);
+ * Ledger seqs in the closure of `batchId`, sorted and unique: batch_created; every custody_transfer and
+ * processing_step (M-002, TSK-26.3); every quality_attestation and settlement of the batch (M-002);
  * per member event its harvest_event, all verification_runs and any admin_override; per plot its
  * plot_registered, plot_edited and attestation entries; per device device_enrolled and device_revoked.
  * Empty when the batch does not exist.
@@ -51,7 +51,7 @@ export async function closureSeqs(db: Reader, batchId: string): Promise<number[]
   const batchPayload = JSON.parse(batch.payload) as { events?: { eventId?: unknown }[] };
   const eventIds = strings((batchPayload.events ?? []).map((e) => e?.eventId));
 
-  for (const r of await matching(db, ['custody_transfer'], 'batchId', [batchId])) seqs.add(r.seq);
+  for (const r of await matching(db, ['custody_transfer', 'processing_step'], 'batchId', [batchId])) seqs.add(r.seq);
   // M-002 (TKT-25): the buyer's signed grade and every settlement of this batch. The agreement entries
   // themselves stay out: commercial terms are private (Design.md §28.4).
   for (const r of await matching(db, ['quality_attestation', 'settlement'], 'batchId', [batchId])) seqs.add(r.seq);

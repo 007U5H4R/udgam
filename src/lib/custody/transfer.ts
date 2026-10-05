@@ -24,9 +24,10 @@ export class CustodyError extends Error {
 export type TransferInput = { orgId: string; adminId: string; batchId: string; toOrgId: string };
 
 /**
- * Transfer the org's open batch to a buyer organisation, in one write transaction. Throws
+ * Transfer the org's open batch to a buyer or a processor organisation, in one write transaction. Throws
  * CustodyError('not_found') for an unknown or another org's batch (indistinguishable, EVAL-080),
- * 'not_open' when it was already transferred, 'not_buyer' when `toOrgId` is not a buyer organisation.
+ * 'not_open' when it was already transferred, 'not_buyer' when `toOrgId` is neither a buyer nor a processor
+ * organisation (the code keeps its M-001 name).
  */
 export async function transferBatch(db: Db, input: TransferInput, now: () => Date = () => new Date()): Promise<{ transferId: string; anchorSeq: number }> {
   const { orgId, adminId, batchId, toOrgId } = input;
@@ -41,7 +42,8 @@ export async function transferBatch(db: Db, input: TransferInput, now: () => Dat
     if (!batch) throw new CustodyError('not_found');
     if (batch.status !== 'open') throw new CustodyError('not_open');
     const [to] = await tx.select({ type: organisations.type }).from(organisations).where(eq(organisations.id, toOrgId));
-    if (to?.type !== 'buyer') throw new CustodyError('not_buyer');
+    // A buyer, or (M-002, TKT-26 T4) a processor that records a step and hands the batch on to a buyer.
+    if (to?.type !== 'buyer' && to?.type !== 'processor') throw new CustodyError('not_buyer');
 
     const ts = now().toISOString();
     const statement = { v: 1, batchId, fromOrg: orgId, toOrg: toOrgId, ts, adminId };

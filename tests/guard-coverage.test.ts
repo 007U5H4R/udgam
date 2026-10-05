@@ -10,7 +10,8 @@ import { describe, expect, it } from 'vitest';
 //     under src/app (any Server Action is reachable by POST), except the allowlisted public actions;
 //   - every exported HTTP handler of a route.ts under a group or under api/ (minus the public api/auth,
 //     api/health, api/verify and the certificate beacon api/telemetry, TKT-16);
-//   - the default export of every page.tsx and layout.tsx under (agent), (admin) and (buyer).
+//   - the default export of every page.tsx and layout.tsx under (agent), (admin), (buyer) and (processor)
+//     (the processor surface, TKT-26, D9).
 // Each target must `await requireSession('<role>'…)` in an unconditional top-level statement of its
 // body before anything touches the database. Inside a group the role literal must be the group's own.
 //
@@ -31,7 +32,7 @@ import { describe, expect, it } from 'vitest';
 
 const ROOT = join(__dirname, '..');
 const APP = join(ROOT, 'src', 'app');
-const GROUPS = ['(agent)', '(admin)', '(buyer)'] as const;
+const GROUPS = ['(agent)', '(admin)', '(buyer)', '(processor)'] as const;
 const PUBLIC_API = ['auth', 'health', 'verify', 'telemetry'];
 /** Server Action files (relative to the app root) that are public by nature and read nothing org-scoped. */
 const PUBLIC_ACTIONS = ['(public)/sign-in/actions.ts'];
@@ -378,6 +379,7 @@ describe('guard coverage (TSK-04.4, TC-018)', () => {
         `${f}/(admin)/wrong-role/page.tsx default: guards with 'agent' inside (admin): must be requireSession('admin')`,
         `${f}/(agent)/client/page.tsx default: a 'use client' page cannot await requireSession: render it from a server page that does`,
         `${f}/(buyer)/unguarded/page.tsx default: no top-level \`await requireSession(\``,
+        `${f}/(processor)/admin-guard/page.tsx default: guards with 'admin' inside (processor): must be requireSession('processor')`,
         `${f}/(public)/contact/actions.ts send: no top-level \`await requireSession(\``,
         `${f}/_actions/stray.ts listOrgs: no top-level \`await requireSession(\``,
         `${f}/api/things/route.ts GET: no top-level \`await requireSession(\``,

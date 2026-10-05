@@ -1,6 +1,6 @@
 // Seeds the demo organisations and one account per role and org (technical-plan TSK-04.5):
 // two FPOs (Hosahalli FPO, and a second FPO for cross-org tests), two buyers, and `agent@` + `admin@`
-// per FPO and `buyer@` per buyer. Idempotent: re-running keeps IDs, resets the passwords and clears
+// per FPO and `buyer@` per buyer; and (M-002, TKT-26) one processor organisation with `processor@`. Idempotent: re-running keeps IDs, resets the passwords and clears
 // the accounts' sign-in failure counts (TKT-19), as a password reset would.
 //
 // Passwords come from SEED_PASSWORD. Only when NODE_ENV is explicitly `development` or `test` does a
@@ -20,7 +20,7 @@ import type { Role } from '../src/lib/auth/session';
 /** Demo-only default for dev and test databases. Used only when NODE_ENV is explicitly development or test. */
 export const DEV_SEED_PASSWORD = 'kodagu-coffee-demo';
 
-type Org = { id: string; type: 'fpo' | 'buyer'; name: string };
+type Org = { id: string; type: 'fpo' | 'buyer' | 'processor'; name: string };
 export type DemoAccount = { id: string; email: string; name: string; role: Role; orgId: string };
 
 export const DEMO_ORGS = {
@@ -28,6 +28,8 @@ export const DEMO_ORGS = {
   fpoB: { id: 'ORG-FPO-TEST', type: 'fpo', name: 'Second FPO (tests)' },
   buyerA: { id: 'ORG-BUYER-A', type: 'buyer', name: 'Demo Buyer A' },
   buyerB: { id: 'ORG-BUYER-B', type: 'buyer', name: 'Demo Buyer B' },
+  // M-002 (TKT-26, D9): a processor organisation, shown by its pseudonymous name everywhere (Design.md §28.2).
+  processorA: { id: 'ORG-PROC-C03', type: 'processor', name: 'Processor C-03' },
 } as const satisfies Record<string, Org>;
 
 // User IDs are fixed (tests stay deterministic) but opaque, like Better Auth's generated IDs: `USR-` +
@@ -41,6 +43,7 @@ export const DEMO_ACCOUNTS = {
   adminB: { id: 'USR-JG5Q7DYF', email: 'admin@fpo-test.udgam.test', name: 'Second FPO admin', role: 'admin', orgId: DEMO_ORGS.fpoB.id },
   buyerA: { id: 'USR-8HACCFYE', email: 'buyer@buyer-a.udgam.test', name: 'Buyer A', role: 'buyer', orgId: DEMO_ORGS.buyerA.id },
   buyerB: { id: 'USR-9XZPMPB7', email: 'buyer@buyer-b.udgam.test', name: 'Buyer B', role: 'buyer', orgId: DEMO_ORGS.buyerB.id },
+  processorA: { id: 'USR-4QK7ZP2M', email: 'processor@processor-c03.udgam.test', name: 'Ravi P.', role: 'processor', orgId: DEMO_ORGS.processorA.id },
 } as const satisfies Record<string, DemoAccount>;
 
 /**

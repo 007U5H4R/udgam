@@ -7,7 +7,7 @@ import { tempDb, type TempDb } from '../../tests/helpers/db';
 import { outcome } from '../../tests/helpers/next';
 import type { Role } from '../lib/auth/session';
 
-// TC-018 (pages part) / EVAL-080: for roles none/agent/admin/buyer, each route group's layout lets only
+// TC-018 (pages part) / EVAL-080: for roles none/agent/admin/buyer/processor (TKT-26, D9), each route group's layout lets only
 // its owner render; everyone else is redirected (signed out → /sign-in, another role → its own home).
 // The proxy redirects signed-out navigation for /field, /admin, /buyer and never touches public paths.
 
@@ -26,9 +26,10 @@ beforeAll(async () => {
   vi.stubEnv('LOG_LEVEL', 'silent');
   await addOrg(t.db, 'ORG-A', 'fpo');
   await addOrg(t.db, 'ORG-BUY', 'buyer');
+  await addOrg(t.db, 'ORG-PROC', 'processor');
   const { appAuth } = await import('./_auth/auth');
-  for (const role of ['agent', 'admin', 'buyer'] as const) {
-    await addUser(t.db, { id: `U-${role}`, email: `${role}@a.test`, password: PASSWORD, role, orgId: role === 'buyer' ? 'ORG-BUY' : 'ORG-A' });
+  for (const role of ['agent', 'admin', 'buyer', 'processor'] as const) {
+    await addUser(t.db, { id: `U-${role}`, email: `${role}@a.test`, password: PASSWORD, role, orgId: role === 'buyer' ? 'ORG-BUY' : role === 'processor' ? 'ORG-PROC' : 'ORG-A' });
     cookies[role] = cookieHeader(await appAuth().api.signInEmail({ body: { email: `${role}@a.test`, password: PASSWORD }, asResponse: true }));
   }
 });
@@ -49,18 +50,20 @@ const GROUPS = {
   agent: () => import('./(agent)/layout'),
   admin: () => import('./(admin)/layout'),
   buyer: () => import('./(buyer)/layout'),
+  processor: () => import('./(processor)/layout'),
 } as const;
 
 const EXPECTED: Record<'none' | Role, Record<Role, 'renders' | string>> = {
-  none: { agent: '/sign-in', admin: '/sign-in', buyer: '/sign-in' },
-  agent: { agent: 'renders', admin: '/field', buyer: '/field' },
-  admin: { agent: '/admin', admin: 'renders', buyer: '/admin' },
-  buyer: { agent: '/buyer', admin: '/buyer', buyer: 'renders' },
+  none: { agent: '/sign-in', admin: '/sign-in', buyer: '/sign-in', processor: '/sign-in' },
+  agent: { agent: 'renders', admin: '/field', buyer: '/field', processor: '/field' },
+  admin: { agent: '/admin', admin: 'renders', buyer: '/admin', processor: '/admin' },
+  buyer: { agent: '/buyer', admin: '/buyer', buyer: 'renders', processor: '/buyer' },
+  processor: { agent: '/processor', admin: '/processor', buyer: '/processor', processor: 'renders' },
 };
 
 describe('TC-018 route-group layouts guard on the server', () => {
-  for (const who of ['none', 'agent', 'admin', 'buyer'] as const) {
-    for (const group of ['agent', 'admin', 'buyer'] as const) {
+  for (const who of ['none', 'agent', 'admin', 'buyer', 'processor'] as const) {
+    for (const group of ['agent', 'admin', 'buyer', 'processor'] as const) {
       const want = EXPECTED[who][group];
       it(`${who} → (${group}) ${want === 'renders' ? 'renders' : `redirects to ${want}`}`, async () => {
         const { default: Layout } = await GROUPS[group]();
@@ -89,6 +92,7 @@ describe('the root page sends each user home', () => {
     ['agent', '/field'],
     ['admin', '/admin'],
     ['buyer', '/buyer'],
+    ['processor', '/processor'],
   ] as const) {
     it(`${who} → ${to}`, async () => {
       const { default: Root } = await import('./page');
@@ -101,7 +105,7 @@ describe('the root page sends each user home', () => {
 describe('proxy: redirects signed-out navigation only; it is not the security boundary', () => {
   it('signed-out /field, /admin/..., /buyer → /sign-in; with a session cookie → passes through', async () => {
     const { proxy } = await import('../proxy');
-    for (const path of ['/field', '/field/record', '/admin', '/admin/plots/PL-1', '/buyer', '/buyer/batches/B-1']) {
+    for (const path of ['/field', '/field/record', '/admin', '/admin/plots/PL-1', '/buyer', '/buyer/batches/B-1', '/processor', '/processor/batches/B-1']) {
       const out = proxy(new NextRequest(`http://localhost${path}`));
       expect(out.status, path).toBe(307);
       expect(new URL(out.headers.get('location')!).pathname).toBe('/sign-in');
@@ -113,11 +117,11 @@ describe('proxy: redirects signed-out navigation only; it is not the security bo
   it('redirects only /field, /admin and /buyer: /, /sign-in, /verify and look-alike paths never redirect; /api/* and /.well-known never reach it', async () => {
     const { config, proxy } = await import('../proxy');
     // TSK-19.5: the proxy now runs on every page (it sets the CSP), so the redirect decision is its own
-    for (const url of ['/field', '/field/pickings/HE-1', '/admin', '/admin/review/VR-1', '/buyer', '/buyer/batches/B-1']) {
+    for (const url of ['/field', '/field/pickings/HE-1', '/admin', '/admin/review/VR-1', '/buyer', '/buyer/batches/B-1', '/processor', '/processor/batches/B-1']) {
       expect(unstable_doesMiddlewareMatch({ config, url }), url).toBe(true);
       expect(proxy(new NextRequest(`http://localhost${url}`)).status, url).toBe(307);
     }
-    for (const url of ['/', '/sign-in', '/verify/B-XYZ', '/verify/anything?h=abc', '/fieldwork', '/administrator']) {
+    for (const url of ['/', '/sign-in', '/verify/B-XYZ', '/verify/anything?h=abc', '/fieldwork', '/administrator', '/processors']) {
       expect(proxy(new NextRequest(`http://localhost${url}`)).headers.get('location'), url).toBeNull();
     }
     for (const url of ['/api/verify/B-1', '/api/health', '/api/auth/sign-in/email', '/api/capture', '/.well-known/udgam-ledger-key']) {

@@ -21,6 +21,8 @@ export const SIGNED_KINDS = [
   'agreement_refunded',
   'quality_attestation',
   'settlement',
+  // M-002 (TKT-26): a processor's signed processing step.
+  'processing_step',
 ] as const;
 
 const hex64 = z.string().check(z.regex(/^[0-9a-f]{64}$/));

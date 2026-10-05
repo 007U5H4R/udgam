@@ -52,8 +52,9 @@ const FORBIDDEN = new Set(['__proto__', 'constructor', 'prototype']);
 const HEX64 = /^[0-9a-f]{64}$/;
 const HEX12 = /^[0-9a-f]{12}$/;
 const B64U_CHARS = /^[A-Za-z0-9_-]+$/; // §4.2: format checks the alphabet only
-// M-002 (TKT-25) adds the contract-farming kinds; their payloads are signed the same way (§9.2).
-const SIGNED_KINDS = new Set(['batch_created', 'custody_transfer', 'admin_override', 'agreement_created', 'agreement_funded', 'agreement_refunded', 'quality_attestation', 'settlement']);
+// M-002 adds the contract-farming kinds (TKT-25) and the processing step (TKT-26); their payloads are
+// signed the same way (§9.2).
+const SIGNED_KINDS = new Set(['batch_created', 'custody_transfer', 'admin_override', 'agreement_created', 'agreement_funded', 'agreement_refunded', 'quality_attestation', 'settlement', 'processing_step']);
 
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isInt = (v: unknown, min: number): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= min;

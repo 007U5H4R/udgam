@@ -17,7 +17,9 @@ export type LedgerKind =
   | 'agreement_funded'
   | 'agreement_refunded'
   | 'quality_attestation'
-  | 'settlement';
+  | 'settlement'
+  // M-002 (TKT-26, TSK-26.3): a processor's signed processing step (input/output kg and mass balance).
+  | 'processing_step';
 
 /** Where a provenance row is anchored: its `anchor_seq` and the entry's hashes. */
 export type Anchor = { seq: number; entryHash: string; payloadHash: string };

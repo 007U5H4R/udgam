@@ -54,14 +54,14 @@ export const user = sqliteTable(
       .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
-    /** agent | admin | buyer (§10). Never accepted from a client (`input: false`). */
-    role: text('role', { enum: ['agent', 'admin', 'buyer'] }).notNull(),
+    /** agent | admin | buyer | processor (§10; processor added by TKT-26, D9). Never accepted from a client (`input: false`). */
+    role: text('role', { enum: ['agent', 'admin', 'buyer', 'processor'] }).notNull(),
     /** The user's organisation; every org-scoped query takes it from the session (EVAL-080). */
     orgId: text('org_id')
       .notNull()
       .references(() => organisations.id),
   },
-  (t) => [check('user_role_check', sql`${t.role} IN ('agent','admin','buyer')`), index('user_org_idx').on(t.orgId)],
+  (t) => [check('user_role_check', sql`${t.role} IN ('agent','admin','buyer','processor')`), index('user_org_idx').on(t.orgId)],
 );
 
 export const session = sqliteTable(
@@ -433,6 +433,55 @@ export const custodyTransfers = sqliteTable(
     anchorSeq: anchorSeq(),
   },
   (t) => [index('custody_transfers_batch_idx').on(t.batchId), index('custody_transfers_to_org_idx').on(t.toOrg)],
+);
+
+// ── Processing steps (TKT-26, TSK-26.3, F18) ─────────────────────────────────────────────────────
+// Invariants (only the current holder, a processor organisation, records a step; its anchor is a
+// processing_step ledger entry; append-only) are triggers in the custom migration *_processing.sql.
+
+/**
+ * One processing step recorded by the processor organisation holding the batch: input and output kg, the
+ * mass-balance result against `mb-1` (src/lib/processing/config.ts), signed on behalf of `user_id` with
+ * their server-held key `key_id` (TP15) and anchored as `processing_step`. A flagged step is recorded
+ * like any other: nothing is refused (TSK-26.2). At most one step per batch per processor.
+ */
+export const processingSteps = sqliteTable(
+  'processing_steps',
+  {
+    /** `PS-` + 8 Crockford base32. */
+    id: text('id').primaryKey(),
+    batchId: text('batch_id')
+      .notNull()
+      .references(() => batches.id),
+    processorOrg: text('processor_org')
+      .notNull()
+      .references(() => organisations.id),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id),
+    process: text('process', { enum: ['pulping', 'drying', 'hulling_parchment', 'hulling_dry_cherry'] }).notNull(),
+    inputKg: real('input_kg').notNull(),
+    outputKg: real('output_kg').notNull(),
+    /** Output as % of input, one decimal (the value the evidence states and the band was compared with). */
+    ratio: real('ratio').notNull(),
+    bandMin: real('band_min').notNull(),
+    bandMax: real('band_max').notNull(),
+    status: text('status', { enum: ['ok', 'flag'] }).notNull(),
+    evidence: text('evidence').notNull(),
+    configVersion: text('config_version').notNull(),
+    recordedAt: text('recorded_at').notNull(),
+    signature: text('signature').notNull(),
+    keyId: text('key_id').notNull(),
+    anchorSeq: anchorSeq(),
+  },
+  (t) => [
+    check('processing_steps_process_check', sql`${t.process} IN ('pulping','drying','hulling_parchment','hulling_dry_cherry')`),
+    check('processing_steps_status_check', sql`${t.status} IN ('ok','flag')`),
+    check('processing_steps_kg_check', sql`${t.inputKg} > 0 AND ${t.outputKg} > 0`),
+    check('processing_steps_band_check', sql`${t.bandMin} < ${t.bandMax}`),
+    uniqueIndex('processing_steps_batch_org_uq').on(t.batchId, t.processorOrg),
+    index('processing_steps_org_idx').on(t.processorOrg),
+  ],
 );
 
 // ── Enrolment, plot assignment and rate limits (TKT-05) ─────────────────────────────────────────
