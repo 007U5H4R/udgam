@@ -10,8 +10,8 @@ import type { MessageKey } from './en';
 // sheet); none of it has been reviewed yet. Admin surfaces (`rail.*`, `phones.*`) are English only and
 // fall back to en.ts.
 
-/** Keys every farmer- and agent-facing language must carry (admin keys excluded). */
-export const isFieldKey = (k: string): boolean => !k.startsWith('rail.') && !k.startsWith('phones.');
+/** Keys every farmer- and agent-facing language must carry (admin keys excluded; M-002 `agreements.*` is an office surface, TKT-25). */
+export const isFieldKey = (k: string): boolean => !k.startsWith('rail.') && !k.startsWith('phones.') && !k.startsWith('agreements.');
 
 export const kn: Partial<Record<MessageKey, string>> = {
   'app.name': 'Udgam', // REVIEW: native speaker (brand name kept in Latin script)

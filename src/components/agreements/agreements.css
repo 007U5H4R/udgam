@@ -1,0 +1,339 @@
+/* The M-002 agreement and settlement screens (TKT-25, Design.md §28), ported from
+   .design/exploration/final/contract.html: its "M-002 addendum composition" block, with the mockup's
+   values unchanged. The base (".queue", ".q-*", ".detail", ".d-*", ".chk", ".decide", ".outcome",
+   ".state-card", ".sk", ".back", ".vchip"…) is admin.html's, already ported in src/styles/admin.css under
+   `.review`; the agreement <main> carries both `review` and `agr`, and every rule here is scoped under
+   `.agr`, so this sheet never touches another screen. No new colour, radius, type size, shadow or motion
+   (TP17). Not ported: the prototype banner, the reviewer dialog, the certificate step (TKT-26). */
+
+.agr a.q-item {
+  color: inherit;
+  text-decoration: none;
+}
+.agr .q-bub.ok {
+  background: var(--ok-tint);
+  color: var(--ok-ink);
+}
+.agr .q-bub.na {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.agr .q-why.ok {
+  color: var(--ok-ink);
+}
+.agr .q-why.na {
+  color: var(--ink-2);
+}
+.agr .vchip.na {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.agr .q-new {
+  margin-top: 16px;
+}
+.agr .d-body > * + .glass {
+  margin-top: 16px;
+}
+.agr .mock {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.agr a.back {
+  color: inherit;
+  text-decoration: none;
+}
+.agr .q-head .back {
+  margin-bottom: 10px;
+}
+.agr .head-acts {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+/* the buyer has no rail (frozen buyer IA, Design.md §5): no floating tab bar to leave room for */
+@media (max-width: 699.98px) {
+  .agr.no-rail .queue {
+    padding-bottom: 32px;
+  }
+}
+/* the detail repeats the list's h1, visually hidden, for when the detail is the whole screen (§28.8) */
+@media (min-width: 1100px) {
+  .agr .narrow-h1 {
+    display: none;
+  }
+}
+
+/* agreement terms (definition rows in a frosted card) */
+.agr .terms {
+  padding: 18px 20px 8px;
+}
+.agr .terms dl {
+  display: grid;
+  margin-top: 6px;
+}
+.agr .terms dl > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  padding: 12px 0;
+  border-top: 1px solid var(--hairline);
+}
+.agr .terms dt {
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.agr .terms dd a {
+  /* a link inside a sentence is told apart by more than colour (WCAG 1.4.1; axe link-in-text-block) */
+  text-decoration: underline;
+}
+.agr .terms dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+@container (min-width: 720px) {
+  .agr .terms dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 24px;
+  }
+  .agr .terms dl > div {
+    grid-template-columns: 152px minmax(0, 1fr);
+    gap: 4px 16px;
+    align-items: baseline;
+  }
+}
+
+/* settlement conditions: the admin check rows (.chk) with Met / Not met */
+.agr .cond-val b {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.agr .trust {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 4px 0 12px;
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+}
+.agr .trust .ic {
+  width: 20px;
+  height: 20px;
+  color: #b9f5d2;
+  margin-top: 1px;
+}
+.agr .outcome.ok-o {
+  border: 1px solid rgba(185, 245, 210, 0.3);
+  background:
+    linear-gradient(180deg, rgba(127, 227, 166, 0.16), rgba(127, 227, 166, 0.04) 60%),
+    rgba(20, 28, 24, 0.9);
+}
+.agr .outcome.check-o {
+  border: 1px solid rgba(255, 214, 150, 0.22);
+  background:
+    linear-gradient(180deg, rgba(242, 184, 75, 0.22), rgba(242, 184, 75, 0.06) 55%),
+    rgba(24, 22, 18, 0.72);
+}
+.agr .outcome .o-amount {
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.agr .outcome code {
+  overflow-wrap: anywhere;
+  font:
+    500 13px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  color: var(--ink-2);
+}
+.agr .d-body > .outcome,
+.agr .d-body > .decide,
+.agr .d-body > .inline-err,
+.agr .d-body > .form-card {
+  margin-top: 16px;
+}
+
+/* forms: the .decide textarea recipe applied to inputs and selects */
+.agr .form-card {
+  padding: 18px 20px 20px;
+  display: grid;
+  gap: 16px;
+}
+.agr .field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  align-content: start;
+}
+.agr .field label,
+.agr .field legend {
+  font-weight: 700;
+  padding: 0;
+}
+.agr .field fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+.agr .field input[type='text'],
+.agr .field input[type='date'],
+.agr .field select {
+  display: block;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--ink);
+  font: inherit;
+  font-size: 17px;
+  line-height: 1.45;
+  color-scheme: dark;
+  font-variant-numeric: tabular-nums;
+}
+.agr .field input:focus-visible,
+.agr .field select:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+.agr .field input:disabled,
+.agr .field select:disabled {
+  color: var(--ink-2);
+}
+.agr .hint {
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+}
+.agr .f-row {
+  display: grid;
+  gap: 16px;
+}
+@container (min-width: 720px) {
+  .agr .f-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.agr .opts {
+  display: grid;
+  gap: 6px;
+}
+.agr .opt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 18px;
+  border-radius: 18px;
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.agr .opt:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.agr .opt:has(input:checked) {
+  border-color: rgba(185, 245, 210, 0.55);
+  background: rgba(127, 227, 193, 0.1);
+}
+.agr .opt input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  flex: none;
+  accent-color: var(--ok);
+}
+.agr .opt .o-txt {
+  flex: 1;
+  min-width: 0;
+}
+.agr .opt .o-txt span {
+  display: block;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.agr .opt .o-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+/* field check (Design.md §28.7 "Field checks"): word + mark + colour under the field; the field keeps its value */
+.agr .field input[aria-invalid='true'],
+.agr .field select[aria-invalid='true'] {
+  border-color: var(--check);
+}
+.agr .f-err {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--check-ink);
+}
+.agr .f-err .mk {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+}
+.agr .inline-err {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: var(--r-row);
+  border: 1px solid rgba(255, 214, 150, 0.22);
+  background:
+    linear-gradient(180deg, rgba(242, 184, 75, 0.22), rgba(242, 184, 75, 0.06) 55%),
+    rgba(24, 22, 18, 0.72);
+}
+.agr .inline-err .ic {
+  color: var(--check-ink);
+  margin-top: 1px;
+}
+.agr .inline-err b {
+  display: block;
+}
+.agr .decide ol {
+  display: grid;
+  gap: 4px;
+  padding-left: 22px;
+  list-style: decimal;
+}
+.agr .decide .bal {
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.agr .pill .ic.spin,
+.agr .ic.spin {
+  animation: review-spin 1.4s linear infinite;
+}
+.agr .batch-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+.agr .batch-line + .batch-line {
+  margin-top: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .agr .ic.spin {
+    animation: none !important;
+  }
+}

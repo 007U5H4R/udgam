@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Icon } from '../../../../components/buyer/Icon';
 import { BatchRow } from '../../../../components/buyer/BatchRow';
 import { ListLoading, StateCard } from '../../../../components/buyer/BatchStates';
 import { cropLabel, pickingsLabel } from '../../../../components/buyer/labels';
@@ -37,6 +38,11 @@ export function BatchList({
         <div className={screen.headActions}>
           <Link className={`${pill.pill} ${primary ? '' : pill.ghost}`} href="/admin/batches/new">
             {t('batches.new')}
+          </Link>
+          {/* M-002 touch point T2 (Design.md §28, TKT-25): agreements live under Batches (no new rail item, §5). */}
+          <Link className={`${pill.pill} ${pill.ghost}`} style={{ marginTop: 10 }} href="/admin/agreements" data-testid="agreements-link">
+            <Icon name="seal" />
+            {t('agreements.link.admin')}
           </Link>
         </div>
       </header>

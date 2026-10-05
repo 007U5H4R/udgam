@@ -347,6 +347,13 @@ The feed of batch `B` contains, from the ledger (evaluation-plan §4.6):
   `agreement_refunded`) are not in any feed: an agreement's commercial terms are private
   (Design.md §28.4). A verifier checks the two batch entries like any other (hashes, Merkle path,
   payload signature); they add no completeness rule (§9.3).
+  What these entries prove, stated plainly: a `settlement` records what the Udgam server attested to
+  the escrow contract (delivered kg from the batch's `batch_created` payload, and whether every member
+  picking's final verdict is Verified; the server operator is the only account allowed to settle) and
+  what the contract decided. The grade in `quality_attestation` is signed by the server on behalf of
+  the buyer organisation's account (an EIP-712 signature by a server-held key, carried in
+  `payload.eip712`), so it proves which account graded, not possession of a personal device key. The
+  contract enforces the arithmetic and the grade signature.
 
 Payload members a verifier relies on (all others are informational and covered by the hashes):
 

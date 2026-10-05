@@ -22,6 +22,10 @@ export type SettlementView = {
   createdAt: string;
   txHash: string;
   blockNumber: number;
+  deliveredKg: number;
+  grade: number;
+  pickings: number;
+  verifiedPickings: number;
 };
 
 export type DeliveredBatch = {
@@ -141,7 +145,7 @@ async function view(db: Db, a: AgreementRow, orgNames: Map<string, string>, now:
     buyerName: orgNames.get(a.buyerOrg) ?? '',
     fpoName: orgNames.get(a.fpoOrg) ?? '',
     delivered,
-    settlements: rows.map((s) => ({ id: s.id, batchId: s.batchId, outcome: s.outcome, reasons: parseReasons(s.reasons), createdAt: s.createdAt, txHash: s.txHash, blockNumber: s.blockNumber })),
+    settlements: rows.map((s) => ({ id: s.id, batchId: s.batchId, outcome: s.outcome, reasons: parseReasons(s.reasons), createdAt: s.createdAt, txHash: s.txHash, blockNumber: s.blockNumber, deliveredKg: s.deliveredKg, grade: s.grade, pickings: s.pickings, verifiedPickings: s.verifiedPickings })),
     deadlinePassed: now.getTime() > Date.parse(a.deadline),
   };
 }

@@ -23,3 +23,13 @@ export function escrowFromEnv(): Promise<EscrowChain> {
   }
   return cached;
 }
+
+/** A buyer organisation's mock INR balance in paise, or null when the ledger does not answer within `ms`. */
+export async function buyerBalance(orgId: string, ms = 2_000): Promise<bigint | null> {
+  const timeout = new Promise<null>((r) => setTimeout(() => r(null), ms).unref?.());
+  try {
+    return await Promise.race([escrowFromEnv().then((c) => c.balanceOf(orgId)), timeout]);
+  } catch {
+    return null;
+  }
+}
