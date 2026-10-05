@@ -7,7 +7,7 @@ import type { CheckId, CheckStatus } from '../lib/verification/types';
 import { advanceDevice, answeredItems, bumpAttempt, deleteOutbox, listOutbox, loadSigner, markAnswered, putOutbox, type Advance, type OutboxItem } from './capture-store';
 import type { GpsWatch } from './gps';
 import { signCapture } from './sign';
-import { forgetStaged, stagedHashes } from './stage-client';
+import { abortStaging, forgetStaged, stagedHashes } from './stage-client';
 
 // Sending a capture (technical-plan §3.1, §9, TSK-10.9). The phone builds the payload from the photos'
 // hashes (taken when each photo was accepted), canonicalises and signs it, writes it to the outbox
@@ -164,6 +164,7 @@ type NotStaged = { kind: 'not_staged' };
  * more with every photo's bytes (TSK-30.4). Never throws.
  */
 export async function sendCapture(capture: SignedCapture, opts: SendOptions = {}): Promise<SendResult> {
+  abortStaging(); // photos still uploading go inline, once (TKT-30 review #2)
   const staged = opts.staged ?? stagedHashes();
   const named = signedHashes(capture.payload).filter((h) => staged.has(h));
   if (named.length > 0) {

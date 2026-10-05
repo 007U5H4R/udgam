@@ -181,6 +181,11 @@ describe('POST /api/capture/stage (TC-093)', () => {
   it("refuses a phone that is not the agent's or is revoked (403), and a missing phone id (400)", async () => {
     const { POST } = await import('./route');
     expect((await POST(stageRequest(fakeJpeg('x'), { device: 'DV-ZZZZZZZZ' }))).status).toBe(403);
+    // another agent's real, enrolled phone (another FPO's tracer world)
+    const other = await seedTracerWorld(t.db, { publicJwk: (await makeDevice()).publicJwk });
+    const foreign = await POST(stageRequest(fakeJpeg('x'), { device: other.deviceId }));
+    expect(foreign.status).toBe(403);
+    expect(await foreign.json()).toEqual({ error: 'device_not_owned' });
     expect((await POST(stageRequest(fakeJpeg('x'), { device: null }))).status).toBe(400);
     await t.client.execute({ sql: `UPDATE devices SET revoked_at = '2026-01-01T00:00:00.000Z' WHERE id = ?`, args: [world.deviceId] });
     const res = await POST(stageRequest(fakeJpeg('x')));

@@ -1,13 +1,13 @@
 import { existsSync } from 'node:fs';
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, utimes, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeJpeg } from '../../../tests/helpers/capture';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 import { sha256Hex } from '../crypto';
 import { seenMediaHashes } from './context';
 import { MAX_PHOTO_BYTES } from './limits';
-import { localStagingStore, MAX_STAGED_PER_AGENT, readStaged, stagePhoto, STAGE_TTL_MS, sweepExpired, takeStaged, type StagingStore } from './staging';
+import { claimStaged, localStagingStore, MAX_STAGED_PER_AGENT, readStaged, stagePhoto, STAGE_TTL_MS, sweepExpired, sweepStaging, takeStaged, type StagingStore } from './staging';
 
 // TC-093 (store half, TSK-30.1): staged photos belong to one agent and phone, expire after an hour, are
 // capped at 12 per agent, and are never provenance (no anchor, never "seen" by photo_uniqueness).
@@ -158,5 +158,87 @@ describe('takeStaged / readStaged / sweepExpired (TC-093)', () => {
 
   it('refuses an agent id that is not a safe path segment', async () => {
     await expect(stage(fakeJpeg('x'), { agentId: '../evil' })).rejects.toThrow();
+  });
+});
+
+describe('TKT-30 review follow-ups (staging store)', () => {
+  it('the store stays inside the exact staging folder: stagingX/… is refused (nit 6)', async () => {
+    await expect(store.prepare(join('stagingX', A, 'a'.repeat(64)), fakeJpeg('x'))).rejects.toThrow('staged path is outside the staging area');
+    await expect(store.read(join('staging-old', 'f'), 10)).rejects.toThrow('staged path is outside the staging area');
+    await expect(store.read('staging', 10)).rejects.toThrow('staged path is outside the staging area');
+  });
+
+  it('a capped agent is refused before any file is written (nit 7)', async () => {
+    for (let i = 0; i < MAX_STAGED_PER_AGENT; i++) await stage(fakeJpeg(`full-${i}`));
+    const spy = vi.spyOn(store, 'prepare');
+    expect(await stage(fakeJpeg('one-more'))).toEqual({ error: 'too_many' });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("reads a staged file at its own size, at most max bytes (nit 8)", async () => {
+    const bytes = fakeJpeg('sized');
+    const sha256 = await sha256Hex(bytes);
+    await stage(bytes);
+    expect(await store.read(join('staging', A, sha256), MAX_PHOTO_BYTES + 1)).toEqual(bytes);
+    expect(await store.read(join('staging', A, sha256), 4)).toEqual(bytes.subarray(0, 4));
+  });
+
+  it('staging the same bytes from a second phone keeps the first phone on an unexpired row (review #4)', async () => {
+    const bytes = fakeJpeg('two-phones');
+    const sha256 = await sha256Hex(bytes);
+    await stage(bytes);
+    await stage(bytes, { deviceId: 'DV-BBBBBBBB', now: later(60_000) });
+    expect((await t.client.execute('SELECT device_id FROM staged_media')).rows.map((r) => r.device_id)).toEqual([DEV_A]);
+    expect(await readStaged(t.db, store, { agentId: A, deviceId: DEV_A, sha256, now: later(120_000) })).toEqual(bytes);
+    // once that row has expired (an hour after its refresh), the other phone may take it over
+    await stage(bytes, { deviceId: 'DV-BBBBBBBB', now: later(60_000 + STAGE_TTL_MS + 1000) });
+    expect((await t.client.execute('SELECT device_id FROM staged_media')).rows.map((r) => r.device_id)).toEqual(['DV-BBBBBBBB']);
+  });
+
+  it('claimStaged: intact bytes come back; a changed file is discarded (row and file) and logged, and reads as missing (EXE25)', async () => {
+    const good = fakeJpeg('claim-good');
+    const bad = fakeJpeg('claim-bad');
+    await stage(good);
+    await stage(bad);
+    const badSha = await sha256Hex(bad);
+    await writeFile(join(t.dir, 'staging', A, badSha), fakeJpeg('claim-bad-edited'));
+    const log = { warn: vi.fn() };
+    expect(await claimStaged(t.db, store, { agentId: A, deviceId: DEV_A, sha256: await sha256Hex(good), now: NOW }, log)).toEqual(good);
+    expect(await claimStaged(t.db, store, { agentId: A, deviceId: DEV_A, sha256: badSha, now: NOW }, log)).toBeNull();
+    expect(log.warn).toHaveBeenCalledWith({ reason: 'hash_mismatch' }, 'stage.integrity_failed');
+    expect((await rows()).map((r) => r.sha256)).toEqual([await sha256Hex(good)]);
+    expect(existsSync(join(t.dir, 'staging', A, badSha))).toBe(false);
+  });
+
+  it('sweepStaging removes expired rows, and temp and row-less files older than the TTL; young files and owned files stay (review #3)', async () => {
+    const kept = fakeJpeg('kept');
+    await stage(kept, { now: later(STAGE_TTL_MS) });
+    await stage(fakeJpeg('expired'));
+    const dir = join(t.dir, 'staging', A);
+    const old = (NOW.getTime() - 1000) / 1000; // older than an hour at the sweep below
+    await mkdir(join(t.dir, 'staging', B), { recursive: true });
+    const files = {
+      oldTmp: join(dir, `${'1'.repeat(64)}.x.tmp`),
+      oldOrphan: join(t.dir, 'staging', B, '2'.repeat(64)),
+      youngTmp: join(dir, `${'3'.repeat(64)}.y.tmp`),
+      youngOrphan: join(dir, '4'.repeat(64)),
+    };
+    for (const f of Object.values(files)) await writeFile(f, 'x');
+    await utimes(files.oldTmp, old, old);
+    await utimes(files.oldOrphan, old, old);
+    const sweepAt = later(STAGE_TTL_MS + 1000);
+    for (const f of [files.youngTmp, files.youngOrphan]) await utimes(f, sweepAt.getTime() / 1000 - 60, sweepAt.getTime() / 1000 - 60);
+
+    expect(await sweepStaging(t.db, store, sweepAt)).toEqual({ expired: 1, orphans: 2 });
+    expect((await rows()).map((r) => r.sha256)).toEqual([await sha256Hex(kept)]);
+    expect(existsSync(join(dir, await sha256Hex(kept)))).toBe(true);
+    expect(existsSync(files.oldTmp)).toBe(false);
+    expect(existsSync(files.oldOrphan)).toBe(false);
+    expect(existsSync(files.youngTmp)).toBe(true);
+    expect(existsSync(files.youngOrphan)).toBe(true);
+  });
+
+  it('sweepStaging with no staging folder yet does nothing', async () => {
+    expect(await sweepStaging(t.db, store, NOW)).toEqual({ expired: 0, orphans: 0 });
   });
 });

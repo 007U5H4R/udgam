@@ -59,7 +59,7 @@ beforeEach(async () => {
       ...real,
       consume: async (...[db, key, limit, windowSec, now]: Parameters<typeof real.consume>) => {
         if (failConsume) throw new Error('database is locked');
-        return real.consume(db, key, limit, windowSec, now ?? rateNow ?? new Date());
+        return real.consume(db, key, limit, windowSec, rateNow ?? now ?? new Date()); // a pinned clock wins over the route's own
       },
     };
   });
