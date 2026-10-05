@@ -80,3 +80,81 @@ else
 fi
 
 # Foundry: added by TKT-22
+# Pinned Foundry (forge, anvil, cast) and solc for the M-002 contracts (docs/spikes/foundry.md).
+# Both come from GitHub release assets and are checked against the sha256 digests below.
+# solc goes into the svm directory forge reads, because the claude.ai/code egress proxy blocks
+# binaries.soliditylang.org. A failed download warns instead of failing, so M-001 work still sets up
+# offline; a checksum mismatch always fails.
+FOUNDRY_VERSION=1.8.3
+SOLC_VERSION=0.8.37
+FOUNDRY_BIN="${FOUNDRY_DIR:-$HOME/.foundry}/bin"
+SOLC_PATH="$HOME/.svm/$SOLC_VERSION/solc-$SOLC_VERSION"
+case "$(uname -m)" in
+  x86_64 | amd64)
+    FOUNDRY_ARCH=amd64
+    FOUNDRY_SHA256=7ca48e6ca3cac1bce1403ca67e5bc1dc3bc1fd818199c9957c7165079c228568
+    SOLC_ASSET=solc-static-linux
+    SOLC_SHA256=5de843c2c93563cc66425c99a4fb13fdbf32b4c4ae07469480faaf126e14404a
+    ;;
+  aarch64 | arm64)
+    FOUNDRY_ARCH=arm64
+    FOUNDRY_SHA256=93fc23be26c8a902ca58fe54aa6ca28c880b58af95d052674933161df7928e6d
+    SOLC_ASSET=solc-static-linux-arm
+    SOLC_SHA256=717142f4275804e75c3d0bafd264db669da9cf411550c7c29cc68f634d17a9da
+    ;;
+  *) FOUNDRY_ARCH="" ;;
+esac
+
+# Downloads $1 to $2 and checks its sha256 ($3). Returns 1 when the download fails; exits on a mismatch.
+fetch_verified() {
+  if ! curl -sSfL --retry 2 -o "$2" "$1"; then
+    echo "warn: download failed: $1" >&2
+    return 1
+  fi
+  if ! echo "$3  $2" | sha256sum -c --status; then
+    echo "error: sha256 mismatch for $1" >&2
+    rm -f "$2"
+    exit 1
+  fi
+}
+
+if [ "$(uname -s)" != Linux ] || [ -z "$FOUNDRY_ARCH" ]; then
+  echo "warn: no pinned Foundry build for $(uname -s)/$(uname -m); skipped" >&2
+else
+  # Capture first: under pipefail, `grep -q` closing the pipe early can fail the check.
+  forge_version="$("$FOUNDRY_BIN/forge" --version 2>/dev/null || true)"
+  if grep -qxF "forge Version: $FOUNDRY_VERSION" <<<"$forge_version"; then
+    ok "foundry $FOUNDRY_VERSION"
+  else
+    foundry_tmp="$(mktemp -d)"
+    trap 'rm -rf "$foundry_tmp"' EXIT
+    tarball="$foundry_tmp/foundry.tar.gz"
+    if fetch_verified \
+      "https://github.com/foundry-rs/foundry/releases/download/v$FOUNDRY_VERSION/foundry_v${FOUNDRY_VERSION}_linux_$FOUNDRY_ARCH.tar.gz" \
+      "$tarball" "$FOUNDRY_SHA256"; then
+      mkdir -p "$FOUNDRY_BIN"
+      tar -xzf "$tarball" -C "$FOUNDRY_BIN" forge anvil cast
+      did "foundry $FOUNDRY_VERSION installed to $FOUNDRY_BIN (add it to PATH)"
+    else
+      echo "warn: foundry $FOUNDRY_VERSION not installed; only the M-002 contracts tasks need it" >&2
+    fi
+    rm -rf "$foundry_tmp"
+  fi
+
+  solc_version="$("$SOLC_PATH" --version 2>/dev/null || true)"
+  if grep -qF "Version: $SOLC_VERSION+" <<<"$solc_version"; then
+    ok "solc $SOLC_VERSION"
+  else
+    mkdir -p "$(dirname "$SOLC_PATH")"
+    if fetch_verified \
+      "https://github.com/ethereum/solidity/releases/download/v$SOLC_VERSION/$SOLC_ASSET" \
+      "$SOLC_PATH.download" "$SOLC_SHA256"; then
+      chmod 0755 "$SOLC_PATH.download"
+      mv "$SOLC_PATH.download" "$SOLC_PATH"
+      did "solc $SOLC_VERSION installed to $SOLC_PATH"
+    else
+      rm -f "$SOLC_PATH.download"
+      echo "warn: solc $SOLC_VERSION not installed; only the M-002 contracts tasks need it" >&2
+    fi
+  fi
+fi
