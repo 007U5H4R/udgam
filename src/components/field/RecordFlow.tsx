@@ -118,7 +118,7 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
       dispatch(problem ? { type: 'refuse', slot, file, why: problem } : { type: 'use', slot, file, ...h });
       // Upload it now, in the background, so Send carries only the signed picking (TKT-30). Invisible to
       // the farmer; if it fails the photo simply goes with the picking.
-      if (!problem) void stagePhoto(file, h.sha256, { mime: h.mime });
+      if (!problem) void stagePhoto(file, h.sha256, { mime: h.mime, slot });
     } catch (err) {
       console.error('capture.photo_read_failed', { errClass: err instanceof Error ? err.name : typeof err });
       dispatch({ type: 'refuse', slot, file, why: 'read' });

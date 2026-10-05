@@ -7,6 +7,10 @@ import { loadSigner } from './capture-store';
 // remembers what is staged for this page's lifetime only; after a reload everything is sent as bytes,
 // and the outbox keeps every photo's bytes until a verdict whatever is staged (TKT-11 unchanged).
 
+/** EVAL-070 split (TSK-30.5): upload time is marked per photo slot, outside t0→t1. */
+export const stageStartMark = (slot: number) => `udgam:stage-start:${slot}`;
+export const stageEndMark = (slot: number) => `udgam:stage-end:${slot}`;
+
 /** At most this many stage uploads at once. */
 export const MAX_STAGING_IN_FLIGHT = 2;
 /**
@@ -16,7 +20,7 @@ export const MAX_STAGING_IN_FLIGHT = 2;
 export const STAGED_TRUST_MS = 50 * 60 * 1000;
 
 type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
-export type StageOptions = { mime?: string; deviceId?: string; fetchImpl?: FetchLike; now?: () => number };
+export type StageOptions = { mime?: string; slot?: number; deviceId?: string; fetchImpl?: FetchLike; now?: () => number };
 
 const trusted = new Map<string, number>(); // sha256 → staged-until (this phone's clock, ms)
 const inFlight = new Map<string, Promise<'staged' | 'failed'>>();
@@ -36,6 +40,14 @@ function give(): void {
   else running--;
 }
 
+function mark(name: string): void {
+  try {
+    performance.mark(name);
+  } catch {
+    // marks are instrumentation only
+  }
+}
+
 /**
  * Stage one accepted photo (its sha256 as hashed for the payload). Resolves 'staged' once the server
  * holds it, else 'failed'; never throws. A photo already staged, or being staged, is not sent twice.
@@ -53,6 +65,8 @@ export function stagePhoto(file: Blob, sha256: string, opts: StageOptions = {}):
 async function upload(file: Blob, sha256: string, opts: StageOptions, now: () => number): Promise<'staged' | 'failed'> {
   const fetchImpl = opts.fetchImpl ?? ((url, init) => fetch(url, init));
   await take();
+  const slot = opts.slot ?? 0;
+  mark(stageStartMark(slot));
   try {
     const deviceId = opts.deviceId ?? (await loadSigner())?.deviceId;
     if (!deviceId) return 'failed';
@@ -70,6 +84,7 @@ async function upload(file: Blob, sha256: string, opts: StageOptions, now: () =>
   } catch {
     return 'failed';
   } finally {
+    mark(stageEndMark(slot));
     give();
   }
 }

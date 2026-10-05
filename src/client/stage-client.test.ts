@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { captureForm, sendCapture } from './capture-client';
-import { forgetStaged, MAX_STAGING_IN_FLIGHT, resetStagingForTests, stagedHashes, stagePhoto, STAGED_TRUST_MS } from './stage-client';
+import { forgetStaged, MAX_STAGING_IN_FLIGHT, resetStagingForTests, stagedHashes, stageEndMark, stagePhoto, stageStartMark, STAGED_TRUST_MS } from './stage-client';
 
-// TSK-30.4 (TC-094 d–e, client half): photos are staged in the background, at most two at a
+// TSK-30.4 / TSK-30.5 (TC-094 d–e, client half): photos are staged in the background, at most two at a
 // time with no retry loop; Submit names staged photos by hash and sends only the rest; a 409
 // media_not_staged makes the phone send the same signed capture once more with every photo's bytes.
 
@@ -19,6 +19,7 @@ const created = (sha256: string) => new Response(JSON.stringify({ sha256, expire
 
 beforeEach(() => {
   resetStagingForTests();
+  performance.clearMarks();
 });
 
 describe('stagePhoto', () => {
@@ -71,6 +72,16 @@ describe('stagePhoto', () => {
     }
     expect(await Promise.all(all)).toEqual(['staged', 'staged', 'staged']);
     expect(max).toBe(2);
+  });
+
+  it('TSK-30.5 marks udgam:stage-start:<slot> and udgam:stage-end:<slot> around the upload, in order', async () => {
+    await stagePhoto(files[1]!, B, { slot: 1, deviceId: 'DV-1', fetchImpl: async () => created(B) });
+    const start = performance.getEntriesByName(stageStartMark(1));
+    const end = performance.getEntriesByName(stageEndMark(1));
+    expect(start).toHaveLength(1);
+    expect(end).toHaveLength(1);
+    expect(end[0]!.startTime).toBeGreaterThanOrEqual(start[0]!.startTime);
+    expect(stageStartMark(1)).toBe('udgam:stage-start:1');
   });
 
   it('a staged photo is trusted for less than the server keeps it, then sent as bytes again', async () => {
