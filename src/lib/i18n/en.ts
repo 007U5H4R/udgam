@@ -140,6 +140,12 @@ export const en = {
   'home.plotChoice': '{plot} · {farmer}',
   'lang.kn': 'ಕನ್ನಡ',
   'lang.en': 'English',
+  // The language sheet names both languages in their own scripts (TSK-11.8): the same in en and kn.
+  'lang.kannada': 'Kannada',
+  'lang.sheet.kn': 'ಭಾಷೆ',
+  'lang.sheet.en': 'Language',
+  // The organic wording on every surface (DISC4, TKT-13): "Certified by <issuer> — certificate on record".
+  'attest.certifiedBy': 'Certified by',
   'rec.back': 'Back',
   'rec.photos.eyebrow': '{plot} · today',
   'rec.photos.title': 'Take up to {count}',
@@ -381,6 +387,7 @@ export const en = {
   'rail.batches': 'Batches',
   'rail.phones': 'Phones',
   'rail.role': 'FPO admin',
+  'rail.waiting': ', {n} waiting',
   'phones.title': 'Phones',
   'phones.sub': 'Set up an agent’s phone with a one-time code, revoke a lost phone, and choose the plots each agent records.',
   'phones.agentPhones': 'Phones',

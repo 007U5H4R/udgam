@@ -1,3 +1,4 @@
+import { t } from '../../lib/i18n';
 import styles from './AttestationLine.module.css';
 
 // The one wording for organic status on every surface (plot page, batch detail, certificate; TKT-16
@@ -33,14 +34,14 @@ function afterIssuer({ validFrom, validTo, today }: Omit<AttestationLineProps, '
 
 /** "Certified by {issuer} — certificate on record · valid {from}–{to}" (or "· expired {to}"). */
 export function attestationText(props: AttestationLineProps): string {
-  return `Certified by ${props.issuer}${afterIssuer(props)}`;
+  return `${t('attest.certifiedBy')} ${props.issuer}${afterIssuer(props)}`;
 }
 
 /** The issuer sits in <bdi>: a right-to-left name cannot reorder the words after it (the text is anchored). */
 export function AttestationLine(props: AttestationLineProps) {
   return (
     <p className={styles.line} data-testid="attestation-line">
-      Certified by <bdi>{props.issuer}</bdi>
+      {t('attest.certifiedBy')} <bdi>{props.issuer}</bdi>
       {afterIssuer(props)}
     </p>
   );
