@@ -3,13 +3,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { seedBuyer, seedCapture, seedFpo, type FpoWorld } from '../../../tests/helpers/batch-fixtures';
+import { seedBuyer, seedCapture, seedFpo, type Capture, type FpoWorld } from '../../../tests/helpers/batch-fixtures';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 import { createBatch } from '../batches/create';
 import { transferBatch } from '../custody/transfer';
 import { writeTx } from '../db/client';
-import { agreements, settlements, user } from '../db/schema';
+import { agreements, harvestEvents, settlements, user } from '../db/schema';
 import { newId } from '../ids';
+import { overrideRun } from '../review/override';
 import { agreementChainId } from './attestor-keys';
 import { ChainError } from './chain';
 import { AgreementError, createAgreement, fundAgreement, gradeBatch } from './service';
@@ -32,6 +33,7 @@ let buyerOrg: string;
 let buyerUser: string;
 let batchId: string;
 let chain: FakeChain;
+let caps: Capture[];
 const o = () => ({ chain: async () => chain });
 
 beforeEach(async () => {
@@ -41,7 +43,7 @@ beforeEach(async () => {
   buyerOrg = await seedBuyer(t.db);
   buyerUser = newId('USR-');
   await writeTx(t.db, (tx) => tx.insert(user).values({ id: buyerUser, name: 'Buyer', email: `${buyerUser.toLowerCase()}@b.test`, role: 'buyer', orgId: buyerOrg }).then(() => undefined));
-  const caps = [await seedCapture(t.db, w, { kg: 256 }), await seedCapture(t.db, w, { kg: 256 })];
+  caps = [await seedCapture(t.db, w, { kg: 256 }), await seedCapture(t.db, w, { kg: 256 })];
   ({ batchId } = await createBatch(t.db, { orgId: w.orgId, adminId: w.adminId, crop: 'arabica', eventIds: caps.map((c) => c.eventId) }));
   await transferBatch(t.db, { orgId: w.orgId, adminId: w.adminId, batchId, toOrgId: buyerOrg });
 }, 40_000);
@@ -92,6 +94,46 @@ describe('settle recovery (review MAJOR 1)', () => {
     // and once recorded, another settle is a stale request
     expect(await settle(id).catch((e: unknown) => failure(e))).toBe('wrong_state');
     expect(chain.sends.settle).toBe(1);
+  });
+
+  // TKT-25 quality review r2 minor 1 (follow-up 2): a recovered release is recorded with the facts that were
+  // SENT to the chain (read back from its settle call), never with facts re-read at retry time.
+  async function lostRelease(id: string) {
+    await t.client.execute(`CREATE TEMP TRIGGER fail_settlement BEFORE INSERT ON settlements BEGIN SELECT RAISE(ABORT, 'injected failure'); END`);
+    expect(await settle(id).catch((e: unknown) => failure(e))).toBe('db');
+    expect(await chain.status(agreementChainId(id))).toBe('settled');
+    await t.client.execute('DROP TRIGGER fail_settlement');
+  }
+  const recorded = async (id: string) => {
+    const [row] = await t.db.select().from(settlements).where(eq(settlements.agreementId, id));
+    const entry = (await t.client.execute({ sql: `SELECT payload FROM ledger_entries WHERE seq = ?`, args: [row!.anchorSeq] })).rows[0]!;
+    return { row: row!, statement: JSON.parse(String(entry.payload)) as Record<string, unknown> };
+  };
+
+  it('an admin override between the lost write and the retry cannot change the recorded release (refused: batched verdicts are frozen)', async () => {
+    const id = await fundedAndGraded();
+    await lostRelease(id);
+    await expect(
+      overrideRun(t.db, { orgId: w.orgId, adminId: w.adminId, runId: caps[0]!.runId, newVerdict: 'Rejected', reason: 'Scale photo does not match the weight' }),
+    ).rejects.toThrow();
+    await settle(id);
+    const { row, statement } = await recorded(id);
+    expect(row).toMatchObject({ outcome: 'released', allVerified: true, pickings: 2, verifiedPickings: 2, grade: 90, deliveredKg: 512 });
+    expect(statement).toMatchObject({ outcome: 'released', allVerified: true, pickings: 2, verifiedPickings: 2, grade: 90, deliveredKg: 512, reasons: [] });
+  });
+
+  it('even if a verdict changed after the release was sent, the recovered release records what was sent (no self-contradiction)', async () => {
+    const id = await fundedAndGraded();
+    await lostRelease(id);
+    // A writer that bypasses the frozen-verdict guard (simulated: the guard is dropped in this temp database).
+    await t.client.execute('DROP TRIGGER harvest_events_batched_frozen');
+    await writeTx(t.db, (tx) => tx.update(harvestEvents).set({ finalVerdict: 'Needs Review' }).where(eq(harvestEvents.id, caps[0]!.eventId)).then(() => undefined));
+    const retry = await settle(id);
+    expect(retry.outcome).toBe('released');
+    expect(chain.sends.settle).toBe(1);
+    const { row, statement } = await recorded(id);
+    expect(row).toMatchObject({ outcome: 'released', allVerified: true, pickings: 2, verifiedPickings: 2, grade: 90 });
+    expect(statement).toMatchObject({ outcome: 'released', allVerified: true, pickings: 2, verifiedPickings: 2, grade: 90 });
   });
 
   it('a concurrent double settle of one agreement records one release and both requests see it', async () => {
@@ -145,5 +187,19 @@ describe('T3: the agreement card on a delivered batch (spec review minor 7)', ()
     expect((await agreementForBatch(t.db, w.orgId, batchId))?.status).toMatch(/^Payment released · \d{1,2} [A-Z][a-z]{2} \d{4}$/);
     // another FPO sees nothing for this batch
     expect(await agreementForBatch(t.db, 'ORG-OTHER', batchId)).toBeNull();
+  });
+
+  it('picks, in one query, the agreement the batch is delivered under: same crop, in that buyer\'s custody (TKT-25 r2 nit)', async () => {
+    const { agreementForBatch } = await import('./read');
+    const terms = { fpoOrg: w.orgId, agreedKg: 500, minGrade: 80 as const, amountPaise: 5_000_000, deadlineDate: '2099-12-31' };
+    const { agreementId: delivered } = await createAgreement(t.db, { buyerOrg, userId: buyerUser, values: { ...terms, crop: 'arabica' } }, o());
+    // newer, but another crop
+    await createAgreement(t.db, { buyerOrg, userId: buyerUser, values: { ...terms, crop: 'robusta' } }, o());
+    // newer, but another buyer: the batch is not in its custody
+    const otherBuyer = await seedBuyer(t.db);
+    const otherUser = newId('USR-');
+    await writeTx(t.db, (tx) => tx.insert(user).values({ id: otherUser, name: 'Buyer 2', email: `${otherUser.toLowerCase()}@b2.test`, role: 'buyer', orgId: otherBuyer }).then(() => undefined));
+    await createAgreement(t.db, { buyerOrg: otherBuyer, userId: otherUser, values: { ...terms, crop: 'arabica' } }, o());
+    expect(await agreementForBatch(t.db, w.orgId, batchId)).toMatchObject({ agreementId: delivered });
   });
 });

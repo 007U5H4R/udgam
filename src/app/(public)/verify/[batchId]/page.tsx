@@ -68,7 +68,9 @@ function journeySteps(view: CertificateView): TimelineStep[] {
       case 'batched':
         return { key: `b${i}`, step: j.batched, when: istDay(step.at), where: j.by(step.org) };
       case 'transferred':
-        return { key: `t${i}`, step: j.handed, when: istDay(step.at), where: j.to(step.org) };
+        return step.toProcessorWithoutStep
+          ? { key: `t${i}`, step: j.handedProcessor, when: istDay(step.at), where: j.to(step.org), flag: j.noStep }
+          : { key: `t${i}`, step: j.handed, when: istDay(step.at), where: j.to(step.org) };
       case 'processed':
         return {
           key: `p${i}`,

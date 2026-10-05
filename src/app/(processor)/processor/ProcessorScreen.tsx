@@ -6,7 +6,7 @@ import { Pill } from '../../../components/ui/Pill';
 import { RailShell } from '../../../components/ui/Rail';
 import { VerdictMark } from '../../../components/ui/VerdictChip';
 import { env } from '../../../lib/config/env';
-import { COPY, cropName, istShort, kg1, rowStatus, type RowStatus } from '../../../lib/processing/copy';
+import { COPY, cropName, istShort, rowStatus, type RowStatus } from '../../../lib/processing/copy';
 import type { ProcessorBatch } from '../../../lib/processing/read';
 import { signOut } from '../../(public)/sign-in/actions';
 import { ErrorCard } from './ErrorCard';
@@ -42,11 +42,11 @@ function Row({ b, current }: { b: ProcessorBatch; current: boolean }) {
           <BoxIcon />
         </span>
         <span className="q-id">
-          {b.batchId} · {cropName(b.crop)}
+          {COPY.rowId(b.batchId, cropName(b.crop))}
         </span>
-        <span className="q-kg">{kg1(b.quantityKg)} kg</span>
+        <span className="q-kg">{COPY.kg(b.quantityKg)}</span>
         <span className="q-when">
-          From {b.fromOrgName} · {istShort(b.receivedAt)}
+          {COPY.rowFrom(b.fromOrgName, istShort(b.receivedAt))}
         </span>
         <span className={`q-why ${bub}`}>
           <StatusMark cls={s.cls} />
@@ -77,7 +77,7 @@ function BatchQueue({ state, batches, orgName, current }: { state: ScreenState; 
         Udgam
       </span>
       <header className="q-head">
-        <p className="eyebrow">{orgName ?? 'Processor'}</p>
+        <p className="eyebrow">{orgName ?? COPY.eyebrow}</p>
         <h1 id="q-h" tabIndex={-1}>
           {live ? (
             <>
@@ -158,7 +158,7 @@ export function DetailSkeleton() {
 /** The detail column before a batch is chosen (≥ 1100 px; below that the list stands alone). */
 export function PickABatch() {
   return (
-    <section className="detail" aria-label="Batch detail">
+    <section className="detail" aria-label={COPY.detailLabel}>
       <div className="d-body d-pick">
         <p>{COPY.pick}</p>
       </div>

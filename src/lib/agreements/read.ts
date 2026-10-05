@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, exists, inArray, notExists, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { agreements, batches, custodyTransfers, organisations, qualityAttestations, settlements } from '../db/schema';
 import { t, type MessageKey } from '../i18n';
@@ -213,17 +213,28 @@ export async function agreementForBatch(db: Db, fpoOrg: string, batchId: string)
   let hit: AgreementRow | undefined;
   if (graded) [hit] = await db.select().from(agreements).where(eq(agreements.id, graded.id));
   else {
-    const open = await db
+    // One query (TKT-25 quality review r2): the newest open agreement this batch counts as delivered under,
+    // by the same rules as deliveredBatchIds (same FPO and crop, in the buyer's custody, not released
+    // under another agreement), evaluated for this one batch.
+    [hit] = await db
       .select()
       .from(agreements)
-      .where(and(eq(agreements.fpoOrg, fpoOrg), inArray(agreements.status, ['created', 'funded'])))
-      .orderBy(desc(agreements.createdAt));
-    for (const a of open) {
-      if ((await deliveredBatchIds(db, a)).includes(batchId)) {
-        hit = a;
-        break;
-      }
-    }
+      .where(
+        and(
+          eq(agreements.fpoOrg, fpoOrg),
+          inArray(agreements.status, ['created', 'funded']),
+          exists(db.select({ one: sql`1` }).from(batches).where(and(eq(batches.id, batchId), eq(batches.orgId, agreements.fpoOrg), eq(batches.crop, agreements.crop)))),
+          exists(db.select({ one: sql`1` }).from(custodyTransfers).where(and(eq(custodyTransfers.batchId, batchId), eq(custodyTransfers.toOrg, agreements.buyerOrg)))),
+          notExists(
+            db
+              .select({ one: sql`1` })
+              .from(settlements)
+              .where(and(eq(settlements.batchId, batchId), eq(settlements.outcome, 'released'), sql`${settlements.agreementId} <> ${agreements.id}`)),
+          ),
+        ),
+      )
+      .orderBy(desc(agreements.createdAt))
+      .limit(1);
   }
   if (!hit) return null;
   const n = await names(db, [hit.buyerOrg]);

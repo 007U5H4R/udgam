@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getDbReady } from '../../../../lib/db/client';
 import { log } from '../../../../lib/log';
+import { COPY } from '../../../../lib/processing/copy';
 import { listProcessorBatches, processorHeader, type ProcessorBatch } from '../../../../lib/processing/read';
 import { requireSession } from '../../../_auth/require';
 import { forcedState, PickABatch, ProcessorScreen } from '../ProcessorScreen';
@@ -9,7 +10,7 @@ import { forcedState, PickABatch, ProcessorScreen } from '../ProcessorScreen';
 // with where it came from and its status (ready for a step · within range · flagged · handed on). At
 // ≥ 1100 px the detail column asks to choose a batch; below that the list stands alone.
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Batches · Udgam processor' };
+export const metadata: Metadata = { title: COPY.metaList };
 
 type Props = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
 

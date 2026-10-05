@@ -35,9 +35,12 @@ export type ActionOutcome = { ok: true; agreementId: string } | { ok: false; not
 
 const text = (v: FormDataEntryValue | null): string => (typeof v === 'string' ? v.slice(0, 200) : '');
 
-function failureOf(e: unknown, action: string): ActionOutcome {
+/** A refused or failed action as the screen shows it (exported for its tests). */
+export function failureOf(e: unknown, action: string): ActionOutcome {
   if (e instanceof AgreementError) {
     if (e.code === 'not_found') return { ok: false, notFound: true };
+    // A grade off the five-label scale is a field to fix, not a stale screen (TKT-25 quality review r2).
+    if (e.code === 'invalid_grade') return { ok: false, state: { fieldErrors: { grade: FIELD_MESSAGES.gradeNeeded } } };
     // A stale screen (already funded, deadline moved past, grade already recorded…): nothing was sent.
     log.info({ action, code: e.code }, 'agreements.action_refused');
     return { ok: false, state: { failure: e.code === 'bad_signature' ? 'turned_away' : 'changed' } };

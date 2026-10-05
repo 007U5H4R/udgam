@@ -66,6 +66,19 @@ describe('checkMassBalance (TSK-26.2)', () => {
     expect(checkMassBalance({ process: 'hulling_dry_cherry', crop: 'robusta', inputKg: 1000, outputKg: 476.4 })).toMatchObject({ status: 'flag', ratio: 47.6 });
   });
 
+  it('exact half-way ratios round half up, in exact tenths of a kilogram (TKT-26 quality minor 1)', () => {
+    // drying 600 → 239.7 kg is exactly 39.95 % → 40.0 %, inside the inclusive 40 edge of 40–60
+    expect(checkMassBalance({ process: 'drying', crop: 'arabica', inputKg: 600, outputKg: 239.7 })).toMatchObject({ status: 'ok', ratio: 40 });
+    // hulling parchment 200 → 170.1 kg is exactly 85.05 % → 85.1 %, outside Arabica 75–85
+    const up = checkMassBalance({ process: 'hulling_parchment', crop: 'arabica', inputKg: 200, outputKg: 170.1 });
+    expect(up).toMatchObject({ status: 'flag', ratio: 85.1 });
+    expect(up.evidence).toBe('Output 170.1 kg is 85.1% of input 200.0 kg (expected 75–85% for hulling parchment).');
+    // hulling parchment 2600 → 2078.7 kg is exactly 79.95 % → 80.0 %, inside Robusta 80–90
+    expect(checkMassBalance({ process: 'hulling_parchment', crop: 'robusta', inputKg: 2600, outputKg: 2078.7 })).toMatchObject({ status: 'ok', ratio: 80 });
+    // hulling dry cherry 17400 → 8430.3 kg is exactly 48.45 % → 48.5 %, inside Arabica 48.5–58.5
+    expect(checkMassBalance({ process: 'hulling_dry_cherry', crop: 'arabica', inputKg: 17400, outputKg: 8430.3 })).toMatchObject({ status: 'ok', ratio: 48.5 });
+  });
+
   it('the ratio is shown and compared to one decimal (what the sentence says is what was judged)', () => {
     // 449.9 / 600 = 74.983…% → shown as 75.0% → inside 75–85
     const r = checkMassBalance({ process: 'hulling_parchment', crop: 'arabica', inputKg: 600, outputKg: 449.9 });

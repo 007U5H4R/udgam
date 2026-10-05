@@ -553,4 +553,94 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'agreements.card.under': 'ಇದರಡಿ ತಲುಪಿದೆ', // REVIEW: native speaker
   'agreements.card.link': '{buyer} ಜೊತೆ {id}', // REVIEW: native speaker
   'agreements.card.status': 'ಸ್ಥಿತಿ', // REVIEW: native speaker
+
+  // M-002 processor surface (TKT-26, follow-up 2): drafts like `agreements.*`.
+  'processor.title': 'ನಿಮ್ಮ ಬಳಿ ಇರುವ ಬ್ಯಾಚ್‌ಗಳು', // REVIEW: native speaker
+  'processor.sub': 'ಪ್ರತಿ ಬ್ಯಾಚ್‌ಗೆ ನೀವು ಮಾಡಿದ್ದನ್ನು ದಾಖಲಿಸಿ, ನಂತರ ಅದನ್ನು ಖರೀದಿದಾರರಿಗೆ ಹಸ್ತಾಂತರಿಸಿ.', // REVIEW: native speaker
+  'processor.eyebrow': 'ಸಂಸ್ಕರಣಾಕಾರ', // REVIEW: native speaker
+  'processor.loading': 'ನಿಮ್ಮ ಬ್ಯಾಚ್‌ಗಳನ್ನು ಲೋಡ್ ಮಾಡಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'processor.emptyH': 'ಈಗ ನಿಮ್ಮ ಬಳಿ ಯಾವುದೇ ಬ್ಯಾಚ್ ಇಲ್ಲ.', // REVIEW: native speaker
+  'processor.emptyP': 'ಎಫ್‌ಪಿಒ ಬ್ಯಾಚ್ ಅನ್ನು ನಿಮಗೆ ಹಸ್ತಾಂತರಿಸಿದಾಗ ಅದು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತದೆ.', // REVIEW: native speaker
+  'processor.errorH': 'ನಿಮ್ಮ ಬ್ಯಾಚ್‌ಗಳನ್ನು ಲೋಡ್ ಮಾಡಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'processor.errorP': 'ಏನೂ ಬದಲಾಗಿಲ್ಲ.', // REVIEW: native speaker
+  'processor.retry': 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ', // REVIEW: native speaker
+  'processor.reload': 'ಮರುಲೋಡ್ ಮಾಡಿ', // REVIEW: native speaker
+  'processor.back': 'ಬ್ಯಾಚ್‌ಗಳಿಗೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
+  'processor.pick': 'ಸಂಸ್ಕರಣಾ ಹಂತವನ್ನು ದಾಖಲಿಸಿ ಹಸ್ತಾಂತರಿಸಲು ಒಂದು ಬ್ಯಾಚ್ ಆಯ್ಕೆಮಾಡಿ.', // REVIEW: native speaker
+  'processor.detailLabel': 'ಬ್ಯಾಚ್ ವಿವರ', // REVIEW: native speaker
+  'processor.railLabel': 'ಸಂಸ್ಕರಣಾಕಾರರ ವಿಭಾಗಗಳು', // REVIEW: native speaker
+  'processor.signOut': 'ಸೈನ್ ಔಟ್', // REVIEW: native speaker
+  'processor.meta.list': 'ಬ್ಯಾಚ್‌ಗಳು · ಉದ್ಗಮ್ ಸಂಸ್ಕರಣಾಕಾರ', // REVIEW: native speaker
+  'processor.meta.detail': 'ಬ್ಯಾಚ್ · ಉದ್ಗಮ್ ಸಂಸ್ಕರಣಾಕಾರ', // REVIEW: native speaker
+  'processor.kg': '{kg} ಕೆಜಿ', // REVIEW: native speaker
+  'processor.row.id': '{id} · {crop}', // REVIEW: native speaker
+  'processor.row.from': '{org} ಇಂದ · {when}', // REVIEW: native speaker
+  'processor.row.handedOn': '{org} ಗೆ ಹಸ್ತಾಂತರಿಸಲಾಗಿದೆ', // REVIEW: native speaker
+  'processor.row.ready': 'ಸಂಸ್ಕರಣಾ ಹಂತಕ್ಕೆ ಸಿದ್ಧ', // REVIEW: native speaker
+  'processor.row.ok': '{done} · ನಿರೀಕ್ಷಿತ ವ್ಯಾಪ್ತಿಯೊಳಗೆ', // REVIEW: native speaker
+  'processor.row.flag': '{done} · ಗುರುತಿಸಲಾಗಿದೆ: ಒಳಹರಿವಿನ {ratio}%', // REVIEW: native speaker
+  'processor.chip.handedOn': 'ಹಸ್ತಾಂತರಿಸಲಾಗಿದೆ', // REVIEW: native speaker
+  'processor.chip.withYou': 'ನಿಮ್ಮ ಬಳಿ', // REVIEW: native speaker
+  'processor.chip.within': 'ವ್ಯಾಪ್ತಿಯೊಳಗೆ', // REVIEW: native speaker
+  'processor.chip.flagged': 'ಗುರುತಿಸಲಾಗಿದೆ', // REVIEW: native speaker
+  'processor.process.pulping': 'ಪಲ್ಪಿಂಗ್', // REVIEW: native speaker
+  'processor.process.drying': 'ಒಣಗಿಸುವಿಕೆ', // REVIEW: native speaker
+  'processor.process.hulling_parchment': 'ಪಾರ್ಚ್‌ಮೆಂಟ್ ಹಲ್ಲಿಂಗ್', // REVIEW: native speaker
+  'processor.process.hulling_dry_cherry': 'ಒಣ ಚೆರ್ರಿ ಹಲ್ಲಿಂಗ್', // REVIEW: native speaker
+  'processor.done.pulping': 'ಪಲ್ಪ್ ಮಾಡಲಾಗಿದೆ', // REVIEW: native speaker
+  'processor.done.drying': 'ಒಣಗಿಸಲಾಗಿದೆ', // REVIEW: native speaker
+  'processor.done.hulling_parchment': 'ಹಲ್ ಮಾಡಲಾಗಿದೆ', // REVIEW: native speaker
+  'processor.done.hulling_dry_cherry': 'ಹಲ್ ಮಾಡಲಾಗಿದೆ', // REVIEW: native speaker
+  'processor.crop.arabica': 'ಅರೇಬಿಕಾ', // REVIEW: native speaker
+  'processor.crop.robusta': 'ರೋಬಸ್ಟಾ', // REVIEW: native speaker
+  'processor.hint.pulping': 'ತಾಜಾ ಚೆರ್ರಿಯಿಂದ ಹಸಿ ಪಾರ್ಚ್‌ಮೆಂಟ್ · ತಾತ್ಕಾಲಿಕ ವ್ಯಾಪ್ತಿ, ದೃಢೀಕರಿಸಬೇಕಿದೆ', // REVIEW: native speaker
+  'processor.hint.drying': 'ತಾತ್ಕಾಲಿಕ ವ್ಯಾಪ್ತಿ, ದೃಢೀಕರಿಸಬೇಕಿದೆ', // REVIEW: native speaker
+  'processor.hint.band': 'ನಿರೀಕ್ಷಿತ ಹೊರಹರಿವು ಒಳಹರಿವಿನ {min}–{max}% ({crop})', // REVIEW: native speaker
+  'processor.band.none': 'ಪ್ರತಿ ಪ್ರಕ್ರಿಯೆಗೆ ಒಳಹರಿವಿಗೆ ಹೊರಹರಿವಿನ ನಿರೀಕ್ಷಿತ ವ್ಯಾಪ್ತಿ ಇದೆ. ಅದರ ಹೊರಗೆ ಹಂತವನ್ನು ಗುರುತಿಸಲಾಗುತ್ತದೆ, ನಿರಾಕರಿಸುವುದಿಲ್ಲ.', // REVIEW: native speaker
+  'processor.band.placeholder': '{process} ({crop}) ಗೆ, ಒಳಹರಿವಿನ {min}–{max}% ವ್ಯಾಪ್ತಿ ತಾತ್ಕಾಲಿಕ, ದೃಢೀಕರಿಸಬೇಕಿದೆ. ಅದರ ಹೊರಗೆ ಹಂತವನ್ನು ಗುರುತಿಸಲಾಗುತ್ತದೆ, ನಿರಾಕರಿಸುವುದಿಲ್ಲ.', // REVIEW: native speaker
+  'processor.band.usual': '{process} ({crop}) ಗೆ, ಹೊರಹರಿವು ಸಾಮಾನ್ಯವಾಗಿ ಒಳಹರಿವಿನ {min}–{max}%. ಆ ವ್ಯಾಪ್ತಿಯ ಹೊರಗೆ ಹಂತವನ್ನು ಗುರುತಿಸಲಾಗುತ್ತದೆ, ನಿರಾಕರಿಸುವುದಿಲ್ಲ.', // REVIEW: native speaker
+  'processor.detail.eyebrow': 'ಬ್ಯಾಚ್ · {org} ಇಂದ', // REVIEW: native speaker
+  'processor.detail.meta': '{crop} · {pickings} · {kg} ಕೆಜಿ · {when} ರಂದು ಸ್ವೀಕರಿಸಲಾಗಿದೆ, {org} ಪರವಾಗಿ ಸಹಿ ಮಾಡಲಾಗಿದೆ', // REVIEW: native speaker
+  'processor.detail.picking': '{n} ಕೊಯ್ಲು', // REVIEW: native speaker
+  'processor.detail.pickings': '{n} ಕೊಯ್ಲುಗಳು', // REVIEW: native speaker
+  'processor.detail.stepH': '{process} · {when} ರಂದು ದಾಖಲಿಸಲಾಗಿದೆ', // REVIEW: native speaker
+  'processor.detail.stepSum': 'ಒಳಹರಿವು {in} ಕೆಜಿ · ಹೊರಹರಿವು {out} ಕೆಜಿ', // REVIEW: native speaker
+  'processor.recordH': 'ಸಂಸ್ಕರಣಾ ಹಂತವನ್ನು ದಾಖಲಿಸಿ', // REVIEW: native speaker
+  'processor.processLegend': 'ಪ್ರಕ್ರಿಯೆ', // REVIEW: native speaker
+  'processor.inputLabel': 'ಒಳಹರಿವು (ಕೆಜಿ)', // REVIEW: native speaker
+  'processor.inputHint': 'ಒಳಗೆ ಹೋಗುವಾಗ ನೀವು ತೂಕ ಮಾಡಿದ್ದು.', // REVIEW: native speaker
+  'processor.outputLabel': 'ಹೊರಹರಿವು (ಕೆಜಿ)', // REVIEW: native speaker
+  'processor.outputHint': 'ಹೊರಗೆ ಬರುವಾಗ ನೀವು ತೂಕ ಮಾಡಿದ್ದು. ಒಳಹರಿವಿಗಿಂತ ಹೆಚ್ಚು ಇರಬಹುದು; ಆಗ ಹಂತವನ್ನು ಗುರುತಿಸಲಾಗುತ್ತದೆ.', // REVIEW: native speaker
+  'processor.signedNote': 'ನಿಮ್ಮ ಖಾತೆಯ ಪರವಾಗಿ ಸರ್ವರ್ ಸಹಿ ಮಾಡಿ ಶಾಶ್ವತವಾಗಿ ದಾಖಲಿಸುತ್ತದೆ.', // REVIEW: native speaker
+  'processor.record': 'ಸಹಿ ಮಾಡಿ ಹಂತವನ್ನು ದಾಖಲಿಸಿ', // REVIEW: native speaker
+  'processor.recording': 'ಹಂತವನ್ನು ದಾಖಲಿಸಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'processor.recordErrB': 'ಹಂತವನ್ನು ದಾಖಲಿಸಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'processor.recordErrP': 'ಯಾವುದಕ್ಕೂ ಸಹಿ ಮಾಡಿಲ್ಲ ಅಥವಾ ಉಳಿಸಿಲ್ಲ. ನೀವು ನಮೂದಿಸಿದ್ದು ಇನ್ನೂ ಇಲ್ಲಿದೆ.', // REVIEW: native speaker
+  'processor.weightName': 'ಒಳಗೆ ಮತ್ತು ಹೊರಗಿನ ತೂಕ', // REVIEW: native speaker
+  'processor.nothingRefused': 'ಏನನ್ನೂ ನಿರಾಕರಿಸಿಲ್ಲ. ಹಂತವನ್ನು ದಾಖಲಿಸಲಾಗಿದೆ, ಮತ್ತು ಗುರುತು ಬ್ಯಾಚ್‌ನ ಪ್ರಮಾಣಪತ್ರದಲ್ಲಿ ಕಾಣಿಸುತ್ತದೆ.', // REVIEW: native speaker
+  'processor.handH': 'ಖರೀದಿದಾರರಿಗೆ ಹಸ್ತಾಂತರಿಸಿ', // REVIEW: native speaker
+  'processor.buyerLabel': 'ಖರೀದಿದಾರ', // REVIEW: native speaker
+  'processor.chooseBuyer': 'ಖರೀದಿದಾರರನ್ನು ಆಯ್ಕೆಮಾಡಿ', // REVIEW: native speaker
+  'processor.handNote': 'ನಿಮ್ಮ ಖಾತೆಯ ಪರವಾಗಿ ಸರ್ವರ್ ಸಹಿ ಮಾಡುತ್ತದೆ. ಇದರ ನಂತರ, ಬ್ಯಾಚ್ ನಿಮ್ಮ ಬಳಿ ಇರುವುದಿಲ್ಲ.', // REVIEW: native speaker
+  'processor.handOn': 'ಸಹಿ ಮಾಡಿ ಹಸ್ತಾಂತರಿಸಿ', // REVIEW: native speaker
+  'processor.handingOn': '{buyer} ಗೆ ಹಸ್ತಾಂತರಿಸಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'processor.handErrB': 'ಬ್ಯಾಚ್ ಅನ್ನು ಹಸ್ತಾಂತರಿಸಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'processor.handErrP': 'ಯಾವುದಕ್ಕೂ ಸಹಿ ಮಾಡಿಲ್ಲ. ಬ್ಯಾಚ್ ಇನ್ನೂ ನಿಮ್ಮ ಬಳಿ ಇದೆ.', // REVIEW: native speaker
+  'processor.recorded': 'ದಾಖಲಿಸಲಾಗಿದೆ', // REVIEW: native speaker
+  'processor.handedMeta': '{when} ರಂದು {by} ({org}) ಪರವಾಗಿ ಸಹಿ ಮಾಡಲಾಗಿದೆ. ಈ ಬ್ಯಾಚ್ ಇನ್ನು ನಿಮ್ಮ ಬಳಿ ಇಲ್ಲ.', // REVIEW: native speaker
+  'processor.noBuyers': 'ಇನ್ನೂ ಯಾವುದೇ ಖರೀದಿದಾರ ಸಂಸ್ಥೆಯನ್ನು ಹೊಂದಿಸಿಲ್ಲ.', // REVIEW: native speaker
+  'processor.refused.alreadyRecordedB': 'ಈ ಬ್ಯಾಚ್‌ಗೆ ಈಗಾಗಲೇ ಒಂದು ಹಂತವನ್ನು ದಾಖಲಿಸಲಾಗಿದೆ.', // REVIEW: native speaker
+  'processor.refused.alreadyRecordedP': 'ಹೊಸದಾಗಿ ಯಾವುದಕ್ಕೂ ಸಹಿ ಮಾಡಿಲ್ಲ. ದಾಖಲಾದ ಹಂತವನ್ನು ನೋಡಲು ಮರುಲೋಡ್ ಮಾಡಿ.', // REVIEW: native speaker
+  'processor.refused.notHeldB': 'ಈ ಬ್ಯಾಚ್ ಅನ್ನು ಈಗಾಗಲೇ ಹಸ್ತಾಂತರಿಸಲಾಗಿದೆ.', // REVIEW: native speaker
+  'processor.refused.notHeldP': 'ಯಾವುದಕ್ಕೂ ಸಹಿ ಮಾಡಿಲ್ಲ. ಅದು ಎಲ್ಲಿದೆ ಎಂದು ನೋಡಲು ಮರುಲೋಡ್ ಮಾಡಿ.', // REVIEW: native speaker
+  'processor.refused.noStepB': 'ಈ ಬ್ಯಾಚ್‌ಗೆ ಇನ್ನೂ ಯಾವುದೇ ಸಂಸ್ಕರಣಾ ಹಂತ ದಾಖಲಾಗಿಲ್ಲ.', // REVIEW: native speaker
+  'processor.refused.noStepP': 'ಯಾವುದಕ್ಕೂ ಸಹಿ ಮಾಡಿಲ್ಲ. ಬ್ಯಾಚ್ ಹಸ್ತಾಂತರಿಸುವ ಮೊದಲು ಹಂತವನ್ನು ದಾಖಲಿಸಲು ಮರುಲೋಡ್ ಮಾಡಿ.', // REVIEW: native speaker
+  'processor.refused.notFoundB': 'ಈ ಬ್ಯಾಚ್ ನಿಮ್ಮ ಬಳಿ ಇಲ್ಲ.', // REVIEW: native speaker
+  'processor.refused.notFoundP': 'ಯಾವುದಕ್ಕೂ ಸಹಿ ಮಾಡಿಲ್ಲ. ನಿಮ್ಮ ಬ್ಯಾಚ್‌ಗಳನ್ನು ನೋಡಲು ಮರುಲೋಡ್ ಮಾಡಿ.', // REVIEW: native speaker
+  'processor.field.process': 'ನೀವು ಮಾಡಿದ ಪ್ರಕ್ರಿಯೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ.', // REVIEW: native speaker
+  'processor.field.inputNeeded': 'ಒಳಹರಿವಿನ ತೂಕವನ್ನು ಕೆಜಿಯಲ್ಲಿ ನಮೂದಿಸಿ, ಉದಾಹರಣೆಗೆ 600.0.', // REVIEW: native speaker
+  'processor.field.inputFormat': '0 ಕೆಜಿಗಿಂತ ಹೆಚ್ಚಿನ ತೂಕವನ್ನು ಅಂಕಿಗಳಲ್ಲಿ ನಮೂದಿಸಿ, ಉದಾಹರಣೆಗೆ 600.0.', // REVIEW: native speaker
+  'processor.field.outputNeeded': 'ಹೊರಹರಿವಿನ ತೂಕವನ್ನು ಕೆಜಿಯಲ್ಲಿ ನಮೂದಿಸಿ, ಉದಾಹರಣೆಗೆ 480.0.', // REVIEW: native speaker
+  'processor.field.outputFormat': 'ಹೊರಹರಿವು 0 ಕೆಜಿಗಿಂತ ಹೆಚ್ಚಿರಬೇಕು.', // REVIEW: native speaker
+  'processor.field.buyer': 'ಪಟ್ಟಿಯಿಂದ ಖರೀದಿದಾರರನ್ನು ಆಯ್ಕೆಮಾಡಿ.', // REVIEW: native speaker
 };

@@ -6,7 +6,7 @@ import { Icon } from '../../../components/admin/QueueList';
 import { Pill } from '../../../components/ui/Pill';
 import { VerdictMark } from '../../../components/ui/VerdictChip';
 import type { MbCrop, Process } from '../../../lib/processing/config';
-import { bandLine, COPY, PROCESS_LABEL, PROCESS_OPTIONS, processHint } from '../../../lib/processing/copy';
+import { bandLine, COPY, PROCESS_LABEL, PROCESS_OPTIONS, processHint, staleRefusal } from '../../../lib/processing/copy';
 import { checkStepFields, type StepField, type StepFieldErrors } from '../../../lib/processing/validate';
 import { recordStepAction } from './actions';
 
@@ -15,7 +15,9 @@ import { recordStepAction } from './actions';
 // that needs a change gets aria-invalid and its message under it (message first, then the hint, in
 // aria-describedby); focus moves to the first one; every value stays as typed. While recording, the pill
 // shows its own words and the fields are disabled; if it does not go through, an inline error says nothing
-// was signed and keeps what was entered. Output above input is accepted (and flagged as a gain).
+// was signed and keeps what was entered. Output above input is accepted (and flagged as a gain). A refusal
+// that retrying cannot fix (already recorded, handed on in another tab) says so in its own words and the pill
+// becomes Reload (router.refresh), never Try again (TKT-26 quality review minor 3).
 
 const ORDER: StepField[] = ['process', 'inputKg', 'outputKg'];
 /** The element that takes focus for each field (the first radio for the process group). */
@@ -40,6 +42,7 @@ export function StepForm({ batchId, crop }: { batchId: string; crop: MbCrop }) {
   const [outputKg, setOutputKg] = useState('');
   const [errors, setErrors] = useState<StepFieldErrors>({});
   const [actError, setActError] = useState(false);
+  const [stale, setStale] = useState<{ b: string; p: string } | null>(null);
   const [working, start] = useTransition();
 
   const show = (errs: StepFieldErrors) => {
@@ -51,6 +54,10 @@ export function StepForm({ batchId, crop }: { batchId: string; crop: MbCrop }) {
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (working) return;
+    if (stale) {
+      router.refresh();
+      return;
+    }
     setActError(false);
     const checked = checkStepFields({ process, inputKg, outputKg });
     if (!checked.ok) return show(checked.errors);
@@ -67,7 +74,9 @@ export function StepForm({ batchId, crop }: { batchId: string; crop: MbCrop }) {
         router.refresh();
         return;
       }
-      if (r.reason === 'fields') show(r.errors);
+      if (r.reason === 'fields') return show(r.errors);
+      const s = staleRefusal(r.reason);
+      if (s) setStale(s);
       else setActError(true);
     });
   };
@@ -164,7 +173,15 @@ export function StepForm({ batchId, crop }: { batchId: string; crop: MbCrop }) {
         <Icon name="trend" />
         <span>{bandLine(process || null, crop)}</span>
       </p>
-      {actError && !working ? (
+      {stale && !working ? (
+        <div className="inline-err" role="alert">
+          <Icon name="retry" />
+          <p>
+            <b>{stale.b}</b>
+            {stale.p}
+          </p>
+        </div>
+      ) : actError && !working ? (
         <div className="inline-err" role="alert">
           <Icon name="wifiOff" />
           <p>
@@ -177,8 +194,8 @@ export function StepForm({ batchId, crop }: { batchId: string; crop: MbCrop }) {
         <Icon name="seal" />
         <span>{COPY.signedNote}</span>
       </p>
-      <Pill type="submit" disabled={working} icon={<Icon name={working ? 'ring' : actError ? 'retry' : 'check'} className={working ? 'ic spin' : 'ic'} />}>
-        {working ? COPY.recording : actError ? COPY.retry : COPY.record}
+      <Pill type="submit" disabled={working} icon={<Icon name={working ? 'ring' : actError || stale ? 'retry' : 'check'} className={working ? 'ic spin' : 'ic'} />}>
+        {working ? COPY.recording : stale ? COPY.reload : actError ? COPY.retry : COPY.record}
       </Pill>
       <p className="vh" aria-live="polite">
         {working ? COPY.recording : ''}

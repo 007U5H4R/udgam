@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getDbReady } from '../../../../../lib/db/client';
 import { log } from '../../../../../lib/log';
+import { COPY } from '../../../../../lib/processing/copy';
 import { getProcessorBatch, listBuyers, listProcessorBatches, processorHeader, type ProcessorBatch } from '../../../../../lib/processing/read';
 import { requireSession } from '../../../../_auth/require';
 import { BatchDetail } from '../../BatchDetail';
@@ -10,7 +11,7 @@ import { forcedState, ProcessorScreen } from '../../ProcessorScreen';
 // /processor/batches/[batchId] — record a processing step, then hand on (TKT-26, TSK-26.5, contract.html
 // screen 6). A batch this processor was never handed is a 404, exactly like an unknown one (EVAL-080).
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Batch · Udgam processor' };
+export const metadata: Metadata = { title: COPY.metaDetail };
 
 type Props = { params: Promise<{ batchId: string }>; searchParams?: Promise<Record<string, string | string[] | undefined>> };
 

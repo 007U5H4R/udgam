@@ -40,6 +40,12 @@ describe('settlement review fixes on chain', () => {
     // the chain call went through, then the process died before the DB write
     const lost = await w.chain.settle({ id: agreementChainId(r.agreementId), batchIdHash: batchIdHash(r.batchId), deliveredGrams: BigInt(512_000), allVerified: true, grade: 90, gradeSig: qa!.eip712Sig as `0x${string}` });
     expect(lost.released).toBe(true);
+    // the recovery reads back the facts that settle call sent (its calldata), for the record (follow-up 2)
+    expect(await w.chain.settledTx(agreementChainId(r.agreementId), batchIdHash(r.batchId))).toEqual({
+      txHash: lost.txHash,
+      blockNumber: lost.blockNumber,
+      sent: { deliveredGrams: BigInt(512_000), allVerified: true, grade: 90 },
+    });
     const out = await settle(w, r);
     expect(out).toMatchObject({ outcome: 'released', txHash: lost.txHash, blockNumber: lost.blockNumber });
     expect(await w.db.$count(settlements, and(eq(settlements.agreementId, r.agreementId), eq(settlements.outcome, 'released')))).toBe(1);
