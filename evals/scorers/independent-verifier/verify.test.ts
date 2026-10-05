@@ -292,6 +292,32 @@ describe('checkFeed on a feed built by hand from docs/proof-feed.md', () => {
     expect((await build('c'.repeat(64), 'd'.repeat(64))).failure?.step).toBe('closure-incomplete');
   });
 
+  it('§9.2: a processing_step (M-002) is a signed kind: its signature is checked, a forged one fails at payload-signature', async () => {
+    const signer = await newSigner();
+    const admin = await newSigner();
+    const processor = await newSigner();
+    const H = 'c'.repeat(64);
+    const build = async (step: Json) => {
+      const kinds: [string, Json][] = [
+        ['plot_registered', { plotId: 'PL-1' }],
+        ['device_enrolled', { deviceId: 'DV-1' }],
+        ['harvest_event', { eventId: 'HE-1', plotId: 'PL-1', deviceId: 'DV-1', payloadHash: H }],
+        ['verification_run', { eventId: 'HE-1' }],
+        ['batch_created', await signedPayload(admin, { batchId: 'B-1', orgId: 'O1', events: [{ eventId: 'HE-1', payloadHash: H }] })],
+        ['custody_transfer', await signedPayload(admin, { batchId: 'B-1', fromOrg: 'O1', toOrg: 'P1' })],
+        ['processing_step', step],
+        ['custody_transfer', await signedPayload(processor, { batchId: 'B-1', fromOrg: 'P1', toOrg: 'O2' })],
+      ];
+      const ledger = await buildLedger(kinds, 0);
+      return checkFeed(await buildFeed({ ledger, cuts: [ledger.length], select: () => true, batchId: 'B-1', signer }), keyDocument(signer));
+    };
+    const statement = { v: 1, batchId: 'B-1', processorOrg: 'P1', process: 'hulling_parchment', inputKg: 600, outputKg: 420, ratio: 70, band: [75, 85], status: 'flag' };
+    const good = await signedPayload(processor, statement);
+    expect((await build(good)).ok).toBe(true);
+    const forged = { ...(good as Record<string, Json>), outputKg: 480, ratio: 80, status: 'ok' };
+    expect(await build(forged)).toMatchObject({ ok: false, failure: { step: 'payload-signature' } });
+  });
+
   it('§9.3: every id compared is a non-empty string; a custody chain "from nobody" fails', async () => {
     const signer = await newSigner();
     const admin = await newSigner();

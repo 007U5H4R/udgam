@@ -52,7 +52,7 @@ const FORBIDDEN = new Set(['__proto__', 'constructor', 'prototype']);
 const HEX64 = /^[0-9a-f]{64}$/;
 const HEX12 = /^[0-9a-f]{12}$/;
 const B64U_CHARS = /^[A-Za-z0-9_-]+$/; // §4.2: format checks the alphabet only
-const SIGNED_KINDS = new Set(['batch_created', 'custody_transfer', 'admin_override']);
+const SIGNED_KINDS = new Set(['batch_created', 'custody_transfer', 'admin_override', 'processing_step']);
 
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isInt = (v: unknown, min: number): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= min;

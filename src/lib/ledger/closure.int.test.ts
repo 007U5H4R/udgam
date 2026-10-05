@@ -4,7 +4,9 @@ import { join } from 'node:path';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { seedBatchWorld, seedRejectedCapture } from '../../../tests/helpers/batch-world';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
+import { writeTx } from '../db/client';
 import { closureSeqs } from './closure';
+import { append } from './hashchain';
 
 // TC-063 (closure part): the provenance closure of a batch (evaluation-plan §4.6), computed from
 // the ledger, equals a list assembled here independently from the tables' anchor_seq columns (plus
@@ -61,6 +63,17 @@ describe('closureSeqs (TC-063 closure)', () => {
     expect(rejected).toHaveLength(1);
     expect(got).not.toContain(rejected[0]);
   }, 30_000);
+
+  it('includes the processing_step entries of this batch, and not those of another batch (M-002, TSK-26.3)', async () => {
+    const w = await seedBatchWorld(t.db, { events: 1, plots: 1 });
+    const other = await seedBatchWorld(t.db, { events: 1, plots: 1, orgId: w.orgId });
+    const before = await closureSeqs(t.db, w.batchId);
+    const mine = await writeTx(t.db, (tx) => append(tx, 'processing_step', { v: 1, batchId: w.batchId, processorOrg: 'ORG-P' }));
+    const theirs = await writeTx(t.db, (tx) => append(tx, 'processing_step', { v: 1, batchId: other.batchId, processorOrg: 'ORG-P' }));
+    const got = await closureSeqs(t.db, w.batchId);
+    expect(got).toEqual([...before, mine.seq]);
+    expect(got).not.toContain(theirs.seq);
+  });
 
   it('is empty for an unknown batch', async () => {
     await seedBatchWorld(t.db, { events: 1, plots: 1 });

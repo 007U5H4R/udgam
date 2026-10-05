@@ -7,7 +7,7 @@ import type { Role } from '../../src/lib/auth/session';
 
 export type TestUser = { id: string; email: string; password: string; role: Role; orgId: string };
 
-export async function addOrg(db: Db, id: string, type: 'fpo' | 'buyer', name = id): Promise<void> {
+export async function addOrg(db: Db, id: string, type: 'fpo' | 'buyer' | 'processor', name = id): Promise<void> {
   await writeTx(db, (tx) => tx.insert(organisations).values({ id, type, name }).onConflictDoNothing().then(() => undefined));
 }
 

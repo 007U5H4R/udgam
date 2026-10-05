@@ -333,7 +333,8 @@ lowercase hex: Udgam emits it lowercase and compares `h` exactly, so an uppercas
 
 The feed of batch `B` contains, from the ledger (evaluation-plan §4.6):
 
-- the `batch_created` entry of `B`, and every `custody_transfer` entry whose `payload.batchId` is `B`;
+- the `batch_created` entry of `B`, and every `custody_transfer` and `processing_step` entry whose
+  `payload.batchId` is `B` (`processing_step`: milestone 2, a processor's step between two hops);
 - for each member event listed in `batch_created.payload.events[].eventId`: its `harvest_event`
   entry, every `verification_run` entry and every `admin_override` entry whose `payload.eventId` is
   that event;
@@ -349,6 +350,7 @@ Payload members a verifier relies on (all others are informational and covered b
 | `batch_created` | `batchId`, `orgId`, `events` (array of `{ eventId, payloadHash }`), `kid`, `publicJwk`, `signature` |
 | `custody_transfer` | `batchId`, `fromOrg`, `toOrg`, `kid`, `publicJwk`, `signature` |
 | `admin_override` | `eventId`, `kid`, `publicJwk`, `signature` |
+| `processing_step` | `batchId`, `kid`, `publicJwk`, `signature` |
 | `harvest_event` | `eventId`, `plotId`, `deviceId`, `payloadHash` (the hash of the signed capture) |
 | `verification_run` | `eventId` |
 | `plot_registered` | `plotId` |
@@ -358,12 +360,20 @@ For display: `harvest_event.payload.capture` is the exact object the phone signe
 `capture.cherryKg`), `verification_run.payload` carries `verdict`, `score` and the `checks` with their
 evidence sentences, `plot_registered`/`plot_edited` carry `producerId`, `crop`, `areaHa` and the
 GeoJSON `polygon`, and `attestation` carries `attestationId`, `plotId`, `issuer`, `validFrom`,
-`validTo` and the certificate `fileHash`.
+`validTo` and the certificate `fileHash`. `processing_step` (milestone 2) carries `processorOrg` and
+`processorName` (the processor organisation's pseudonymous name), `process` (`pulping`, `drying`,
+`hulling_parchment` or `hulling_dry_cherry`), `crop`, `inputKg`, `outputKg`, `ratio` (output as % of input,
+one decimal), `band` (`[min, max]` %), `status` (`ok` or `flag`), the `evidence` sentence, `configVersion`
+and `configHash` of the mass-balance bands, and `ts`. A flagged step is recorded like any other: the
+status is information for the reader, not a verification failure. When a processor hands a batch on, the
+`custody_transfer` from the processor to the buyer is signed by the processor's account (its `adminId`
+member names the signing account, whatever its role).
 
 ### 9.2 Signed payloads
 
-Payloads of kind `batch_created`, `custody_transfer` and `admin_override` are statements signed with a
-per-admin key that the server holds on the admin's behalf. They carry three extra members:
+Payloads of kind `batch_created`, `custody_transfer`, `admin_override` and `processing_step` are
+statements signed with a per-account key that the server holds on the account's behalf (an FPO admin,
+or for `processing_step` and a processor's hand-on, the processor's account). They carry three extra members:
 `kid`, `publicJwk` and `signature`. The signed **statement** is the payload without those three
 members:
 

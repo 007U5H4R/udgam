@@ -11,7 +11,9 @@ export type LedgerKind =
   | 'admin_override'
   | 'attestation'
   | 'batch_created'
-  | 'custody_transfer';
+  | 'custody_transfer'
+  // M-002 (TKT-26, TSK-26.3): a processor's signed processing step (input/output kg and mass balance).
+  | 'processing_step';
 
 /** Where a provenance row is anchored: its `anchor_seq` and the entry's hashes. */
 export type Anchor = { seq: number; entryHash: string; payloadHash: string };

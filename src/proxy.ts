@@ -17,7 +17,7 @@ import { contentSecurityPolicy, newNonce } from './lib/security/headers';
 // route answers JSON, checks the session itself and refuses a signed-out request with 401. The plot page
 // and the certificate download (/attestation/<id>) still pass through here.
 
-const SIGNED_IN = /^\/(field|admin|buyer)(\/|$)/;
+const SIGNED_IN = /^\/(field|admin|buyer|processor)(\/|$)/;
 
 function tileProvider(): 'esri' | 'maptiler' {
   try {

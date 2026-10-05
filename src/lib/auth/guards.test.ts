@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { authorize, AuthError, authErrorResponse } from './guards';
 import type { Role, SessionUser } from './session';
 
-// TC-018 (unit part): the 4 × 3 matrix of who is signed in × which role a surface needs.
+// TC-018 (unit part): the 5 × 4 matrix (the processor role: TKT-26, D9) of who is signed in × which role a surface needs.
 
 const as = (role: Role): SessionUser => ({ userId: `U-${role}`, orgId: `ORG-${role}`, role });
 const WHO: [string, SessionUser | null][] = [
@@ -10,17 +10,19 @@ const WHO: [string, SessionUser | null][] = [
   ['agent', as('agent')],
   ['admin', as('admin')],
   ['buyer', as('buyer')],
+  ['processor', as('processor')],
 ];
 const EXPECTED: Record<string, Record<Role, true | 401 | 403>> = {
-  none: { agent: 401, admin: 401, buyer: 401 },
-  agent: { agent: true, admin: 403, buyer: 403 },
-  admin: { agent: 403, admin: true, buyer: 403 },
-  buyer: { agent: 403, admin: 403, buyer: true },
+  none: { agent: 401, admin: 401, buyer: 401, processor: 401 },
+  agent: { agent: true, admin: 403, buyer: 403, processor: 403 },
+  admin: { agent: 403, admin: true, buyer: 403, processor: 403 },
+  buyer: { agent: 403, admin: 403, buyer: true, processor: 403 },
+  processor: { agent: 403, admin: 403, buyer: 403, processor: true },
 };
 
 describe('authorize (TC-018)', () => {
   for (const [who, session] of WHO) {
-    for (const need of ['agent', 'admin', 'buyer'] as const) {
+    for (const need of ['agent', 'admin', 'buyer', 'processor'] as const) {
       const want = EXPECTED[who]![need];
       it(`${who} → ${need} surface: ${want === true ? 'allowed' : want}`, () => {
         const r = authorize(session, need);

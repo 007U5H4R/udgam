@@ -124,12 +124,13 @@ describe('signIn action', () => {
       ['admin', '/admin'],
       ['agent', '/field'],
       ['buyer', '/buyer'],
+      ['processor', '/processor'],
       ['something else', '/sign-in'],
     ] as const) {
       h.signInEmail.mockResolvedValue({ user: { role } });
       expect(await outcome(() => signIn({ error: null }, form('x@a.test', 'pw'))), role).toEqual({ rendered: { error: null, home } });
     }
-    expect(h.refund).toHaveBeenCalledTimes(4);
+    expect(h.refund).toHaveBeenCalledTimes(5);
     // refusals are unchanged
     h.signInEmail.mockRejectedValue(APIError.from('UNAUTHORIZED', { code: 'INVALID_EMAIL_OR_PASSWORD', message: 'Invalid email or password' }));
     expect(await signIn({ error: null }, form('x@a.test', 'wrong'))).toEqual({ error: 'credentials' });

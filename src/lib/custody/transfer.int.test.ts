@@ -97,10 +97,18 @@ describe('transferBatch (TC-060)', () => {
     expect(await counts()).toEqual(before);
   });
 
-  it('to an FPO, a processor or an unknown organisation → not_buyer, with nothing written', async () => {
+  it('to a processor organisation (M-002, T4): recorded, anchored and the batch locks, as for a buyer', async () => {
+    const processor = await seedBuyer(t.db, 'processor');
+    const out = await transferBatch(t.db, { orgId: w.orgId, adminId: w.adminId, batchId: b.batchId, toOrgId: processor });
+    const [row] = await t.db.select().from(custodyTransfers).where(eq(custodyTransfers.id, out.transferId));
+    expect(row).toMatchObject({ fromOrg: w.orgId, toOrg: processor, anchorSeq: out.anchorSeq });
+    const [batch] = await t.db.select({ status: batches.status }).from(batches).where(eq(batches.id, b.batchId));
+    expect(batch!.status).toBe('transferred');
+  });
+
+  it('to an FPO or an unknown organisation → not_buyer, with nothing written', async () => {
     const before = await counts();
     await expectCode(transferBatch(t.db, { orgId: w.orgId, adminId: w.adminId, batchId: b.batchId, toOrgId: await seedBuyer(t.db, 'fpo') }), 'not_buyer');
-    await expectCode(transferBatch(t.db, { orgId: w.orgId, adminId: w.adminId, batchId: b.batchId, toOrgId: await seedBuyer(t.db, 'processor') }), 'not_buyer');
     await expectCode(transferBatch(t.db, { orgId: w.orgId, adminId: w.adminId, batchId: b.batchId, toOrgId: 'ORG-NOPE' }), 'not_buyer');
     await expectCode(transferBatch(t.db, { orgId: w.orgId, adminId: w.adminId, batchId: b.batchId, toOrgId: w.orgId }), 'not_buyer');
     expect(await counts()).toEqual(before);
