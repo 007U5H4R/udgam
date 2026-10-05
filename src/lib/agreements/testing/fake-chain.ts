@@ -1,5 +1,5 @@
 import { keccak256, toHex, type Address, type Hex } from 'viem';
-import { ChainError, type ChainTx, type CreateTerms, type EscrowChain, type OnChainStatus, type SettleArgs, type SettleOutcome } from '../chain';
+import { ChainError, type ChainTx, type CreateTerms, type EscrowChain, type OnChainStatus, type SentFacts, type SettleArgs, type SettleOutcome } from '../chain';
 
 // An in-memory ContractFarming for service tests (TEST-ONLY; never imported by the app). It follows the
 // contract's rules that the services rely on: the status machine, the deadline windows, one release per
@@ -9,7 +9,7 @@ import { ChainError, type ChainTx, type CreateTerms, type EscrowChain, type OnCh
 // It does not check grade signatures (the evm tests do).
 
 type Row = { status: OnChainStatus; agreedGrams: bigint; minGrade: number; amount: bigint; deadline: bigint };
-type Event = { name: 'AgreementCreated' | 'Funded' | 'Refunded' | 'Settled' | 'SettlementRejected'; id: Hex; batchIdHash?: Hex; tx: ChainTx };
+type Event = { name: 'AgreementCreated' | 'Funded' | 'Refunded' | 'Settled' | 'SettlementRejected'; id: Hex; batchIdHash?: Hex; tx: ChainTx; sent?: SentFacts };
 
 export type FakeChain = EscrowChain & {
   /** Calls that reached the chain (sent), per method. */
@@ -112,9 +112,15 @@ export function createFakeChain(o: { nowSeconds?: () => bigint } = {}): FakeChai
       if (reasons !== 0) return { ...mine('SettlementRejected', a.id, a.batchIdHash), released: false, reasons };
       r.status = 'settled';
       batchReleased.add(a.batchIdHash);
-      return { ...mine('Settled', a.id, a.batchIdHash), released: true, reasons: 0 };
+      const tx = mine('Settled', a.id, a.batchIdHash);
+      events.at(-1)!.sent = { deliveredGrams: a.deliveredGrams, allVerified: a.allVerified, grade: a.grade };
+      return { ...tx, released: true, reasons: 0 };
     },
 
-    settledTx: async (id, batchIdHash) => earlier('Settled', id, batchIdHash),
+    // as chain.ts: the release's tx and the facts its settle call sent (its calldata)
+    settledTx: async (id, batchIdHash) => {
+      const e = events.filter((x) => x.name === 'Settled' && x.id === id && x.batchIdHash === batchIdHash).at(-1);
+      return e ? { ...e.tx, sent: e.sent ?? null } : null;
+    },
   };
 }

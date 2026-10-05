@@ -100,7 +100,7 @@ async function decideOnChain(c: EscrowChain, args: SettleArgs): Promise<SettleOu
   const recover = async (): Promise<SettleOutcome | null> => {
     if ((await c.status(args.id)) !== 'settled') return null;
     const tx = await c.settledTx(args.id, args.batchIdHash);
-    return tx ? { ...tx, released: true, reasons: 0 } : null;
+    return tx ? { txHash: tx.txHash, blockNumber: tx.blockNumber, released: true, reasons: 0, sent: tx.sent } : null;
   };
   const earlier = await recover();
   if (earlier) return earlier;
@@ -124,18 +124,25 @@ export async function settleBatch(db: Db, input: SettleInput, o: ServiceOptions 
   if (grade === null || attestationId === null || gradeSig === null) throw new AgreementError('no_grade');
   await getUserPublicKey(input.userId);
 
-  const allVerified = facts.pickings > 0 && facts.verifiedPickings === facts.pickings;
+  const sendingAllVerified = facts.pickings > 0 && facts.verifiedPickings === facts.pickings;
   const c = await (o.chain ?? escrowFromEnv)();
   const out = await decideOnChain(c, {
     id: a.chainIdHex as Hex,
     batchIdHash: batchIdHash(input.batchId),
     deliveredGrams: kgToGrams(Math.round(facts.deliveredKg * 10) / 10),
-    allVerified,
+    allVerified: sendingAllVerified,
     grade,
     gradeSig: gradeSig as Hex,
   });
+  // A recovered release (`sent` set) is recorded with the facts that were SENT to the chain, read back from
+  // its settle call, never with facts re-read now: a verdict changed since must not make the signed
+  // statement say `released` with `allVerified: false` (TKT-25 quality review r2). The contract released,
+  // so what was sent met all three conditions; that also holds when the calldata could not be read.
+  const recovered = out.sent !== undefined;
+  const allVerified = recovered ? (out.sent?.allVerified ?? true) : sendingAllVerified;
+  const verifiedPickings = recovered && allVerified ? facts.pickings : facts.verifiedPickings;
   // The contract decided; name each condition its bitmask says was not met, value vs threshold.
-  const results = judge(facts, a);
+  const results = judge({ ...facts, verifiedPickings }, a);
   const reasons: Reason[] = out.released ? [] : results.filter((r) => (out.reasons & REASON_BITS[r.condition]) !== 0).map((r) => ({ condition: r.condition, text: r.text }));
   // Anchored and stored: condition codes only. The texts name the agreed kg and the minimum grade, which
   // are private terms (Design.md §28.4); the screens rebuild them from the agreement row (read.ts).
@@ -158,7 +165,7 @@ export async function settleBatch(db: Db, input: SettleInput, o: ServiceOptions 
       attestationId,
       deliveredKg: facts.deliveredKg,
       pickings: facts.pickings,
-      verifiedPickings: facts.verifiedPickings,
+      verifiedPickings,
       allVerified,
       grade,
       outcome,
@@ -175,7 +182,7 @@ export async function settleBatch(db: Db, input: SettleInput, o: ServiceOptions 
       attestationId,
       deliveredKg: facts.deliveredKg,
       pickings: facts.pickings,
-      verifiedPickings: facts.verifiedPickings,
+      verifiedPickings,
       allVerified,
       grade,
       outcome,

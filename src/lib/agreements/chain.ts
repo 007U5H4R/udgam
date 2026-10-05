@@ -4,6 +4,7 @@ import {
   createPublicClient,
   createWalletClient,
   decodeEventLog,
+  decodeFunctionData,
   defineChain,
   http,
   parseEther,
@@ -79,8 +80,12 @@ export type CreateTerms = {
 };
 
 export type SettleArgs = { id: Hex; batchIdHash: Hex; deliveredGrams: bigint; allVerified: boolean; grade: number; gradeSig: Hex };
-/** `reasons` is the contract's bitmask: 1 quantity, 2 grade, 4 verification (0 when released). */
-export type SettleOutcome = ChainTx & { released: boolean; reasons: number };
+/** The facts a settle call sent to the contract (read back from its calldata when a release is recovered). */
+export type SentFacts = { deliveredGrams: bigint; allVerified: boolean; grade: number };
+/** `reasons` is the contract's bitmask: 1 quantity, 2 grade, 4 verification (0 when released). `sent`: on a recovered release only. */
+export type SettleOutcome = ChainTx & { released: boolean; reasons: number; sent?: SentFacts | null };
+/** An earlier release, with the facts its settle call sent (null when the calldata could not be read). */
+export type SettledTx = ChainTx & { sent: SentFacts | null };
 
 export interface EscrowChain {
   chainId: number;
@@ -97,13 +102,26 @@ export interface EscrowChain {
   fund(orgId: string, id: Hex, amountPaise: bigint): Promise<ChainTx>;
   refund(orgId: string, id: Hex): Promise<ChainTx>;
   settle(a: SettleArgs): Promise<SettleOutcome>;
-  /** The tx of an earlier release of `id` for this batch, or null (recovers a settle whose record was lost). */
-  settledTx(id: Hex, batchIdHash: Hex): Promise<ChainTx | null>;
+  /** The tx of an earlier release of `id` for this batch and the facts it sent, or null (recovers a settle whose record was lost). */
+  settledTx(id: Hex, batchIdHash: Hex): Promise<SettledTx | null>;
 }
 
 export type EscrowChainOptions = { rpcUrl: string; deployment: EscrowDeployment; operatorKey: Hex; timeoutMs?: number };
 
 type Log = TransactionReceipt['logs'][number];
+
+/** The facts a `settle(id, batchIdHash, deliveredGrams, allVerified, grade, gradeSig)` calldata carries, or null. */
+export function sentFacts(input: Hex): SentFacts | null {
+  try {
+    const call = decodeFunctionData({ abi: FARMING_ABI, data: input });
+    if (call.functionName !== 'settle' || !call.args) return null;
+    const [, , deliveredGrams, allVerified, grade] = call.args as readonly unknown[];
+    if (typeof deliveredGrams !== 'bigint' || typeof allVerified !== 'boolean' || typeof grade !== 'number') return null;
+    return { deliveredGrams, allVerified, grade };
+  } catch {
+    return null;
+  }
+}
 
 export function createEscrowChain(o: EscrowChainOptions): EscrowChain {
   const { deployment: d } = o;
@@ -232,6 +250,14 @@ export function createEscrowChain(o: EscrowChainOptions): EscrowChain {
       throw new ChainError('turned_away', 'settle emitted no outcome');
     },
 
-    settledTx: (id, batchIdHash) => earlier('Settled', id, batchIdHash).catch((e) => Promise.reject(toChainError(e))),
+    async settledTx(id, batchIdHash) {
+      try {
+        const tx = await earlier('Settled', id, batchIdHash);
+        if (!tx) return null;
+        return { ...tx, sent: sentFacts((await pub.getTransaction({ hash: tx.txHash })).input) };
+      } catch (e) {
+        throw toChainError(e);
+      }
+    },
   };
 }
