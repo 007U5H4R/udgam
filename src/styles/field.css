@@ -1331,6 +1331,15 @@ html[lang='kn'] body {
   gap: 8px;
   padding-top: 4px;
 }
+/* DES-021: Sign out at the end of "More". */
+.help-signout {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+}
+.help-signout .caption {
+  margin-top: 0;
+}
 /* DES-001, DES-016: a disclosure's chevron turns when it opens (no motion under reduced motion). */
 summary .chev {
   width: 22px;

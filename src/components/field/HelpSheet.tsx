@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
+import { signOut } from '../../app/(public)/sign-in/actions';
 import { getDevice } from '../../client/device-key';
 import type { HelpInfo } from '../../lib/db/queries/field-help';
 import { t, type Lang, type MessageKey } from '../../lib/i18n';
@@ -18,7 +19,8 @@ import { Ic } from './icons';
 // up, from the browser's own store matched against the agent's enrolled phones).
 // DES-001: on a phone the sheet is taller than the screen, so Close is pinned below the scrolling
 // content (always in view, with a fade while more sits below), and the language and "This phone" sit
-// behind one "More" row, keeping the first screen to the photos, the verdicts and the office.
+// behind one "More" row, keeping the first screen to the photos, the verdicts and the office. "More"
+// also holds Sign out (DES-021, EXE40).
 
 export type { HelpInfo };
 
@@ -125,6 +127,14 @@ export function HelpSheet({ open, onClose, lang, info, onLanguage }: { open: boo
                     : tr('help.phoneId', { id: deviceId })}
             </span>
           </Row>
+
+          {/* DES-021 (EXE40): Sign out, for a shared or lost phone. Pickings saved on this phone stay in its own store. */}
+          <form action={signOut} className="help-signout">
+            <Pill variant="ghost" type="submit" icon={<Ic name="signOut" />}>
+              {tr('signOut')}
+            </Pill>
+            <p className="caption">{tr('help.signOutNote')}</p>
+          </form>
         </div>
       </details>
     </Sheet>

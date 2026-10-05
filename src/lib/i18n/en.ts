@@ -285,7 +285,8 @@ export const en = {
   'help.phoneLoading': 'Looking…',
   'help.phoneSetUp': '{id}, set up on {date}',
   'help.phoneId': '{id}',
-  'help.more': 'Language and this phone',
+  'help.more': 'Language, this phone, sign out',
+  'help.signOutNote': 'Pickings saved on this phone stay on it.',
   // Farmer evidence lines on the verdict screens (TKT-10, src/lib/i18n/farmer-evidence.ts). Numbers come
   // from the verifier's evidence as written ({m} = "14 m", {pct} = "18.0%", {d} = "3 h", {x} = "1.75x").
   'fe.plot.default': 'the plot',

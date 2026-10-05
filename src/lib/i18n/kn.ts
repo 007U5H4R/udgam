@@ -207,7 +207,8 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'help.phoneLoading': 'ಹುಡುಕಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
   'help.phoneSetUp': '{id}, {date} ರಂದು ಸಿದ್ಧಪಡಿಸಲಾಗಿದೆ', // REVIEW: native speaker
   'help.phoneId': '{id}', // REVIEW: native speaker
-  'help.more': 'ಭಾಷೆ ಮತ್ತು ಈ ಫೋನ್', // REVIEW: native speaker
+  'help.more': 'ಭಾಷೆ, ಈ ಫೋನ್, ಸೈನ್ ಔಟ್', // REVIEW: native speaker
+  'help.signOutNote': 'ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಿದ ಕೊಯ್ಲುಗಳು ಇಲ್ಲೇ ಇರುತ್ತವೆ.', // REVIEW: native speaker
   'lang.kannada': 'Kannada', // REVIEW: native speaker (the language sheet names English words in English)
   'lang.sheet.kn': 'ಭಾಷೆ', // REVIEW: native speaker
   'lang.sheet.en': 'Language', // REVIEW: native speaker (the language sheet names English words in English)

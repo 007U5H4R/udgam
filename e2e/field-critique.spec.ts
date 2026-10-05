@@ -100,3 +100,16 @@ for (const vp of [
     await expect(sheet).toBeHidden();
   });
 }
+
+test('DES-021: Help → More → Sign out ends the session and opens sign-in; the saved pickings stay on the phone', async ({ page, context }) => {
+  const seed = seedCaptureWorld();
+  await openField(page, context, seed);
+  await helpTab(page).click();
+  const sheet = page.getByRole('dialog', { name: 'Help' });
+  await sheet.getByTestId('help-more').locator('summary').click();
+  await expect(sheet).toContainText('Pickings saved on this phone stay on it.');
+  await sheet.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page).toHaveURL(/\/sign-in$/);
+  await page.goto('/field');
+  await expect(page).toHaveURL(/\/sign-in/);
+});
