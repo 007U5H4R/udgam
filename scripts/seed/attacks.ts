@@ -1,7 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { locate } from '../../src/lib/geo/geofence';
-import { SEED, type AttackId } from './data';
+import type { AttackManifest } from '../../src/lib/demo/manifest';
+import { SEED } from './data';
 import type { SeededWorld } from './run';
 import { photosFor, signedCapture } from './capture';
 
@@ -13,24 +14,7 @@ import { photosFor, signedCapture } from './capture';
 
 export const ATTACKS_DIR = (dataDir: string) => join(dataDir, 'demo', 'attacks');
 
-/** What /admin/demo reads (src/app/(admin)/admin/demo/attacks.ts keeps the same shape). */
-export type AttackManifest = {
-  v: 1;
-  /** The phone that signed every attack, and its agent's sign-in email (password: seed-credentials.txt). */
-  deviceId: string;
-  agentEmail: string;
-  attacks: {
-    id: AttackId;
-    title: string;
-    story: string;
-    plotId: string;
-    cherryKg: number;
-    /** sha256 of the exact payload string (payload.json): the capture it becomes, once submitted. */
-    payloadHash: string;
-    photos: string[];
-    expected: { verdict: 'Needs Review' | 'Rejected'; check: string; evidence: string };
-  }[];
-};
+export type { AttackManifest };
 
 const MIN = 60_000;
 const r7 = (n: number) => Math.round(n * 1e7) / 1e7;

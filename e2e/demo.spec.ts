@@ -65,12 +65,14 @@ test('@eval EVAL-073 TC-078 the Kodagu demo: register → enrol → capture → 
       await office.getByLabel('New farmer’s name').fill(farmer);
       await office.getByRole('radio', { name: 'Arabica' }).check();
       const upload = office.getByLabel(/boundary file/i);
+      // Retry only the idempotent part (the file is on the input). Save registers an anchored plot, so it
+      // is clicked exactly once, then the URL is awaited.
       await expect(async () => {
         await upload.setInputFiles({ name: 'demo-plot.geojson', mimeType: 'application/geo+json', buffer: Buffer.from(plot.geojson) });
         expect(await upload.evaluate((el) => (el as HTMLInputElement).files?.length ?? 0)).toBe(1);
-        await office.getByRole('button', { name: 'Save plot' }).click();
-        await expect(office).toHaveURL(/\/admin\/plots\/PL-[0-9A-Z]{8}$/, { timeout: 15_000 });
-      }).toPass({ timeout: 60_000 });
+      }).toPass({ timeout: 30_000 });
+      await office.getByRole('button', { name: 'Save plot' }).click();
+      await expect(office).toHaveURL(/\/admin\/plots\/PL-[0-9A-Z]{8}$/, { timeout: 60_000 });
       plotId = office.url().split('/').at(-1)!;
       await expect(office.getByTestId('registration-checks').getByText('Forest map · Passed')).toBeVisible();
       await noHorizontalScroll(office);

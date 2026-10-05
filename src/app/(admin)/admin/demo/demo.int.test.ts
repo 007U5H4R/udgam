@@ -11,6 +11,12 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 // replay → Rejected (photo_uniqueness), yield-inflation → Rejected (yield_plausibility), plot-laundering
 // → Rejected (deforestation_overlap, X01 at 25.0 %).
 
+// A fixed clock, never the wall clock (review minor 3): 1 Oct 2026 00:30 IST, half an hour into a new
+// coffee season. The seed squeezes Y01's history into that half hour, and the yield attack submitted at
+// the same clock still meets its season total. Date is faked (frozen) for the whole file, so the seed and
+// /api/capture's receipt time both read it.
+vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-09-30T19:00:00.000Z') });
+
 const DATA_DIR = mkdtempSync(join(tmpdir(), 'udgam-demo-'));
 process.env.DATA_DIR = DATA_DIR;
 delete process.env.DATABASE_URL;
@@ -41,11 +47,15 @@ vi.mock('next/navigation', () => ({
 }));
 
 let adminCookie = '';
-const ledgerCount = async () => {
+const count = async (sql: string, args: string[] = []) => {
   const { getDbClient, getDbReady } = await import('../../../../lib/db/client');
   await getDbReady();
-  return Number((await getDbClient().execute('SELECT count(*) AS n FROM ledger_entries')).rows[0]!.n);
+  return Number((await getDbClient().execute({ sql, args })).rows[0]!.n);
 };
+const ledgerCount = () => count('SELECT count(*) AS n FROM ledger_entries');
+let agentEmail = '';
+/** Live server-side sessions of the staging phone's agent (agent 2). */
+const agentSessions = () => count('SELECT count(*) AS n FROM session s JOIN user u ON u.id = s.user_id WHERE u.email = ?', [agentEmail]);
 
 /** Fresh modules under `vars` (env.ts reads process.env once per module instance). */
 async function load(vars: Record<string, string | undefined>) {
@@ -70,6 +80,7 @@ beforeAll(async () => {
     .getSetCookie()
     .map((c) => c.split(';')[0]!)
     .join('; ');
+  agentEmail = (JSON.parse(readFileSync(join(DATA_DIR, 'demo', 'attacks', 'manifest.json'), 'utf8')) as { agentEmail: string }).agentEmail;
 }, 240_000);
 afterEach(() => {
   request.headers = new Headers();
@@ -77,6 +88,7 @@ afterEach(() => {
   delete process.env.E2E;
 });
 afterAll(async () => {
+  vi.useRealTimers();
   (await import('../../../../lib/db/client')).closeDb();
   rmSync(DATA_DIR, { recursive: true, force: true });
 });
@@ -146,6 +158,8 @@ describe('/admin/demo with DEMO_MODE=1', () => {
     }
     // the agent's session was made server-side: nothing was set on the admin's browser
     expect(request.cookieSets).toBe(0);
+    // ... and it was revoked after each submit: no live session of the staging agent is left (minor 4)
+    expect(await agentSessions()).toBe(0);
   });
 
   it('a second submit gets the original verdict back (TP7), and the page reads each card from the database', async () => {
@@ -164,6 +178,27 @@ describe('/admin/demo with DEMO_MODE=1', () => {
     ]);
     // another organisation sees none of them as submitted
     expect((await attacks.attackStatuses(await getDbReady(), 'ORG-ELSEWHERE', m)).every((x) => x.submitted === null)).toBe(true);
+    expect(await agentSessions()).toBe(0);
+  });
+
+  it('an admin of another organisation cannot submit the staged attacks: refused, nothing sent, no session made (nit 9)', async () => {
+    const { attacks } = await load({ DEMO_MODE: '1' });
+    const { getDbReady } = await import('../../../../lib/db/client');
+    const before = await ledgerCount();
+    expect(await attacks.submitStaged(await getDbReady(), DATA_DIR, 'gps-spoof', 'ORG-ELSEWHERE')).toEqual({ ok: false, reason: 'not_staged', status: 404 });
+    expect(await ledgerCount()).toBe(before);
+    expect(await agentSessions()).toBe(0);
+  });
+
+  it('the page shows only a known failure code from ?error= (nit 10)', async () => {
+    const { attacks } = await load({ DEMO_MODE: '1' });
+    expect(attacks.failureOf('refused')).toBe('refused');
+    expect(attacks.failureOf('no_session')).toBe('no_session');
+    expect(attacks.failureOf('not_staged')).toBe('not_staged');
+    expect(attacks.failureOf('failed')).toBe('failed');
+    expect(attacks.failureOf('Call +91 00000 for help')).toBeNull();
+    expect(attacks.failureOf(['refused'])).toBeNull();
+    expect(attacks.failureOf(undefined)).toBeNull();
   });
 
   it('an unknown attack id is refused', async () => {

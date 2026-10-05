@@ -6,7 +6,9 @@ import { stubTiles } from './helpers/stubs';
 // /admin/demo (DEMO_MODE=1) through the capture pipeline. Its card shows the system verdict and the
 // catching check's evidence, and its review page (Needs Review or Rejected) shows that evidence too:
 // "m outside the plot edge", "photos seen before", "% of plot area lost since 2021" with "25.0%", and
-// "x the reference upper bound". A second project resubmits: the original verdict comes back (TP7).
+// "x the reference upper bound". The second project (the other width) runs against the same seeded state:
+// each card is already submitted, so it re-reads the stored verdict and evidence rather than resubmitting.
+// Resubmission returning the original verdict (TP7) is covered by demo.int.test.ts.
 
 const EXPECTED: Record<string, { verdict: 'Needs Review' | 'Rejected'; evidence: string[] }> = {
   'gps-spoof': { verdict: 'Needs Review', evidence: ['m outside the plot edge'] },
@@ -22,7 +24,8 @@ test('@eval EVAL-074 the four demo attacks show the evidence that caught them', 
       await stubTiles(page);
       await signInAs(page, 'admin');
       await page.goto('/admin/demo');
-      await expect(page.getByRole('heading', { level: 1, name: 'Demo attacks' })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 1, name: 'Demo tools' })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 2, name: 'Demo attacks' })).toBeVisible();
       await expect(page.getByRole('list', { name: 'Staged attacks' }).getByRole('listitem')).toHaveCount(4);
       await noHorizontalScroll(page);
     });

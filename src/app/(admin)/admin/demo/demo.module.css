@@ -19,6 +19,13 @@
   color: var(--ink-2);
   font-size: var(--fs-small);
 }
+/* the ported section heading (".sec-h", as /admin/phones .secH) */
+.section {
+  margin: 22px 0 0;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
 .list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

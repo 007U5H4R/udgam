@@ -6,6 +6,13 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 // TC-077 (technical-plan TSK-20.2): `pnpm seed` builds the Kodagu demo from nothing through the app's own
 // functions, on a temporary DATA_DIR; a second run refuses; --reset rebuilds with the same counts.
 
+// A fixed clock, never the wall clock (review minor 3): 1 Oct 2026 01:37 IST, 97 minutes into the coffee
+// season, where the first layout of Y01's history threw "expected Needs Review". Date is faked (frozen)
+// for the whole file, so the seed and `main` both run at it.
+const CLOCK = new Date('2026-09-30T20:07:00.000Z');
+const SEASON_START = '2026-09-30T18:30:00.000Z'; // 1 Oct 2026 00:00 IST
+vi.useFakeTimers({ toFake: ['Date'], now: CLOCK });
+
 // The env is read once, on first use: set DATA_DIR before the app's modules are imported (below).
 const DATA_DIR = mkdtempSync(join(tmpdir(), 'udgam-seed-'));
 process.env.DATA_DIR = DATA_DIR;
@@ -26,6 +33,7 @@ const { verifyFeed } = await import('../../src/lib/ledger/proof');
 const { bytesToHex, hexToBytes, verify } = await import('../../src/lib/crypto');
 
 afterAll(() => {
+  vi.useRealTimers();
   closeDb();
   rmSync(DATA_DIR, { recursive: true, force: true });
 });
@@ -54,6 +62,7 @@ describe('TC-077 the Kodagu demo seed', () => {
   it('builds 1 FPO, 1 buyer, 12 plots, agents, phones, ~30 pickings and a transferred batch from nothing', { timeout: 240_000 }, async () => {
     const counts = await seed({});
     expect(counts).toMatchObject(COUNTS);
+    expect(new Date().toISOString()).toBe('2026-09-30T20:07:00.000Z'); // the fixed clock is in force
 
     const orgs = await rows<{ id: string; type: string; name: string }>('SELECT id, type, name FROM organisations ORDER BY type');
     expect(orgs.map((o) => [o.type, o.name])).toEqual([
@@ -77,6 +86,20 @@ describe('TC-077 the Kodagu demo seed', () => {
       ['Needs Review', 3],
       ['Verified', 27],
     ]);
+  });
+
+  it('Y01’s eight pickings were received in the season of the seed’s clock, before it (review minor 3)', async () => {
+    const y01 = await rows<{ server_received_at: string }>(
+      "SELECT e.server_received_at FROM harvest_events e JOIN plots p ON p.id = e.plot_id JOIN farmers f ON f.id = p.farmer_id WHERE f.name = 'Lakshmi Nagaraj (demo)' ORDER BY e.server_received_at",
+    );
+    expect(y01).toHaveLength(8);
+    for (const e of y01) {
+      expect(e.server_received_at >= SEASON_START, e.server_received_at).toBe(true);
+      expect(e.server_received_at < CLOCK.toISOString(), e.server_received_at).toBe(true);
+    }
+    // nothing the seed wrote is later than its clock
+    const [latest] = await rows<{ ts: string }>('SELECT max(ts) AS ts FROM ledger_entries');
+    expect(latest!.ts <= CLOCK.toISOString()).toBe(true);
   });
 
   it('every provenance row is anchored to a ledger entry; the chain and every checkpoint verify', async () => {

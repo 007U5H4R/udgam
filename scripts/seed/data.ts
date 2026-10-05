@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { area } from '@turf/turf';
 import { toLngLat } from '../../evals/harness/fixtures';
+import type { AttackId } from '../../src/lib/demo/manifest';
 import { locate } from '../../src/lib/geo/geofence';
 import type { Polygon } from '../../src/lib/geo/types';
 import { DEMO_ACCOUNTS, DEMO_ORGS } from '../seed-accounts';
@@ -57,7 +58,7 @@ export type SeedPicking = {
   override?: { verdict: 'Verified'; reason: string };
 };
 
-export type AttackId = 'gps-spoof' | 'replay' | 'yield-inflation' | 'plot-laundering';
+export type { AttackId };
 
 export type SeedAttack = {
   id: AttackId;

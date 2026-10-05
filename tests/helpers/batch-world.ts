@@ -2,7 +2,8 @@ import type { Anchor } from '../../src/lib/ledger/types';
 import { generateKeyPair, jcs, jwkThumbprint, publicMembers, sha256Hex, sign } from '../../src/lib/crypto';
 import { persistAccepted, persistRejected } from '../../src/lib/capture/persist';
 import { writeTx, type Db, type Tx } from '../../src/lib/db/client';
-import { devices, farmers, organisations, plots, user } from '../../src/lib/db/schema';
+import { farmers, organisations, plots, user } from '../../src/lib/db/schema';
+import { anchorEnrolledDevice } from '../../src/lib/enrolment/enrol';
 import { newId } from '../../src/lib/ids';
 import { append } from '../../src/lib/ledger/hashchain';
 import type { CapturePayloadV1, VerifyResult } from '../../src/lib/verification/types';
@@ -83,7 +84,7 @@ export async function seedBatchWorld(db: Db, o: BatchWorldOptions): Promise<Batc
     Array.from({ length: o.devices ?? 1 }, async () => {
       const pair = await generateKeyPair(false);
       const publicJwk = publicMembers(await globalThis.crypto.subtle.exportKey('jwk', pair.publicKey));
-      return { id: newId('DV-'), agentId: newId('AG-'), pair, publicJwk, kid: await jwkThumbprint(publicJwk), seq: 0, last: 'genesis' };
+      return { id: newId('DV-'), agentId: newId('AG-'), pair, publicJwk, seq: 0, last: 'genesis' };
     }),
   );
   const anchors: BatchWorld['anchors'] = { batchCreated: undefined as unknown as Anchor, custody: [], overrides: [], attestations: [], plotEdits: [], revocations: [] };
@@ -101,8 +102,8 @@ export async function seedBatchWorld(db: Db, o: BatchWorldOptions): Promise<Batc
     for (const d of devs) {
       // Each phone's agent is a real user of the FPO (devices.agent_id → user, migration 0009).
       await tx.insert(user).values({ id: d.agentId, name: 'Test agent', email: `${d.agentId.toLowerCase()}@batch-world.test`, emailVerified: true, role: 'agent', orgId });
-      const a = await append(tx, 'device_enrolled', { deviceId: d.id, agentId: d.agentId, kid: d.kid, publicJwk: d.publicJwk, enrolledAt: ts() });
-      await tx.insert(devices).values({ id: d.id, agentId: d.agentId, publicKeyJwk: JSON.stringify(d.publicJwk), keyThumbprint: d.kid, enrolledAt: ts(), anchorSeq: a.seq });
+      // Anchored exactly as enrolment anchors a phone: device_enrolled {deviceId, agentId, thumbprint}.
+      await anchorEnrolledDevice(tx, { deviceId: d.id, agentId: d.agentId, publicJwk: d.publicJwk, enrolledAt: ts() });
     }
     if (o.editPlot) anchors.plotEdits.push(await append(tx, 'plot_edited', { plotId: plotIds[0]!, areaHa: P01_AREA_HA, polygon: P01_POLYGON }));
     if (o.attestation) {

@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { chmodSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { hashPassword } from 'better-auth/crypto';
-import { eq } from 'drizzle-orm';
+import { count, eq, isNull, ne, or } from 'drizzle-orm';
 import { mulberry32 } from '../../evals/harness/fixtures';
 import { attachAttestation } from '../../src/lib/attestations/attach';
 import { createBatch } from '../../src/lib/batches/create';
@@ -21,10 +21,10 @@ import { checkpointIfNeeded } from '../../src/lib/ledger/checkpoint';
 import { localMediaStore } from '../../src/lib/media/store';
 import { registerPlot } from '../../src/lib/plots/plots';
 import { overrideRun } from '../../src/lib/review/override';
-import { coffeeSeasonOf } from '../../src/lib/yield/season';
 import { SEED, type AgentKey, type SeedPlot, type UserKey } from './data';
 import { stageAttacks } from './attacks';
 import { captureForm, photosFor, signedCapture } from './capture';
+import { historyTimes } from './timeline';
 
 // `pnpm seed` (technical-plan TSK-20.2, TC-077): the Kodagu demo state, built through the app's own
 // functions so every row is anchored exactly as in production: registerPlot (and its registration
@@ -38,12 +38,40 @@ import { captureForm, photosFor, signedCapture } from './capture';
 // the media and the seed files under DATA_DIR are removed and everything is migrated and built again.
 // The ledger key and the admins' signing keys under DATA_DIR/keys are kept.
 //
-// Demo data only: fixture satellite answers, fictional farmers and AI-generated photos (TP29). It refuses
-// NODE_ENV=production outside the Playwright server (E2E=1; EXE12). Passwords are generated per run into
+// Demo data only: fixture satellite answers, fictional farmers and AI-generated photos (TP29). It runs only
+// with NODE_ENV explicitly development or test, or on the Playwright server (E2E=1; EXE12), and refuses
+// before touching DATA_DIR otherwise (seedAllowed). Passwords are generated per run into
 // DATA_DIR/seed-credentials.txt (0600) and never printed; the seeded phones' keys go to
 // DATA_DIR/seed-keys/ (0600), used only by the seeder. It prints counts and the credentials file's path.
 
 export const SEED_NOT_EMPTY = 'DATA_DIR is not empty — use --reset';
+export const SEED_REFUSED =
+  'the demo seed runs only with NODE_ENV=development or NODE_ENV=test, or on the Playwright server (E2E=1): it builds fixture data (EXE12). Nothing was changed.';
+
+export const SEED_RESET_ELSEWHERE =
+  '--reset recreates only DATA_DIR/udgam.db, but DATABASE_URL points elsewhere: unset DATABASE_URL or point it there. Nothing was changed.';
+
+/**
+ * Does the database the app opens (DATABASE_URL) live at DATA_DIR/udgam.db? --reset removes that file
+ * and DATA_DIR's media; with a database elsewhere it would delete the media of a database it keeps.
+ */
+export function resetTargetsDataDir(): boolean {
+  const url = env.DATABASE_URL;
+  if (!url.startsWith('file:')) return false;
+  return resolve(url.slice('file:'.length)) === resolve(env.DATA_DIR, 'udgam.db');
+}
+
+/**
+ * May the demo seed run here? Only when NODE_ENV is EXPLICITLY `development` or `test`, or on the
+ * Playwright server (E2E=1). env.ts defaults an unset NODE_ENV to `development`, so the raw variable is
+ * checked too, as scripts/seed-accounts.ts does: an operator shell on the production host has no
+ * NODE_ENV, and `pnpm seed --reset` there would delete the database, the ledger and the media.
+ */
+export function seedAllowed(): boolean {
+  if (env.E2E === '1') return true;
+  const explicit = process.env.NODE_ENV; // not a secret; only whether it was set, and to what
+  return (explicit === 'development' || explicit === 'test') && env.NODE_ENV === explicit;
+}
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -107,25 +135,6 @@ function capturePoint(p: SeedPlot, i: number): { lat: number; lng: number } {
   const q = { lat: r7(lat + dLat), lng: r7(lng + dLng) };
   const at = locate(q, p.geometry);
   return at.inside && at.distanceToEdgeM > 5 ? q : { lat, lng };
-}
-
-/**
- * When each honest picking was captured, oldest first. Y01's run (the history's tail) sits in the current
- * coffee season, ending 90 minutes ago, so its season total is what the staged yield attack meets; the
- * other pickings go back from there, three hours apart, so one phone's moves between plots stay plausible.
- */
-export function historyTimes(now: Date): string[] {
-  const n = SEED.history.length;
-  const yCount = SEED.history.filter((h) => h.plot === 'Y01').length;
-  const last = now.getTime() - 90 * MIN;
-  const seasonStart = Date.parse(coffeeSeasonOf(now.toISOString()).start);
-  const room = last - (seasonStart + 10 * MIN);
-  const ySpacing = Math.min(150 * MIN, Math.max(2 * MIN, room / Math.max(1, yCount - 1)));
-  const times: number[] = new Array<number>(n);
-  for (let k = 0; k < yCount; k++) times[n - yCount + k] = last - (yCount - 1 - k) * ySpacing;
-  const yStart = times[n - yCount]!;
-  for (let k = n - yCount - 1, step = 1; k >= 0; k--, step++) times[k] = yStart - step * 3 * HOUR;
-  return times.map((t) => new Date(t).toISOString());
 }
 
 const PDF = new TextEncoder().encode('%PDF-1.4\n% Udgam demo organic certificate (fictional, demo data)\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n');
@@ -221,24 +230,36 @@ export async function runSeed(db: Db, { dataDir, now = new Date() }: { dataDir: 
     signer.lastEventHash = c.payloadHash;
     photos.push(shots);
     eventIds.push(v.eventId);
-    // The photos are AI-generated demo images (TP29): say so on their rows.
+    // The photos are AI-generated demo images (TP29): say so on their rows. Not in runCapture's own
+    // transaction: that is the production capture path, and persist.ts deliberately takes no source from
+    // its caller, so no request path can set the label. A crash between the two leaves a half-built seed
+    // that must be rebuilt with --reset anyway, and the check at the end refuses an unlabelled row. The
+    // label is storage-only: no screen reads it, and it is in no ledger payload.
     await writeTx(db, (tx) => tx.update(media).set({ source: 'generated-demo' }).where(eq(media.eventId, v.eventId)));
     if ('override' in h && h.override) {
       const [run] = await db.select({ id: verificationRuns.id }).from(verificationRuns).where(eq(verificationRuns.eventId, v.eventId));
-      await overrideRun(db, { orgId, adminId, runId: run!.id, newVerdict: h.override.verdict, reason: h.override.reason }, () => new Date(received.getTime() + 20 * MIN));
+      // 20 minutes after the picking arrived, or halfway to the seed's clock early in a season (timeline.ts).
+      const overriddenAt = new Date(Math.min(received.getTime() + 20 * MIN, Math.floor((received.getTime() + now.getTime()) / 2)));
+      await overrideRun(db, { orgId, adminId, runId: run!.id, newVerdict: h.override.verdict, reason: h.override.reason }, () => overriddenAt);
       overrides++;
     }
   }
 
   // An organic certificate on P01, then a batch of P01's and P02's pickings handed to the buyer.
   const year = now.getUTCFullYear();
-  await attachAttestation(db, { orgId, plotId: plotIds.P01!, file: PDF, issuer: 'INDOCERT', validFrom: `${year}-01-01`, validTo: `${year + 1}-12-31` }, { store });
+  // On the seed's clock too, just before `now`, after every picking and the override (timeline.ts).
+  const before = (s: number) => () => new Date(now.getTime() - s * 1_000);
+  await attachAttestation(db, { orgId, plotId: plotIds.P01!, file: PDF, issuer: 'INDOCERT', validFrom: `${year}-01-01`, validTo: `${year + 1}-12-31` }, { store, now: before(30) });
   const batched = SEED.history.flatMap((h, i) => (h.plot === 'P01' || h.plot === 'P02' ? [eventIds[i]!] : []));
-  const batch = await createBatch(db, { orgId, adminId, crop: 'arabica', eventIds: batched });
-  await transferBatch(db, { orgId, adminId, batchId: batch.batchId, toOrgId: buyerOrgId });
+  const batch = await createBatch(db, { orgId, adminId, crop: 'arabica', eventIds: batched }, before(20));
+  await transferBatch(db, { orgId, adminId, batchId: batch.batchId, toOrgId: buyerOrgId }, before(10));
 
   // Seal everything so far in a signed checkpoint (S7).
-  await writeTx(db, (tx) => checkpointIfNeeded(tx));
+  await writeTx(db, (tx) => checkpointIfNeeded(tx, { now: () => now }));
+
+  // Every media row the seed made carries the demo label (see the note at the UPDATE above).
+  const [unlabelled] = await db.select({ n: count() }).from(media).where(or(isNull(media.source), ne(media.source, 'generated-demo')));
+  if (unlabelled!.n > 0) throw new Error(`seed: ${unlabelled!.n} media rows are not labelled generated-demo`);
 
   const world: SeededWorld = { orgId, buyerOrgId, userIds, plotIds, devices, photos, eventIds };
   // The four staged attacks, signed by agent 2's phone, ready for /admin/demo (TSK-20.3).
@@ -267,9 +288,11 @@ export async function runSeed(db: Db, { dataDir, now = new Date() }: { dataDir: 
  * then migrates a new one. Resolves with the counts.
  */
 export async function seed({ reset = false, now }: { reset?: boolean; now?: Date } = {}): Promise<SeedCounts> {
-  if (env.NODE_ENV === 'production' && env.E2E !== '1') throw new Error('the demo seed does not run in production (fixture data, EXE12)');
+  // Before anything under DATA_DIR is touched (--reset deletes the database, the ledger and the media).
+  if (!seedAllowed()) throw new Error(SEED_REFUSED);
   const dataDir = env.DATA_DIR;
   if (reset) {
+    if (!resetTargetsDataDir()) throw new Error(SEED_RESET_ELSEWHERE);
     closeDb();
     resetDataDir(dataDir);
   }

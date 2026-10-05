@@ -1,8 +1,9 @@
-import { generateKeyPair, jcs, jwkThumbprint, publicMembers, sha256Hex, sign } from '../../src/lib/crypto';
+import { generateKeyPair, jcs, publicMembers, sha256Hex, sign } from '../../src/lib/crypto';
 import { persistAccepted } from '../../src/lib/capture/persist';
 import { writeTx, type Db } from '../../src/lib/db/client';
 import { hashPassword } from 'better-auth/crypto';
-import { account, devices, farmers, organisations, plots, user } from '../../src/lib/db/schema';
+import { account, farmers, organisations, plots, user } from '../../src/lib/db/schema';
+import { anchorEnrolledDevice } from '../../src/lib/enrolment/enrol';
 import { newId } from '../../src/lib/ids';
 import { append } from '../../src/lib/ledger/hashchain';
 import type { CapturePayloadV1, Verdict, VerifyResult } from '../../src/lib/verification/types';
@@ -70,9 +71,8 @@ export async function seedFpo(db: Db, o: { orgId?: string; adminId?: string; org
       const a = await append(tx, 'plot_registered', { plotId, producerId, crop, areaHa: P01_AREA_HA, polygon: P01_POLYGON });
       await tx.insert(plots).values({ id: plotId, farmerId, crop, geojson: JSON.stringify(P01_POLYGON), areaHa: P01_AREA_HA, anchorSeq: a.seq, createdAt: ts(), updatedAt: ts() });
     }
-    const kid = await jwkThumbprint(publicJwk);
-    const a = await append(tx, 'device_enrolled', { deviceId, agentId, kid, publicJwk, enrolledAt: ts() });
-    await tx.insert(devices).values({ id: deviceId, agentId, publicKeyJwk: JSON.stringify(publicJwk), keyThumbprint: kid, enrolledAt: ts(), anchorSeq: a.seq });
+    // Anchored exactly as enrolment anchors a phone: device_enrolled {deviceId, agentId, thumbprint}.
+    await anchorEnrolledDevice(tx, { deviceId, agentId, publicJwk, enrolledAt: ts() });
   });
   return world;
 }

@@ -14,11 +14,11 @@ import { demoEnabled, isAttackId, submitStaged, type SubmitResult } from './atta
 
 /** Submit staged attack `id`; resolves with the capture's verdict or a refusal. */
 export async function submitAttack(id: unknown): Promise<SubmitResult> {
-  await requireSession('admin', { action: true });
+  const admin = await requireSession('admin', { action: true });
   if (!demoEnabled(env)) return { ok: false, reason: 'not_staged', status: 404 };
   if (!isAttackId(id)) return { ok: false, reason: 'not_staged', status: 404 };
   try {
-    const r = await submitStaged(await getDbReady(), env.DATA_DIR, id);
+    const r = await submitStaged(await getDbReady(), env.DATA_DIR, id, admin.orgId);
     if (!r.ok) log.warn({ reason: r.reason, status: r.status }, 'demo.attack_refused');
     return r;
   } catch (err) {
