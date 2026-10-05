@@ -874,3 +874,15 @@ No threshold, eval case or cfg-1 value changes (CF-13).
 **Rejected:**
 - Changing the custody payload contract inside a review follow-up.
 - Treating every unfollowed hop as incomplete: that would flag every legitimate buyer hop.
+
+## EXE33 · The demo page never runs in production; the M3 rehearsal uses a staging copy — accepted (orchestrator, under the owner's delegation, 2026-10-05; narrows TP27)
+**Context.** TKT-20's `/admin/demo` turns on only with `DEMO_MODE=1` and either `E2E=1` or a non-production server. E2E=1 must never be set in a deployment (EXE12), so the page can never run in a production deployment. TP27 allowed the flag "for rehearsals (EVAL-072)".
+**Decision.** The narrowing is kept. A page that submits as another user stays out of production entirely. The M-003 live rehearsal (EVAL-072, TKT-29) runs on a separate staging deployment of the same image with its own DATA_DIR and `DEMO_MODE=1 E2E=1`, never on the production data. TKT-29's brief must say so (HANDOFF).
+**Also accepted** (TKT-20 reviews and fix round 1):
+- **`media.source`:** written only by the seed, outside the capture transaction; the capture path takes no source from callers. Migration 0035.
+- **Demo-only plot Y01:** the yield attack uses a 12th plot.
+- **The seed's clock:** the timeline runs on an injected clock, and the seed refuses in the first 10 minutes of a coffee season.
+- **Organisation scope:** `/admin/demo` is limited to the admin's own organisation.
+- **Shared enrolment write:** the seed helpers share enrolment's own `device_enrolled` write.
+- **Test files:** the demo specs are excluded from `pnpm test:e2e` by a file-name pattern.
+- **HR3:** TP29 replaces the plan's "BLOCKED: HR3 pending" step; the gate report prints the readiness warning.
