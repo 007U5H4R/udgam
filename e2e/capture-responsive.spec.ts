@@ -132,9 +132,12 @@ async function expectInViewAndUnclipped(page: Page, action: Locator, name: strin
 
 /**
  * The verdict evidence text itself (EvidenceList's `.ev-t` and every descendant that holds text, e.g. its
- * `small`), not the `li` around it: each at ≥ 13 px, not cut off (`scrollWidth ≤ clientWidth` on block
- * boxes), its box inside the viewport width, and every rendered line of text inside the viewport width and
- * inside every ancestor that clips its overflow. Returns the problems found (none when readable).
+ * `small`), not the `li` around it: each visible (not display:none, visibility:hidden or opacity 0), at
+ * ≥ 13 px, not cut off (`scrollWidth ≤ clientWidth` on block boxes), its box inside the viewport width, no
+ * clip-path on it or an ancestor, and every non-empty text node drawing at least one line, each line inside
+ * the viewport width and inside every ancestor that clips it. Clipping ancestors: overflow-x other than
+ * visible clips sideways; overflow-y clips vertically only when hidden or clip (a scroll container's content
+ * below its fold is reachable); `contain: paint` clips on all sides. Returns the problems (none when readable).
  */
 async function evidenceText(span: Locator): Promise<{ texts: number; problems: string[] }> {
   return span.evaluate((root, minPx) => {
@@ -145,24 +148,33 @@ async function evidenceText(span: Locator): Promise<{ texts: number; problems: s
     for (const el of holders) {
       const cs = getComputedStyle(el);
       const r = el.getBoundingClientRect();
+      if (!el.checkVisibility({ visibilityProperty: true, opacityProperty: true })) problems.push(`${tag(el)}: not visible`);
       const fontPx = parseFloat(cs.fontSize);
       if (fontPx < minPx) problems.push(`${tag(el)}: font-size ${fontPx}px < ${minPx}px`);
       if (cs.display !== 'inline' && el.scrollWidth > el.clientWidth) problems.push(`${tag(el)}: cut off (scrollWidth ${el.scrollWidth} > clientWidth ${el.clientWidth})`);
       if (r.left < 0 || r.right > vw) problems.push(`${tag(el)}: box ${Math.round(r.left)}–${Math.round(r.right)} outside 0–${vw}`);
       // Every rendered line of its own text, inside the viewport width and inside each clipping ancestor.
-      const clips: DOMRect[] = [];
+      const clips: { r: DOMRect; x: boolean; y: boolean }[] = [];
       for (let a: Element | null = el; a && a !== document.documentElement; a = a.parentElement) {
         const acs = getComputedStyle(a);
-        if (acs.overflowX !== 'visible' || acs.overflowY !== 'visible') clips.push(a.getBoundingClientRect());
+        if (acs.clipPath !== 'none') problems.push(`${tag(el)}: clip-path ${acs.clipPath} on ${tag(a)}`);
+        const paint = /\b(paint|strict|content)\b/.test(acs.contain);
+        const x = paint || acs.overflowX !== 'visible';
+        const y = paint || acs.overflowY === 'hidden' || acs.overflowY === 'clip';
+        if (x || y) clips.push({ r: a.getBoundingClientRect(), x, y });
       }
       for (const n of Array.from(el.childNodes)) {
         if (n.nodeType !== Node.TEXT_NODE || n.textContent!.trim() === '') continue;
         const range = document.createRange();
         range.selectNodeContents(n);
-        for (const t of Array.from(range.getClientRects())) {
-          if (t.width === 0) continue;
+        const drawn = Array.from(range.getClientRects()).filter((t) => t.width > 0 && t.height > 0);
+        if (drawn.length === 0) problems.push(`${tag(el)}: text "${n.textContent!.trim().slice(0, 30)}" draws no line`);
+        for (const t of drawn) {
           if (t.left < -0.5 || t.right > vw + 0.5) problems.push(`${tag(el)}: text line ${Math.round(t.left)}–${Math.round(t.right)} outside 0–${vw}`);
-          if (clips.some((c) => t.left < c.left - 0.5 || t.right > c.right + 0.5 || t.top < c.top - 0.5 || t.bottom > c.bottom + 0.5)) problems.push(`${tag(el)}: text line clipped by an overflow ancestor`);
+          const clipped = clips.some(
+            ({ r: c, x, y }) => (x && (t.left < c.left - 0.5 || t.right > c.right + 0.5)) || (y && (t.top < c.top - 0.5 || t.bottom > c.bottom + 0.5)),
+          );
+          if (clipped) problems.push(`${tag(el)}: text line clipped by an ancestor`);
         }
       }
     }
@@ -280,6 +292,7 @@ test('EVAL-086 capture flow usable at 375 and 768 px: enrol, choose a plot, add 
   for (const [i, line] of (await lines.all()).entries()) {
     await expect(line).toBeVisible();
     await expect(line.locator('.ev-t'), `evidence line ${i + 1} has its text span`).toHaveCount(1);
+    await expect(line.locator('.ev-t'), `evidence line ${i + 1}: text span visible`).toBeVisible();
     const m = await evidenceText(line.locator('.ev-t'));
     expect(m.texts, `evidence line ${i + 1}: text-bearing elements measured`).toBeGreaterThan(0);
     expect(m.problems, `evidence line ${i + 1}: text readable inside the viewport`).toEqual([]);
