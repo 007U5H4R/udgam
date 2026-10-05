@@ -95,7 +95,7 @@ test('Needs a check (weak GPS): amber cherry, the chip, "The office will check t
   await expect(page.locator('#verdict-h')).toHaveText('The office will check this one');
   const lines = page.getByTestId('evidence').locator('li');
   await expect(lines.first()).toHaveText('The GPS signal was weak (150 m).');
-  await expect(lines.last()).toContainText("The office will look at this. You don't need to do anything.");
+  await expect(lines.last()).toContainText("The office will look at this. You'll see the answer in Pickings. You don't need to do anything.");
   await expect(lines.last()).toContainText('Your 42.5 kg and photos are saved.');
   await expect(page.locator('main button')).toHaveCount(1);
 });

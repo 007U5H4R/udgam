@@ -87,7 +87,7 @@ describe('getPickingDetail', () => {
     expect(d!.photos).toEqual([photo(1), photo(2), photo(3)].map((p) => bySha.get(p.sha256)));
     expect(d!.lines).toEqual([
       { icon: 'cloud', text: 'The satellite picture for this month was cloudy.' },
-      { icon: 'check', text: "The office will look at this. You don't need to do anything.", next: true },
+      { icon: 'check', text: "The office will look at this. You'll see the answer in Pickings. You don't need to do anything.", next: true },
     ]);
     expect(d!.checks).toEqual([
       { id: 'signature_valid', status: 'ok' },

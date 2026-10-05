@@ -185,7 +185,7 @@ describe('farmerLines: demo data (owner decision EXE12)', () => {
     const r = result('Needs Review', checks, ['flag:deforestation_overlap']); // deforestation_overlap is ok here
     expect(farmerLines(r, 'en').map((l) => l.text)).toEqual([
       'The GPS signal was weak (60\u00a0m).',
-      "The office will look at this. You don't need to do anything.",
+      "The office will look at this. You'll see the answer in Pickings. You don't need to do anything.",
     ]);
   });
 
@@ -199,6 +199,12 @@ describe('farmerLines: demo data (owner decision EXE12)', () => {
     expect(needs(check('ndvi_harvest_window', 'unavailable', evidence.ndvi_harvest_window.unavailable({ reason: 'provider', detail: 'timeout' })), 'anyUnavailable').text).toBe(
       'The satellite did not answer. The office will try again.',
     );
+  });
+
+  it('Needs a check names where the answer will appear, in both languages (EXE24 OD-5)', () => {
+    expect(en['fe.office']).toBe("The office will look at this. You'll see the answer in Pickings. You don't need to do anything.");
+    expect(kn['fe.office']).toBe('ಕಚೇರಿ ಇದನ್ನು ನೋಡುತ್ತದೆ. ಉತ್ತರವನ್ನು ನೀವು ಕೊಯ್ಲುಗಳು ಪುಟದಲ್ಲಿ ನೋಡುತ್ತೀರಿ. ನೀವು ಏನೂ ಮಾಡಬೇಕಿಲ್ಲ.');
+    expect(kn['fe.office']).toContain(kn['tabs.pickings']!); // the tab the farmer sees, by its own name
   });
 
   it('Kannada lines carry the Kannada label', () => {

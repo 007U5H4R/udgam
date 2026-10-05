@@ -154,7 +154,7 @@ function findings(r: VerifyResult): CheckResult[] {
 
 /**
  * The verdict screen's evidence lines (max 3): Verified → where, photos, forest (positives); Needs
- * Review → the reason(s) and "The office will look at this. You don't need to do anything."; Rejected
+ * Review → the reason(s) and "The office will look at this. You'll see the answer in Pickings. You don't need to do anything."; Rejected
  * → the reason that decided it and what to do.
  */
 export function farmerLines(result: VerifyResult, lang: Lang, ctx: Ctx = {}): FarmerLine[] {

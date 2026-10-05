@@ -315,7 +315,7 @@ export const en = {
   'fe.threw': 'One check could not run. The office will try again.',
   // EXE12: appended to a line derived from fixture (demo) satellite or forest data. Starts with a space.
   'fe.demo': ' (demo\u00a0data)', // no-break space inside: the label never wraps in two (QA-P5-8)
-  'fe.office': "The office will look at this. You don't need to do anything.",
+  'fe.office': "The office will look at this. You'll see the answer in Pickings. You don't need to do anything.", // EXE24 OD-5
   'fe.todo.photos': "Take new photos of today's picking and record it again.",
   'fe.todo.seal': 'Ask the office to set up this phone again.',
   'fe.todo.location': 'Stand inside {plot} and record the picking again. If you were inside, tell the office.',
