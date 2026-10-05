@@ -1,6 +1,8 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { signIn } from './helpers/auth';
 import { openField, seedCaptureWorld } from './helpers/capture';
+import { ownClientAddress } from './helpers/enrolment';
 import { typePicking } from './helpers/field';
 
 // Stage 8 design critique, surface `field` (docs/exec/stage8/stage8-field.md): the fixes for the DES-
@@ -323,4 +325,25 @@ test('DES-017, DES-020: a thumbnail that does not load is a "Photo not available
     await expect(page.locator('main').getByRole('alert')).toBeVisible();
     expect(await axeIds(page), path).not.toContain('aria-allowed-role');
   }
+});
+
+test('DES-025 (1): the sign-in and set-up pills sit in the bottom thumb zone, and so does "Go to Home"', async ({ page }) => {
+  const low = async (name: string) => {
+    const b = (await page.getByRole('button', { name }).boundingBox())!;
+    expect(b.y + b.height, name).toBeGreaterThan(812 - 60);
+    expect(b.y + b.height, name).toBeLessThanOrEqual(812);
+  };
+  await page.goto('/sign-in');
+  await low('Sign in');
+
+  await ownClientAddress(page); // the enrol route limits attempts per client address
+  const seed = seedCaptureWorld({ code: true });
+  await signIn(page, seed.agentEmail, seed.testOnlyAgentPassword);
+  await page.goto('/enrol');
+  await page.getByRole('dialog', { name: 'ಭಾಷೆ · Language' }).getByRole('button', { name: 'English' }).click();
+  await low('Set up this phone');
+  await page.getByLabel('Enter the 6-letter code from the office').fill(seed.testOnlyCode!);
+  await page.getByRole('button', { name: 'Set up this phone' }).click();
+  await expect(page.getByTestId('enrol-done')).toHaveText('This phone is ready');
+  await low('Go to Home');
 });
