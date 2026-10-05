@@ -1124,3 +1124,8 @@ baseline-v1 is frozen (EV13, EXE34).
 - **DES-202:** the OG image text is a **Design Freeze item → owner**. The image always reads "Kodagu Arabica, verified at origin", even for other districts or failing batches.
 - **DES-204:** organisation IDs, not names, on the certificate (EXE28).
 - **DES-218:** the localhost absolute-URL fallback → TKT-28 (QA-P6-8-3).
+
+## EXE41 · Corrections to the EXE40 triage — accepted (orchestrator, 2026-10-05)
+- **Wrong ID.** EXE40 parked "DES-218: the localhost absolute-URL fallback". In `docs/exec/stage8/stage8-public.md` that finding is **DES-219**; DES-218 is the static "See all checks" label, which was fixed. DES-219 is the one parked to TKT-28: requiring an https `PUBLIC_BASE_URL` in production would break `next start` on localhost for e2e.
+- **New finding, DES-221 (P2, accessibility).** Under a `kn` language cookie, the English-only certificate page renders `<html lang="kn">`, because the root layout sets `lang` from the cookie. Public `/verify` pages must declare `lang="en"`. Fixed in the Stage 8 follow-up and verified in the re-run.
+- **Display-only rewording.** The certificate's evidence copy is reworded for display only (DES-208, DES-213). Signed payloads, `evidence.ts` and the eval fixtures are unchanged.
