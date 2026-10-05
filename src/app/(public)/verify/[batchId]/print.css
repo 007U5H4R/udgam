@@ -1,0 +1,148 @@
+/* The certificate on paper (TSK-17.4, TC-071, EVAL-087): Design.md §12's print row — a light token set
+   (ink #111, ok #14532d, check #7a4b00, bad #9b2217), no glow, no glass — ported from verify.html's
+   `@media print` block. Every rule is inside @media print, so the screen design is untouched, and every
+   selector is scoped with :has(#proof-feed) to the certificate page (whose embedded feed no other page
+   has), like certificate-state.css, so this sheet changes nothing else even if it stays loaded.
+   The page's parts carry CSS-module class names, so this sheet works through the tokens they read, the
+   page's IDs (#origin-map, #dl-block, #check-again) and the global hooks TKT-16 kept for it (.proof,
+   .e-list, .e-table-wrap, .vchip). The certificate's own tokens (--accent…) live on its root element,
+   the parent of the embedded feed, hence `div:has(> #proof-feed)`. */
+
+@media print {
+  @page {
+    margin: 16mm;
+  }
+
+  :root:has(#proof-feed),
+  div:has(> #proof-feed) {
+    --bg: #fff;
+    --glow: none;
+    --surface: #fff;
+    --surface-2: #fff;
+    --surface-solid: #fff;
+    --hairline: #bbb;
+    --ink: #111;
+    --ink-2: #444;
+    --ink-3: #555;
+    --accent: #14532d;
+    --accent-glow: transparent;
+    --accent-soft: transparent;
+    --grad-text: none;
+    --ok: #14532d;
+    --ok-ink: #14532d;
+    --ok-tint: transparent;
+    --check: #7a4b00;
+    --check-ink: #7a4b00;
+    --check-tint: transparent;
+    --bad: #9b2217;
+    --bad-ink: #9b2217;
+    --bad-tint: transparent;
+    --pill-glow: none;
+    --pill-glow-red: none;
+    --focus: #111;
+  }
+
+  html:has(#proof-feed),
+  body:has(#proof-feed) {
+    background: #fff !important;
+    color: #111 !important;
+  }
+  body:has(#proof-feed) {
+    font-size: 11pt;
+  }
+  /* the ground glow (globals.css) */
+  body:has(#proof-feed)::before {
+    display: none !important;
+  }
+
+  /* no glow, no glass, anywhere */
+  body:has(#proof-feed) *,
+  body:has(#proof-feed) *::before,
+  body:has(#proof-feed) *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  /* controls: nothing to press on paper */
+  body:has(#proof-feed) button,
+  #check-again,
+  #dl-block {
+    display: none !important;
+  }
+  /* the wordmark's cherry, the cherry beside the proof result and the in-page "what this can't prove" link */
+  body:has(#proof-feed) header img,
+  .proof div:has(> img),
+  .proof p:has(> a[href='#limits']) {
+    display: none !important;
+  }
+
+  /* the proof card on white (its mismatch tint is dark), and its one lit word ("Verified", gradient text
+     clipped to a background that print drops) in plain ink, as verify.html's `.lit` print rule. The span's
+     class is a CSS-module name ending in `lit` (ProofPanel.module.css .lit), hence the attribute match. */
+  body:has(#proof-feed) .proof {
+    background: #fff !important;
+  }
+  body:has(#proof-feed) .proof [class*='_lit'] {
+    background: none !important;
+    color: #111 !important;
+  }
+
+  body:has(#proof-feed) a {
+    color: #111 !important;
+  }
+
+  /* the origin map on white */
+  #origin-map svg {
+    background: #fff;
+    max-width: 120mm;
+    margin: 0 auto;
+  }
+  #origin-map svg > rect {
+    fill: #fff;
+  }
+  #origin-map svg > g:first-of-type path {
+    stroke: #ddd;
+  }
+  #origin-map svg > path {
+    stroke: #9cc;
+  }
+  #origin-map [filter] {
+    display: none;
+  }
+  #origin-map text {
+    fill: #111 !important;
+  }
+
+  /* entries: the table, with every check, rather than the phone list */
+  body:has(#proof-feed) .e-list,
+  body:has(#proof-feed) .e-list + p {
+    display: none !important;
+  }
+  body:has(#proof-feed) .e-table-wrap {
+    display: block !important;
+  }
+  body:has(#proof-feed) .vchip {
+    background: none !important;
+    color: #111 !important;
+  }
+
+  /* the total once, at the end (a repeated table footer would read as a page subtotal) */
+  body:has(#proof-feed) tfoot {
+    display: table-row-group;
+  }
+
+  body:has(#proof-feed) h2 {
+    break-after: avoid;
+  }
+  body:has(#proof-feed) tr,
+  body:has(#proof-feed) li {
+    break-inside: avoid;
+  }
+  /* a picking's row stays with its checks */
+  body:has(#proof-feed) tr[data-event] {
+    break-after: avoid;
+  }
+}

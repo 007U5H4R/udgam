@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { cache } from 'react';
 import { preload } from 'react-dom';
 import { AttestationLine } from '../../../../components/ui/AttestationLine';
 import { CertIcon } from '../../../../components/ui/CertIcon';
@@ -18,10 +19,12 @@ import { resolveFeed } from '../../../../lib/ledger/feed';
 import { LEDGER_KEY_URL } from '../../../../lib/ledger/proof';
 import { publishedKeys } from '../../../../lib/ledger/keys';
 import c from './certificate.module.css';
+import { certificateMetadata, GENERIC_METADATA } from './link-preview';
 import { OriginMap } from './OriginMap';
 import { PrintButton } from './PrintButton';
 import { SiteHeader } from './SiteHeader';
 import './certificate-state.css';
+import './print.css';
 
 // /verify/[batchId]?h= — the public certificate (technical-plan §8.4, TP16, TKT-16). Server-rendered from
 // the proof feed alone: resolveFeed (the same function GET /api/verify uses, so an unknown batch, a
@@ -37,9 +40,21 @@ type Props = { params: Promise<{ batchId: string }>; searchParams: Promise<Searc
 /** The first value of a query parameter (`?h=a&h=b` reads `a`, as URLSearchParams.get does in the API route). */
 const first = (v: string | string[] | undefined): string | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null));
 
-// Public per batch, not for search (§8.4). Static, so the not-found answers stream identically (TP8);
-// TKT-17 turns this into generateMetadata with the link-preview (OG/Twitter) tags.
-export const metadata: Metadata = { title: 'Certificate · Udgam', robots: { index: false, follow: false } };
+/**
+ * The batch's genuine feed, or null (unknown batch, missing h, wrong h: TP8). React's request cache lets
+ * generateMetadata and the page share one feed build (and one on-demand checkpoint) per request.
+ */
+const genuineFeed = cache(async (batchId: string, h: string | null) => resolveFeed(await getDbReady(), batchId, h));
+
+// TSK-17.5 (TC-072, EVAL-090): the link-preview metadata — title, description, canonical, OG and Twitter
+// tags with og/verify.png, absolute from PUBLIC_BASE_URL — from the genuine feed's view model (TP16).
+// Public per batch, not for search: noindex, nofollow (§8.4). A link that resolves to no batch gets the
+// same generic metadata whatever the reason, so the not-found answers stay identical (TP8).
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
+  const { batchId } = await params;
+  const feed = await genuineFeed(batchId, first((await searchParams).h));
+  return feed ? certificateMetadata(buildCertificateView(feed), env.PUBLIC_BASE_URL) : GENERIC_METADATA;
+}
 
 /** The journey's words, from the feed's payloads (verify.html "4 · journey"). */
 function journeySteps(view: CertificateView): TimelineStep[] {
@@ -82,7 +97,7 @@ function entryRows(view: CertificateView): EntryRow[] {
 export default async function CertificatePage({ params, searchParams }: Props) {
   const { batchId } = await params;
   const sp = await searchParams;
-  const genuine = await resolveFeed(await getDbReady(), batchId, first(sp.h));
+  const genuine = await genuineFeed(batchId, first(sp.h));
   if (!genuine) notFound();
   // Test-only (E2E=1, never in a deployment): embed a forged copy so e2e can watch the browser catch it.
   const tamper = tamperFromSearchParams(sp, env);
