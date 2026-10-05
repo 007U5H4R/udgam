@@ -118,6 +118,10 @@
   margin-top: 16px;
   padding: 18px 20px;
 }
+/* DES-111 (Design.md §12, 8-pt rhythm): the shared QR card keeps the same 16 px gap as the other cards */
+.dBody > [data-testid='batch-qr'] {
+  margin-top: 16px;
+}
 .scoreLine {
   margin: 0;
   font-size: 22px;

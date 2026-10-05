@@ -269,3 +269,18 @@ test.describe('DES-108 each agent’s Phones and Plots sections are distinct lan
     expect(violations.map((v) => v.id)).toEqual([]);
   });
 });
+
+test.describe('DES-111 the batch detail cards keep one 16 px rhythm', () => {
+  test('score card → QR card → pickings card are 16 px apart', async ({ page }) => {
+    const r = runSeed<SeededReview>('e2e/helpers/seed-review.ts');
+    await signIn(page, r.adminEmail, r.testOnlyAdminPassword);
+    await page.goto(`/admin/batches/${r.batchId}`);
+    const gaps = await page.locator('[data-testid="batch-qr"]').evaluate((qr) => {
+      const prev = qr.previousElementSibling!.getBoundingClientRect();
+      const next = qr.nextElementSibling!.getBoundingClientRect();
+      const me = qr.getBoundingClientRect();
+      return [Math.round(me.top - prev.bottom), Math.round(next.top - me.bottom)];
+    });
+    expect(gaps).toEqual([16, 16]);
+  });
+});
