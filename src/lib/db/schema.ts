@@ -567,3 +567,148 @@ export const evmAnchors = sqliteTable(
     check('evm_anchors_attempts_check', sql`${t.attempts} >= 0`),
   ],
 );
+
+// ── Contract farming (M-002, TKT-25; technical-plan TSK-25.4) ──────────────────────────────────────
+// An agreement between a buyer and an FPO, escrowed in mock INR on ContractFarming. Every row here is
+// anchored (agreement_created, agreement_funded, agreement_refunded, quality_attestation, settlement).
+// Guards in the agreements custom migration: never replaced or deleted; an agreement's terms never
+// change; its status moves only created → funded → settled | refunded, each step with its own anchor;
+// attestations and settlements are append-only; at most one released settlement per agreement.
+
+/** A grade on the fixed five-label scale (Design.md §28.3): Excellent 90 · Very good 80 · Good 70 · Fair 60 · Low 40. */
+const GRADE_VALUES = sql`(90,80,70,60,40)`;
+
+export const agreements = sqliteTable(
+  'agreements',
+  {
+    /** `AG-` + 8 Crockford base32. */
+    id: text('id').primaryKey(),
+    /** bytes32 id on ContractFarming: `0x` + keccak256(utf8(id)). */
+    chainIdHex: text('chain_id_hex').notNull().unique(),
+    buyerOrg: text('buyer_org')
+      .notNull()
+      .references(() => organisations.id),
+    fpoOrg: text('fpo_org')
+      .notNull()
+      .references(() => organisations.id),
+    crop: text('crop', { enum: ['arabica', 'robusta'] }).notNull(),
+    agreedKg: real('agreed_kg').notNull(),
+    minGrade: integer('min_grade').notNull(),
+    amountPaise: integer('amount_paise').notNull(),
+    /** End of the deadline day in IST, as ISO-8601 UTC (`…T18:29:59.999Z`). */
+    deadline: text('deadline').notNull(),
+    status: text('status', { enum: ['created', 'funded', 'settled', 'refunded'] })
+      .notNull()
+      .default('created'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => user.id),
+    createdAt: text('created_at').notNull(),
+    createdTxHash: text('created_tx_hash').notNull(),
+    anchorSeq: anchorSeq(),
+    fundedAt: text('funded_at'),
+    fundedTxHash: text('funded_tx_hash'),
+    fundedAnchorSeq: integer('funded_anchor_seq').references(() => ledgerEntries.seq),
+    /** Set with the status change to settled (the released settlement) or refunded. */
+    closedAt: text('closed_at'),
+    closedTxHash: text('closed_tx_hash'),
+    closedAnchorSeq: integer('closed_anchor_seq').references(() => ledgerEntries.seq),
+  },
+  (t) => [
+    check('agreements_crop_check', sql`${t.crop} IN ('arabica','robusta')`),
+    check('agreements_status_check', sql`${t.status} IN ('created','funded','settled','refunded')`),
+    check('agreements_kg_check', sql`${t.agreedKg} > 0`),
+    check('agreements_grade_check', sql`${t.minGrade} IN ${GRADE_VALUES}`),
+    check('agreements_amount_check', sql`${t.amountPaise} > 0`),
+    check('agreements_orgs_check', sql`${t.buyerOrg} <> ${t.fpoOrg}`),
+    check(
+      'agreements_funded_check',
+      sql`(${t.status} = 'created') = (${t.fundedAnchorSeq} IS NULL) AND (${t.fundedAnchorSeq} IS NULL) = (${t.fundedAt} IS NULL) AND (${t.fundedAnchorSeq} IS NULL) = (${t.fundedTxHash} IS NULL)`,
+    ),
+    check(
+      'agreements_closed_check',
+      sql`(${t.status} IN ('settled','refunded')) = (${t.closedAnchorSeq} IS NOT NULL) AND (${t.closedAnchorSeq} IS NULL) = (${t.closedAt} IS NULL) AND (${t.closedAnchorSeq} IS NULL) = (${t.closedTxHash} IS NULL)`,
+    ),
+    index('agreements_buyer_idx').on(t.buyerOrg),
+    index('agreements_fpo_idx').on(t.fpoOrg),
+  ],
+);
+
+/**
+ * The buyer's quality grade for one delivered batch under an agreement (TSK-25.5). `eip712_sig` is the
+ * buyer organisation's attestor key (`signer_address`) over QualityGrade(agreementId, batchIdHash,
+ * grade); the anchored payload is also signed by the server on behalf of the buyer user (TP15). One
+ * grade per (agreement, batch): it cannot be changed after signing.
+ */
+export const qualityAttestations = sqliteTable(
+  'quality_attestations',
+  {
+    /** `QA-` + 12 Crockford base32. */
+    id: text('id').primaryKey(),
+    agreementId: text('agreement_id')
+      .notNull()
+      .references(() => agreements.id),
+    batchId: text('batch_id')
+      .notNull()
+      .references(() => batches.id),
+    grade: integer('grade').notNull(),
+    signerOrg: text('signer_org')
+      .notNull()
+      .references(() => organisations.id),
+    signerAddress: text('signer_address').notNull(),
+    eip712Sig: text('eip712_sig').notNull(),
+    signedBy: text('signed_by')
+      .notNull()
+      .references(() => user.id),
+    createdAt: text('created_at').notNull(),
+    anchorSeq: anchorSeq(),
+  },
+  (t) => [check('quality_attestations_grade_check', sql`${t.grade} IN ${GRADE_VALUES}`), unique('quality_attestations_agreement_batch_unique').on(t.agreementId, t.batchId)],
+);
+
+/**
+ * One settle call's result (TSK-25.6): what the server attested (delivered kg from batch_created, whether
+ * every member picking's final verdict is Verified), the signed grade, and what the contract decided.
+ * `reasons` is a JSON array of the conditions not met with value vs threshold. Recorded after the
+ * receipt, so `tx_hash`/`block_number` are always set. Append-only.
+ */
+export const settlements = sqliteTable(
+  'settlements',
+  {
+    /** `ST-` + 12 Crockford base32. */
+    id: text('id').primaryKey(),
+    agreementId: text('agreement_id')
+      .notNull()
+      .references(() => agreements.id),
+    batchId: text('batch_id')
+      .notNull()
+      .references(() => batches.id),
+    attestationId: text('attestation_id')
+      .notNull()
+      .references(() => qualityAttestations.id),
+    deliveredKg: real('delivered_kg').notNull(),
+    pickings: integer('pickings').notNull(),
+    verifiedPickings: integer('verified_pickings').notNull(),
+    allVerified: integer('all_verified', { mode: 'boolean' }).notNull(),
+    grade: integer('grade').notNull(),
+    outcome: text('outcome', { enum: ['released', 'not_released'] }).notNull(),
+    reasons: text('reasons').notNull(),
+    txHash: text('tx_hash').notNull(),
+    blockNumber: integer('block_number').notNull(),
+    settledBy: text('settled_by')
+      .notNull()
+      .references(() => user.id),
+    createdAt: text('created_at').notNull(),
+    anchorSeq: anchorSeq(),
+  },
+  (t) => [
+    check('settlements_outcome_check', sql`${t.outcome} IN ('released','not_released')`),
+    check('settlements_grade_check', sql`${t.grade} IN ${GRADE_VALUES}`),
+    check('settlements_verified_check', sql`${t.allVerified} IN (0,1) AND ${t.verifiedPickings} <= ${t.pickings} AND ${t.verifiedPickings} >= 0`),
+    index('settlements_agreement_idx').on(t.agreementId),
+    index('settlements_batch_idx').on(t.batchId),
+    uniqueIndex('settlements_one_release_idx')
+      .on(t.agreementId)
+      .where(sql`${t.outcome} = 'released'`),
+  ],
+);
