@@ -201,11 +201,13 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'help.rejected': 'ಕೊಯ್ಲನ್ನು ಸ್ವೀಕರಿಸಲಾಗಲಿಲ್ಲ. ಏಕೆ ಮತ್ತು ಏನು ಮಾಡಬೇಕು ಎಂದು ಪರದೆ ಹೇಳುತ್ತದೆ.', // REVIEW: native speaker
   'help.call': 'ಕೊಯ್ಲಿನ ಬಗ್ಗೆ ಪ್ರಶ್ನೆಗಳಿವೆಯೇ? {org} ಕಚೇರಿಗೆ ಕರೆ ಮಾಡಿ:', // REVIEW: native speaker
   'help.callLink': '{phone}', // REVIEW: native speaker
+  'help.callPill': 'ಕಚೇರಿಗೆ ಕರೆ ಮಾಡಿ', // REVIEW: native speaker
   'help.language': 'ಭಾಷೆ:', // REVIEW: native speaker
   'help.thisPhone': 'ಈ ಫೋನ್:', // REVIEW: native speaker
   'help.phoneLoading': 'ಹುಡುಕಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
   'help.phoneSetUp': '{id}, {date} ರಂದು ಸಿದ್ಧಪಡಿಸಲಾಗಿದೆ', // REVIEW: native speaker
   'help.phoneId': '{id}', // REVIEW: native speaker
+  'help.more': 'ಭಾಷೆ ಮತ್ತು ಈ ಫೋನ್', // REVIEW: native speaker
   'lang.kannada': 'Kannada', // REVIEW: native speaker (the language sheet names English words in English)
   'lang.sheet.kn': 'ಭಾಷೆ', // REVIEW: native speaker
   'lang.sheet.en': 'Language', // REVIEW: native speaker (the language sheet names English words in English)

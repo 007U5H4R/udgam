@@ -71,3 +71,32 @@ test('DES-006: Try again while still offline shows "Trying…", then "Still no n
   await expect(sheet.getByRole('button', { name: 'Try again' })).toBeEnabled();
   await expect(sheet.getByTestId('saved-body')).toHaveText('Nothing is lost: 1 photo and 42.5 kg are saved on this phone.');
 });
+
+const helpTab = (page: Page) => page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Help' });
+
+for (const vp of [
+  { width: 375, height: 812 },
+  { width: 360, height: 740 },
+]) {
+  test(`DES-001 at ${vp.width}×${vp.height}: Help's Close is pinned in view; a fade marks more below until the end is reached`, async ({ page, context }) => {
+    await page.setViewportSize(vp);
+    const seed = seedCaptureWorld({ phone: '+91 8272 000 111' });
+    await openField(page, context, seed);
+    await helpTab(page).click();
+    const sheet = page.getByRole('dialog', { name: 'Help' });
+    const close = sheet.getByRole('button', { name: 'Close' });
+    await expect(close).toBeInViewport({ ratio: 1 });
+    const body = sheet.getByTestId('help-sheet-body');
+    await expect(body).toHaveAttribute('data-more', 'true');
+    await body.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+    await expect(body).not.toHaveAttribute('data-more');
+    await expect(close).toBeInViewport({ ratio: 1 });
+    // the language and this phone sit behind "More"
+    const more = sheet.getByTestId('help-more');
+    await expect(more.getByTestId('this-phone')).toBeHidden();
+    await more.locator('summary').click();
+    await expect(more.getByTestId('this-phone')).toBeVisible();
+    await close.click();
+    await expect(sheet).toBeHidden();
+  });
+}

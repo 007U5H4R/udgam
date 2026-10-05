@@ -279,11 +279,13 @@ export const en = {
   'help.rejected': 'The picking could not be accepted. The screen says why and what to do.',
   'help.call': 'Questions about a picking? Call the {org} office:',
   'help.callLink': '{phone}',
+  'help.callPill': 'Call the office',
   'help.language': 'Language:',
   'help.thisPhone': 'This phone:',
   'help.phoneLoading': 'Looking…',
   'help.phoneSetUp': '{id}, set up on {date}',
   'help.phoneId': '{id}',
+  'help.more': 'Language and this phone',
   // Farmer evidence lines on the verdict screens (TKT-10, src/lib/i18n/farmer-evidence.ts). Numbers come
   // from the verifier's evidence as written ({m} = "14 m", {pct} = "18.0%", {d} = "3 h", {x} = "1.75x").
   'fe.plot.default': 'the plot',

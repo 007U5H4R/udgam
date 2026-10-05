@@ -81,7 +81,11 @@ test('TC-053: the Help sheet explains the verdicts, photos and the gallery, call
   await expect(verdicts.nth(2)).toContainText('The picking could not be accepted. The screen says why and what to do.');
   const call = sheet.getByTestId('call-office');
   await expect(call).toHaveAttribute('href', 'tel:+918272000111');
-  await expect(call).toHaveText('+91 8272 000 111');
+  // DES-014: a 56 px ghost pill "Call the office" with the number as its second line
+  await expect(call).toHaveText('Call the office+91 8272 000 111');
+  expect((await call.boundingBox())!.height).toBeGreaterThanOrEqual(56);
+  // DES-001: the language and this phone sit behind the "More" row
+  await sheet.getByTestId('help-more').locator('summary').click();
   await expect(sheet.getByRole('button', { name: 'ಕನ್ನಡ' })).toBeVisible();
   await expect(sheet.getByTestId('this-phone')).toHaveText(new RegExp(`^${seed.deviceId}, set up on \\d{1,2} [A-Z][a-z]{2}$`));
   await expectNoHorizontalScroll(page);
@@ -117,6 +121,7 @@ test('quality minor 1: on /field/help the Help sheet\'s language row opens the l
   await page.goto('/field/help');
   const sheet = page.getByRole('dialog', { name: 'Help' });
   await expect(sheet).toBeVisible();
+  await sheet.getByTestId('help-more').locator('summary').click(); // DES-001
   await sheet.getByRole('button', { name: 'ಕನ್ನಡ' }).click();
   const langSheet = page.getByRole('dialog', { name: 'ಭಾಷೆ · Language' });
   await expect(langSheet).toBeVisible();
