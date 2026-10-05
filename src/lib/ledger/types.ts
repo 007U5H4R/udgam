@@ -11,7 +11,13 @@ export type LedgerKind =
   | 'admin_override'
   | 'attestation'
   | 'batch_created'
-  | 'custody_transfer';
+  | 'custody_transfer'
+  // M-002 contract farming (TKT-25): signed on behalf of the acting user, like custody transfers.
+  | 'agreement_created'
+  | 'agreement_funded'
+  | 'agreement_refunded'
+  | 'quality_attestation'
+  | 'settlement';
 
 /** Where a provenance row is anchored: its `anchor_seq` and the entry's hashes. */
 export type Anchor = { seq: number; entryHash: string; payloadHash: string };

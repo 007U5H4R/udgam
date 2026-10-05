@@ -10,6 +10,7 @@ on:
     paths:
       - 'contracts/**'
       - 'src/lib/ledger/**'
+      - 'src/lib/agreements/**'
       - 'src/lib/db/**'
       - 'src/lib/crypto/**'
       - 'src/lib/config/**'
@@ -21,6 +22,7 @@ on:
       - 'scripts/evm-deploy.ts'
       - 'scripts/ledger-audit.ts'
       - 'scripts/ledger-evm-resolve.ts'
+      - 'scripts/agreements-deploy.ts'
       - 'scripts/cloud-setup.sh'
       - 'tests/helpers/**'
       - 'package.json'
@@ -31,6 +33,7 @@ on:
     paths:
       - 'contracts/**'
       - 'src/lib/ledger/**'
+      - 'src/lib/agreements/**'
       - 'src/lib/db/**'
       - 'src/lib/crypto/**'
       - 'src/lib/config/**'
@@ -42,6 +45,7 @@ on:
       - 'scripts/evm-deploy.ts'
       - 'scripts/ledger-audit.ts'
       - 'scripts/ledger-evm-resolve.ts'
+      - 'scripts/agreements-deploy.ts'
       - 'scripts/cloud-setup.sh'
       - 'tests/helpers/**'
       - 'package.json'
@@ -85,7 +89,7 @@ jobs:
           echo "$HOME/.foundry/bin" >> "$GITHUB_PATH"
       - name: Foundry versions
         run: forge --version && anvil --version
-      - name: forge test (TC-082)
+      - name: forge test (TC-082, TC-084)
         working-directory: contracts
         run: forge test -vv
       - uses: pnpm/action-setup@v4
@@ -94,7 +98,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: EVM adapter tests against Anvil (TC-083, EVAL-104)
+      - name: EVM adapter and settlement tests against Anvil (TC-083, EVAL-104, EVAL-093–099)
         run: pnpm test:evm
       - name: Proof suite on the EVM adapter (EVAL-103)
         run: pnpm eval --ledger=evm --milestone=M2

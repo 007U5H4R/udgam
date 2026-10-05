@@ -341,6 +341,19 @@ The feed of batch `B` contains, from the ledger (evaluation-plan §4.6):
   `plot_edited` and `attestation` entries (by `payload.plotId`);
 - for each device named by those payloads (`payload.deviceId`): its `device_enrolled` and
   `device_revoked` entries (by `payload.deviceId`).
+- (M-002, contract farming) every `quality_attestation` and `settlement` entry whose
+  `payload.batchId` is `B`: the buyer's signed quality grade for the batch and each settlement of an
+  escrow agreement against it. The agreement's own entries (`agreement_created`, `agreement_funded`,
+  `agreement_refunded`) are not in any feed: an agreement's commercial terms are private
+  (Design.md §28.4). A verifier checks the two batch entries like any other (hashes, Merkle path,
+  payload signature); they add no completeness rule (§9.3).
+  What these entries prove, stated plainly: a `settlement` records what the Udgam server attested to
+  the escrow contract (delivered kg from the batch's `batch_created` payload, and whether every member
+  picking's final verdict is Verified; the server operator is the only account allowed to settle) and
+  what the contract decided. The grade in `quality_attestation` is signed by the server on behalf of
+  the buyer organisation's account (an EIP-712 signature by a server-held key, carried in
+  `payload.eip712`), so it proves which account graded, not possession of a personal device key. The
+  contract enforces the arithmetic and the grade signature.
 
 Payload members a verifier relies on (all others are informational and covered by the hashes):
 
@@ -349,6 +362,8 @@ Payload members a verifier relies on (all others are informational and covered b
 | `batch_created` | `batchId`, `orgId`, `events` (array of `{ eventId, payloadHash }`), `kid`, `publicJwk`, `signature` |
 | `custody_transfer` | `batchId`, `fromOrg`, `toOrg`, `kid`, `publicJwk`, `signature` |
 | `admin_override` | `eventId`, `kid`, `publicJwk`, `signature` |
+| `quality_attestation` | `batchId`, `kid`, `publicJwk`, `signature` |
+| `settlement` | `batchId`, `kid`, `publicJwk`, `signature` |
 | `harvest_event` | `eventId`, `plotId`, `deviceId`, `payloadHash` (the hash of the signed capture) |
 | `verification_run` | `eventId` |
 | `plot_registered` | `plotId` |
@@ -363,7 +378,10 @@ GeoJSON `polygon`, and `attestation` carries `attestationId`, `plotId`, `issuer`
 ### 9.2 Signed payloads
 
 Payloads of kind `batch_created`, `custody_transfer` and `admin_override` are statements signed with a
-per-admin key that the server holds on the admin's behalf. They carry three extra members:
+per-admin key that the server holds on the admin's behalf. The M-002 contract-farming kinds
+`agreement_created`, `agreement_funded`, `agreement_refunded`, `quality_attestation` and `settlement`
+are signed the same way, on behalf of the acting buyer or FPO admin (only `quality_attestation` and
+`settlement` appear in a feed, §9.1). They carry three extra members:
 `kid`, `publicJwk` and `signature`. The signed **statement** is the payload without those three
 members:
 

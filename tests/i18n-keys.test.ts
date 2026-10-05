@@ -7,7 +7,8 @@ import { isFieldKey, kn } from '../src/lib/i18n/kn';
 // The admin surfaces are English only (TP18, kn.ts header): their keys (`rail.*`, `phones.*`) are the
 // one agreed exception, and kn must not carry them either.
 
-const ADMIN_PREFIXES = ['rail.', 'phones.'];
+// `agreements.*` (TKT-25): the buyer and FPO-admin agreement screens are office surfaces, English only.
+const ADMIN_PREFIXES = ['rail.', 'phones.', 'agreements.'];
 
 describe('en and kn key sets (TC-052)', () => {
   it('kn has exactly the keys of en, apart from the English-only admin keys', () => {

@@ -8,6 +8,7 @@ import { BatchQr } from '../../../../../components/ui/BatchQr';
 import { GlassCard } from '../../../../../components/ui/GlassCard';
 import { RailShell } from '../../../../../components/ui/Rail';
 import { formatKg, formatScore, istDateTime } from '../../../../../lib/batches/format';
+import { agreementForBatch } from '../../../../../lib/agreements/read';
 import { getOrgBatch, listBuyerOrgs, listOrgBatches } from '../../../../../lib/batches/read';
 import { getDbReady } from '../../../../../lib/db/client';
 import { userName } from '../../../../../lib/enrolment/phones';
@@ -31,6 +32,8 @@ export default async function BatchDetailPage({ params }: Props) {
   const batch = scopedById(await getOrgBatch(db, me.orgId, batchId));
   const [batches, buyers, name] = await Promise.all([listOrgBatches(db, me.orgId), batch.status === 'open' ? listBuyerOrgs(db) : [], userName(db, me.userId)]);
   const certificate = `/verify/${encodeURIComponent(batch.batchId)}?h=${batch.shortHash}`;
+  // M-002 touch point T3 (Design.md §28, TKT-25): the agreement a delivered batch was graded or settled under.
+  const agreement = batch.status === 'transferred' ? await agreementForBatch(db, me.orgId, batch.batchId) : null;
 
   return (
     <RailShell current="batches" me={name ? { name } : undefined}>
@@ -110,6 +113,26 @@ export default async function BatchDetailPage({ params }: Props) {
                 <LockedLine text={t('batches.custody.locked')} />
               </GlassCard>
             )}
+
+            {agreement ? (
+              <GlassCard as="section" className={screen.card} aria-labelledby="agreement-h" data-testid="agreement-card">
+                <h2 className={screen.secH} id="agreement-h">
+                  {t('agreements.card.title')}
+                </h2>
+                <ul className={screen.rows}>
+                  <li className={screen.fieldRow}>
+                    <b>{t('agreements.card.under')}</b>
+                    <Link className={screen.link} href={`/admin/agreements/${encodeURIComponent(agreement.agreementId)}`}>
+                      {t('agreements.card.link', { id: agreement.agreementId, buyer: agreement.buyerName })}
+                    </Link>
+                  </li>
+                  <li className={screen.fieldRow}>
+                    <b>{t('agreements.card.status')}</b>
+                    <span>{agreement.status}</span>
+                  </li>
+                </ul>
+              </GlassCard>
+            ) : null}
           </div>
         </section>
       </main>

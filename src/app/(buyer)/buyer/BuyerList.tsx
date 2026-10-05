@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Icon } from '../../../components/buyer/Icon';
 import { BatchRow } from '../../../components/buyer/BatchRow';
 import { ListLoading, StateCard } from '../../../components/buyer/BatchStates';
 import screen from '../../../components/buyer/BatchScreen.module.css';
@@ -23,6 +24,13 @@ export function BuyerList({ orgName, batches, state, currentId }: { orgName: str
           {t('batches.title')}
         </h1>
         <p className={screen.sub}>{t('buyer.sub')}</p>
+        {/* M-002 touch point T1 (Design.md §28, TKT-25): the buyer reaches Agreements from this header (no rail, §5). */}
+        <div className={screen.headActions}>
+          <Link className={`${pill.pill} ${pill.ghost}`} href="/buyer/agreements" data-testid="agreements-link">
+            <Icon name="seal" />
+            {t('agreements.link.buyer')}
+          </Link>
+        </div>
       </header>
       {state === 'loading' ? (
         <ListLoading label={t('batches.loading')} />
