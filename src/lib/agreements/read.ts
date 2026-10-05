@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { agreements, batches, custodyTransfers, organisations, qualityAttestations, settlements } from '../db/schema';
+import { t, type MessageKey } from '../i18n';
 import { formatKg1, formatInr, istDate } from './format';
 import { isGrade, type Grade } from './grades';
 import { deliveredBatchIds, type AgreementRow } from './service';
@@ -70,33 +71,35 @@ function reasonsOf(s: typeof settlements.$inferSelect, a: AgreementRow): Reason[
   return results.filter((r) => codes.includes(r.condition)).map((r) => ({ condition: r.condition, text: r.text }));
 }
 
-/** "2 conditions are not met" / "1 condition is not met". */
-export const conditionsNotMet = (n: number): string => (n === 1 ? '1 condition not met' : `${n} conditions not met`);
+/** "1 condition not met" / "2 conditions not met". */
+export const conditionsNotMet = (n: number): string => (n === 1 ? t('agreements.notMetCount.one') : t('agreements.notMetCount.many', { n }));
+
+const sv = (mark: Mark, word: MessageKey, short: MessageKey = word): StatusView => ({ mark, word: t(word), short: t(short) });
 
 export function buyerStatus(v: AgreementView): StatusView {
   const a = v.row;
-  if (a.status === 'settled') return { mark: 'ok', word: 'Payment released', short: 'Payment released' };
-  if (a.status === 'refunded') return { mark: 'na', word: 'Refunded', short: 'Refunded' };
-  if (a.status === 'created') return { mark: 'na', word: 'Not funded yet', short: 'Not funded yet' };
-  if (v.deadlinePassed) return { mark: 'na', word: 'Deadline passed · you can take it back', short: 'Deadline passed · not settled' };
-  if (v.delivered.some((b) => b.grade === null)) return { mark: 'na', word: 'Delivered · needs your grade', short: 'Needs your grade' };
+  if (a.status === 'settled') return sv('ok', 'agreements.status.released');
+  if (a.status === 'refunded') return sv('na', 'agreements.status.refunded');
+  if (a.status === 'created') return sv('na', 'agreements.status.notFunded');
+  if (v.deadlinePassed) return sv('na', 'agreements.status.deadlineTakeBack', 'agreements.status.deadlineNotSettled');
+  if (v.delivered.some((b) => b.grade === null)) return sv('na', 'agreements.status.needsGrade', 'agreements.status.needsGradeShort');
   const last = v.settlements[0];
-  if (last?.outcome === 'not_released') return { mark: 'check', word: `Not released yet · ${conditionsNotMet(last.reasons.length)}`, short: 'Not released yet' };
-  return { mark: 'na', word: 'Funded · waiting for delivery', short: 'Funded · waiting for delivery' };
+  if (last?.outcome === 'not_released') return { mark: 'check', word: t('agreements.status.notReleasedYetCount', { count: conditionsNotMet(last.reasons.length) }), short: t('agreements.status.notReleasedYet') };
+  return sv('na', 'agreements.status.waitingDelivery');
 }
 
 export function adminStatus(v: AgreementView): StatusView {
   const a = v.row;
-  if (a.status === 'settled') return { mark: 'ok', word: 'Payment released', short: 'Payment released' };
-  if (a.status === 'refunded') return { mark: 'na', word: 'Refunded', short: 'Refunded' };
-  if (a.status === 'created') return { mark: 'na', word: 'Buyer hasn’t funded it yet', short: 'Buyer hasn’t funded it yet' };
-  if (v.deadlinePassed) return { mark: 'na', word: 'Deadline passed · not settled', short: 'Deadline passed · not settled' };
+  if (a.status === 'settled') return sv('ok', 'agreements.status.released');
+  if (a.status === 'refunded') return sv('na', 'agreements.status.refunded');
+  if (a.status === 'created') return sv('na', 'agreements.status.buyerNotFunded');
+  if (v.deadlinePassed) return sv('na', 'agreements.status.deadlineNotSettled');
   const last = v.settlements[0];
   const graded = v.delivered.some((b) => b.grade !== null && !v.settlements.some((s) => s.batchId === b.batchId));
-  if (graded) return { mark: 'na', word: 'Ready to settle', short: 'Ready to settle' };
-  if (last?.outcome === 'not_released') return { mark: 'check', word: `Not released · ${conditionsNotMet(last.reasons.length)}`, short: 'Not released' };
-  if (v.delivered.length > 0) return { mark: 'na', word: 'Delivered · waiting for the buyer’s grade', short: 'Waiting for the buyer’s grade' };
-  return { mark: 'na', word: 'Funded · waiting for delivery', short: 'Funded · waiting for delivery' };
+  if (graded) return sv('na', 'agreements.status.ready');
+  if (last?.outcome === 'not_released') return { mark: 'check', word: t('agreements.status.notReleasedCount', { count: conditionsNotMet(last.reasons.length) }), short: t('agreements.status.notReleased') };
+  if (v.delivered.length > 0) return sv('na', 'agreements.status.waitingBuyerGrade', 'agreements.status.waitingBuyerGradeShort');
+  return sv('na', 'agreements.status.waitingDelivery');
 }
 
 /** A batch that can still be settled under the agreement: graded, and not yet judged since its grade. */
@@ -113,9 +116,10 @@ export function batchToGrade(v: AgreementView): DeliveredBatch | null {
 
 /** One list line: "Arabica · ₹1,50,000.00 · by 31 Dec 2026". */
 export function rowFacts(a: AgreementRow): string {
-  const crop = a.crop === 'arabica' ? 'Arabica' : 'Robusta';
-  const when = a.status === 'settled' && a.closedAt ? istDate(a.closedAt) : a.status === 'refunded' && a.closedAt ? `taken back ${istDate(a.closedAt)}` : `by ${istDate(a.deadline)}`;
-  return `${crop} · ${formatInr(a.amountPaise)} · ${when}`;
+  const crop = t(a.crop === 'arabica' ? 'agreements.row.cropArabica' : 'agreements.row.cropRobusta');
+  const when =
+    a.status === 'settled' && a.closedAt ? istDate(a.closedAt) : a.status === 'refunded' && a.closedAt ? t('agreements.row.takenBack', { date: istDate(a.closedAt) }) : t('agreements.row.by', { date: istDate(a.deadline) });
+  return t('agreements.row.facts', { crop, amount: formatInr(a.amountPaise), when });
 }
 
 export const kgText = (kg: number): string => `${formatKg1(kg)} kg`;
@@ -193,15 +197,34 @@ export async function listFpoOrgs(db: Db): Promise<{ id: string; name: string }[
   return db.select({ id: organisations.id, name: organisations.name }).from(organisations).where(eq(organisations.type, 'fpo')).orderBy(asc(organisations.name));
 }
 
-/** T3: the agreement a batch of this FPO was delivered under (graded or settled under it), or null. */
+/**
+ * T3: the agreement a batch of this FPO was delivered under, or null (Design.md §28 T3: the card appears
+ * once the batch is delivered under an agreement). One the batch was graded or settled under comes
+ * first; otherwise the newest open (created or funded) agreement the batch counts as delivered under.
+ */
 export async function agreementForBatch(db: Db, fpoOrg: string, batchId: string): Promise<{ agreementId: string; buyerName: string; status: string } | null> {
-  const [hit] = await db
-    .select({ id: agreements.id, buyerOrg: agreements.buyerOrg, status: agreements.status, closedAt: agreements.closedAt })
+  const [graded] = await db
+    .select({ id: agreements.id })
     .from(qualityAttestations)
     .innerJoin(agreements, eq(agreements.id, qualityAttestations.agreementId))
     .where(and(eq(qualityAttestations.batchId, batchId), eq(agreements.fpoOrg, fpoOrg)))
     .orderBy(desc(qualityAttestations.createdAt))
     .limit(1);
+  let hit: AgreementRow | undefined;
+  if (graded) [hit] = await db.select().from(agreements).where(eq(agreements.id, graded.id));
+  else {
+    const open = await db
+      .select()
+      .from(agreements)
+      .where(and(eq(agreements.fpoOrg, fpoOrg), inArray(agreements.status, ['created', 'funded'])))
+      .orderBy(desc(agreements.createdAt));
+    for (const a of open) {
+      if ((await deliveredBatchIds(db, a)).includes(batchId)) {
+        hit = a;
+        break;
+      }
+    }
+  }
   if (!hit) return null;
   const n = await names(db, [hit.buyerOrg]);
   const [rel] = await db
@@ -212,12 +235,16 @@ export async function agreementForBatch(db: Db, fpoOrg: string, batchId: string)
     .limit(1);
   const status =
     hit.status === 'settled' && rel?.outcome === 'released'
-      ? `Payment released · ${istDate(rel.at)}`
+      ? t('agreements.status.releasedOn', { date: istDate(rel.at) })
       : rel?.outcome === 'not_released'
-        ? 'Not released'
+        ? t('agreements.status.notReleased')
         : hit.status === 'refunded'
-          ? 'Refunded'
-          : 'Ready to settle';
+          ? t('agreements.status.refunded')
+          : hit.status === 'created'
+            ? t('agreements.status.buyerNotFunded')
+            : graded
+              ? t('agreements.status.ready')
+              : t('agreements.status.waitingGrade');
   return { agreementId: hit.id, buyerName: n.get(hit.buyerOrg) ?? '', status };
 }
 

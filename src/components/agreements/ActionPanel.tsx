@@ -1,7 +1,8 @@
 'use client';
 
 import { useActionState, type ReactNode } from 'react';
-import type { ActionState } from '../../lib/agreements/actions';
+import type { ActionState, Failure } from '../../lib/agreements/actions';
+import { failureCopy } from '../../lib/agreements/failure-copy';
 import { Icon } from '../admin/QueueList';
 import { Pill } from '../ui/Pill';
 import { InlineErrView } from './client-parts';
@@ -9,8 +10,8 @@ import { InlineErrView } from './client-parts';
 // One signed action in a decide panel (Design.md §28.5–§28.6, admin.html `.decide`): fund, take the
 // money back, settle. While it runs the pill is disabled with the spinning ring and its own words; if it
 // does not go through, an inline error above the note says nothing moved and the pill becomes Try
-// again. A failure is never shown as a result. `forcedWorking` renders the working state for e2e
-// (`?state=working`, dev and E2E builds only).
+// again. A failure is never shown as a result. `forcedWorking` and `forcedFailure` render the working
+// and action-error states for e2e (`?state=working|turned-away`, dev and E2E builds only).
 
 export type ActionTexts = {
   idle: string;
@@ -28,6 +29,8 @@ type Props = {
   hidden: Record<string, string>;
   texts: ActionTexts;
   forcedWorking?: boolean;
+  /** Renders an action error as if the action had come back with it (e2e: `?state=turned-away`). */
+  forcedFailure?: Failure;
   /** `decide`: the panel with heading and note (fund, refund). `bar`: the sticky settle bar under the detail. */
   layout: 'decide' | 'bar';
   heading?: { id: string; text: string };
@@ -38,11 +41,11 @@ type Props = {
   icon?: 'check' | 'arrowLeft';
 };
 
-export function ActionPanel({ action, hidden, texts, forcedWorking, layout, heading, children, note, hint, icon = 'check' }: Props) {
+export function ActionPanel({ action, hidden, texts, forcedWorking, forcedFailure, layout, heading, children, note, hint, icon = 'check' }: Props) {
   const [state, formAction, isPending] = useActionState(action, {});
   const pending = isPending || !!forcedWorking;
-  const failed = !pending ? state.failure : undefined;
-  const err = failed === 'turned_away' && texts.turnedAway ? texts.turnedAway : texts.noAnswer;
+  const failed = !pending ? (state.failure ?? forcedFailure) : undefined;
+  const err = failureCopy(failed ?? 'no_answer', texts);
 
   const pill = (
     <Pill type="submit" disabled={pending} aria-busy={pending ? 'true' : undefined} data-testid="action-pill" icon={<Icon name={pending ? 'ring' : failed ? 'retry' : icon} className={pending ? 'ic spin' : 'ic'} />}>

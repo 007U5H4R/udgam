@@ -2,6 +2,7 @@
 
 import { startTransition, useActionState, useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ActionState } from '../../lib/agreements/actions';
+import { failureCopy } from '../../lib/agreements/failure-copy';
 import { amountHint, deadlineHint } from '../../lib/agreements/format';
 import { checkNewAgreement, NEW_AGREEMENT_ORDER, type NewAgreementField, type NewAgreementFields } from '../../lib/agreements/form';
 import { GRADES, gradeDisplay } from '../../lib/agreements/grades';
@@ -144,7 +145,7 @@ export function NewAgreementForm({
           </p>
         </div>
       </div>
-      {failed ? <InlineErrView title={t('agreements.create.errTitle')} body={t('agreements.create.errBody')} /> : null}
+      {failed ? <InlineErrView {...failureCopy(failed, { noAnswer: { title: t('agreements.create.errTitle'), body: t('agreements.create.errBody') } })} /> : null}
       <p className="dec-note">
         <Icon name="seal" />
         <span>{t('agreements.create.note')}</span>

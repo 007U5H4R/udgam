@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { amountHint, deadlineHint, deadlineIso, dmy, FIELD_MESSAGES, formatInr, formatKg1, istDate, istDateTime12, kgToGrams, parseAmount, parseDeadline, parseKg } from './format';
+import { agreementIdFromPath, amountHint, deadlineHint, deadlineIso, dmy, FIELD_MESSAGES, formatInr, formatKg1, istDate, istDateTime12, kgToGrams, parseAmount, parseDeadline, parseKg } from './format';
 import { checkGrade, checkNewAgreement } from './form';
 import { gradeDisplay, isGrade, parseGrade } from './grades';
 
@@ -101,5 +101,14 @@ describe('form checks (§28.7)', () => {
     expect(checkGrade('')).toEqual({ ok: false, errors: { grade: 'Choose one of the five grades.' } });
     expect(checkGrade('255')).toEqual({ ok: false, errors: { grade: 'Choose one of the five grades.' } });
     expect(checkGrade('90')).toEqual({ ok: true, values: 90 });
+  });
+});
+
+describe('the not-found title names the agreement (spec review minor 2, §28.6)', () => {
+  it('reads an agreement id from the path; anything else is not echoed', () => {
+    expect(agreementIdFromPath('/buyer/agreements/AG-0009ABCD')).toBe('AG-0009ABCD');
+    expect(agreementIdFromPath('/admin/agreements/AG-NOSUCH00')).toBe('AG-NOSUCH00');
+    expect(agreementIdFromPath('/buyer/agreements/AG-0009ABCD/')).toBe('AG-0009ABCD');
+    for (const p of ['/buyer/agreements/<script>', '/buyer/agreements/ag-0009abcd', '/buyer/agreements/AG-0009ABCDE', '/buyer/agreements', null]) expect(agreementIdFromPath(p)).toBeNull();
   });
 });

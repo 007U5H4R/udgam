@@ -127,3 +127,23 @@ describe('one batch, one payout (review MAJOR 2)', () => {
     expect(chain.sends.settle).toBe(1);
   });
 });
+
+describe('T3: the agreement card on a delivered batch (spec review minor 7)', () => {
+  it('appears once the batch is delivered under an agreement, waiting for the grade, then follows it', async () => {
+    const { agreementForBatch } = await import('./read');
+    const { agreementId } = await createAgreement(
+      t.db,
+      { buyerOrg, userId: buyerUser, values: { fpoOrg: w.orgId, crop: 'arabica', agreedKg: 500, minGrade: 80, amountPaise: 5_000_000, deadlineDate: '2099-12-31' } },
+      o(),
+    );
+    expect(await agreementForBatch(t.db, w.orgId, batchId)).toMatchObject({ agreementId, status: 'Buyer hasn’t funded it yet' });
+    await fundAgreement(t.db, { buyerOrg, userId: buyerUser, agreementId }, o());
+    expect(await agreementForBatch(t.db, w.orgId, batchId)).toMatchObject({ agreementId, status: 'Waiting for the grade' });
+    await gradeBatch(t.db, { buyerOrg, userId: buyerUser, agreementId, batchId, grade: 90 }, o());
+    expect(await agreementForBatch(t.db, w.orgId, batchId)).toMatchObject({ agreementId, status: 'Ready to settle' });
+    await settle(agreementId);
+    expect((await agreementForBatch(t.db, w.orgId, batchId))?.status).toMatch(/^Payment released · \d{1,2} [A-Z][a-z]{2} \d{4}$/);
+    // another FPO sees nothing for this batch
+    expect(await agreementForBatch(t.db, 'ORG-OTHER', batchId)).toBeNull();
+  });
+});

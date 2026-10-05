@@ -10,8 +10,8 @@ import type { MessageKey } from './en';
 // sheet); none of it has been reviewed yet. Admin surfaces (`rail.*`, `phones.*`) are English only and
 // fall back to en.ts.
 
-/** Keys every farmer- and agent-facing language must carry (admin keys excluded; M-002 `agreements.*` is an office surface, TKT-25). */
-export const isFieldKey = (k: string): boolean => !k.startsWith('rail.') && !k.startsWith('phones.') && !k.startsWith('agreements.');
+/** Keys every farmer- and agent-facing language must carry (admin keys excluded). M-002 `agreements.*` carries drafts, like `buyer.*`. */
+export const isFieldKey = (k: string): boolean => !k.startsWith('rail.') && !k.startsWith('phones.');
 
 export const kn: Partial<Record<MessageKey, string>> = {
   'app.name': 'Udgam', // REVIEW: native speaker (brand name kept in Latin script)
@@ -380,4 +380,174 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'buyer.empty.body': 'ಒಂದು ಸಂಸ್ಥೆ ನಿಮಗೆ ಬ್ಯಾಚ್ ವರ್ಗಾಯಿಸಿದಾಗ, ಅದು ಅದರ ಪ್ರಮಾಣಪತ್ರದೊಂದಿಗೆ ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತದೆ.', // REVIEW: native speaker
   'buyer.detail.eyebrow': '{org} · ಬ್ಯಾಚ್', // REVIEW: native speaker
   'buyer.detail.from': '{org} ಇಂದ · {when} ರಂದು ವರ್ಗಾಯಿಸಲಾಗಿದೆ', // REVIEW: native speaker
+  // M-002 contract farming (TKT-25): the buyer and FPO-admin agreement screens, drafts like `buyer.*`.
+  'agreements.link.buyer': 'ಎಫ್‌ಪಿಒಗಳೊಂದಿಗಿನ ಒಪ್ಪಂದಗಳು', // REVIEW: native speaker
+  'agreements.link.admin': 'ಖರೀದಿದಾರರೊಂದಿಗಿನ ಒಪ್ಪಂದಗಳು', // REVIEW: native speaker
+  'agreements.toBatches': 'ಬ್ಯಾಚ್‌ಗಳು', // REVIEW: native speaker
+  'agreements.back': 'ಒಪ್ಪಂದಗಳಿಗೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
+  'agreements.eyebrow': '{org} · ಒಪ್ಪಂದಗಳು', // REVIEW: native speaker
+  'agreements.detailEyebrow': 'ಒಪ್ಪಂದ · {other}', // REVIEW: native speaker
+  'agreements.details': 'ವಿವರಗಳು', // REVIEW: native speaker
+  'agreements.row.id': '{id} · {other}', // REVIEW: native speaker
+  'agreements.kg': '{kg} ಕೆಜಿ', // REVIEW: native speaker
+  'agreements.mock': 'ಅಣಕು INR · ನಿಜವಾದ ಹಣವಲ್ಲ', // REVIEW: native speaker
+  'agreements.retry': 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ', // REVIEW: native speaker
+  'agreements.and': 'ಮತ್ತು', // REVIEW: native speaker
+  'agreements.nothingChanged': 'ಏನೂ ಬದಲಾಗಿಲ್ಲ.', // REVIEW: native speaker
+  'agreements.crop.arabica': 'ಅರೇಬಿಕಾ ಹಣ್ಣು', // REVIEW: native speaker
+  'agreements.crop.robusta': 'ರೋಬಸ್ಟಾ ಹಣ್ಣು', // REVIEW: native speaker
+  'agreements.empty.title': 'ಇನ್ನೂ ಯಾವುದೇ ಒಪ್ಪಂದಗಳಿಲ್ಲ.', // REVIEW: native speaker
+  'agreements.buyer.title': 'ಒಪ್ಪಂದಗಳು', // REVIEW: native speaker
+  'agreements.buyer.sub': 'ಹಣವನ್ನು ಎಸ್ಕ್ರೋದಲ್ಲಿ ಇಡಲಾಗುತ್ತದೆ ಮತ್ತು ಮೂರೂ ಷರತ್ತುಗಳು ಪೂರೈಸಿದಾಗ ಮಾತ್ರ ಎಫ್‌ಪಿಒಗೆ ಪಾವತಿಸಲಾಗುತ್ತದೆ. ಮೊತ್ತಗಳು ಅಣಕು INR.', // REVIEW: native speaker
+  'agreements.buyer.loading': 'ನಿಮ್ಮ ಒಪ್ಪಂದಗಳನ್ನು ತೆರೆಯಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'agreements.buyer.errTitle': 'ನಿಮ್ಮ ಒಪ್ಪಂದಗಳನ್ನು ತೆರೆಯಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'agreements.buyer.emptyBody': 'ಎಫ್‌ಪಿಒ ಜೊತೆ ಒಂದನ್ನು ರಚಿಸಿ: ನಿಮಗೆ ಬೇಕಾದ ಪ್ರಮಾಣ, ನೀವು ಒಪ್ಪುವ ಕನಿಷ್ಠ ದರ್ಜೆ ಮತ್ತು ನೀವು ಪಾವತಿಸುವ ಮೊತ್ತ.', // REVIEW: native speaker
+  'agreements.buyer.listLabel': 'ನಿಮ್ಮ ಒಪ್ಪಂದಗಳು', // REVIEW: native speaker
+  'agreements.buyer.pick': 'ನಿಯಮಗಳು, ಫಲಿತಾಂಶ ಮತ್ತು ಮೂರು ಷರತ್ತುಗಳನ್ನು ನೋಡಲು ಒಂದು ಒಪ್ಪಂದ ಆರಿಸಿ.', // REVIEW: native speaker
+  'agreements.fpo.title': 'ಖರೀದಿದಾರರೊಂದಿಗಿನ ಒಪ್ಪಂದಗಳು', // REVIEW: native speaker
+  'agreements.fpo.sub': 'ನಿಮಗಾಗಿ ಎಸ್ಕ್ರೋದಲ್ಲಿ ಇಟ್ಟ ಪಾವತಿಗಳು. ಪ್ರತಿಯೊಂದೂ ಅದರ ಮೂರು ಷರತ್ತುಗಳು ಪೂರೈಸಿದಾಗ ಪಾವತಿಯಾಗುತ್ತದೆ.', // REVIEW: native speaker
+  'agreements.fpo.loading': 'ಒಪ್ಪಂದಗಳನ್ನು ತೆರೆಯಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'agreements.fpo.errTitle': 'ಒಪ್ಪಂದಗಳನ್ನು ತೆರೆಯಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'agreements.fpo.emptyBody': 'ಖರೀದಿದಾರರು ನಿಮ್ಮ ಎಫ್‌ಪಿಒ ಜೊತೆ ಒಪ್ಪಂದ ರಚಿಸಿದಾಗ ಅದು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತದೆ.', // REVIEW: native speaker
+  'agreements.fpo.pick': 'ಇತ್ಯರ್ಥದ ಷರತ್ತುಗಳನ್ನು ನೋಡಲು ಒಂದು ಒಪ್ಪಂದ ಆರಿಸಿ.', // REVIEW: native speaker
+  'agreements.notFound.title': 'ನಿಮ್ಮ ಖಾತೆಗೆ ಅಂತಹ ಒಪ್ಪಂದವಿಲ್ಲ.', // REVIEW: native speaker
+  'agreements.notFound.titleId': 'ನಿಮ್ಮ ಖಾತೆಗೆ {id} ಒಪ್ಪಂದವಿಲ್ಲ.', // REVIEW: native speaker
+  'agreements.notFound.body': 'ಸಂಖ್ಯೆಯನ್ನು ಪರಿಶೀಲಿಸಿ, ಅಥವಾ ನಿಮ್ಮ ಒಪ್ಪಂದಗಳಿಗೆ ಹಿಂತಿರುಗಿ.', // REVIEW: native speaker
+  'agreements.status.released': 'ಪಾವತಿ ಬಿಡುಗಡೆಯಾಗಿದೆ', // REVIEW: native speaker
+  'agreements.status.notReleased': 'ಬಿಡುಗಡೆಯಾಗಿಲ್ಲ', // REVIEW: native speaker
+  'agreements.status.releasedOn': 'ಪಾವತಿ ಬಿಡುಗಡೆಯಾಗಿದೆ · {date}', // REVIEW: native speaker
+  'agreements.status.refunded': 'ಹಣ ಹಿಂತಿರುಗಿಸಲಾಗಿದೆ', // REVIEW: native speaker
+  'agreements.status.notFunded': 'ಇನ್ನೂ ಹಣ ಹಾಕಿಲ್ಲ', // REVIEW: native speaker
+  'agreements.status.buyerNotFunded': 'ಖರೀದಿದಾರರು ಇನ್ನೂ ಹಣ ಹಾಕಿಲ್ಲ', // REVIEW: native speaker
+  'agreements.status.deadlineTakeBack': 'ಗಡುವು ಮುಗಿದಿದೆ · ನೀವು ಹಣವನ್ನು ಹಿಂಪಡೆಯಬಹುದು', // REVIEW: native speaker
+  'agreements.status.deadlineNotSettled': 'ಗಡುವು ಮುಗಿದಿದೆ · ಇತ್ಯರ್ಥವಾಗಿಲ್ಲ', // REVIEW: native speaker
+  'agreements.status.needsGrade': 'ತಲುಪಿದೆ · ನಿಮ್ಮ ದರ್ಜೆ ಬೇಕು', // REVIEW: native speaker
+  'agreements.status.needsGradeShort': 'ನಿಮ್ಮ ದರ್ಜೆ ಬೇಕು', // REVIEW: native speaker
+  'agreements.status.notReleasedYet': 'ಇನ್ನೂ ಬಿಡುಗಡೆಯಾಗಿಲ್ಲ', // REVIEW: native speaker
+  'agreements.status.notReleasedYetCount': 'ಇನ್ನೂ ಬಿಡುಗಡೆಯಾಗಿಲ್ಲ · {count}', // REVIEW: native speaker
+  'agreements.status.notReleasedCount': 'ಬಿಡುಗಡೆಯಾಗಿಲ್ಲ · {count}', // REVIEW: native speaker
+  'agreements.status.waitingDelivery': 'ಹಣ ಹಾಕಲಾಗಿದೆ · ವಿತರಣೆಗಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
+  'agreements.status.ready': 'ಇತ್ಯರ್ಥಕ್ಕೆ ಸಿದ್ಧ', // REVIEW: native speaker
+  'agreements.status.waitingBuyerGrade': 'ತಲುಪಿದೆ · ಖರೀದಿದಾರರ ದರ್ಜೆಗಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
+  'agreements.status.waitingBuyerGradeShort': 'ಖರೀದಿದಾರರ ದರ್ಜೆಗಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
+  'agreements.status.waitingGrade': 'ದರ್ಜೆಗಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
+  'agreements.notMetCount.one': '1 ಷರತ್ತು ಪೂರೈಸಿಲ್ಲ', // REVIEW: native speaker
+  'agreements.notMetCount.many': '{n} ಷರತ್ತುಗಳು ಪೂರೈಸಿಲ್ಲ', // REVIEW: native speaker
+  'agreements.row.facts': '{crop} · {amount} · {when}', // REVIEW: native speaker
+  'agreements.row.cropArabica': 'ಅರೇಬಿಕಾ', // REVIEW: native speaker
+  'agreements.row.cropRobusta': 'ರೋಬಸ್ಟಾ', // REVIEW: native speaker
+  'agreements.row.by': '{date} ರೊಳಗೆ', // REVIEW: native speaker
+  'agreements.row.takenBack': '{date} ರಂದು ಹಿಂಪಡೆಯಲಾಗಿದೆ', // REVIEW: native speaker
+  'agreements.changed.title': 'ಈ ಒಪ್ಪಂದ ಬದಲಾಗಿದೆ.', // REVIEW: native speaker
+  'agreements.changed.body': 'ಏನೂ ಸರಿಯಲಿಲ್ಲ. ಅದರ ಈಗಿನ ಸ್ಥಿತಿ ನೋಡಲು ಪುಟವನ್ನು ಮತ್ತೆ ತೆರೆಯಿರಿ.', // REVIEW: native speaker
+  'agreements.meta.created': '{when} ರಂದು ರಚಿಸಲಾಗಿದೆ · ನೀವು ಹಣ ಹಾಕುವವರೆಗೆ ಏನನ್ನೂ ಇಡಲಾಗುವುದಿಲ್ಲ', // REVIEW: native speaker
+  'agreements.meta.funded': '{when} ರಂದು ಹಣ ಹಾಕಲಾಗಿದೆ · {amount} (ಅಣಕು INR) ಎಸ್ಕ್ರೋದಲ್ಲಿದೆ', // REVIEW: native speaker
+  'agreements.meta.endedNothing': '{funded} ರಂದು ಹಣ ಹಾಕಲಾಗಿದೆ · {deadline} ರಂದು ಮುಗಿದಿದೆ · ಇದರಡಿ ಏನೂ ತಲುಪಿಲ್ಲ', // REVIEW: native speaker
+  'agreements.meta.endedNotSettled': '{funded} ರಂದು ಹಣ ಹಾಕಲಾಗಿದೆ · {deadline} ರಂದು ಮುಗಿದಿದೆ · ಇತ್ಯರ್ಥವಾಗಿಲ್ಲ', // REVIEW: native speaker
+  'agreements.meta.delivered': '{when} ರಂದು ರಚಿಸಲಾಗಿದೆ · ಬ್ಯಾಚ್ {batch} {delivered} ರಂದು ತಲುಪಿದೆ', // REVIEW: native speaker
+  'agreements.meta.createdOnly': '{when} ರಂದು ರಚಿಸಲಾಗಿದೆ', // REVIEW: native speaker
+  'agreements.meta.adminCreated': '{when} ರಂದು ರಚಿಸಲಾಗಿದೆ · ಗಡುವು {deadline}', // REVIEW: native speaker
+  'agreements.meta.adminFunded': '{funded} ರಂದು ಹಣ ಹಾಕಲಾಗಿದೆ · ಗಡುವು {deadline}', // REVIEW: native speaker
+  'agreements.meta.adminDelivered': '{funded} ರಂದು ಹಣ ಹಾಕಲಾಗಿದೆ · ಬ್ಯಾಚ್ {batch} {delivered} ರಂದು ತಲುಪಿದೆ · ಗಡುವು {deadline}', // REVIEW: native speaker
+  'agreements.terms.title': 'ನಿಯಮಗಳು', // REVIEW: native speaker
+  'agreements.terms.crop': 'ಬೆಳೆ', // REVIEW: native speaker
+  'agreements.terms.kg': 'ಒಪ್ಪಿದ ಪ್ರಮಾಣ', // REVIEW: native speaker
+  'agreements.terms.minGrade': 'ಕನಿಷ್ಠ ದರ್ಜೆ', // REVIEW: native speaker
+  'agreements.terms.minGradeValue': '100 ರಲ್ಲಿ {grade}', // REVIEW: native speaker
+  'agreements.terms.amount': 'ಮೊತ್ತ', // REVIEW: native speaker
+  'agreements.terms.deadline': 'ಗಡುವು', // REVIEW: native speaker
+  'agreements.terms.with': 'ಯಾರೊಂದಿಗೆ', // REVIEW: native speaker
+  'agreements.cond.title': 'ಇತ್ಯರ್ಥದ ಷರತ್ತುಗಳು', // REVIEW: native speaker
+  'agreements.cond.before': 'ಇತ್ಯರ್ಥದ ಮೊದಲು: ', // REVIEW: native speaker
+  'agreements.cond.sum': '3 ರಲ್ಲಿ {met} ಪೂರೈಸಿದೆ', // REVIEW: native speaker
+  'agreements.cond.checked': '{at} ರಂದು ಪರಿಶೀಲಿಸಲಾಗಿದೆ', // REVIEW: native speaker
+  'agreements.cond.met': 'ಪೂರೈಸಿದೆ', // REVIEW: native speaker
+  'agreements.cond.notMet': 'ಪೂರೈಸಿಲ್ಲ', // REVIEW: native speaker
+  'agreements.cond.name.qty': 'ತಲುಪಿದ ಪ್ರಮಾಣ', // REVIEW: native speaker
+  'agreements.cond.name.grade': 'ಗುಣಮಟ್ಟದ ದರ್ಜೆ', // REVIEW: native speaker
+  'agreements.cond.name.verified': 'ಪರಿಶೀಲಿತ ಕೊಯ್ಲುಗಳು', // REVIEW: native speaker
+  'agreements.cond.qty': 'ತಲುಪಿದೆ · ಕನಿಷ್ಠ {agreed} ಕೆಜಿ ಒಪ್ಪಲಾಗಿದೆ', // REVIEW: native speaker
+  'agreements.cond.short': '({short} ಕೆಜಿ ಕಡಿಮೆ)', // REVIEW: native speaker
+  'agreements.cond.graded': 'ದರ್ಜೆ', // REVIEW: native speaker
+  'agreements.cond.min': '· ಕನಿಷ್ಠ {min}', // REVIEW: native speaker
+  'agreements.cond.notGraded': 'ಇನ್ನೂ ದರ್ಜೆ ನೀಡಿಲ್ಲ · ಕನಿಷ್ಠ {min}', // REVIEW: native speaker
+  'agreements.cond.verified': 'ಕೊಯ್ಲುಗಳು ಪರಿಶೀಲಿತ · ಎಲ್ಲವೂ ಪರಿಶೀಲಿತವಾಗಿರಬೇಕು', // REVIEW: native speaker
+  'agreements.trust': 'ತಲುಪಿದ ಕೆಜಿ ಮತ್ತು “ಪ್ರತಿ ಕೊಯ್ಲು ಪರಿಶೀಲಿತ” ಎಂಬುದನ್ನು ಉದ್ಗಮ್ ಸರ್ವರ್ ಹೇಳುತ್ತದೆ; ಇತ್ಯರ್ಥ ಮಾಡಲು ಅನುಮತಿ ಇರುವ ಏಕೈಕ ಖಾತೆ ಅದು. ದರ್ಜೆಗೆ ಖರೀದಿದಾರರ ಖಾತೆಯ ಪರವಾಗಿ ಸರ್ವರ್ ಸಹಿ ಹಾಕುತ್ತದೆ. ಲೆಕ್ಕವನ್ನು ಕಾಂಟ್ರ್ಯಾಕ್ಟ್ ಮಾಡುತ್ತದೆ.', // REVIEW: native speaker
+  'agreements.released.body': '{when} ರಂದು ಎಸ್ಕ್ರೋದಿಂದ {fpo} ಗೆ ಪಾವತಿಸಲಾಗಿದೆ. ಮೂರೂ ಷರತ್ತುಗಳು ಪೂರೈಸಿದವು.', // REVIEW: native speaker
+  'agreements.ledgerLine': 'ಲೆಡ್ಜರ್: Anvil (ಸ್ಥಳೀಯ ಪರೀಕ್ಷಾ ಚೈನ್) · ಬ್ಲಾಕ್ {block} · tx', // REVIEW: native speaker
+  'agreements.notRel.one': '1 ಷರತ್ತು ಪೂರೈಸಿಲ್ಲ:', // REVIEW: native speaker
+  'agreements.notRel.many': '{n} ಷರತ್ತುಗಳು ಪೂರೈಸಿಲ್ಲ:', // REVIEW: native speaker
+  'agreements.notMet.qty': 'ತಲುಪಿದ ಪ್ರಮಾಣ ({agreed} ಕೆಜಿಯಲ್ಲಿ {kg} ಕೆಜಿ)', // REVIEW: native speaker
+  'agreements.notMet.grade': 'ಗುಣಮಟ್ಟದ ದರ್ಜೆ ({grade}, ಕನಿಷ್ಠ {min})', // REVIEW: native speaker
+  'agreements.notMet.verified': 'ಪರಿಶೀಲಿತ ಕೊಯ್ಲುಗಳು ({of} ರಲ್ಲಿ {n})', // REVIEW: native speaker
+  'agreements.notRel.whereBuyer': 'ನಿಮ್ಮ {amount} (ಅಣಕು INR) ಎಸ್ಕ್ರೋದಲ್ಲೇ ಉಳಿಯುತ್ತದೆ.', // REVIEW: native speaker
+  'agreements.notRel.whereFpo': '{amount} (ಅಣಕು INR) ಎಸ್ಕ್ರೋದಲ್ಲೇ ಉಳಿಯುತ್ತದೆ.', // REVIEW: native speaker
+  'agreements.notRel.later': 'ಈ ಒಪ್ಪಂದದಡಿ ನಂತರದ ವಿತರಣೆ {deadline} ರವರೆಗೆ ಇದನ್ನು ಇತ್ಯರ್ಥಗೊಳಿಸಬಹುದು.', // REVIEW: native speaker
+  'agreements.refunded.line': '{when} ರಂದು {amount} (ಅಣಕು INR) ಎಸ್ಕ್ರೋದಿಂದ ನಿಮ್ಮ ಬಾಕಿಗೆ ಹಿಂತಿರುಗಿತು. ಒಪ್ಪಂದ ಮುಕ್ತಾಯವಾಗಿದೆ.', // REVIEW: native speaker
+  'agreements.new.pill': 'ಹೊಸ ಒಪ್ಪಂದ', // REVIEW: native speaker
+  'agreements.new.title': 'ಹೊಸ ಒಪ್ಪಂದ', // REVIEW: native speaker
+  'agreements.new.meta': 'ಮೂರೂ ಷರತ್ತುಗಳು ಪೂರೈಸಿದಾಗ ಮಾತ್ರ ಎಫ್‌ಪಿಒಗೆ ಎಸ್ಕ್ರೋದಿಂದ ಪಾವತಿಸಲಾಗುತ್ತದೆ.', // REVIEW: native speaker
+  'agreements.new.with': 'ಯಾರೊಂದಿಗೆ', // REVIEW: native speaker
+  'agreements.new.kg': 'ಒಪ್ಪಿದ ಪ್ರಮಾಣ (ಕೆಜಿ)', // REVIEW: native speaker
+  'agreements.new.kgHint': 'ಪಾವತಿಗೆ ಕನಿಷ್ಠ ಇಷ್ಟು ತಲುಪಬೇಕು.', // REVIEW: native speaker
+  'agreements.new.chooseGrade': 'ಒಂದು ದರ್ಜೆ ಆರಿಸಿ', // REVIEW: native speaker
+  'agreements.new.gradeHint': 'ತಲುಪಿದ ಪ್ರತಿ ಬ್ಯಾಚ್‌ಗೆ ನೀವು ಈ ಐದು ದರ್ಜೆಗಳಲ್ಲಿ ಒಂದನ್ನು ಆರಿಸುತ್ತೀರಿ. ಪ್ರತಿಯೊಂದೂ 100 ರಲ್ಲಿನ ಒಂದು ಸಂಖ್ಯೆ.', // REVIEW: native speaker
+  'agreements.new.amount': 'ಮೊತ್ತ (ಅಣಕು INR)', // REVIEW: native speaker
+  'agreements.new.noFpoTitle': 'ಒಪ್ಪಂದ ಮಾಡಲು ಇನ್ನೂ ಯಾವುದೇ ಎಫ್‌ಪಿಒ ಇಲ್ಲ.', // REVIEW: native speaker
+  'agreements.new.noFpoBody': 'ಒಪ್ಪಂದಕ್ಕೆ ಉದ್ಗಮ್ ಸೇರಿದ ಎಫ್‌ಪಿಒ ಬೇಕು. ಸಂಪರ್ಕಿಸಲು ಎಫ್‌ಪಿಒಗೆ ಕೇಳಿ.', // REVIEW: native speaker
+  'agreements.create.note': 'ಸರ್ವರ್ ಈ ಒಪ್ಪಂದವನ್ನು ನಿಮ್ಮ ಖಾತೆಗಾಗಿ ಲೆಡ್ಜರ್‌ನಲ್ಲಿ ದಾಖಲಿಸುತ್ತದೆ. ಮುಂದಿನ ಹಂತದಲ್ಲಿ ನೀವು ಹಣ ಹಾಕುತ್ತೀರಿ.', // REVIEW: native speaker
+  'agreements.create.idle': 'ಒಪ್ಪಂದ ರಚಿಸಿ', // REVIEW: native speaker
+  'agreements.create.busy': 'ಒಪ್ಪಂದ ರಚಿಸಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'agreements.create.errTitle': 'ಒಪ್ಪಂದ ರಚಿಸಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'agreements.create.errBody': 'ಏನೂ ಉಳಿಸಲಾಗಿಲ್ಲ. ನೀವು ಟೈಪ್ ಮಾಡಿದ್ದು ಇಲ್ಲೇ ಇದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', // REVIEW: native speaker
+  'agreements.fund.title': 'ಈ ಒಪ್ಪಂದಕ್ಕೆ ಹಣ ಹಾಕಿ', // REVIEW: native speaker
+  'agreements.fund.body': '{amount} (ಅಣಕು INR) ನಿಮ್ಮ ಬಾಕಿಯಿಂದ ಎಸ್ಕ್ರೋಗೆ ಹೋಗುತ್ತದೆ. ಮೂರೂ ನಿಜವಾದಾಗ ಮಾತ್ರ {fpo} ಗೆ ಪಾವತಿಸಲಾಗುತ್ತದೆ:', // REVIEW: native speaker
+  'agreements.fund.c1': 'ಕನಿಷ್ಠ {kg} ಕೆಜಿ ತಲುಪುತ್ತದೆ.', // REVIEW: native speaker
+  'agreements.fund.c2': 'ಬ್ಯಾಚ್‌ಗೆ ನಿಮ್ಮ ದರ್ಜೆ ಕನಿಷ್ಠ {grade}.', // REVIEW: native speaker
+  'agreements.fund.c3': 'ಬ್ಯಾಚ್‌ನ ಪ್ರತಿ ಕೊಯ್ಲು ಪರಿಶೀಲಿತ.', // REVIEW: native speaker
+  'agreements.fund.balance': 'ನಿಮ್ಮ ಅಣಕು INR ಬಾಕಿ: ಹಣ ಹಾಕಿದ ನಂತರ {before} → {after}.', // REVIEW: native speaker
+  'agreements.fund.note': '{deadline} ರೊಳಗೆ ಏನೂ ಇತ್ಯರ್ಥವಾಗದಿದ್ದರೆ, ನೀವು ಪೂರ್ತಿ ಮೊತ್ತವನ್ನು ಹಿಂಪಡೆಯಬಹುದು.', // REVIEW: native speaker
+  'agreements.fund.idle': '{amount} ಹಣ ಹಾಕಿ', // REVIEW: native speaker
+  'agreements.fund.busy': '{amount} ಎಸ್ಕ್ರೋಗೆ ಹಾಕಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'agreements.fund.errTitle': 'ಒಪ್ಪಂದಕ್ಕೆ ಹಣ ಹಾಕಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'agreements.fund.errBody': 'ಲೆಡ್ಜರ್ ಉತ್ತರಿಸಲಿಲ್ಲ, ಆದ್ದರಿಂದ ಏನೂ ಸರಿಯಲಿಲ್ಲ. ನಿಮ್ಮ ಬಾಕಿ ಬದಲಾಗಿಲ್ಲ.', // REVIEW: native speaker
+  'agreements.refund.title': 'ಹಣವನ್ನು ಹಿಂಪಡೆಯಿರಿ', // REVIEW: native speaker
+  'agreements.refund.body': 'ಈ ಒಪ್ಪಂದ ಇತ್ಯರ್ಥವಾಗದೆ {deadline} ರಂದು ಮುಗಿಯಿತು. {amount} (ಅಣಕು INR) ಎಸ್ಕ್ರೋದಿಂದ ನಿಮ್ಮ ಬಾಕಿಗೆ ಹಿಂತಿರುಗುತ್ತದೆ ಮತ್ತು ಒಪ್ಪಂದ ಮುಕ್ತಾಯವಾಗುತ್ತದೆ.', // REVIEW: native speaker
+  'agreements.refund.balance': 'ನಿಮ್ಮ ಅಣಕು INR ಬಾಕಿ: ಹಿಂಪಡೆದ ನಂತರ {before} → {after}.', // REVIEW: native speaker
+  'agreements.refund.note': 'ನಿಮ್ಮ ಖಾತೆಗಾಗಿ ಲೆಡ್ಜರ್‌ನಲ್ಲಿ ದಾಖಲಿಸಲಾಗಿದೆ.', // REVIEW: native speaker
+  'agreements.refund.idle': '{amount} ಹಿಂಪಡೆಯಿರಿ', // REVIEW: native speaker
+  'agreements.refund.busy': '{amount} ನಿಮ್ಮ ಬಾಕಿಗೆ ಹಿಂತಿರುಗಿಸಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'agreements.refund.errTitle': 'ಹಣವನ್ನು ಹಿಂಪಡೆಯಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'agreements.refund.errBody': 'ಲೆಡ್ಜರ್ ಉತ್ತರಿಸಲಿಲ್ಲ, ಆದ್ದರಿಂದ ಏನೂ ಸರಿಯಲಿಲ್ಲ. {amount} (ಅಣಕು INR) ಇನ್ನೂ ಎಸ್ಕ್ರೋದಲ್ಲಿದೆ.', // REVIEW: native speaker
+  'agreements.delivered.title': 'ತಲುಪಿದ ಬ್ಯಾಚ್', // REVIEW: native speaker
+  'agreements.delivered.batch': 'ಬ್ಯಾಚ್', // REVIEW: native speaker
+  'agreements.delivered.certificate': 'ಪ್ರಮಾಣಪತ್ರ', // REVIEW: native speaker
+  'agreements.delivered.delivered': 'ತಲುಪಿದ್ದು', // REVIEW: native speaker
+  'agreements.delivered.kgWhen': '{kg} ಕೆಜಿ · {when}', // REVIEW: native speaker
+  'agreements.delivered.pickings': 'ಕೊಯ್ಲುಗಳು', // REVIEW: native speaker
+  'agreements.delivered.pickingsValue': '{of} ರಲ್ಲಿ {n} ಪರಿಶೀಲಿತ', // REVIEW: native speaker
+  'agreements.grade.title': 'ಬ್ಯಾಚ್ {batch} ಗೆ ದರ್ಜೆ ನೀಡಿ', // REVIEW: native speaker
+  'agreements.grade.legend': 'ಗುಣಮಟ್ಟದ ದರ್ಜೆ', // REVIEW: native speaker
+  'agreements.grade.atMin': 'ಒಪ್ಪಿದ ಕನಿಷ್ಠ', // REVIEW: native speaker
+  'agreements.grade.belowMin': 'ಒಪ್ಪಿದ ಕನಿಷ್ಠಕ್ಕಿಂತ ಕಡಿಮೆ', // REVIEW: native speaker
+  'agreements.grade.hint': '{min} ಕ್ಕಿಂತ ಕಡಿಮೆ ದರ್ಜೆ ಎಂದರೆ ಈ ಬ್ಯಾಚ್‌ಗೆ ಪಾವತಿ ಬಿಡುಗಡೆಯಾಗುವುದಿಲ್ಲ.', // REVIEW: native speaker
+  'agreements.grade.note': 'ನಿಮ್ಮ ಖರೀದಿದಾರ ಖಾತೆಯ ಪರವಾಗಿ ಸರ್ವರ್ ಸಹಿ ಹಾಕಿ ಶಾಶ್ವತವಾಗಿ ದಾಖಲಿಸುತ್ತದೆ. ಸಹಿ ಹಾಕಿದ ನಂತರ ಬದಲಾಯಿಸಲು ಆಗುವುದಿಲ್ಲ.', // REVIEW: native speaker
+  'agreements.grade.idle': 'ದರ್ಜೆಗೆ ಸಹಿ ಹಾಕಿ', // REVIEW: native speaker
+  'agreements.grade.sign': 'ಸಹಿ: {grade}', // REVIEW: native speaker
+  'agreements.grade.busy': 'ದರ್ಜೆಗೆ ಸಹಿ ಹಾಕಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'agreements.grade.errTitle': 'ದರ್ಜೆಯನ್ನು ಉಳಿಸಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'agreements.grade.errBody': 'ಯಾವುದಕ್ಕೂ ಸಹಿ ಹಾಕಿಲ್ಲ. ನಿಮ್ಮ ಆಯ್ಕೆ ಇನ್ನೂ ಆರಿಸಿದಂತೆಯೇ ಇದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', // REVIEW: native speaker
+  'agreements.grade.emptyTitle': 'ಇನ್ನೂ ಯಾವುದೇ ಬ್ಯಾಚ್ ತಲುಪಿಲ್ಲ.', // REVIEW: native speaker
+  'agreements.grade.emptyBody': '{fpo} ಈ ಒಪ್ಪಂದದಡಿ ಬ್ಯಾಚ್ ತಲುಪಿಸಿದಾಗ, ನೀವು ಇಲ್ಲಿ ದರ್ಜೆ ನೀಡುತ್ತೀರಿ.', // REVIEW: native speaker
+  'agreements.settle.idle': 'ಇತ್ಯರ್ಥ: {fpo} ಗೆ {amount} ಪಾವತಿಸಿ', // REVIEW: native speaker
+  'agreements.settle.busy': 'ಇತ್ಯರ್ಥವಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'agreements.settle.working': 'ಇತ್ಯರ್ಥ: ಮೂರು ಷರತ್ತುಗಳನ್ನು ಲೆಡ್ಜರ್‌ಗೆ ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'agreements.settle.hint': 'ಪಾವತಿಸುವ ಮೊದಲು ಲೆಡ್ಜರ್ ಮೂರೂ ಷರತ್ತುಗಳನ್ನು ಮತ್ತೆ ಪರಿಶೀಲಿಸುತ್ತದೆ.', // REVIEW: native speaker
+  'agreements.settle.errTitle': 'ಇತ್ಯರ್ಥ ಮಾಡಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'agreements.settle.noAnswer': 'ಲೆಡ್ಜರ್ ಉತ್ತರಿಸಲಿಲ್ಲ, ಆದ್ದರಿಂದ ಏನೂ ಸರಿಯಲಿಲ್ಲ ಮತ್ತು ಷರತ್ತುಗಳನ್ನು ನಿರ್ಣಯಿಸಲಿಲ್ಲ. {amount} (ಅಣಕು INR) ಇನ್ನೂ ಎಸ್ಕ್ರೋದಲ್ಲಿದೆ.', // REVIEW: native speaker
+  'agreements.settle.turnedAway': 'ಷರತ್ತುಗಳನ್ನು ನಿರ್ಣಯಿಸುವ ಮೊದಲೇ ಲೆಡ್ಜರ್ ವಿನಂತಿಯನ್ನು ತಿರಸ್ಕರಿಸಿತು, ಆದ್ದರಿಂದ ಏನೂ ಸರಿಯಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ; ಮತ್ತೆ ಹೀಗಾದರೆ ಉದ್ಗಮ್ ತಂಡಕ್ಕೆ ತಿಳಿಸಿ.', // REVIEW: native speaker
+  'agreements.card.title': 'ಒಪ್ಪಂದ', // REVIEW: native speaker
+  'agreements.card.under': 'ಇದರಡಿ ತಲುಪಿದೆ', // REVIEW: native speaker
+  'agreements.card.link': '{buyer} ಜೊತೆ {id}', // REVIEW: native speaker
+  'agreements.card.status': 'ಸ್ಥಿತಿ', // REVIEW: native speaker
 };

@@ -114,11 +114,12 @@ contract ContractFarming {
         return keccak256(abi.encode(agreedGrams, minGrade, amount, deadline));
     }
 
-    /// @notice Move the agreed amount from the buyer into escrow (the buyer approves it first).
+    /// @notice Move the agreed amount from the buyer into escrow (the buyer approves it first), up to the deadline.
     function fund(bytes32 id) external {
         Agreement storage a = agreements[id];
         if (a.status != Status.Created) revert WrongStatus(a.status);
         if (msg.sender != a.buyer) revert NotBuyer();
+        if (block.timestamp > a.deadline) revert DeadlinePassed();
         a.status = Status.Funded;
         if (!token.transferFrom(msg.sender, address(this), a.amount)) revert TransferFailed();
         emit Funded(id, a.amount);

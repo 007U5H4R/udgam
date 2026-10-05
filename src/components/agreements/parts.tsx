@@ -80,7 +80,7 @@ export function ListLoading({ label }: { label: string }) {
   );
 }
 
-export function EmptyCard({ title, body, action }: { title: string; body: string; action?: ReactNode }) {
+export function EmptyCard({ title, body, action }: { title: ReactNode; body: string; action?: ReactNode }) {
   return (
     <div className="glass card state-card" data-state="empty">
       <div className="cherry" aria-hidden="true">

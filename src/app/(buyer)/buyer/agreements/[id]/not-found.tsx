@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Icon } from '../../../../../components/admin/QueueList';
+import { NotFoundTitle } from '../../../../../components/agreements/client-parts';
 import { EmptyCard } from '../../../../../components/agreements/parts';
 import { t } from '../../../../../lib/i18n';
 import '../../../../../styles/admin.css';
@@ -18,7 +19,7 @@ export default function AgreementNotFound() {
           </Link>
           <h1 id="q-h">{t('agreements.buyer.title')}</h1>
         </header>
-        <EmptyCard title={t('agreements.notFound.title')} body={t('agreements.notFound.body')} />
+        <EmptyCard title={<NotFoundTitle />} body={t('agreements.notFound.body')} />
       </section>
     </main>
   );

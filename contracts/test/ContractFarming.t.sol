@@ -116,7 +116,7 @@ contract ContractFarmingTest is Test {
         farming.createAgreement(ID, buyer, attestor, fpo, AGREED_GRAMS, MIN_GRADE, AMOUNT, uint64(block.timestamp));
         vm.expectRevert(ContractFarming.ZeroAddress.selector);
         farming.createAgreement(ID, address(0), attestor, fpo, AGREED_GRAMS, MIN_GRADE, AMOUNT, deadline);
-        vm.stopPrank();
+        vm.stopPrank();    _reconcile();
     }
 
     function test_FundMovesAmountIntoEscrow() public {
@@ -154,10 +154,31 @@ contract ContractFarmingTest is Test {
         _reconcile();
     }
 
+    function test_FundAfterDeadlineReverts() public {
+        _create();
+        vm.warp(uint256(deadline) + 1);
+        vm.startPrank(buyer);
+        token.approve(address(farming), AMOUNT);
+        vm.expectRevert(ContractFarming.DeadlinePassed.selector);
+        farming.fund(ID);
+        vm.stopPrank();
+        assertEq(uint8(_status()), uint8(ContractFarming.Status.Created));
+        assertEq(token.balanceOf(address(farming)), 0);
+        _reconcile();
+    }
+
+    function test_FundAtTheDeadlineStillWorks() public {
+        _create();
+        vm.warp(uint256(deadline));
+        _fund();
+        assertEq(uint8(_status()), uint8(ContractFarming.Status.Funded));
+        _reconcile();
+    }
+
     function test_FundUnknownAgreementReverts() public {
         vm.prank(buyer);
         vm.expectRevert(abi.encodeWithSelector(ContractFarming.WrongStatus.selector, ContractFarming.Status.None));
-        farming.fund(ID);
+        farming.fund(ID);    _reconcile();
     }
 
     function test_RefundBeforeDeadlineReverts() public {

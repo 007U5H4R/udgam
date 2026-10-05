@@ -19,7 +19,7 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 export default async function BuyerAgreementsPage({ searchParams }: Props) {
   const me = await requireSession('buyer');
   const forced = forcedAgreementState((await searchParams).state);
-  const state = forced === 'working' ? null : forced;
+  const state = forced === 'working' || forced === 'turned-away' ? null : forced;
   const db = await getDbReady();
   const [items, names] = await Promise.all([state ? [] : listBuyerAgreements(db, me.orgId), orgNames(db, [me.orgId])]);
   const listState = state ?? (items.length ? 'data' : 'empty');
