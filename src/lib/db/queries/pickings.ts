@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, or } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { farmerLines, refusalCopy, type FarmerLine } from '../../i18n/farmer-evidence';
 import { t, type Lang } from '../../i18n';
 import { CONFIG } from '../../verification/config';
@@ -50,17 +50,20 @@ export async function plotOrdinals(db: Db, farmerIds: string[]): Promise<Map<str
   return out;
 }
 
-/** The latest verification run of each event, as the farmer copy layer reads it. */
+/** The latest verification run of each event, as the farmer copy layer reads it (only that run is read). */
 export async function latestRuns(db: Db, eventIds: string[]): Promise<Map<string, VerifyResult>> {
   const out = new Map<string, VerifyResult>();
   if (eventIds.length === 0) return out;
   const rows = await db
     .select({ eventId: verificationRuns.eventId, verdict: verificationRuns.verdict, score: verificationRuns.score, checks: verificationRuns.checks })
     .from(verificationRuns)
-    .where(inArray(verificationRuns.eventId, eventIds))
-    .orderBy(desc(verificationRuns.runNo));
+    .where(
+      and(
+        inArray(verificationRuns.eventId, eventIds),
+        eq(verificationRuns.runNo, sql<number>`(SELECT MAX(v2.run_no) FROM verification_runs v2 WHERE v2.event_id = ${verificationRuns.eventId})`),
+      ),
+    );
   for (const r of rows) {
-    if (out.has(r.eventId)) continue;
     const checks = JSON.parse(r.checks) as CheckResult[];
     // Runs store no cap reasons; they are scored again from the stored checks (score() is pure, cfg-1 fixed).
     out.set(r.eventId, { verdict: r.verdict, score: r.score, checks, unavailableProviders: [], capReasons: score(checks, CONFIG).capReasons, config: { version: '', hash: '' } });
@@ -85,7 +88,13 @@ export function pickingReason(
   return { ...(reason ? { reason } : {}), ...(todo ? { whatToDo: todo.text } : {}) };
 }
 
-export async function listPickings(db: Db, agentId: string, orgId: string, lang: Lang = 'en'): Promise<PickingMonth[]> {
+/**
+ * How many pickings the tab lists, newest first: a season's worth for one agent, and it keeps the
+ * follow-up inArray queries far below SQLite's bound-parameter limit (TASK-12 fix round 1).
+ */
+export const PICKINGS_LIMIT = 200;
+
+export async function listPickings(db: Db, agentId: string, orgId: string, lang: Lang = 'en', o: { limit?: number } = {}): Promise<PickingMonth[]> {
   const rows = await db
     .select({
       eventId: harvestEvents.id,
@@ -109,7 +118,8 @@ export async function listPickings(db: Db, agentId: string, orgId: string, lang:
         or(and(eq(harvestEvents.boundaryStatus, 'accepted'), eq(farmers.orgId, orgId)), eq(harvestEvents.boundaryStatus, 'rejected')),
       ),
     )
-    .orderBy(desc(harvestEvents.serverReceivedAt), desc(harvestEvents.anchorSeq));
+    .orderBy(desc(harvestEvents.serverReceivedAt), desc(harvestEvents.anchorSeq))
+    .limit(o.limit ?? PICKINGS_LIMIT);
 
   const ownFarmers = [...new Set(rows.filter((r) => r.farmerOrg === orgId && r.farmerId !== null).map((r) => r.farmerId!))];
   const [ordinal, runs] = await Promise.all([

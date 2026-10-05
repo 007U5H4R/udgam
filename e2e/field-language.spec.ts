@@ -48,7 +48,8 @@ test('TSK-11.7: ಕನ್ನಡ from the header chip changes the heading and tab
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(/ತೋಟ 1/);
 
   const cookie = (await context.cookies()).find((c) => c.name === 'udgam_lang');
-  expect(cookie).toMatchObject({ value: 'kn', sameSite: 'Lax', path: '/' });
+  // Secure in production (`next start`; Chromium accepts Secure cookies on http://localhost), quality minor 9
+  expect(cookie).toMatchObject({ value: 'kn', sameSite: 'Lax', path: '/', secure: true });
   const year = cookie!.expires * 1000 - Date.now();
   expect(year).toBeGreaterThan(364 * 86_400_000);
   expect(year).toBeLessThan(366 * 86_400_000);

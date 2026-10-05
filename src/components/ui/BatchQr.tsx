@@ -15,7 +15,7 @@ export async function BatchQr({ batchId, shortHash }: { batchId: string; shortHa
       <h2 className={s.h} id="qr-h">
         {certCopy.qrTitle}
       </h2>
-      <div className={s.code} role="img" aria-label={`QR code for ${url}`} dangerouslySetInnerHTML={{ __html: svg }} />
+      <div className={s.code} role="img" aria-label={certCopy.qrLabel(url)} dangerouslySetInnerHTML={{ __html: svg }} />
       <p className={s.url}>{url}</p>
       <PrintQrButton svg={svg} url={url} label={certCopy.qrPrint} />
     </section>

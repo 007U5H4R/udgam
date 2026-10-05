@@ -110,3 +110,20 @@ test('TC-053: /field/help opens Home with the Help sheet; closing it returns to 
   await expect(page).toHaveURL(/\/field$/);
   await expect(tabs(page).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
 });
+
+test('quality minor 1: on /field/help the Help sheet\'s language row opens the language sheet; choosing ಕನ್ನಡ leaves the deep link for /field in Kannada', async ({ page, context }) => {
+  const seed = seedCaptureWorld();
+  await openField(page, context, seed);
+  await page.goto('/field/help');
+  const sheet = page.getByRole('dialog', { name: 'Help' });
+  await expect(sheet).toBeVisible();
+  await sheet.getByRole('button', { name: 'ಕನ್ನಡ' }).click();
+  const langSheet = page.getByRole('dialog', { name: 'ಭಾಷೆ · Language' });
+  await expect(langSheet).toBeVisible();
+  await expect(sheet).toBeHidden();
+  await langSheet.getByRole('button', { name: /ಕನ್ನಡ/ }).click();
+  await expect(langSheet).toBeHidden();
+  await expect(page).toHaveURL(/\/field$/);
+  await expect(page.locator('html')).toHaveAttribute('lang', 'kn');
+  await expect(page.locator('nav.tabbar .tab')).toHaveText(['ಮುಖಪುಟ', 'ಕೊಯ್ಲುಗಳು', 'ಸಹಾಯ']);
+});

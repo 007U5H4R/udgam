@@ -239,6 +239,7 @@ export const en = {
   'pend.send': 'Send now',
   'pend.sending': 'Sending…',
   'pend.kept': 'Nothing is lost: your pickings are still saved on this phone.',
+  'pend.unreadable': "This saved picking can't be sent. Show this phone to the office.",
   // The Pickings tab (TKT-11, #s8)
   'pk.title': 'Your pickings',
   'pk.loading': 'Loading your pickings…',

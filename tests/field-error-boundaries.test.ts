@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -42,6 +42,17 @@ describe('/field error boundaries (EVAL-088, TC-051)', () => {
 
   it('the pages it covers include record, help and the picking detail', () => {
     expect(pages(FIELD).map(route).sort()).toEqual(['(home)', 'help', 'pickings/(list)', 'pickings/[eventId]', 'record']);
+  });
+
+  it('every /field loading.tsx and error.tsx speaks the agent\'s language (no hard-coded lang="en"; TC-052, spec minor 6)', () => {
+    const states = (dir: string): string[] =>
+      readdirSync(dir).flatMap((name) => {
+        const p = join(dir, name);
+        return statSync(p).isDirectory() ? states(p) : name === 'loading.tsx' || name === 'error.tsx' ? [p] : [];
+      });
+    const files = states(FIELD);
+    expect(files.length).toBeGreaterThanOrEqual(5);
+    expect(files.filter((f) => /lang=["']en["']/.test(readFileSync(f, 'utf8'))).map((f) => relative(FIELD, f))).toEqual([]);
   });
 
   it('no loading.tsx on the /field/pickings/[eventId] path (its 404 must not stream a 200 first)', () => {

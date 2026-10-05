@@ -85,6 +85,14 @@ export function HomeClient({
     if (helpOpen) router.replace('/field'); // leave the /field/help deep link
   }
 
+  // The language sheet, opened from the chip or from the Help sheet. On the /field/help deep link the
+  // Help sheet hands over to it in place (leaving the link first would remount Home without it), and the
+  // link is left for /field once the language sheet closes.
+  function setLanguageSheet(open: boolean) {
+    setLangOpen(open);
+    if (!open && helpOpen) router.replace('/field');
+  }
+
   return (
     <main className="screen has-tabs" aria-labelledby="s1-h">
       <header className="top">
@@ -92,7 +100,7 @@ export function HomeClient({
           <Image src="/brand/cherry.svg" alt="" width={40} height={40} unoptimized />
           {tr('app.name')}
         </span>
-        <LanguageChip lang={lang} open={langOpen} onOpenChange={setLangOpen} />
+        <LanguageChip lang={lang} open={langOpen} onOpenChange={setLanguageSheet} />
       </header>
       <p className="greet">
         {tr('home.greeting', { greet: greeting.text })}
@@ -186,7 +194,7 @@ export function HomeClient({
         lang={lang}
         info={help}
         onLanguage={() => {
-          closeHelp();
+          setHelpShown(false);
           setLangOpen(true);
         }}
       />

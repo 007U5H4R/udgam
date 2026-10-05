@@ -2,10 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { advanceDevice, answeredItems, deleteOutbox, listOutbox, markAnswered, type OutboxItem } from './capture-store';
 import { finishAnswered, pendingItems, sendOutboxItem, sendPending, type OutboxSend } from './capture-client';
 
-// TASK-12 fix round 1 (spec MAJOR 2; quality minor 2): the queue's rules with the store mocked so its
-// failures can be forced.
+// TASK-12 fix round 1 (spec MAJOR 2; quality minors 2, 3, 4 and nit 13): the queue's rules with the
+// store mocked so its failures can be forced.
 //   - A copy whose server answer is owed only in memory (the delete AND the `answered` flag both failed)
 //     is filtered from the pending list too, so it is never sent again.
+//   - Leaving out `keepOnRefusal` is safe: it defaults to the one policy (refusalKeepsOutbox), so a
+//     refusal that signing in again can fix never deletes the copy.
+//   - The queue stops at the first copy kept after a refusal, and the copies after it stay, in order.
+//   - A second sendPending while one runs joins it; across tabs the queue runs under a Web Lock.
 
 vi.mock('./capture-store', () => ({
   bumpAttempt: vi.fn(async () => undefined),
@@ -43,6 +47,7 @@ beforeEach(() => {
   vi.mocked(listOutbox).mockReset().mockResolvedValue([]);
 });
 afterEach(() => {
+  vi.unstubAllGlobals();
   vi.spyOn(console, 'error').mockRestore();
 });
 
@@ -73,5 +78,102 @@ describe('an answer owed only in memory (quality minor 2)', () => {
     vi.mocked(deleteOutbox).mockReset().mockResolvedValue(undefined);
     await finishAnswered();
     expect(vi.mocked(deleteOutbox).mock.calls).toEqual([['OB-MEM-A']]);
+  });
+});
+
+describe('keepOnRefusal defaults to the one policy (quality minor 4)', () => {
+  const forbidden = async () => Response.json({ error: 'forbidden' }, { status: 403 });
+  it('sendOutboxItem without keepOnRefusal keeps the copy on forbidden', async () => {
+    const r = await sendOutboxItem(asSend(stored('OB-DEF-1', 1)), { fetchImpl: forbidden });
+    expect(r).toEqual({ kind: 'rejected', reason: 'forbidden' });
+    expect(deleteOutbox).not.toHaveBeenCalled();
+  });
+
+  it('sendOutboxItem without keepOnRefusal still deletes on plot_not_assigned (retrying cannot help)', async () => {
+    const r = await sendOutboxItem(asSend(stored('OB-DEF-2', 2)), { fetchImpl: async () => new Response(nd({ t: 'rejected', reason: 'plot_not_assigned', status: 403 }), { status: 403 }) });
+    expect(r).toEqual({ kind: 'rejected', reason: 'plot_not_assigned' });
+    expect(vi.mocked(deleteOutbox).mock.calls).toEqual([['OB-DEF-2']]);
+  });
+});
+
+describe('the queue stops at a kept refusal (quality nit 13)', () => {
+  it('forbidden on the oldest copy: 1 POST, nothing deleted, the copies after it kept in order', async () => {
+    const items = [stored('OB-K-1', 1), stored('OB-K-2', 2), stored('OB-K-3', 3)];
+    vi.mocked(listOutbox).mockResolvedValue(items);
+    const sent: string[] = [];
+    const results = await sendPending({
+      fetchImpl: async (_u, init) => {
+        sent.push(sentPayload(init));
+        return Response.json({ error: 'forbidden' }, { status: 403 });
+      },
+    });
+    expect(sent).toEqual([items[0]!.payload]);
+    expect(results).toEqual([{ id: 'OB-K-1', result: { kind: 'rejected', reason: 'forbidden' } }]);
+    expect(deleteOutbox).not.toHaveBeenCalled();
+    expect((await pendingItems()).map((i) => i.id)).toEqual(['OB-K-1', 'OB-K-2', 'OB-K-3']);
+  });
+
+  it('a refusal that deletes (plot_not_assigned) does not stop it: the next copy is sent', async () => {
+    const items = [stored('OB-D-1', 1), stored('OB-D-2', 2)];
+    vi.mocked(listOutbox).mockResolvedValue(items);
+    const bodies = [new Response(nd({ t: 'rejected', reason: 'plot_not_assigned', status: 403 }), { status: 403 }), new Response(verdictBody, { status: 200 })];
+    const results = await sendPending({ fetchImpl: async () => bodies.shift()! });
+    expect(results.map((r) => [r.id, r.result.kind])).toEqual([
+      ['OB-D-1', 'rejected'],
+      ['OB-D-2', 'verdict'],
+    ]);
+  });
+});
+
+describe('single flight (quality minor 3, nit 13)', () => {
+  it('a second sendPending while one runs joins it: each copy is POSTed once and both callers get the same results', async () => {
+    const items = [stored('OB-J-1', 1), stored('OB-J-2', 2)];
+    vi.mocked(listOutbox).mockResolvedValue(items);
+    let calls = 0;
+    const fetchImpl = async () => {
+      calls += 1;
+      await new Promise((r) => setTimeout(r, 5));
+      return new Response(verdictBody, { status: 200 });
+    };
+    const one = sendPending({ fetchImpl });
+    const two = sendPending({ fetchImpl });
+    const [a, b] = await Promise.all([one, two]);
+    expect(calls).toBe(2);
+    expect(a.map((r) => r.id)).toEqual(['OB-J-1', 'OB-J-2']);
+    expect(b).toEqual(a);
+  });
+
+  it('across tabs the queue runs under the Web Lock "udgam-outbox": nothing is POSTed while another tab holds it', async () => {
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    let tail: Promise<unknown> = held; // another tab holds the lock until `release`
+    const request = vi.fn((name: string, cb: () => Promise<unknown>) => {
+      const run = tail.then(cb);
+      tail = run.catch(() => undefined);
+      return run;
+    });
+    vi.stubGlobal('navigator', { locks: { request } });
+    vi.mocked(listOutbox).mockResolvedValue([stored('OB-L-1', 1)]);
+    let calls = 0;
+    const done = sendPending({
+      fetchImpl: async () => {
+        calls += 1;
+        return new Response(verdictBody, { status: 200 });
+      },
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls[0]![0]).toBe('udgam-outbox');
+    expect(calls).toBe(0);
+    release();
+    expect((await done).map((r) => r.id)).toEqual(['OB-L-1']);
+    expect(calls).toBe(1);
+  });
+
+  it('without Web Locks (older browsers) the queue still runs', async () => {
+    vi.stubGlobal('navigator', {});
+    vi.mocked(listOutbox).mockResolvedValue([stored('OB-N-1', 1)]);
+    const results = await sendPending({ fetchImpl: async () => new Response(verdictBody, { status: 200 }) });
+    expect(results.map((r) => r.id)).toEqual(['OB-N-1']);
   });
 });

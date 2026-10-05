@@ -79,7 +79,8 @@ export function EnrolClient({ initialLang }: { initialLang: Lang | null }) {
   }, [phase]);
 
   function choose(next: Lang) {
-    document.cookie = `${LANG_COOKIE}=${next}; path=/; max-age=${YEAR_S}; samesite=lax`;
+    // Secure over HTTPS, as the language action sets it in production (actions/language.ts).
+    document.cookie = `${LANG_COOKIE}=${next}; path=/; max-age=${YEAR_S}; samesite=lax${location.protocol === 'https:' ? '; secure' : ''}`;
     setLang(next);
     setPref('lang', next).catch(() => undefined); // the cookie alone is enough
   }

@@ -2,10 +2,10 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
-import { finishAnswered, pendingItems, sendPending, type PendingResult } from '../../client/capture-client';
+import { finishAnswered, outboxSend, pendingItems, sendPending, type PendingResult } from '../../client/capture-client';
 import type { OutboxItem } from '../../client/capture-store';
 import { t, type Lang, type MessageKey } from '../../lib/i18n';
-import { refusalCopy, refusalKeepsOutbox } from '../../lib/i18n/farmer-evidence';
+import { refusalCopy, refusalKeepsOutbox, retryWait } from '../../lib/i18n/farmer-evidence';
 import { GlassCard } from '../ui/GlassCard';
 import { kg1 } from './format';
 
@@ -13,28 +13,45 @@ import { kg1 } from './format';
 // the kg) with a "Send now" text button, listed above the sent entries on Home and Pickings. The row is
 // not a verdict, so it carries no verdict chip or mark (TP17). Send now sends every saved picking,
 // oldest first and one at a time, as the identical signed copies (sendPending); the server's answers
-// then show in the sent list (the page refreshes).
+// then show in the sent list (the page refreshes). A saved copy the app cannot read (not a payload it
+// signed; the queue leaves it as it is) says so plainly instead of offering a Send now that does nothing.
 
 export function PendingRow({ item, lang, busy, onSend }: { item: OutboxItem; lang: Lang; busy: boolean; onSend: () => void }) {
   const tr = (k: MessageKey, v: Record<string, string | number> = {}) => t(k, v, lang);
+  const sendable = outboxSend(item) !== null;
   return (
-    <GlassCard as="li" card={false} className="row" data-outbox={item.id}>
+    <GlassCard as="li" card={false} className={sendable ? 'row' : 'row tall'} data-outbox={item.id} data-unreadable={sendable ? undefined : 'true'}>
       <span>
         <span className="r-date">{tr('pend.saved')}</span>
         <span className="r-kg">{tr('home.kg', { kg: kg1(item.cherryKg) })}</span>
       </span>
-      <button className="textbtn" type="button" disabled={busy} aria-busy={busy} onClick={onSend}>
-        {tr(busy ? 'pend.sending' : 'pend.send')}
-      </button>
+      {sendable ? (
+        <button className="textbtn" type="button" disabled={busy} aria-busy={busy} onClick={onSend}>
+          {tr(busy ? 'pend.sending' : 'pend.send')}
+        </button>
+      ) : (
+        <span className="r-why">{tr('pend.unreadable')}</span>
+      )}
     </GlassCard>
   );
 }
 
-/** Why the queue stopped, in the farmer's words (what happened · that nothing is lost), or null. */
-function stopNote(results: PendingResult[], lang: Lang): string | null {
+/**
+ * Why the queue stopped, in the farmer's words (what happened · that nothing is lost · how long the
+ * phone waits when the server said so with Retry-After), or null.
+ */
+export function stopNote(results: PendingResult[], lang: Lang): string | null {
   const last = results.at(-1)?.result;
   if (!last) return null;
-  if (last.kind === 'retryable') return `${t(last.cause === 'offline' ? 'rec.saved.offline' : 'rec.saved.server', {}, lang)}. ${t('pend.kept', {}, lang)}`;
+  const kept = t('pend.kept', {}, lang);
+  if (last.kind === 'retryable' && last.reason === 'rate_limited') {
+    const c = refusalCopy('rate_limited', lang, { retryAfterSec: last.retryAfterSec });
+    return `${c.happened} ${c.todo} ${kept}`;
+  }
+  if (last.kind === 'retryable') {
+    const wait = last.retryAfterSec !== undefined ? ` ${retryWait(last.retryAfterSec, lang)}` : '';
+    return `${t(last.cause === 'offline' ? 'rec.saved.offline' : 'rec.saved.server', {}, lang)}. ${kept}${wait}`;
+  }
   if (last.kind === 'rejected' && refusalKeepsOutbox(last.reason)) {
     const c = refusalCopy(last.reason, lang);
     return `${c.happened} ${c.todo}`;
