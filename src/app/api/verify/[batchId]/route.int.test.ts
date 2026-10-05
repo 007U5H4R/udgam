@@ -35,11 +35,14 @@ async function get(batchId: string, query: string) {
 describe('GET /api/verify/[batchId] (TC-063 route half, EVAL-064)', () => {
   it('unknown batch, missing h and wrong h: the same 404 status, headers and body, byte for byte', async () => {
     const wrong = w.shortHash.replace(/^./, (c) => (c === '0' ? '1' : '0'));
+    // h is case-sensitive, but an all-digit short hash (about 1 seed in 280) has no case variant: only
+    // ask for the upper-cased one when it differs, or the "wrong" h is the right one and answers 200.
+    const upper = w.shortHash.toUpperCase();
     const answers = [
       await get('B-UNKNOWN0', `?h=${w.shortHash}`),
       await get(w.batchId, ''),
       await get(w.batchId, `?h=${wrong}`),
-      await get(w.batchId, `?h=${w.shortHash.toUpperCase()}`),
+      ...(upper !== w.shortHash ? [await get(w.batchId, `?h=${upper}`)] : []),
       await get(w.batchId, '?h='),
     ];
     for (const a of answers) {

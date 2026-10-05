@@ -76,7 +76,8 @@ describe('GET /api/verify/[batchId]/geojson (TC-070 route half, EVAL-078)', () =
       ['B-UNKNOWN0', `?h=${w.shortHash}`],
       [w.batchId, ''],
       [w.batchId, `?h=${wrong}`],
-      [w.batchId, `?h=${w.shortHash.toUpperCase()}`],
+      // an all-digit short hash has no upper-case variant (it would be the right h)
+      ...(w.shortHash.toUpperCase() !== w.shortHash ? [[w.batchId, `?h=${w.shortHash.toUpperCase()}`] as [string, string]] : []),
       [w.batchId, '?h='],
     ];
     const feed404 = await get('feed', 'B-UNKNOWN0', `?h=${w.shortHash}`);
