@@ -185,6 +185,7 @@ test.describe('certificate responsive and accessibility gates (TSK-16.11, @eval 
       const r = await page.evaluate(() => {
         const a = document.activeElement;
         if (!a || a === document.body) return 'none';
+        if (a.closest('header')) return 'header'; // Stage 8 DES-220: the wordmark links home
         if (a.closest('.proof')) return 'proof';
         if (a.closest('#origin-map')) return 'map';
         if (a.closest('section[aria-labelledby="entries-h"]')) return 'entries';
@@ -194,7 +195,7 @@ test.describe('certificate responsive and accessibility gates (TSK-16.11, @eval 
       if (regions.at(-1) !== r) regions.push(r);
       if (r === 'downloads' && (await page.evaluate(() => document.activeElement?.id)) === 'print') break;
     }
-    expect(regions.filter((r) => r !== 'none')).toEqual(['proof', 'entries', 'downloads']);
+    expect(regions.filter((r) => r !== 'none')).toEqual(['header', 'proof', 'entries', 'downloads']);
   });
 
   test('the page runs under its CSP with no violation (TC-076 on the certificate)', async ({ page }) => {

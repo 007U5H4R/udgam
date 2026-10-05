@@ -97,6 +97,14 @@
   font-weight: 800;
   letter-spacing: -0.03em;
 }
+/* DES-220: the wordmark is a link home, drawn as the wordmark (not as a text link), at least 48 px tall */
+.page a.wordmark {
+  min-height: 48px;
+  color: inherit;
+  font-weight: 800;
+  text-decoration: none;
+  border-radius: 12px;
+}
 .wordmark img {
   width: 38px;
   height: 38px;
