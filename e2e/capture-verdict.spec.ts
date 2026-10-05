@@ -1,7 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createClient } from '@libsql/client';
 import { expect, test, type Page } from '@playwright/test';
+import { eq } from 'drizzle-orm';
+import { createDb, writeTx } from '../src/lib/db/client';
+import { agentPlots } from '../src/lib/db/schema';
 import { demoPhoto, expectNoHorizontalScroll, openField, seedCaptureWorld, type SeededCapture, choosePhoto } from './helpers/capture';
 import { E2E_DATA_DIR } from './helpers/tracer';
 
@@ -141,12 +143,16 @@ test('Not accepted at the boundary (plot no longer assigned): what happened and 
   await page.getByRole('button', { name: 'Use this photo' }).click();
   await page.getByRole('button', { name: 'Continue with 1 photo' }).click();
   await page.locator('#keypad [data-k="9"]').click();
-  // The office takes the plot away while the farmer is typing.
-  const db = createClient({ url: `file:${join(E2E_DATA_DIR, 'udgam.db')}` });
+  // The office takes the plot away while the farmer is typing. The write goes through the app's writer
+  // (BEGIN IMMEDIATE, 5 s busy timeout), so a write the server or another worker's seed has in flight is
+  // waited for instead of failing with SQLITE_BUSY.
+  const h = createDb(`file:${join(E2E_DATA_DIR, 'udgam.db')}`);
   try {
-    await db.execute({ sql: 'UPDATE agent_plots SET revoked_at = ? WHERE plot_id = ?', args: [new Date().toISOString(), seed.plots[0]!.id] });
+    await h.ready;
+    const revoked = await writeTx(h.db, (tx) => tx.update(agentPlots).set({ revokedAt: new Date().toISOString() }).where(eq(agentPlots.plotId, seed.plots[0]!.id)));
+    expect(revoked.rowsAffected).toBe(1);
   } finally {
-    db.close();
+    h.client.close();
   }
   await page.locator('#send-btn').click();
   await expect(page.locator('#verdict-h')).toHaveText('Not accepted', { timeout: 45_000 });

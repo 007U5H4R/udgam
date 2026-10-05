@@ -3,7 +3,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createClient } from '@libsql/client';
 import { expect, test, type BrowserContext, type Page, type Request } from '@playwright/test';
+import { inArray } from 'drizzle-orm';
 import { applyReferenceProfile } from '../evals/perf/network';
+import { createDb, writeTx } from '../src/lib/db/client';
+import { stagedMedia } from '../src/lib/db/schema';
 import { openField, seedCaptureWorld, type SeededCapture, choosePhoto } from './helpers/capture';
 import { E2E_DATA_DIR } from './helpers/tracer';
 
@@ -136,17 +139,16 @@ test('TC-094 (e) staged photos expired before Send: exactly one 409, then the sa
   await openField(page, context, seed);
   const photos = await acceptThree(page, seed);
 
-  // Expire the three staged rows on the server, as an hour passing would.
-  const db = createClient({ url: `file:${join(E2E_DATA_DIR, 'udgam.db')}` });
+  // Expire the three staged rows on the server, as an hour passing would. The write goes through the
+  // app's writer (BEGIN IMMEDIATE, 5 s busy timeout), so a write the server or another worker's seed has
+  // in flight is waited for instead of failing with SQLITE_BUSY.
+  const h = createDb(`file:${join(E2E_DATA_DIR, 'udgam.db')}`);
   try {
-    const hashes = photos.map(sha256);
-    const r = await db.execute({
-      sql: `UPDATE staged_media SET expires_at = '2000-01-01T00:00:00.000Z' WHERE sha256 IN (?, ?, ?)`,
-      args: hashes,
-    });
+    await h.ready;
+    const r = await writeTx(h.db, (tx) => tx.update(stagedMedia).set({ expiresAt: '2000-01-01T00:00:00.000Z' }).where(inArray(stagedMedia.sha256, photos.map(sha256))));
     expect(r.rowsAffected).toBe(3);
   } finally {
-    db.close();
+    h.client.close();
   }
 
   await freshFix(context, seed);

@@ -50,7 +50,7 @@ export default async function DemoPage({ searchParams }: { searchParams: Promise
         </header>
         {!manifest ? (
           <p className={s.sub} data-testid="demo-not-staged">
-            Nothing is staged. Run <code>NODE_ENV=development pnpm seed --reset</code> first.
+            Nothing is staged. Run <code>NODE_ENV=development pnpm seed --reset</code> first (only the seed needs NODE_ENV; <code>pnpm demo</code> seeds its own server and needs none).
           </p>
         ) : (
           <section aria-labelledby="demo-attacks">

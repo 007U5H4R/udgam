@@ -34,6 +34,16 @@ async function checkSurface(page: Page) {
   expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(' ')}`)).toEqual([]);
 }
 
+/**
+ * The page has replaced its streaming fallback. When the server is slow, /processor first streams the
+ * loading.tsx fallback and then the page into a hidden segment that React swaps in a moment later, even
+ * after `load`. Until then the DOM holds two screens (one hidden), so wait for exactly one `main`; a CSS
+ * locator counts hidden elements, unlike a role locator.
+ */
+async function streamSettled(page: Page) {
+  await expect(page.locator('main')).toHaveCount(1);
+}
+
 test.describe('processor hop (TSK-26.5, TC-086)', () => {
   test('@eval EVAL-101 record a step, see the flag, hand on; the certificate shows the step and still verifies', async ({ page }) => {
     test.setTimeout(120_000);
@@ -129,12 +139,15 @@ test.describe('processor hop (TSK-26.5, TC-086)', () => {
   test('loading, empty and error states (§28.6, EVAL-105)', async ({ page }) => {
     await signIn(page, PROCESSOR.email, SEED_PASSWORD);
     await page.goto('/processor?state=loading');
-    await expect(page.getByText('Loading your batches…')).toBeVisible();
+    await streamSettled(page);
+    await expect(page.getByRole('main').getByRole('status')).toHaveText('Loading your batches…');
     await checkSurface(page);
     await page.goto('/processor?state=empty');
+    await streamSettled(page);
     await expect(page.getByText('No batches with you right now.')).toBeVisible();
     await checkSurface(page);
     await page.goto('/processor?state=error');
+    await streamSettled(page);
     await expect(page.getByText('Couldn’t load your batches.')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Try again' })).toBeVisible();
     await checkSurface(page);

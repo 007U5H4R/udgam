@@ -14,6 +14,12 @@
   border: 1px solid var(--hairline);
   background: var(--surface-solid);
 }
+/* Leaflet's attribution links (its own, and any a tile provider adds) differ from the attribution text by
+   colour only (#0078a8 on #333, 2.6:1; WCAG 1.4.1 asks 3:1 or a non-colour cue) and are underlined only
+   on hover and focus. Underline them always. */
+.map :global(.leaflet-control-attribution a) {
+  text-decoration: underline;
+}
 .mapLoading {
   display: grid;
   place-items: center;
