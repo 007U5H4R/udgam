@@ -22,6 +22,7 @@ import { OriginMap } from './OriginMap';
 import { PrintButton } from './PrintButton';
 import { SiteHeader } from './SiteHeader';
 import './certificate-state.css';
+import './print.css';
 
 // /verify/[batchId]?h= — the public certificate (technical-plan §8.4, TP16, TKT-16). Server-rendered from
 // the proof feed alone: resolveFeed (the same function GET /api/verify uses, so an unknown batch, a
