@@ -8,5 +8,5 @@ export const metadata: Metadata = { title: 'Not found · Udgam' };
 
 export default async function PickingNotFound() {
   const lang = await langFromCookies();
-  return <FieldNotFound lang={lang} tab="pickings" title="notFound.picking.title" body="notFound.picking.body" backHref="/field/pickings" backLabel="dt.back" />;
+  return <FieldNotFound lang={lang} tab="pickings" messages={{ title: 'notFound.picking.title', body: 'notFound.picking.body', back: 'dt.back' }} backHref="/field/pickings" />;
 }

@@ -7,5 +7,5 @@ export const metadata: Metadata = { title: 'Not found · Udgam' };
 
 export default async function FieldNotFoundPage() {
   const lang = await langFromCookies();
-  return <FieldNotFound lang={lang} tab="home" title="notFound.title" body="notFound.body" backHref="/field" backLabel="notFound.toHome" />;
+  return <FieldNotFound lang={lang} tab="home" messages={{ title: 'notFound.title', body: 'notFound.body', back: 'notFound.toHome' }} backHref="/field" />;
 }

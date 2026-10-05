@@ -9,17 +9,14 @@ import { TabBar, type Tab } from '../ui/TabBar';
 export function FieldNotFound({
   lang,
   tab,
-  title,
-  body,
+  messages,
   backHref,
-  backLabel,
 }: {
   lang: Lang;
   tab: Tab;
-  title: MessageKey;
-  body: MessageKey;
+  /** The dictionary keys of the heading, the sentence and the way back. */
+  messages: { title: MessageKey; body: MessageKey; back: MessageKey };
   backHref: string;
-  backLabel: MessageKey;
 }) {
   return (
     <main className="screen has-tabs">
@@ -29,7 +26,7 @@ export function FieldNotFound({
           {t('app.name', {}, lang)}
         </span>
       </header>
-      <NotFoundCard title={t(title, {}, lang)} body={t(body, {}, lang)} backHref={backHref} backLabel={t(backLabel, {}, lang)} />
+      <NotFoundCard title={t(messages.title, {}, lang)} body={t(messages.body, {}, lang)} backHref={backHref} backLabel={t(messages.back, {}, lang)} />
       <TabBar current={tab} lang={lang} />
     </main>
   );
