@@ -557,6 +557,9 @@ export const evmAnchors = sqliteTable(
     attempts: integer('attempts').notNull().default(0),
     lastError: text('last_error'),
     updatedAt: text('updated_at').notNull(),
+    // The operator's one resolution of a failed anchor (pnpm ledger:evm:resolve; migration 0023 guards).
+    resolution: text('resolution'),
+    resolvedAt: text('resolved_at'),
   },
   (t) => [
     check('evm_anchors_status_check', sql`${t.status} IN ('pending','anchored','failed')`),
