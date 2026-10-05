@@ -52,11 +52,11 @@ Branch `build/stage7` (from `main` @ `b397c08`). Protocol: technical-plan.md §2
 | TASK-14 (TKT-13) | 13.1–13.x + follow-up | done | 7480552…5121983; aed1789 (merge 009b96b) | TC-057, TC-058 (plot page; batch detail QA-P5-2), EVAL-079 PASS | both reviews PASS; QA P5 | EXE19 |
 | TASK-10 (TKT-09) | 09.1–09.7 + fix round 1 | done | d4ee5e9…4d31e8b (merge 90e8bef, migrations → 0014/0015); f607ba6, 1df1c05, 7291cec (merge 3a65b11) | TC-038–042, TC-011, TC-040, EVAL-012, 030–032, 035, 045–050, 068, 114–121 PASS; EXE11 guarantees (i)–(iii) PASS | spec + quality FAIL → both PASS (r2); QA P5 | EXE11, EXE20; EVAL-049 unreachable (owner) |
 | TASK-11 (TKT-10) | 10.1–10.14 + fix round 1 + t1 fix | done | dfd0150…f417f54 (merge 1f53b52); 9412b60 (e2e integration); 4a99748, c7011d9 (merge a93d66c); 2bc4d48 (EV9 t1) | TC-043–049, TC-080/081, EVAL-086, 089 PASS; EVAL-070 marks per EV9 | spec + quality FAIL → quality PASS (r2), spec PASS (r3); QA P5 | EXE12 farmer lines; D5 'when' line → owner |
-| TASK-13 (TKT-12) | 12.1–12.x + fix round 1 | done | merge 9afb24f; fix merge 7fbeaf7 (migration 0021); r2 nits in a9660b1 (migration 0033) | TC-052–056, EVAL-075, 076 PASS | spec + quality FAIL → PASS (r2); QA P6–8 | override reason rules; refuse runs after a hard fail (P5 follow-up item 11) |
-| TASK-12 (TKT-11) | 11.1–11.x + fix round 1 | done | merge 1153ae2 (i18n literals fix 9d46705); fix merge d375a8f | TC-050, TC-051, EVAL-068, 088 PASS | spec FAIL → PASS (r2), quality PASS; QA P6–8 | outbox lock/send timeouts in a9660b1 |
-| TASK-17 (TKT-16) | 16.1–16.x + fix round 1 | done | merge 46c628f; fix merge d40f8e0 | TC-065–072 (certificate), EVAL-057, 069, 071 (S4 indicative), 078, 084, 087 (print, QR → Stage 8) PASS | spec PASS, quality FAIL → PASS (r2); QA P6–8 | EXE24 (OD-8 budget), EXE28 (district outlines, org IDs); Kerala outline fix in a9660b1; verify ≤ 300 ms open for TKT-21 |
-| TASK-18 (TKT-17) | 17.1–17.x + fix round 1 | done | merge bcb6650; fix merge 178f78d | TC-070, EVAL-078, 084 (GeoJSON) PASS | spec PASS, quality FAIL → PASS (r2); QA P6–8 | EXE26 (MultiPoint for small multi-part plots, in a9660b1) |
-| TASK-31 (TKT-30) | 30.1–30.x | done | merge a2ef5d7 (migrations 0022/0023) | TC-094 (amended EXE25) PASS | both reviews PASS; QA P6–8 | EXE25 implemented in a9660b1 |
+| TASK-13 (TKT-12) | 12.1–12.x + fix round 1 | done | merge 9afb24f; fix merge 7fbeaf7 (migration 0021); r2 nits in a9660b1 (migration 0033) | TC-054–057, TC-080/081, EVAL-069, 075, 076 PASS | spec + quality FAIL → PASS (r2); QA P6–8 | override reason rules; refuse runs after a hard fail (P5 follow-up item 11) |
+| TASK-12 (TKT-11) | 11.1–11.x + fix round 1 | done | merge 1153ae2 (i18n literals fix 9d46705); fix merge d375a8f | TC-050–053, TC-080/081, EVAL-068, 088 PASS | spec FAIL → PASS (r2), quality PASS; QA P6–8 | outbox lock/send timeouts in a9660b1 |
+| TASK-17 (TKT-16) | 16.1–16.x + fix round 1 | done | merge 46c628f; fix merge d40f8e0 | TC-065–069, TC-080/081, EVAL-064 PASS; EVAL-071 (S4) measured formally in TKT-21 | spec PASS, quality FAIL → PASS (r2); QA P6–8 | EXE24 (OD-8 budget), EXE28 (district outlines, org IDs); Kerala outline fix in a9660b1; verify ≤ 300 ms open for TKT-21 |
+| TASK-18 (TKT-17) | 17.1–17.x + fix round 1 | done | merge bcb6650; fix merge 178f78d | TC-067 (GeoJSON part), TC-070, TC-071 (PARTIAL: QR on print → Stage 8), TC-072, TC-080/081, EVAL-078, EVAL-087 (PARTIAL, same) PASS | spec PASS, quality FAIL → PASS (r2); QA P6–8 | EXE26 (MultiPoint for small multi-part plots, in a9660b1) |
+| TASK-31 (TKT-30) | 30.1–30.x | done | merge a2ef5d7 (migrations 0022/0023) | TC-093, TC-094 (amended EXE25), EVAL-070 (staged split) PASS | both reviews PASS; QA P6–8 | EXE25 implemented in a9660b1 |
 | TASK-21 (TKT-20) | 20.1–20.6 + fix rounds 1–2 | done | merge 48eff91 (migration → 0035); fix merges 94cab86, 3b625cd | TC-077, TC-078, EVAL-073, 074 PASS; EVAL-124–149 appended (dataset 0.8.0), S2 0/40 | spec PASS, quality FAIL → PASS (r2); QA P6–8 | EXE33 (demo never in production; rehearsal on staging), EXE35 (seed needs NODE_ENV=development); enrol.ts and seed helpers edited outside owned files (S4, recorded); TP29 replaces "BLOCKED: HR3 pending" |
 | TASK-11 (TKT-10) | EVAL-086 e2e + fix round 1 | done | merges 2fe0463, 5643025 | EVAL-086 PASS (375/768 px; reviewer probes fail it) | spec PASS, quality FAIL → r2 running | test only |
 | TASK-22 (TKT-21) | phase A: 21.1, 21.2, 21.4/21.5 tooling | doing | merge 97d2f5b | readiness READY (HR3 warning per TP29) | spec + quality FAIL (false PASS) → fix round 1 running | EXE34 (one strict config-change rule; release fails closed); phase B = formal baseline-v1 run |
@@ -255,3 +255,26 @@ Independent QA at 3b625cd (report: scratchpad `reports/M-002-qa.md`).
 - **QA-M002-1 (low, P3):** after grading, the buyer's status reads "Funded · waiting for delivery" while the admin's reads "Ready to settle". Design §28.7 has no word for this state. Parked for Stage 8 copy; suggested: "Graded · waiting for the FPO to settle".
 - **QA-M002-2 (info):** a grade given under a second agreement stays in the public feed after payout under the first. Consistent with EXE29/EXE30.
 - **QA-M002-3 (info):** `src/lib/ledger/evm/deployment.ts:34` makes `next build` trace the whole project into the server output. Parked for TKT-27 (image size).
+
+## Gate P6–P8: TKT-11 (TASK-12), TKT-12 (TASK-13), TKT-16 (TASK-17) · TKT-17 (TASK-18), TKT-30 (TASK-31) · TKT-20 (TASK-21) · PASS · 2026-10-05
+Independent QA at 3b625cd (report: scratchpad `reports/P6-8-qa.md`). P1–P5 regression: none.
+
+**Gates:**
+- typecheck and lint: clean;
+- `test` 2352/2352; `test:int` 746/746;
+- harness: PASS, with S1 97.7 % (42/43), S1-floor 91.7 %, S2 0/40, S6-lib 7/7, S7 Yes and CF 0. The cases still failing are EVAL-055/056 (stretch) and EVAL-122 (EXE27), plus EVAL-103 (M2 only);
+- full `test:e2e`: 674 passed, 15 skipped by design and 3 failed under load; all 3 passed 36/36 on a serial ×3 re-run on all 4 projects;
+- `pnpm demo`: 6/6, with the story taking about 11 s at 375 and at 1280 px;
+- EVAL-070 staged split: Submit → verdict 3.9 s with staging, 25.1 s without.
+
+**Coverage:**
+- TC: 21 PASS, 1 PARTIAL (TC-071);
+- EVAL: 19 PASS, 1 PARTIAL (EVAL-087), 1 NA (EVAL-071, formal in TKT-21).
+
+**Defects:**
+- **QA-P6-8-4 (P2):** EVAL-087/TC-071 expect the QR code on the printed certificate, but the certificate page has none (it is only on the batch pages). Goes to Stage 8 for the owner: add the QR to the certificate print, or amend the case text. Not edited here (CF-13).
+- **QA-P6-8-1 (P3):** three e2e tests are load-sensitive: the axe check on the Leaflet attribution, a duplicate "Loading your batches…" status, and `SQLITE_BUSY` in a test's own direct write. All pass serially; test-side fixes are listed in the QA report → follow-up.
+- **QA-P6-8-2 (P3):** `NODE_ENV=development pnpm demo` fails in `next build`. The bare `pnpm demo` is correct, because the demo server sets E2E=1. EXE35's NODE_ENV applies to `pnpm seed` only → doc follow-up.
+- **QA-P6-8-3 (P3):** `PUBLIC_BASE_URL` falls back to `http://localhost:3000` in production, which would put localhost into QR codes, link previews and GeoJSON. Goes to TKT-28 (deploy): require an https value in production.
+- **QA-P6-8-5 (info, Stage 8):** the tab bar floats mid-screen on short Pickings pages; "What can I do?" is underlined; queue IDs wrap; review detail doesn't mark the photo used before; certificate map plots have no labels.
+- **QA-P6-8-6 (info):** ledger TC/EVAL attributions corrected in this commit. EVAL-074's attacks are submitted from `/admin/demo`, by plan design.
