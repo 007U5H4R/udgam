@@ -1,0 +1,14 @@
+# Foundry project for the M-002 contracts (technical-plan §22 TKT-24..26; docs/spikes/foundry.md §7).
+# The compiler is pinned and never downloaded: the claude.ai/code proxy blocks binaries.soliditylang.org,
+# so solc 0.8.37 comes from scripts/cloud-setup.sh (~/.svm/0.8.37) and forge runs offline.
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.37"
+auto_detect_solc = false
+offline = true
+optimizer = true
+optimizer_runs = 200
