@@ -12,8 +12,9 @@
 import { existsSync } from 'node:fs';
 import { arch, platform } from 'node:os';
 import { join, resolve } from 'node:path';
-import { appVersion, gitFacts } from '../harness/provenance';
+import { appVersion } from '../harness/provenance';
 import { RESULTS_DIR } from '../harness/results';
+import { treeState } from '../harness/tree-state';
 import { seedS4Batch } from './fixtures';
 import { hostHardware, writePerfResult } from './output';
 import { runS4 } from './s4-certificate';
@@ -43,7 +44,10 @@ if (outArg && existsSync(resolve(outArg))) usage(`refusing to overwrite ${outArg
 const started = Date.now();
 const path = arg('path') ?? (await seedS4Batch(arg('data-dir') ?? process.env.DATA_DIR ?? './data')).path;
 const result = await runS4({ target, path, runs });
-const git = gitFacts();
+// The tree as the release judges it: clean means no change but untracked formal outputs (tree-state.ts),
+// so the baseline files written just before this run do not mark it dirty; the release requires
+// git.commit = its HEAD and git.dirty = false.
+const git = treeState();
 const out = {
   ...result,
   provenance: {
