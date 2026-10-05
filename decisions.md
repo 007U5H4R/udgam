@@ -838,3 +838,15 @@ No threshold, eval case or cfg-1 value changes (CF-13).
 - Hiding the grade: it removes the certificate's quality evidence.
 - Changing the contract now to hash the stored terms: it re-opens a reviewed ticket for a chain that isn't public in the MVP.
 - Inventing pulping and drying figures.
+
+## EXE30 · TKT-25 contract-farming deviations — accepted (orchestrator under the owner's waiver and delegation, 2026-10-05; reviews PASS after fix round 1)
+- The schema is in its own commit (TSK-25.4 split) under the parallel-merge rule.
+- A new `agreement_refunded` ledger kind: a refund needs its own signed anchor.
+- Agreement entries (`agreement_created`/`_funded`/`_refunded`) stay out of the public batch closure. Only `quality_attestation` and `settlement` are in it, and those carry condition codes and observed values only, never the agreed kg, the minimum grade, the price or the deadline (Design §28.4, D9; this supersedes technical-plan §8.3 on this point). The contract's creation event emits a terms hash.
+- Settle reverts after the deadline; after the deadline only a refund works. `fund` also reverts after the deadline.
+- The ERC-20 and EIP-712 checks are hand-written (forge runs offline; no OpenZeppelin). They check low-s, v, length and the zero address, and are tested.
+- One server-held key per buyer org serves as both its wallet and its grade attestor (TSK-25.5).
+- Each batch releases at most one escrow: the contract's `batchReleased` mapping, a partial unique index (migration 0031) and a stricter grade trigger (0032).
+- A settlement left half-done after a chain payout is recovered from the `Settled` event and recorded once.
+- `agreements.*` has Kannada drafts awaiting native review. There is no batch picker (Design §28.10 item 4); settle takes the first graded, unsettled batch.
+- The migrations were renumbered at merge to 0026/0027 and 0031/0032, regenerated with the custom SQL unchanged.
