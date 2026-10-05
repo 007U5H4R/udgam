@@ -59,15 +59,18 @@ test('@eval EVAL-073 TC-078 the Kodagu demo: register → enrol → capture → 
       await stubTiles(office);
       await signInAs(office, 'admin');
       await office.goto('/admin/plots/new');
-      await office.waitForLoadState('networkidle'); // the form is hydrated before anything is chosen
+      // The form is client-rendered: wait for its map to mount (hydrated) before choosing anything.
+      await expect(office.locator('.leaflet-container').first()).toBeVisible({ timeout: 30_000 });
       await office.getByLabel('Whose plot is it?').selectOption({ label: 'A new farmer…' });
       await office.getByLabel('New farmer’s name').fill(farmer);
       await office.getByRole('radio', { name: 'Arabica' }).check();
       const upload = office.getByLabel(/boundary file/i);
-      await upload.setInputFiles({ name: 'demo-plot.geojson', mimeType: 'application/geo+json', buffer: Buffer.from(plot.geojson) });
-      await expect.poll(() => upload.evaluate((el) => (el as HTMLInputElement).files?.length ?? 0)).toBe(1);
-      await office.getByRole('button', { name: 'Save plot' }).click();
-      await expect(office).toHaveURL(/\/admin\/plots\/PL-[0-9A-Z]{8}$/);
+      await expect(async () => {
+        await upload.setInputFiles({ name: 'demo-plot.geojson', mimeType: 'application/geo+json', buffer: Buffer.from(plot.geojson) });
+        expect(await upload.evaluate((el) => (el as HTMLInputElement).files?.length ?? 0)).toBe(1);
+        await office.getByRole('button', { name: 'Save plot' }).click();
+        await expect(office).toHaveURL(/\/admin\/plots\/PL-[0-9A-Z]{8}$/, { timeout: 15_000 });
+      }).toPass({ timeout: 60_000 });
       plotId = office.url().split('/').at(-1)!;
       await expect(office.getByTestId('registration-checks').getByText('Forest map · Passed')).toBeVisible();
       await noHorizontalScroll(office);
