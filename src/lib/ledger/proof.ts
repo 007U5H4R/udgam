@@ -11,7 +11,17 @@ export const PROOF_FEED_FORMAT = 'udgam-proof-feed/1';
 export const LEDGER_KEY_URL = '/.well-known/udgam-ledger-key';
 
 /** Kinds whose payload carries its own signature: { …statement, kid, publicJwk, signature }. */
-export const SIGNED_KINDS = ['batch_created', 'custody_transfer', 'admin_override'] as const;
+export const SIGNED_KINDS = [
+  'batch_created',
+  'custody_transfer',
+  'admin_override',
+  // M-002 contract farming (TKT-25): signed on behalf of the acting buyer or FPO admin (TP15).
+  'agreement_created',
+  'agreement_funded',
+  'agreement_refunded',
+  'quality_attestation',
+  'settlement',
+] as const;
 
 const hex64 = z.string().check(z.regex(/^[0-9a-f]{64}$/));
 const b64u = z.string().check(z.regex(/^[A-Za-z0-9_-]+$/));

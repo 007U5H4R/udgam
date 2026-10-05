@@ -63,7 +63,7 @@ export type CertificateView = {
   unknownKinds: number;
 };
 
-const KNOWN = new Set(['plot_registered', 'plot_edited', 'device_enrolled', 'device_revoked', 'harvest_event', 'verification_run', 'admin_override', 'attestation', 'batch_created', 'custody_transfer']);
+const KNOWN = new Set(['plot_registered', 'plot_edited', 'device_enrolled', 'device_revoked', 'harvest_event', 'verification_run', 'admin_override', 'attestation', 'batch_created', 'custody_transfer', 'quality_attestation', 'settlement']);
 const VERDICTS: readonly string[] = ['Verified', 'Needs Review', 'Rejected'];
 const CROPS: Record<string, string> = { arabica: 'Arabica', robusta: 'Robusta' };
 

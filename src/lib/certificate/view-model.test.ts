@@ -122,9 +122,14 @@ describe('buildCertificateView (TSK-16.1)', () => {
   it('unknown kinds are ignored and counted, never thrown', () => {
     const f = copy();
     const last = f.entries.at(-1)!;
-    f.entries.push({ ...last, seq: last.seq + 1, kind: 'settlement', payload: { batchId: f.batchId } });
+    f.entries.push({ ...last, seq: last.seq + 1, kind: 'kind_from_a_later_milestone', payload: { batchId: f.batchId } });
     const v = buildCertificateView(f);
     expect(v.unknownKinds).toBe(1);
+    // M-002 (TKT-25): a batch's grade and settlement entries are known kinds; the page states neither (Design.md §28.4)
+    const m2 = copy();
+    m2.entries.push({ ...last, seq: last.seq + 1, kind: 'quality_attestation', payload: { batchId: m2.batchId } });
+    m2.entries.push({ ...last, seq: last.seq + 2, kind: 'settlement', payload: { batchId: m2.batchId } });
+    expect(buildCertificateView(m2).unknownKinds).toBe(0);
     expect(buildCertificateView(FEED).unknownKinds).toBe(0);
   });
 
