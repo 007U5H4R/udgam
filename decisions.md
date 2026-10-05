@@ -892,3 +892,8 @@ No threshold, eval case or cfg-1 value changes (CF-13).
 **Decision.** One shared function decides. A new config hash is authorised only by a row in `evals/config-changes.md` that names the hash, an existing TP/EV decision ID, and ≥ 2 new attack-case IDs per affected scenario already in the dataset (EV13). A mention in decisions.md alone authorises nothing. This only tightens the rule; it touches TKT-03's harness minimally, and behaves the same until baseline-v1 exists.
 **Also decided.** `eval:release` fails closed: every input must come from HEAD on a clean tree (except the formal output files), each gate is recomputed rather than trusted, and suite failures fail the release. Phase B follows the runbook in docs/exec/m-001-formal-run.md.
 **Rejected.** Keeping two rules.
+
+## EXE35 · The demo seed needs an explicit development or test environment — accepted (orchestrator, under the owner's delegation, 2026-10-05; narrows EXE12 and amends the TSK-20.2 verify step)
+**Context.** TKT-20's quality review found that `pnpm seed --reset` on a production host with NODE_ENV unset would wipe the database and ledger.
+**Decision.** The seed runs only when the raw `NODE_ENV` is exactly `development` or `test`, or `E2E=1`. A bare `pnpm seed` is refused, so the documented command is `NODE_ENV=development pnpm seed [--reset]`. `--reset` refuses unless DATABASE_URL is `DATA_DIR/udgam.db`, and refuses before any write or delete.
+**Rejected.** Defaulting an unset NODE_ENV to development for the seed.
