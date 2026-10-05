@@ -284,3 +284,20 @@ test.describe('DES-111 the batch detail cards keep one 16 px rhythm', () => {
     expect(gaps).toEqual([16, 16]);
   });
 });
+
+test.describe('DES-113 the review decision buttons keep their words on one line', () => {
+  test('Accept as verified, Not accepted and Check again are one line each', async ({ page }) => {
+    const r = runSeed<SeededReview>('e2e/helpers/seed-review.ts');
+    await signIn(page, r.adminEmail, r.testOnlyAdminPassword);
+    await page.goto(`/admin/review/${r.cloudy}`);
+    for (const id of ['#btn-accept', '#btn-reject', '#btn-again']) {
+      const el = page.locator(id);
+      await expect(el).toBeVisible();
+      // one line of 16–18 px text in a 52–60 px pill; a wrapped label makes the pill taller
+      const h = (await el.boundingBox())!.height;
+      if ((page.viewportSize()?.width ?? 0) > 380) expect(h, id).toBeLessThanOrEqual(62);
+      const fits = await el.evaluate((b) => b.scrollWidth <= b.clientWidth + 1);
+      expect(fits, id).toBe(true);
+    }
+  });
+});

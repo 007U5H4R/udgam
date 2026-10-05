@@ -1228,6 +1228,21 @@
     padding: 24px 18px 22px;
   }
 }
+/* DES-113: between the phone bar and the wide two-column layout the detail is narrow, so the three
+   decision buttons keep their words on one line at the phone bar's size (16 px) and the two pills share
+   the width evenly. */
+@media (min-width: 700px) and (max-width: 1279.98px) {
+  .review .act-row {
+    grid-template-columns: 1fr 1fr auto;
+  }
+  .review .act-row .act-pill,
+  .review .act-row .textbtn {
+    white-space: nowrap;
+    font-size: 16px;
+    padding: 0 12px;
+    gap: 6px;
+  }
+}
 @media (max-width: 380px) {
   /* 320 px: the two half-width buttons wrap their words rather than widen the page (TC-080) */
   .review .act-row .act-pill,
