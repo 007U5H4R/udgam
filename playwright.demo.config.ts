@@ -42,7 +42,10 @@ export default defineConfig({
   ],
   webServer: {
     // Plain `next start`, not `pnpm start` (see playwright.config.ts): the server must die with the run.
-    command: `./node_modules/.bin/tsx scripts/seed.ts --reset && pnpm build && ./node_modules/.bin/next start -p ${PORT}`,
+    // `pnpm demo` needs no NODE_ENV: E2E=1 lets the seed run (EXE35's NODE_ENV=development is for
+    // `pnpm seed`). The build and the server pin NODE_ENV=production, so a caller's NODE_ENV=development
+    // cannot reach `next build`, which refuses a non-standard NODE_ENV (QA-P6-8-2).
+    command: `./node_modules/.bin/tsx scripts/seed.ts --reset && NODE_ENV=production pnpm build && NODE_ENV=production ./node_modules/.bin/next start -p ${PORT}`,
     port: PORT,
     // Always a fresh seed: never reuse a server started from other data.
     reuseExistingServer: false,

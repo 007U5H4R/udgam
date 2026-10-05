@@ -12,9 +12,11 @@
 |---|---|
 | `NODE_ENV=development pnpm seed` | Builds the demo state in `DATA_DIR` (default `./data`). It refuses a database that already holds data: "DATA_DIR is not empty — use --reset". |
 | `NODE_ENV=development pnpm seed --reset` | Removes `DATA_DIR/{udgam.db*, media, attestations, staging, demo, seed-keys, seed-credentials.txt}` and builds again. The provenance tables refuse DELETE, so the database file is recreated, never emptied. The ledger key and the admins' signing keys in `DATA_DIR/keys` are kept. |
-| `pnpm demo` | Runs the Playwright demo (`playwright.demo.config.ts`) at 375 px and 1280 px. It does a fresh `seed --reset` into `.e2e-data/demo`, then `next build` and `next start` with `DEMO_MODE=1 E2E=1` on port `E2E_PORT` (default 3330). |
+| `pnpm demo` | Runs the Playwright demo (`playwright.demo.config.ts`) at 375 px and 1280 px. It does a fresh `seed --reset` into `.e2e-data/demo`, then `next build` and `next start` with `DEMO_MODE=1 E2E=1` on port `E2E_PORT` (default 3330). It needs no `NODE_ENV`. |
 
 `pnpm seed` prints one line: the counts and the path of the credentials file. It never prints a password.
+
+**NODE_ENV.** `NODE_ENV=development` is for `pnpm seed` only (EXE35): a bare `pnpm seed` is refused. Run `pnpm demo` without it. Its server sets `E2E=1`, which lets the seed run, and it builds and starts with `NODE_ENV=production` whatever the shell sets, because `next build` refuses `NODE_ENV=development`.
 
 ## What the seed builds
 
