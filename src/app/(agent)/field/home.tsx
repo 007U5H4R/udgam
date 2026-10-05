@@ -1,4 +1,3 @@
-import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { HomeClient, type HomePlotView, type HomeRow } from '../../../components/field/HomeClient';
 import { ha1, istDayMonth, istIsoDate, istLongDate, istPartOfDay, istShortDay, kg1 } from '../../../components/field/format';
@@ -6,15 +5,15 @@ import { HomeError, HomeSkeleton } from '../../../components/field/HomeStates';
 import { env } from '../../../lib/config/env';
 import { getDbReady } from '../../../lib/db/client';
 import { getFieldHome, type FieldHome } from '../../../lib/db/queries/field-home';
+import { getHelpInfo, type HelpInfo } from '../../../lib/db/queries/field-help';
 import { isLang, LANG_COOKIE, t, type Lang } from '../../../lib/i18n';
 import { log } from '../../../lib/log';
-import { requireSession } from '../../_auth/require';
+import type { Guarded } from '../../_auth/require';
 
-// /field — the capture Home (technical-plan §3.2, final/index.html #s1, TSK-10.5). The plot the agent
-// picked most recently is preselected (Design.md §8); `?plot=` switches to another assigned plot.
-// `?state=loading|empty|error` renders that state in dev and e2e builds only (§11).
-export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Home · Udgam' };
+// The capture Home, shared by /field ((home)/page.tsx) and /field/help (technical-plan §3.2, final/index.html #s1,
+// TSK-10.5; the Help sheet deep link TSK-11.6). The plot the agent picked most recently is preselected
+// (Design.md §8); `?plot=` switches to another assigned plot. `?state=loading|empty|error` renders that
+// state in dev and e2e builds only (§11).
 
 type Forced = 'loading' | 'empty' | 'error' | null;
 
@@ -42,8 +41,8 @@ function view(home: FieldHome, lang: Lang): { plots: HomePlotView[]; rows: HomeR
   };
 }
 
-export default async function FieldHome({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const agent = await requireSession('agent');
+/** Home for the signed-in `agent` (each page guards itself first: tests/guard-coverage.test.ts). */
+export async function renderFieldHome(agent: Guarded, searchParams: Promise<Record<string, string | string[] | undefined>>, o: { helpOpen?: boolean } = {}) {
   const params = await searchParams;
   const forced = forcedState(params.state);
   const cookie = (await cookies()).get(LANG_COOKIE)?.value;
@@ -51,14 +50,16 @@ export default async function FieldHome({ searchParams }: { searchParams: Promis
 
   if (forced === 'loading') return <HomeSkeleton lang={lang} />;
   let home: FieldHome | null = null;
+  let help: HelpInfo | null = null;
   if (forced !== 'error') {
     try {
-      home = await getFieldHome(await getDbReady(), agent.userId, agent.orgId);
+      const db = await getDbReady();
+      [home, help] = await Promise.all([getFieldHome(db, agent.userId, agent.orgId), getHelpInfo(db, agent.userId, agent.orgId)]);
     } catch (err) {
       log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'field.home_failed');
     }
   }
-  if (!home) return <HomeError lang={lang} />;
+  if (!home || !help) return <HomeError lang={lang} />;
   if (forced === 'empty') home = { ...home, recent: [] };
 
   const now = new Date().toISOString();
@@ -71,6 +72,8 @@ export default async function FieldHome({ searchParams }: { searchParams: Promis
       plots={plots}
       selectedId={plots.some((p) => p.id === wanted) ? wanted : (plots[0]?.id ?? null)}
       rows={rows}
+      help={help}
+      helpOpen={o.helpOpen ?? false}
     />
   );
 }

@@ -3,32 +3,32 @@
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { setPref } from '../../client/db';
 import { getDevice } from '../../client/device-key';
 import { distanceToEdgeM } from '../../lib/geo/distance';
 import { locate } from '../../lib/geo/geofence';
 import type { PlotPolygon } from '../../lib/geo/types';
-import { LANG_COOKIE, t, type Lang } from '../../lib/i18n';
+import { t, type Lang } from '../../lib/i18n';
 import type { Verdict } from '../../lib/verification/types';
-import { LanguageSheet } from '../../app/(agent)/enrol/LanguageSheet';
 import { GlassCard } from '../ui/GlassCard';
 import { Pill } from '../ui/Pill';
 import { PlotMap } from '../ui/PlotSvg';
 import { Sheet } from '../ui/Sheet';
 import { TabBar } from '../ui/TabBar';
 import { VerdictChip } from '../ui/VerdictChip';
+import { HelpSheet, type HelpInfo } from './HelpSheet';
 import { Ic } from './icons';
+import { LanguageChip } from './LanguageChip';
 import { Lit } from './Lit';
+import { PendingList } from './PendingRow';
 import { useGps } from './useGps';
 
 // Home (final/index.html #s1, TSK-10.5): header with the wordmark and the language chip, the greeting
 // with the IST date, the plot card (the hero: the plot outline, the live "You" dot and where you are),
-// the one primary pill, and the last three pickings. The tab bar floats at the bottom.
+// the one primary pill, and the last three pickings. The tab bar floats at the bottom; its Help tab opens
+// the Help sheet in place (TSK-11.6), which /field/help opens on arrival (`helpOpen`).
 
 export type HomePlotView = { id: string; name: string; farmerName: string; facts: string; geojson: PlotPolygon };
 export type HomeRow = { eventId: string; date: string; kg: string; verdict: Verdict | null };
-
-const YEAR_S = 365 * 24 * 3600;
 
 export function HomeClient({
   lang,
@@ -36,12 +36,17 @@ export function HomeClient({
   plots,
   selectedId,
   rows,
+  help,
+  helpOpen = false,
 }: {
   lang: Lang;
   greeting: { text: string; dateIso: string; date: string };
   plots: HomePlotView[];
   selectedId: string | null;
   rows: HomeRow[];
+  help: HelpInfo;
+  /** /field/help: the Help sheet is open on arrival. */
+  helpOpen?: boolean;
 }) {
   const router = useRouter();
   const tr = (key: Parameters<typeof t>[0], vars: Record<string, string | number> = {}) => t(key, vars, lang);
@@ -49,6 +54,7 @@ export function HomeClient({
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
   const [choosing, setChoosing] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [helpShown, setHelpShown] = useState(helpOpen);
   const { state: gpsState, fix } = useGps();
 
   useEffect(() => {
@@ -74,11 +80,9 @@ export function HomeClient({
     return <Lit k="home.outside" vars={{ plot: plot.name, m }} lit="plot" lang={lang} />;
   }
 
-  function chooseLang(next: Lang) {
-    document.cookie = `${LANG_COOKIE}=${next}; path=/; max-age=${YEAR_S}; samesite=lax`;
-    setPref('lang', next).catch(() => undefined);
-    setLangOpen(false);
-    router.refresh();
+  function closeHelp() {
+    setHelpShown(false);
+    if (helpOpen) router.replace('/field'); // leave the /field/help deep link
   }
 
   return (
@@ -88,10 +92,7 @@ export function HomeClient({
           <Image src="/brand/cherry.svg" alt="" width={40} height={40} unoptimized />
           {tr('app.name')}
         </span>
-        <button className="chip" type="button" aria-haspopup="dialog" aria-label={tr('lang.label')} onClick={() => setLangOpen(true)}>
-          <Ic name="globe" />
-          {lang === 'kn' ? <span lang="en">{t('lang.en')}</span> : <span lang="kn">{t('lang.kn')}</span>}
-        </button>
+        <LanguageChip lang={lang} open={langOpen} onOpenChange={setLangOpen} />
       </header>
       <p className="greet">
         {tr('home.greeting', { greet: greeting.text })}
@@ -137,6 +138,7 @@ export function HomeClient({
       )}
 
       <h2 className="sec-h">{tr('home.recent')}</h2>
+      <PendingList lang={lang} />
       {rows.length === 0 ? (
         <p className="lede" data-testid="home-empty">
           {tr('home.empty')}
@@ -155,7 +157,7 @@ export function HomeClient({
         </ul>
       )}
 
-      <TabBar current="home" lang={lang} />
+      <TabBar current={helpShown ? 'help' : 'home'} lang={lang} onHelp={() => setHelpShown(true)} />
 
       {plots.length > 1 ? (
         <Sheet open={choosing} onClose={() => setChoosing(false)} labelledBy="plots-h">
@@ -178,7 +180,16 @@ export function HomeClient({
           </button>
         </Sheet>
       ) : null}
-      <LanguageSheet open={langOpen} current={lang} onChoose={chooseLang} />
+      <HelpSheet
+        open={helpShown}
+        onClose={closeHelp}
+        lang={lang}
+        info={help}
+        onLanguage={() => {
+          closeHelp();
+          setLangOpen(true);
+        }}
+      />
     </main>
   );
 }

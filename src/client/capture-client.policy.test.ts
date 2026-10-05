@@ -10,7 +10,7 @@ import { refusalKeepsOutbox } from '../lib/i18n/farmer-evidence';
 // device's chain head moves on only on a verdict.
 
 vi.mock('./capture-store', () => ({
-  countAttempt: vi.fn(async () => undefined),
+  bumpAttempt: vi.fn(async () => undefined),
   deleteOutbox: vi.fn(async () => undefined),
   advanceDevice: vi.fn(async () => undefined),
   markAnswered: vi.fn(async () => undefined),
@@ -32,11 +32,16 @@ const TABLE: Row[] = [
   { name: '403 · app refusal line (plot_not_assigned)', status: 403, body: nd({ t: 'rejected', reason: 'plot_not_assigned', status: 403 }), keep: false, advance: false, result: R({ kind: 'rejected', reason: 'plot_not_assigned' }) },
   { name: '409 · app refusal line (media_hash_mismatch)', status: 409, body: nd({ t: 'rejected', reason: 'media_hash_mismatch', status: 409 }), keep: false, advance: false, result: R({ kind: 'rejected', reason: 'media_hash_mismatch' }) },
   { name: '200 · refusal decided in the stream (device_revoked)', status: 200, body: nd({ t: 'check', id: 'geofence', status: 'ok' }, { t: 'rejected', reason: 'device_revoked', status: 403 }), keep: false, advance: false, result: R({ kind: 'rejected', reason: 'device_revoked' }) },
-  { name: '403 · guard JSON (forbidden)', status: 403, body: JSON.stringify({ error: 'forbidden' }), keep: false, advance: false, result: R({ kind: 'rejected', reason: 'forbidden' }) },
+  // TKT-11: who is signed in decides forbidden and device_not_owned; a proxy decides 411. Kept, to retry after signing in again.
+  { name: '403 · guard JSON (forbidden): kept, retry after signing in again', status: 403, body: JSON.stringify({ error: 'forbidden' }), keep: true, advance: false, result: R({ kind: 'rejected', reason: 'forbidden' }) },
+  { name: '403 · device_not_owned line: kept, retry after signing in again', status: 403, body: nd({ t: 'rejected', reason: 'device_not_owned', status: 403 }), keep: true, advance: false, result: R({ kind: 'rejected', reason: 'device_not_owned' }) },
+  { name: '411 · length_required line: kept (a proxy dropped the length)', status: 411, body: nd({ t: 'rejected', reason: 'length_required', status: 411 }), keep: true, advance: false, result: R({ kind: 'rejected', reason: 'length_required' }) },
   { name: '401 · guard JSON (unauthenticated): an app refusal the phone keeps', status: 401, body: JSON.stringify({ error: 'unauthenticated' }), keep: true, advance: false, result: R({ kind: 'rejected', reason: 'unauthenticated' }) },
-  { name: '429 · rate_limited line with Retry-After', status: 429, body: nd({ t: 'rejected', reason: 'rate_limited', status: 429, retryAfterSec: 90 }), headers: { 'Retry-After': '90' }, keep: true, advance: false, result: R({ kind: 'retryable', cause: 'server', reason: 'rate_limited', retryAfterSec: 90 }) },
+  // TKT-11: a 429's wait is capped at the 60 s the phone will actually wait (MAX_RETRY_WAIT_SEC).
+  { name: '429 · rate_limited line with Retry-After 90 → 60', status: 429, body: nd({ t: 'rejected', reason: 'rate_limited', status: 429, retryAfterSec: 90 }), headers: { 'Retry-After': '90' }, keep: true, advance: false, result: R({ kind: 'retryable', cause: 'server', reason: 'rate_limited', retryAfterSec: 60 }) },
+  { name: '429 · rate_limited line with Retry-After 45', status: 429, body: nd({ t: 'rejected', reason: 'rate_limited', status: 429, retryAfterSec: 45 }), headers: { 'Retry-After': '45' }, keep: true, advance: false, result: R({ kind: 'retryable', cause: 'server', reason: 'rate_limited', retryAfterSec: 45 }) },
   { name: '429 · no body at all', status: 429, body: null, keep: true, advance: false, result: R({ kind: 'retryable', cause: 'server', reason: 'rate_limited' }) },
-  { name: '429 · a proxy HTML page with Retry-After', status: 429, body: '<html>Too many</html>', headers: { 'Retry-After': '120' }, keep: true, advance: false, result: R({ kind: 'retryable', cause: 'server', reason: 'rate_limited', retryAfterSec: 120 }) },
+  { name: '429 · a proxy HTML page with Retry-After', status: 429, body: '<html>Too many</html>', headers: { 'Retry-After': '120' }, keep: true, advance: false, result: R({ kind: 'retryable', cause: 'server', reason: 'rate_limited', retryAfterSec: 60 }) },
   { name: '408 · no body', status: 408, body: null, keep: true, advance: false, result: server },
   { name: '408 · a proxy HTML page (nginx client_body_timeout)', status: 408, body: '<html><body>408 Request Time-out</body></html>', keep: true, advance: false, result: server },
   { name: '408 · the app error line', status: 408, body: nd({ t: 'error', retryable: true }), keep: true, advance: false, result: server },

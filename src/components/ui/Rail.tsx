@@ -77,7 +77,7 @@ export function Rail({ current, me, reviewCount }: RailProps) {
                 ) : null}
               </span>
               {t(item.label)}
-              {item.id === 'review' && reviewCount ? <span className={styles.vh}>, {reviewCount} waiting</span> : null}
+              {item.id === 'review' && reviewCount ? <span className={styles.vh}>{t('rail.waiting', { n: reviewCount })}</span> : null}
             </Link>
           </li>
         ))}

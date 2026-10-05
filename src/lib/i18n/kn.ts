@@ -4,8 +4,11 @@ import type { MessageKey } from './en';
 // language sheet (TKT-05) and later from the switch (TKT-11).
 //
 // PENDING REVIEW: every entry below is marked `// REVIEW: native speaker` and must be checked by a
-// native Kannada speaker before release (Design.md §20 assumption). Admin surfaces (`rail.*`,
-// `phones.*`) are English only and fall back to en.ts.
+// native Kannada speaker before release (Design.md §20 assumption). That includes all of the capture
+// app's copy added by TKT-10 and TKT-11 (Home, the record flow, verdicts and farmer evidence lines,
+// refusals, the saved-on-phone sheet and rows, Pickings and a picking's detail, Help, and the language
+// sheet); none of it has been reviewed yet. Admin surfaces (`rail.*`, `phones.*`) are English only and
+// fall back to en.ts.
 
 /** Keys every farmer- and agent-facing language must carry (admin keys excluded). */
 export const isFieldKey = (k: string): boolean => !k.startsWith('rail.') && !k.startsWith('phones.');
@@ -148,7 +151,7 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'v.check.saved': 'ನಿಮ್ಮ {kg} ಮತ್ತು ಫೋಟೋಗಳು ಉಳಿಸಲಾಗಿವೆ.', // REVIEW: native speaker
   'v.done': 'ಮುಗಿಯಿತು', // REVIEW: native speaker
   'rec.saved.offline': 'ಇಲ್ಲಿ ನೆಟ್‌ವರ್ಕ್ ಇಲ್ಲ', // REVIEW: native speaker
-  'rec.saved.server': 'ಕಚೇರಿಯನ್ನು ತಲುಪಲಾಗಲಿಲ್ಲ', // REVIEW: native speaker
+  'rec.saved.server': 'ಕಳುಹಿಸಲಾಗಲಿಲ್ಲ', // REVIEW: native speaker
   'rec.saved.body': 'ಏನೂ ಕಳೆದುಹೋಗಿಲ್ಲ: {photos} ಮತ್ತು {kg} ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ.', // REVIEW: native speaker
   'rec.saved.retry': 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ', // REVIEW: native speaker
   'rec.saved.later': 'ನಂತರ ಪ್ರಯತ್ನಿಸಿ', // REVIEW: native speaker
@@ -159,6 +162,47 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'rec.photos1': '1 ಫೋಟೋ', // REVIEW: native speaker
   'rec.photosN': '{n} ಫೋಟೋಗಳು', // REVIEW: native speaker
   'rec.noDevice': 'ಈ ಫೋನ್ ಇನ್ನೂ ಕೊಯ್ಲುಗಳಿಗೆ ಸಿದ್ಧವಾಗಿಲ್ಲ.', // REVIEW: native speaker
+  'pend.label': 'ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ, ಇನ್ನೂ ಕಳುಹಿಸಿಲ್ಲ', // REVIEW: native speaker
+  'pend.saved': 'ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ', // REVIEW: native speaker
+  'pend.send': 'ಈಗ ಕಳುಹಿಸಿ', // REVIEW: native speaker
+  'pend.sending': 'ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'pend.kept': 'ಏನೂ ಕಳೆದುಹೋಗಿಲ್ಲ: ನಿಮ್ಮ ಕೊಯ್ಲುಗಳು ಇನ್ನೂ ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಲಾಗಿವೆ.', // REVIEW: native speaker
+  'pk.title': 'ನಿಮ್ಮ ಕೊಯ್ಲುಗಳು', // REVIEW: native speaker
+  'pk.loading': 'ನಿಮ್ಮ ಕೊಯ್ಲುಗಳನ್ನು ತೆರೆಯಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'pk.emptyBody': 'ನೀವು ಕಳುಹಿಸಿದ ಕೊಯ್ಲುಗಳು ಕಚೇರಿ ಕಂಡದ್ದರೊಂದಿಗೆ ಇಲ್ಲಿ ಕಾಣುತ್ತವೆ.', // REVIEW: native speaker
+  'pk.count': '{n} ಕೊಯ್ಲುಗಳು · {plots}', // REVIEW: native speaker
+  'pk.count1': '1 ಕೊಯ್ಲು · {plots}', // REVIEW: native speaker
+  'pk.noKg': 'ತೂಕ ಇಲ್ಲ', // REVIEW: native speaker
+  'pk.why.check': '{reason} ಕಚೇರಿ ಇದನ್ನು ಪರಿಶೀಲಿಸುತ್ತಿದೆ.', // REVIEW: native speaker
+  'pk.whatCanIDo': 'ನಾನು ಏನು ಮಾಡಬಹುದು?', // REVIEW: native speaker
+  'dt.back': 'ಕೊಯ್ಲುಗಳಿಗೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
+  'dt.title': '{kg} · {plot}', // REVIEW: native speaker
+  'dt.received': 'ಕಚೇರಿ ಸ್ವೀಕರಿಸಿದ ಸಮಯ', // REVIEW: native speaker
+  'dt.photo': 'ಫೋಟೋ {n}', // REVIEW: native speaker
+  'dt.seeAll': 'ಎಲ್ಲಾ ಪರಿಶೀಲನೆಗಳನ್ನು ನೋಡಿ', // REVIEW: native speaker
+  'dt.state.ok': 'ಸರಿಯಾಗಿದೆ', // REVIEW: native speaker
+  'dt.state.flag': 'ಒಮ್ಮೆ ನೋಡಬೇಕು', // REVIEW: native speaker
+  'dt.state.fail': 'ಸರಿಯಾಗಿಲ್ಲ', // REVIEW: native speaker
+  'dt.state.unavailable': 'ನಡೆಸಲಾಗಲಿಲ್ಲ', // REVIEW: native speaker
+  'dt.state.none': 'ನಡೆಸಿಲ್ಲ', // REVIEW: native speaker
+  'help.title': 'ಸಹಾಯ', // REVIEW: native speaker
+  'help.record': 'ನಿಮ್ಮ ತೋಟದ ಒಳಗೆ ನಿಂತು, {record} ಒತ್ತಿ. ಒಂದು ಫೋಟೋ ಸಾಕು.', // REVIEW: native speaker
+  'help.photos': 'ಹಗಲು ಬೆಳಕಿನಲ್ಲಿ ಫೋಟೋ ತೆಗೆಯಿರಿ, ಫೋನನ್ನು ಅಲುಗಾಡಿಸದೆ ಹಿಡಿಯಿರಿ, ಹಣ್ಣುಗಳು ಕಾಣುವಂತೆ.', // REVIEW: native speaker
+  'help.gallery': 'ಫೋಟೋಗಳು ಕ್ಯಾಮೆರಾದಿಂದಲೇ ಬರುತ್ತವೆ, ಗ್ಯಾಲರಿಯಿಂದ ಎಂದಿಗೂ ಅಲ್ಲ: ತೆಗೆದಾಗಲೇ ಈ ಫೋನ್ ಪ್ರತಿ ಫೋಟೋಗೆ ಮುದ್ರೆ ಹಾಕುತ್ತದೆ, ಅದು ಹೊಸದೆಂದು ಕಚೇರಿಗೆ ತಿಳಿಯುತ್ತದೆ.', // REVIEW: native speaker
+  'help.verified': 'ಕಚೇರಿಗೆ ಬೇಕಾದುದು ಸಿಕ್ಕಿದೆ. ಏನೂ ಮಾಡಬೇಕಿಲ್ಲ.', // REVIEW: native speaker
+  'help.check': 'ಕಚೇರಿ ಈ ಕೊಯ್ಲನ್ನು ನೋಡುತ್ತದೆ. ನೀವು ಏನೂ ಮಾಡಬೇಕಿಲ್ಲ.', // REVIEW: native speaker
+  'help.rejected': 'ಕೊಯ್ಲನ್ನು ಸ್ವೀಕರಿಸಲಾಗಲಿಲ್ಲ. ಏಕೆ ಮತ್ತು ಏನು ಮಾಡಬೇಕು ಎಂದು ಪರದೆ ಹೇಳುತ್ತದೆ.', // REVIEW: native speaker
+  'help.call': 'ಕೊಯ್ಲಿನ ಬಗ್ಗೆ ಪ್ರಶ್ನೆಗಳಿವೆಯೇ? {org} ಕಚೇರಿಗೆ ಕರೆ ಮಾಡಿ:', // REVIEW: native speaker
+  'help.callLink': '{phone}', // REVIEW: native speaker
+  'help.language': 'ಭಾಷೆ:', // REVIEW: native speaker
+  'help.thisPhone': 'ಈ ಫೋನ್:', // REVIEW: native speaker
+  'help.phoneLoading': 'ಹುಡುಕಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
+  'help.phoneSetUp': '{id}, {date} ರಂದು ಸಿದ್ಧಪಡಿಸಲಾಗಿದೆ', // REVIEW: native speaker
+  'help.phoneId': '{id}', // REVIEW: native speaker
+  'lang.kannada': 'Kannada', // REVIEW: native speaker (the language sheet names English words in English)
+  'lang.sheet.kn': 'ಭಾಷೆ', // REVIEW: native speaker
+  'lang.sheet.en': 'Language', // REVIEW: native speaker (the language sheet names English words in English)
+  'attest.certifiedBy': 'ಪ್ರಮಾಣೀಕರಿಸಿದವರು', // REVIEW: native speaker
   'rec.noFix': 'ನಿಮ್ಮ ಸ್ಥಳ ಇನ್ನೂ ಸಿಗಲಿಲ್ಲ. ಸ್ವಲ್ಪ ಕಾಯಿರಿ, ನಂತರ ಮತ್ತೆ ಕಳುಹಿಸಿ.', // REVIEW: native speaker
   'fe.plot.default': 'ತೋಟ', // REVIEW: native speaker
   'fe.location.inside': 'ನೀವು {plot} ಒಳಗೆ {m} ಇದ್ದಿರಿ', // REVIEW: native speaker
@@ -211,7 +255,7 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'refusal.unknown_device.happened': 'ಈ ಫೋನ್ ಕೊಯ್ಲುಗಳಿಗೆ ಸಿದ್ಧವಾಗಿಲ್ಲ.', // REVIEW: native speaker
   'refusal.unknown_device.todo': 'ಈ ಫೋನನ್ನು ಸಿದ್ಧಪಡಿಸಲು ಕಚೇರಿಯಿಂದ ಕೋಡ್ ಕೇಳಿ.', // REVIEW: native speaker
   'refusal.device_not_owned.happened': 'ಈ ಫೋನ್ ಬೇರೆಯವರಿಗಾಗಿ ಸಿದ್ಧಪಡಿಸಲಾಗಿದೆ.', // REVIEW: native speaker
-  'refusal.device_not_owned.todo': 'ನಿಮ್ಮ ಸ್ವಂತ ಖಾತೆಯಿಂದ ಸೈನ್ ಇನ್ ಮಾಡಿ, ಅಥವಾ ಈ ಫೋನನ್ನು ನಿಮಗಾಗಿ ಸಿದ್ಧಪಡಿಸಲು ಕಚೇರಿಗೆ ಕೇಳಿ.', // REVIEW: native speaker
+  'refusal.device_not_owned.todo': 'ನಿಮ್ಮ ಸ್ವಂತ ಖಾತೆಯಿಂದ ಸೈನ್ ಇನ್ ಮಾಡಿ, ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. ಅಥವಾ ಈ ಫೋನನ್ನು ನಿಮಗಾಗಿ ಸಿದ್ಧಪಡಿಸಲು ಕಚೇರಿಗೆ ಕೇಳಿ.', // REVIEW: native speaker
   'refusal.bad_signature.happened': 'ಈ ಫೋನಿನ ಮುದ್ರೆ ಕೊಯ್ಲಿಗೆ ಹೊಂದಿಕೆಯಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
   'refusal.bad_signature.todo': 'ಈ ಫೋನನ್ನು ಮತ್ತೆ ಸಿದ್ಧಪಡಿಸಲು ಕಚೇರಿಗೆ ಕೇಳಿ.', // REVIEW: native speaker
   'refusal.media_hash_mismatch.happened': 'ಕಚೇರಿಗೆ ತಲುಪುವ ದಾರಿಯಲ್ಲಿ ಒಂದು ಫೋಟೋ ಬದಲಾಗಿದೆ.', // REVIEW: native speaker
@@ -223,7 +267,7 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'refusal.media_type.happened': 'ಒಂದು ಫೋಟೋ ಕಚೇರಿ ಓದಬಹುದಾದ ಕ್ಯಾಮೆರಾ ಚಿತ್ರವಲ್ಲ.', // REVIEW: native speaker
   'refusal.media_type.todo': 'ಕ್ಯಾಮೆರಾ ತೆರೆಯಿರಿ ಬಳಸಿ ಫೋಟೋ ತೆಗೆದು, ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ.', // REVIEW: native speaker
   'refusal.length_required.happened': 'ಕೊಯ್ಲನ್ನು ಒಂದೇ ಬಾರಿ ಕಳುಹಿಸಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
-  'refusal.length_required.todo': 'ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ.', // REVIEW: native speaker
+  'refusal.length_required.todo': 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. ಮತ್ತೆ ಹೀಗಾದರೆ, ಕಚೇರಿಗೆ ತಿಳಿಸಿ.', // REVIEW: native speaker
   'refusal.body_too_large.happened': 'ಫೋಟೋಗಳು ಒಟ್ಟಿಗೆ ಕಳುಹಿಸಲು ತುಂಬಾ ದೊಡ್ಡದಾಗಿವೆ.', // REVIEW: native speaker
   'refusal.body_too_large.todo': 'ಕಡಿಮೆ ಫೋಟೋಗಳೊಂದಿಗೆ ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ.', // REVIEW: native speaker
   'refusal.bad_schema.happened': 'ಕೊಯ್ಲು ಕಚೇರಿಗೆ ಅಪೂರ್ಣವಾಗಿ ತಲುಪಿದೆ.', // REVIEW: native speaker
@@ -237,6 +281,8 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'refusal.rate_limited.todo1': '1 ನಿಮಿಷ ಕಾಯಿರಿ, ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', // REVIEW: native speaker
   'refusal.unauthenticated.happened': 'ನೀವು ಸೈನ್ ಔಟ್ ಆಗಿದ್ದೀರಿ.', // REVIEW: native speaker
   'refusal.unauthenticated.todo': 'ಮತ್ತೆ ಸೈನ್ ಇನ್ ಮಾಡಿ, ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', // REVIEW: native speaker
+  'refusal.forbidden.happened': 'ಕೊಯ್ಲುಗಳನ್ನು ಕಳುಹಿಸಲಾಗದ ಖಾತೆಯಿಂದ ನೀವು ಸೈನ್ ಇನ್ ಆಗಿದ್ದೀರಿ.', // REVIEW: native speaker
+  'refusal.forbidden.todo': 'ನಿಮ್ಮ ಕ್ಷೇತ್ರ ಖಾತೆಯಿಂದ ಸೈನ್ ಇನ್ ಮಾಡಿ, ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', // REVIEW: native speaker
   'refusal.other.happened': 'ಕಚೇರಿ ಈ ಕೊಯ್ಲನ್ನು ಸ್ವೀಕರಿಸಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
   'refusal.other.todo': 'ಕೊಯ್ಲನ್ನು ಮತ್ತೆ ದಾಖಲಿಸಿ. ಮತ್ತೆ ಹೀಗಾದರೆ, ಕಚೇರಿಗೆ ತಿಳಿಸಿ.', // REVIEW: native speaker
 

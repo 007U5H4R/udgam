@@ -13,7 +13,8 @@ import { initialFlow, kgValue, photoProblem, reduce, usedPhotos, type Slot } fro
 import { ReviewStep } from './ReviewStep';
 import { sendPicking, settleAction } from './send-picking';
 import { useGps } from './useGps';
-import { SavedStep, VerdictStep } from './VerdictStep';
+import { SavedSheet } from './SavedSheet';
+import { VerdictStep } from './VerdictStep';
 import { WeightStep } from './WeightStep';
 
 // The record flow (technical-plan §3.2 /field/record, TSK-10.7+): photos → review → weight → checking →
@@ -226,13 +227,14 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
         />
       ) : null}
       {screen === 'saved' && flow.error && flow.error.kind !== 'rejected' ? (
-        <SavedStep
+        <SavedSheet
           cause={flow.error.kind}
           reason={flow.error.reason}
           retryAfterSec={flow.error.retryAfterSec}
           lang={lang}
           photos={usedPhotos(flow).length}
           kg={kgValue(flow.kg) ?? 0}
+          plotName={plot.name}
           onRetry={() => void send()}
           onLater={() => router.push('/field')}
         />

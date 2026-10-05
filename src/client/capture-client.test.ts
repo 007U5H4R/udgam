@@ -79,10 +79,10 @@ describe('sendCapture', () => {
     expect(await sendCapture(capture, { fetchImpl: late })).toEqual({ kind: 'rejected', reason: 'device_revoked' });
   });
 
-  it('429 rate_limited is retryable later (nothing is lost), with the wait', async () => {
+  it('429 rate_limited is retryable later (nothing is lost), with the wait the phone will use: 90 s → 60 s (TKT-11)', async () => {
     const fetchImpl = async () =>
       new Response(ndjson({ t: 'rejected', reason: 'rate_limited', status: 429, retryAfterSec: 90 }), { status: 429, headers: { 'Retry-After': '90' } });
-    expect(await sendCapture(capture, { fetchImpl })).toEqual({ kind: 'retryable', cause: 'server', reason: 'rate_limited', retryAfterSec: 90 });
+    expect(await sendCapture(capture, { fetchImpl })).toEqual({ kind: 'retryable', cause: 'server', reason: 'rate_limited', retryAfterSec: 60 });
   });
 
   it('a stream that ends without a verdict → retryable/server; one that breaks mid-way → retryable/offline', async () => {
