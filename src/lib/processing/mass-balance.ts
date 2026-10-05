@@ -25,8 +25,17 @@ export const PROCESS_WORDS: Record<Process, string> = {
 const kg = (n: number): string => n.toFixed(1);
 const positive = (n: number): boolean => typeof n === 'number' && Number.isFinite(n) && n > 0;
 
-/** Output as % of input, rounded to one decimal. */
-export const ratioOf = (inputKg: number, outputKg: number): number => Math.round((outputKg / inputKg) * 1000) / 10;
+/**
+ * Output as % of input, rounded half up to one decimal. Kilograms carry at most one decimal
+ * (validate.ts), so the ratio is computed from whole tenths of a kilogram: the quotient of two integers,
+ * scaled by 1000, is then an exact binary value at every half-way point (39.95 %, 85.05 %), and
+ * Math.round rounds it up deterministically instead of by float noise.
+ */
+export const ratioOf = (inputKg: number, outputKg: number): number => {
+  const inTenths = Math.round(inputKg * 10);
+  const outTenths = Math.round(outputKg * 10);
+  return Math.round((outTenths * 1000) / inTenths) / 10;
+};
 
 export function checkMassBalance({ process, crop, inputKg, outputKg }: MassBalanceInput): MassBalanceResult {
   if (!positive(inputKg) || !positive(outputKg)) throw new RangeError('mass balance: input and output must be positive kilograms');
