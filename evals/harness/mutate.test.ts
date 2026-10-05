@@ -248,6 +248,56 @@ describe('season_cumulative', () => {
     expect(Number.isInteger(b.submission.payload.cherryKg * 2)).toBe(true);
   });
 
+  describe('split_kg_max (EXE23 OD-3: the event as several pickings, none over the capture limit)', () => {
+    const split = (extra: Record<string, unknown> = {}) =>
+      ({ ...kase('EVAL-002'), id: 'EVAL-901', input: { base_case: 'EVAL-002', mutations: [{ op: 'season_cumulative', ratio_before_event: 1.8, ratio_after_event: 2.1, split_kg_max: 500, ...extra }] } }) as EvalCase;
+
+    it('1.8 → 2.1 on P01 in pickings of ≤ 500 kg: five earlier signed pickings of 500 kg, then this one of 500 kg', async () => {
+      const b = await build(split());
+      expect(b.submission.payload.cherryKg).toBe(500);
+      expect(b.priorPickings).toHaveLength(5);
+      for (const p of b.priorPickings!) {
+        expect(p.payload).toMatchObject({ plotId: 'P01', deviceId: 'D-A1', cherryKg: 500 });
+        expect(p.payloadHash).toBe(await sha256Hex(jcs(p.payload)));
+        expect(await verifySignature(keys['D-A1']!.publicJwk, jcs(p.payload), p.signature)).toBe(true);
+        expect(Date.parse(p.serverReceivedAt)).toBeLessThan(Date.parse(b.submission.serverReceivedAt));
+        expect(Date.parse(p.serverReceivedAt)).toBeGreaterThan(Date.parse('2026-09-30T18:30:00.000Z')); // same coffee season (1 Oct IST)
+      }
+    });
+
+    it('verify() sees the real season total: 2.05 U before this picking, 2.10 U after it', async () => {
+      const b = await build(split());
+      expect(Math.abs(ratioU(b, b.context.seasonCherryKgBefore) - 2.05)).toBeLessThan(0.001);
+      expect(Math.abs(ratioU(b, b.context.seasonCherryKgBefore + b.submission.payload.cherryKg) - 2.1)).toBeLessThan(0.001);
+      expect(b.notes.some((n) => n.includes('outside the capture schema'))).toBe(false);
+    });
+
+    it('the pickings extend the device chain: seq 13–17, then this one at 18 on the last picking as head', async () => {
+      const b = await build(split());
+      const prior = b.priorPickings!;
+      expect(prior.map((p) => p.payload.seq)).toEqual([13, 14, 15, 16, 17]);
+      for (let i = 1; i < prior.length; i++) expect(prior[i]!.payload.prevEventHash).toBe(prior[i - 1]!.payloadHash);
+      expect(b.submission.payload).toMatchObject({ seq: 18, prevEventHash: prior[4]!.payloadHash });
+      expect(b.context.device).toMatchObject({ lastSeq: 17, lastEventHash: prior[4]!.payloadHash });
+      expect(b.context.previousEvent).toMatchObject({ lat: prior[4]!.payload.gps.lat, lng: prior[4]!.payload.gps.lng, capturedAt: prior[4]!.payload.capturedAt });
+    });
+
+    it('notes the earlier picking that itself crosses the hard-fail line (TP6 would exclude it once Rejected)', async () => {
+      const b = await build(split());
+      expect(b.notes.some((n) => n.includes('picking 5 of 6') && n.includes('2.05'))).toBe(true);
+    });
+
+    it('needs ratio_before_event and a limit of at least 0.5 kg', async () => {
+      const noBefore = { ...split(), input: { base_case: 'EVAL-002', mutations: [{ op: 'season_cumulative', ratio_after_event: 2.1, split_kg_max: 500 }] } } as EvalCase;
+      await expect(build(noBefore)).rejects.toBeInstanceOf(InvalidMutationParam);
+      await expect(build(split({ split_kg_max: 0 }))).rejects.toBeInstanceOf(InvalidMutationParam);
+    });
+
+    it('a case without split_kg_max has no prior pickings (EVAL-002)', async () => {
+      expect((await build('EVAL-002')).priorPickings).toBeUndefined();
+    });
+  });
+
   it('0.3 on P01 with the default 42.5 kg picking (EVAL-001)', async () => {
     const b = await build('EVAL-001');
     expect(b.submission.payload.cherryKg).toBe(42.5);
