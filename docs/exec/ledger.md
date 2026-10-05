@@ -61,6 +61,7 @@ Branch `build/stage7` (from `main` @ `b397c08`). Protocol: technical-plan.md §2
 | TASK-11 (TKT-10) | EVAL-086 e2e + fix round 1 | done | merges 2fe0463, 5643025 | EVAL-086 PASS (375/768 px; reviewer probes fail it) | spec PASS, quality FAIL → r2 running | test only |
 | TASK-22 (TKT-21) | phase A: 21.1, 21.2, 21.4/21.5 tooling | doing | merge 97d2f5b | readiness READY (HR3 warning per TP29) | spec + quality FAIL (false PASS) → fix round 1 running | EXE34 (one strict config-change rule; release fails closed); phase B = formal baseline-v1 run |
 | TASK-22 | owner eval decisions | done | merge 87b8547 | EVAL-116, EVAL-049 applied (dataset 0.7.0) | eval PASS | EXE23; EXE27 (EVAL-122 stays a reported miss) |
+| TASK-22 | phase B: 21.3–21.6 formal run + gate report | review | formal d7124cb (at gate commit eb321a1) | harness PASS; release PASS (exit 0); S4 PASS, max 2905 ms; TC-016 byte-identical | `evals/reports/eval-report-v1.md`; `docs/exec/m-001-gate.md` | step 4 first refused (no `BETTER_AUTH_SECRET`), resumed with the authorised env line → runbook amended (candidate EXE); BUG rows under "Gate M-001" |
 | TASK-23 (TKT-22) | Foundry spike | done | merge 4e0620b | GO: Foundry 1.8.3 / solc 0.8.37 | both reviews PASS; QA M-002 | |
 | TASK-24 (TKT-23) | design addendum | done | merges 8448deb (D9), 059f9a8 (D10) | — | review FAIL → PASS (r2); QA M-002 | D9/D10 pending owner review at Stage 8 |
 | TASK-25 (TKT-24) | 24.1–24.x + fix round 1 | done | merge 1de887b; fix merge 0d1c4a6 (migrations 0024/0025) | EVAL-103 PASS (`--ledger=evm --milestone=M2`), S6-lib 8/8 | spec PASS, quality FAIL → PASS (r2); QA M-002 | r2 minors in a9660b1 |
@@ -278,3 +279,16 @@ Independent QA at 3b625cd (report: scratchpad `reports/P6-8-qa.md`). P1–P5 reg
 - **QA-P6-8-3 (P3):** `PUBLIC_BASE_URL` falls back to `http://localhost:3000` in production, which would put localhost into QR codes, link previews and GeoJSON. Goes to TKT-28 (deploy): require an https value in production.
 - **QA-P6-8-5 (info, Stage 8):** the tab bar floats mid-screen on short Pickings pages; "What can I do?" is underlined; queue IDs wrap; review detail doesn't mark the photo used before; certificate map plots have no labels.
 - **QA-P6-8-6 (info):** ledger TC/EVAL attributions corrected in this commit. EVAL-074's attacks are submitted from `/admin/demo`, by plan design.
+
+## Gate M-001: TKT-21 (TASK-22) formal run · PASS · 2026-10-05
+Formal commit `d7124cb` records the run at gate commit `eb321a1`. The harness, perf file and release all come from that one commit (CF-12). Full gate report: `docs/exec/m-001-gate.md` → "M-001 gate report".
+- **Gates:**
+  - release exit 0. S1 97.7 % (42/43), S1-floor 91.7 %, S2 0.0 % (0/40), S6-lib 100 % (7/7), S7 Yes, CF 0, S4 Yes (max 2905 ms), Cases 28/28, S7-release Yes;
+  - 130 gated cases: 127 passed, 3 failed, 0 skipped, 0 missing; 4 deferred to M-003.
+- **Owner stop:** waived (EXE1). The M-001 owner review items (HR1, HR2, HR6, Kannada review) stay open in `docs/exec/m-001-gate.md`.
+
+**BUG rows** (for the local session to create as Campfire bugs; no threshold, case or cfg-1 value changed):
+- BUG · EVAL-122 · Verified, expected Needs Review/Rejected. `exif_time_agreement` flags a 23 h EXIF gap ("Photo time 23 h from capture time (limit 10 min)"), but a lone flag stays Verified under EV7 · TKT-08 (TASK-9). Owner-held reported miss, EXE27 (S1 42/43).
+- BUG · EVAL-055 · Verified (score 95.8), expected Needs Review/Rejected; the lone `exif_time_agreement` flag reads "phone clock 3 days from server (limit 24 h)" (scenario 6 stretch) · TKT-08 (TASK-9). Owner-held stretch miss, EXE10 / OD-7. Not in S1.
+- BUG · EVAL-056 · Verified (score 95.8), expected Needs Review/Rejected; the lone `exif_time_agreement` flag reads "Photo time 2 h from capture time (limit 10 min)" (scenario 6 stretch) · TKT-08 (TASK-9). Owner-held stretch miss, EXE10 / OD-7. Not in S1.
+- BUG · EVAL-071 (§18 verify budget, reported only, not a gate) · proof-start → proof-final p50 401.5 ms, p95 478.2 ms, max 516 ms at 4× CPU throttle, against the ≤ 300 ms budget (EXE24 / OD-8). S4 itself passes · TKT-16 (TASK-17).
