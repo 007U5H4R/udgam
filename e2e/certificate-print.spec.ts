@@ -86,12 +86,12 @@ test.describe('printed certificate (TC-071, @eval EVAL-087 print)', () => {
     expect(await glowOrBlur(page)).toEqual([]);
 
     // the one lit word ("Verified", gradient text on screen) prints as plain ink, not as transparent text
-    const lit = await page.locator('.proof').evaluate((proof) => {
-      const span = Array.from(proof.querySelectorAll('span')).find((e) => e.textContent === 'Verified')!;
+    // (print.css finds it by its stable data-lit hook, not by its CSS-module class name)
+    const lit = await page.locator('.proof [data-lit]').evaluate((span) => {
       const s = getComputedStyle(span);
-      return { color: s.color, image: s.backgroundImage };
+      return { text: span.textContent, color: s.color, image: s.backgroundImage };
     });
-    expect(lit).toEqual({ color: 'rgb(17, 17, 17)', image: 'none' });
+    expect(lit).toEqual({ text: 'Verified', color: 'rgb(17, 17, 17)', image: 'none' });
 
     // the map's words in ink on white; the entries as the table
     expect(new Set(await page.locator('#origin-map text').evaluateAll((els) => els.map((e) => getComputedStyle(e).fill)))).toEqual(new Set(['rgb(17, 17, 17)']));

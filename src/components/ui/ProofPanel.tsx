@@ -186,7 +186,9 @@ function Body({ state }: { state: ProofUiState }) {
         </div>
         <div className={s.grow}>
           <p className={s.title}>
-            <span className={s.lit}>{certCopy.proof.verifiedTitleLit}</span>
+            <span className={s.lit} data-lit>
+              {certCopy.proof.verifiedTitleLit}
+            </span>
             {certCopy.proof.verifiedTitleRest}
           </p>
           <p className={s.line}>{certCopy.proof.verifiedLine(state.entries)}</p>

@@ -13,6 +13,8 @@ import type { CertificateWorld } from '../../../../lib/certificate/__fixtures__/
 // generic title and noindex, with no batch data. The served HTML is checked in e2e/certificate-metadata.spec.ts.
 
 const BASE = 'https://udgam.test';
+/** Seeded as the batch's farmers and office (EV16): none may reach a tag. */
+const SENTINELS = { name: 'Zzsentinel Farmer', identifier: 'ID-SENTINEL-9999', phone: '9999988888' } as const;
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..');
 
 let t: TempDb;
@@ -27,7 +29,13 @@ beforeAll(async () => {
   vi.stubEnv('REMOTE_SENSING_PROVIDER', 'fixture');
   vi.stubEnv('PUBLIC_BASE_URL', BASE);
   const { seedCertificateWorld } = await import('../../../../lib/certificate/__fixtures__/world');
-  w = await seedCertificateWorld(t.db, { events: 3, plots: 2, transfer: true });
+  w = await seedCertificateWorld(t.db, {
+    events: 3,
+    plots: 2,
+    transfer: true,
+    farmer: () => ({ name: SENTINELS.name, identifier: SENTINELS.identifier }),
+    officePhone: SENTINELS.phone,
+  });
 }, 120_000);
 
 afterAll(async () => {
@@ -68,6 +76,12 @@ describe('certificate link-preview metadata (TC-072, EVAL-090)', () => {
     const tw = meta.twitter as { card: string; title: string; description: string; images: { url: string }[] };
     expect(tw).toMatchObject({ card: 'summary_large_image', title, description: meta.description });
     expect(abs(tw.images[0]!.url, base)).toBe('https://udgam.test/og/verify.png');
+  });
+
+  it('a valid batch: no farmer name, identifier, office phone or producer ID in any tag (EV16)', async () => {
+    const text = JSON.stringify(await metadataFor(w.batchId, w.shortHash));
+    for (const sentinel of Object.values(SENTINELS)) expect(text).not.toContain(sentinel);
+    expect(text).not.toMatch(/PR-[0-9A-Z]{8}/);
   });
 
   it('unknown batch, missing h and wrong h: the generic title and noindex, with no batch data', async () => {
