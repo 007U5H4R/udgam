@@ -378,6 +378,12 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'batches.builder.create.many': 'ಬ್ಯಾಚ್ ರಚಿಸಿ · {n} ಕೊಯ್ಲುಗಳು · {kg} ಕೆಜಿ', // REVIEW: native speaker
   'batches.builder.working': 'ಬ್ಯಾಚ್ ರಚಿಸಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
   'batches.builder.note': 'ಬ್ಯಾಚ್ ರಚಿಸಿದಾಗ ಅದರ ಕೊಯ್ಲುಗಳಿಗೆ ಸಹಿ ಹಾಕಿ ಶಾಶ್ವತವಾಗಿ ದಾಖಲಿಸಲಾಗುತ್ತದೆ.', // REVIEW: native speaker
+  'batches.builder.filter': 'ಪ್ಲಾಟ್', // REVIEW: native speaker
+  'batches.builder.filterAll': 'ಎಲ್ಲಾ ಪ್ಲಾಟ್‌ಗಳು ({n})', // REVIEW: native speaker
+  'batches.builder.filterPlot': '{plot} ({n})', // REVIEW: native speaker
+  'batches.builder.selectAll': 'ಎಲ್ಲಾ {crop} ಆಯ್ಕೆಮಾಡಿ ({n})', // REVIEW: native speaker
+  'batches.builder.clearAll': '{crop} ಆಯ್ಕೆ ತೆಗೆಯಿರಿ', // REVIEW: native speaker
+  'batches.builder.shown': '{n} ರಲ್ಲಿ {shown} ಕೊಯ್ಲುಗಳನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ', // REVIEW: native speaker
   'batches.builder.empty.title': 'ಬ್ಯಾಚ್ ಮಾಡಲು ಪರಿಶೀಲಿತ ಕೊಯ್ಲುಗಳಿಲ್ಲ.', // REVIEW: native speaker
   'batches.builder.empty.body': 'ಕೊಯ್ಲುಗಳು ಪರಿಶೀಲಿತವಾಗಿ ಯಾವುದೇ ಬ್ಯಾಚ್‌ನಲ್ಲಿ ಇಲ್ಲದಿದ್ದಾಗ ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ.', // REVIEW: native speaker
   'batches.builder.error.empty': 'ಕನಿಷ್ಠ ಒಂದು ಕೊಯ್ಲನ್ನು ಆರಿಸಿ.', // REVIEW: native speaker

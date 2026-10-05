@@ -65,6 +65,7 @@ export default async function NewBatchPage({ searchParams }: Props) {
               events={events.map((e) => ({
                 eventId: e.eventId,
                 crop: e.crop,
+                plot: e.plotName,
                 cherryKg: e.cherryKg,
                 title: t('batches.builder.row', { plot: e.plotName, producer: e.producerId }),
                 facts: t('batches.builder.rowFacts', { crop: cropLabel(e.crop), when: istDateTime(e.receivedAt), score: formatScore(e.score) }),
@@ -77,6 +78,13 @@ export default async function NewBatchPage({ searchParams }: Props) {
                 createMany: t('batches.builder.create.many'),
                 working: t('batches.builder.working'),
                 note: t('batches.builder.note'),
+                filter: t('batches.builder.filter'),
+                filterAll: t('batches.builder.filterAll'),
+                filterPlot: t('batches.builder.filterPlot'),
+                selectAll: t('batches.builder.selectAll'),
+                clearAll: t('batches.builder.clearAll'),
+                shown: t('batches.builder.shown'),
+                crops: { arabica: cropLabel('arabica'), robusta: cropLabel('robusta') },
                 errors: {
                   empty: t('batches.builder.error.empty'),
                   not_eligible: t('batches.builder.error.not_eligible'),

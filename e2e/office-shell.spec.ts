@@ -224,3 +224,34 @@ test.describe('DES-106 the plot map controls meet the target and text floors', (
     expect(size).toBeGreaterThanOrEqual(13);
   });
 });
+
+test.describe('DES-107 the batch builder has select all per crop and a plot filter', () => {
+  test('select all Arabica, the other crop waits, clear; the plot filter hides rows but keeps choices', async ({ page }) => {
+    const b = runSeed<SeededBatches>('e2e/helpers/seed-batches.ts');
+    await signIn(page, b.adminEmail, b.testOnlyAdminPassword);
+    await page.goto('/admin/batches/new');
+    const n = b.arabica.length;
+    const all = page.getByRole('button', { name: `Select all Arabica (${n})` });
+    await all.click();
+    await expect(page.getByRole('button', { name: /^Create batch · / })).toHaveText(new RegExp(`^Create batch · ${n} pickings · `));
+    await expect(page.getByRole('button', { name: /^Select all Robusta/ })).toBeDisabled();
+    await page.getByRole('button', { name: 'Clear Arabica' }).click();
+    await expect(page.getByRole('button', { name: 'Choose pickings' })).toBeDisabled();
+
+    // a row without a reason line is no taller than its two lines need (was 96 px)
+    const row = (await page.locator(`label[for="pick-${b.arabica[0]}"]`).boundingBox())!;
+    expect(row.height).toBeLessThan(96);
+
+    const filter = page.getByLabel('Plot', { exact: true });
+    const options = await filter.locator('option').allTextContents();
+    expect(options[0]).toBe(`All plots (${n + 1})`);
+    await page.locator(`label[for="pick-${b.robusta}"]`).click();
+    await filter.selectOption({ index: options.findIndex((o) => o.endsWith(`(${n})`)) });
+    await expect(page.getByRole('status').filter({ hasText: 'Showing' })).toHaveText(`Showing ${n} of ${n + 1} pickings`);
+    await expect(page.locator(`label[for="pick-${b.robusta}"]`)).toBeHidden();
+    // the hidden Robusta choice still counts: the Arabica rows stay disabled and the pill still says 1 picking
+    await expect(page.getByRole('button', { name: /^Create batch · 1 picking · / })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Select all Arabica/ })).toBeDisabled();
+    await axeClean(page);
+  });
+});

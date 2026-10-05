@@ -5,12 +5,15 @@ import { createBatchAction, type CreateBatchState } from '../../app/(admin)/admi
 import { formatKg } from '../../lib/batches/format';
 import { Pill } from '../ui/Pill';
 import s from './BatchBuilder.module.css';
+import { chosenCrop, plotsOf, shownEvents, toggleCrop, type Crop } from './batch-builder-state';
 
 // The batch builder (TSK-14.5): the org's eligible pickings as checkbox rows. A batch holds one crop,
 // so choosing a picking disables the rows of the other crop; the one primary pill counts the pickings
 // and kilograms chosen. The server re-checks everything and the database enforces it (TP14).
+// DES-107: a plot filter and "Select all <crop>" (ghost buttons) above the rows, for 50-picking batches;
+// a filtered-out row stays in the form (hidden), so a choice made under another filter is still sent.
 
-export type BuilderEvent = { eventId: string; crop: 'arabica' | 'robusta'; cherryKg: number; title: string; facts: string };
+export type BuilderEvent = { eventId: string; crop: Crop; plot: string; cherryKg: number; title: string; facts: string };
 
 export type BuilderLabels = {
   list: string;
@@ -21,6 +24,14 @@ export type BuilderLabels = {
   createMany: string;
   working: string;
   note: string;
+  /** DES-107: the plot filter and select all. Templates with {n}, {plot}, {crop}, {shown}. */
+  filter: string;
+  filterAll: string;
+  filterPlot: string;
+  selectAll: string;
+  clearAll: string;
+  shown: string;
+  crops: Record<Crop, string>;
   errors: Record<NonNullable<CreateBatchState['error']>, string>;
 };
 
@@ -29,9 +40,14 @@ const fill = (template: string, vars: Record<string, string | number>) => templa
 export function BatchBuilder({ events, labels }: { events: BuilderEvent[]; labels: BuilderLabels }) {
   const [state, action, pending] = useActionState<CreateBatchState, FormData>(createBatchAction, { error: null });
   const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set());
+  const [plot, setPlot] = useState<string | null>(null);
   // Only pickings still listed count (after a refused create the list may have changed).
   const selected = events.filter((e) => chosen.has(e.eventId));
-  const crop = selected[0]?.crop ?? null;
+  const crop = chosenCrop(events, chosen);
+  const plots = plotsOf(events);
+  const shown = shownEvents(events, plot !== null && plots.some((p) => p.plot === plot) ? plot : null);
+  const shownIds = new Set(shown.map((e) => e.eventId));
+  const crops = (['arabica', 'robusta'] as const).filter((c) => shown.some((e) => e.crop === c));
   const kg = formatKg(selected.reduce((sum, e) => sum + e.cherryKg, 0));
   const label =
     selected.length === 0 ? labels.none : selected.length === 1 ? fill(labels.createOne, { kg }) : fill(labels.createMany, { n: selected.length, kg });
@@ -47,12 +63,45 @@ export function BatchBuilder({ events, labels }: { events: BuilderEvent[]; label
   return (
     <form action={action} className={s.form} aria-busy={pending || undefined}>
       <input type="hidden" name="crop" value={crop ?? ''} />
+      <div className={s.tools}>
+        {plots.length > 1 ? (
+          <label className={s.filter}>
+            <span>{labels.filter}</span>
+            <select value={plot ?? ''} onChange={(ev) => setPlot(ev.currentTarget.value || null)} disabled={pending}>
+              <option value="">{fill(labels.filterAll, { n: events.length })}</option>
+              {plots.map((p) => (
+                <option key={p.plot} value={p.plot}>
+                  {fill(labels.filterPlot, { plot: p.plot, n: p.n })}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {crops.map((c) => {
+          const ids = shown.filter((e) => e.crop === c).map((e) => e.eventId);
+          const all = ids.every((id) => chosen.has(id));
+          return (
+            <button
+              key={c}
+              type="button"
+              className={s.tool}
+              disabled={(crop !== null && crop !== c) || pending}
+              onClick={() => setChosen((prev) => toggleCrop(shown, prev, c, events))}
+            >
+              {all ? fill(labels.clearAll, { crop: labels.crops[c] }) : fill(labels.selectAll, { crop: labels.crops[c], n: ids.length })}
+            </button>
+          );
+        })}
+        <p className={s.shown} role="status">
+          {shown.length < events.length ? fill(labels.shown, { shown: shown.length, n: events.length }) : ''}
+        </p>
+      </div>
       <ul className={s.list} aria-label={labels.list}>
         {events.map((e) => {
           const otherCrop = crop !== null && e.crop !== crop;
           const id = `pick-${e.eventId}`;
           return (
-            <li key={e.eventId}>
+            <li key={e.eventId} hidden={!shownIds.has(e.eventId)}>
               <label className={s.row} htmlFor={id}>
                 <input
                   className={s.check}

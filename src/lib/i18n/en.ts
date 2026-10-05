@@ -95,6 +95,12 @@ export const en = {
   'batches.builder.create.many': 'Create batch · {n} pickings · {kg} kg',
   'batches.builder.working': 'Creating the batch…',
   'batches.builder.note': 'Creating a batch signs and records its pickings permanently.',
+  'batches.builder.filter': 'Plot', // DES-107: the plot filter and select all
+  'batches.builder.filterAll': 'All plots ({n})',
+  'batches.builder.filterPlot': '{plot} ({n})',
+  'batches.builder.selectAll': 'Select all {crop} ({n})',
+  'batches.builder.clearAll': 'Clear {crop}',
+  'batches.builder.shown': 'Showing {shown} of {n} pickings',
   'batches.builder.empty.title': 'No Verified pickings to batch.',
   'batches.builder.empty.body': 'Pickings appear here once they are Verified and not in a batch yet.',
   'batches.builder.error.empty': 'Choose at least one picking.',
