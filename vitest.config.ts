@@ -14,7 +14,7 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
-          include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'tests/**/*.test.ts', 'evals/**/*.test.ts'],
+          include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'tests/**/*.test.ts', 'evals/**/*.test.ts', 'scripts/**/*.test.ts'],
           exclude: [...exclude, '**/*.int.test.ts', '**/*.evm.test.ts'],
           // Under 4+ parallel agents (load 15-24 on 4 cores) the 5 s default is too tight for tests that
           // spawn tsx children or run the harness (EXE, TASK-19 follow-up).

@@ -1,0 +1,65 @@
+/* /admin/demo (TP17: no mockup; test-only, DEMO_MODE=1) composed from the parts /admin/phones already
+   ports from .design/exploration/final/admin.html: the queue heading and sub, frosted cards, section
+   headings, verdict chips (word + mark) and text links. No new colours, radii or motion. */
+.page {
+  width: 100%;
+  max-width: 980px;
+  padding: 22px var(--pad) 32px;
+}
+.h1 {
+  margin: 4px 0 0;
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.sub {
+  margin: 6px 0 0;
+  max-width: 62ch;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+}
+.list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 18px 20px 20px;
+  min-width: 0;
+}
+.title {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.muted {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  overflow-wrap: anywhere;
+}
+.result {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+.evidence {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.link {
+  color: var(--ink);
+  font-weight: 600;
+}
+.form {
+  margin: 0;
+}

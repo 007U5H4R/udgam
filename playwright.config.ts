@@ -19,6 +19,8 @@ if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) throw new Error('E2E_PO
 
 export default defineConfig({
   testDir: './e2e',
+  // The demo specs (TKT-20) need the seeded demo server: they run with `pnpm demo` (playwright.demo.config.ts).
+  testIgnore: /demo.*\.spec\.ts$/,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
