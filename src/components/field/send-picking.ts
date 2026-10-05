@@ -49,6 +49,7 @@ export function settleAction(r: SubmitResult): FlowAction {
         ...(r.retryAfterSec !== undefined ? { retryAfterSec: r.retryAfterSec } : {}),
       };
     case 'not_ready':
-      return r.reason === 'no_device' ? { type: 'fail', kind: 'rejected', reason: 'unknown_device' } : { type: 'fail', kind: 'server', reason: 'no_fix' };
+      // Nothing was judged (or signed): the sheet's words, never the verdict word Not accepted (DES-013).
+      return { type: 'fail', kind: 'server', reason: r.reason };
   }
 }

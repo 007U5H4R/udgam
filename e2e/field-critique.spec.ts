@@ -259,3 +259,26 @@ test('DES-012: the tab bar sits at the bottom edge on a short page, and clears t
   const [s, b] = await Promise.all([summary.boundingBox(), bar.boundingBox()]);
   expect(s!.y + s!.height).toBeLessThanOrEqual(b!.y);
 });
+
+test('DES-013: the record flow on a phone that is not set up goes to set-up before any photo', async ({ page, context }) => {
+  const seed = seedCaptureWorld();
+  await openField(page, context, seed);
+  // the phone's key store is emptied (a cleared browser, another phone)
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const req = indexedDB.open('udgam');
+        req.onsuccess = () => {
+          const tx = req.result.transaction(['keys', 'device'], 'readwrite');
+          tx.objectStore('keys').clear();
+          tx.objectStore('device').clear();
+          tx.oncomplete = () => (req.result.close(), resolve());
+          tx.onerror = () => reject(tx.error);
+        };
+        req.onerror = () => reject(req.error);
+      }),
+  );
+  await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
+  await expect(page).toHaveURL(/\/enrol$/);
+  await expect(page.getByText('Not accepted')).toHaveCount(0);
+});

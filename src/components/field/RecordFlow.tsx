@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from 'react';
 import { finishAnswered, type OutboxSend } from '../../client/capture-client';
+import { getDevice } from '../../client/device-key';
 import { hashFile } from '../../client/hash-file';
 import { stagePhoto } from '../../client/stage-client';
 import type { CheckId, CheckStatus } from '../../lib/verification/types';
@@ -68,6 +69,20 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
   useEffect(() => {
     void finishAnswered();
   }, []);
+
+  // DES-013: a phone with no key cannot send a picking: it goes to set-up before any photo is taken
+  // (Home gates its Record pill the same way; this covers a link or bookmark straight to the flow).
+  useEffect(() => {
+    let live = true;
+    getDevice()
+      .then((d) => {
+        if (live && d === null) router.replace('/enrol');
+      })
+      .catch(() => undefined); // an unreadable store is caught at Send (the set-up sheet)
+    return () => {
+      live = false;
+    };
+  }, [router]);
 
   // The verdict (or refusal) has rendered on the checking screen: marked before the 600 ms auto-advance
   // hold and before "See result" under reduced motion, so the hold is reported as its own split. EV9's t1
@@ -249,6 +264,7 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
           kg={kgValue(flow.kg) ?? 0}
           plotName={plot.name}
           onRetry={() => void send()}
+          onSetUp={() => whenOnline(() => router.push('/enrol'))}
           onLater={() => whenOnline(() => router.push('/field'))}
         />
       ) : null}

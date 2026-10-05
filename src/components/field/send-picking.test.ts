@@ -105,8 +105,8 @@ describe('sendPicking + settleAction', () => {
     expect(held.current).not.toBeNull();
   });
 
-  it('not ready: no device → Not accepted (unknown_device); no GPS fix → saved (no_fix)', () => {
-    expect(settleAction({ kind: 'not_ready', reason: 'no_device' })).toEqual({ type: 'fail', kind: 'rejected', reason: 'unknown_device' });
+  it('not ready: no device → the set-up sheet, never Not accepted (DES-013); no GPS fix → saved (no_fix)', () => {
+    expect(settleAction({ kind: 'not_ready', reason: 'no_device' })).toEqual({ type: 'fail', kind: 'server', reason: 'no_device' });
     expect(settleAction({ kind: 'not_ready', reason: 'no_fix' })).toEqual({ type: 'fail', kind: 'server', reason: 'no_fix' });
   });
 });

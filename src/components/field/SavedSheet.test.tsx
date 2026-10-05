@@ -62,3 +62,17 @@ describe('DES-006: Try again shows that it ran', () => {
     expect(sheet({})).not.toContain('Still');
   });
 });
+
+describe('DES-013: a phone that is not set up', () => {
+  it('says so in the sheet\'s words, offers Set up this phone, and never says Not accepted or that the picking is saved', () => {
+    const html = renderToStaticMarkup(
+      <SavedSheet cause="server" reason="no_device" lang="en" photos={1} kg={42.5} plotName="Plot 1" onRetry={() => undefined} onSetUp={() => undefined} onLater={() => undefined} />,
+    );
+    expect(html).toContain('This phone is not set up for pickings yet.');
+    expect(html).toContain('Ask the office for a code to set up this phone.');
+    expect(html).toMatch(/<button[^>]*>.*Set up this phone<\/button>/);
+    expect(html).not.toContain('Try again');
+    expect(html).not.toContain('Not accepted');
+    expect(html).not.toContain('saved on this phone');
+  });
+});
