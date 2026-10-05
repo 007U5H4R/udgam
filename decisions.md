@@ -1096,3 +1096,16 @@ The freeze rule counts only active attack cases. Config-change rows in HTML comm
 - S6-lib 7/7, S7 Yes, S7-release Yes, CF 0.
 
 baseline-v1 is frozen (EV13, EXE34).
+
+## EXE39 · Stage 7 final whole-branch review and fix wave — accepted (orchestrator, 2026-10-05)
+**Context.** The completion review (Opus, whole branch at ebb42ce) found:
+- **1 major:** an unscoped dynamic path in `deployment.ts` made Turbopack trace the whole project, `data/keys` included, into every server route. With TKT-27's standalone output, the private keys would have been copied into the deploy artifact.
+- **2 minors:** an unbounded `/api/enrol` body; three drifting key-file helpers.
+- **6 nits.**
+
+**Decision (single fix wave, merged at 6a6051d).**
+- Every DATA_DIR and key path is built through `src/lib/config/runtime-path.ts` (`turbopackIgnore`). `next.config.ts` excludes the data, secrets and non-runtime folders from tracing, keeping `evals/fixtures`, which the fixture provider reads at run time.
+- `scripts/ci/check-trace.mjs` fails CI, in the existing `bundle-secrets` job, on any traced file under `data/`, `.e2e-data/` or `.secrets/`, on `.env` files, and on any `*.key`, `*.jwk` or `*.pem` outside node_modules. Next's excludes don't reach the instrumentation trace, so the runtime-path rule plus this check is the real guard. **TKT-27 must keep the check.**
+- `/api/enrol` answers 411 without a numeric Content-Length and 413 above 4 KiB, and reads through the bounded reader.
+- One key-file helper keeps files at 0600 and directories at 0700, and tightens a loose directory.
+- The duplicated helpers are merged. `docs/exec/migrations.md` lists the triggers a future `user` rebuild must drop and recreate, and a test fails when that list drifts from the schema.
