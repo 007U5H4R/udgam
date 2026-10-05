@@ -1,8 +1,10 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { signOut } from '../../app/(public)/sign-in/actions';
 import { t } from '../../lib/i18n';
 import styles from './Rail.module.css';
+import { SignOutPill } from './SignOut';
 
 // The admin rail (Design.md §13), ported from final/admin.html: Review · Plots · Batches · Phones with the
 // mockup's icons, the wordmark and the signed-in admin. `RailShell` lays it out beside the page (rail +
@@ -90,17 +92,29 @@ export function Rail({ current, me, reviewCount, items, label, roleLabel }: Rail
           </li>
         ))}
       </ul>
-      {me ? (
-        <p className={styles.me}>
-          <span className={styles.avatar} aria-hidden="true">
-            {initials(me.name)}
-          </span>
-          <span>
-            {me.name}
-            <small>{roleLabel ?? t('rail.role')}</small>
-          </span>
-        </p>
-      ) : null}
+      {/* The rail foot: the signed-in person and Sign out (DES-105, EXE40; hidden with the rail on phones). */}
+      <div className={styles.foot}>
+        {me ? (
+          <p className={styles.me}>
+            <span className={styles.avatar} aria-hidden="true">
+              {initials(me.name)}
+            </span>
+            <span>
+              {me.name}
+              <small>{roleLabel ?? t('rail.role')}</small>
+            </span>
+          </p>
+        ) : null}
+        <form action={signOut}>
+          <button className={styles.out} type="submit">
+            <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M14 4.5h3.5a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H14" />
+              <path d="M10 16.5 5.5 12 10 7.5M5.5 12H15" />
+            </svg>
+            {t('signOut')}
+          </button>
+        </form>
+      </div>
     </nav>
   );
 }
@@ -110,7 +124,11 @@ export function RailShell({ children, className, ...rail }: RailProps & { childr
   return (
     <div className={className ? `${styles.shell} ${className}` : styles.shell}>
       <Rail {...rail} />
-      <div className={styles.main}>{children}</div>
+      <div className={styles.main}>
+        {children}
+        {/* Phones: the rail is a tab bar with no foot, so Sign out ends the screen instead (DES-105). */}
+        <SignOutPill className={`${styles.phoneOut} admin-rail-out`} />
+      </div>
     </div>
   );
 }

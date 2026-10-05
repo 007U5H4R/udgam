@@ -267,12 +267,12 @@ test.describe('decisions (TSK-12.4, TSK-12.6, TC-055, TC-056, EVAL-075, EVAL-076
     await checkSurface(page);
   });
 
-  test('the Sign out pill keeps the queue column’s width in the empty and error states', async ({ page }) => {
+  test('Sign out keeps to the rail foot (or the phone footer) in the empty and error states', async ({ page }) => {
     const s = seedReview();
     await signIn(page, s.adminEmail, s.testOnlyAdminPassword);
     for (const state of ['empty', 'error']) {
       await page.goto(`/admin?state=${state}`);
-      const pill = page.locator('.q-foot').getByRole('button', { name: 'Sign out' });
+      const pill = page.getByRole('button', { name: 'Sign out' }); // DES-105: one control, in the rail foot
       await expect(pill).toBeVisible();
       const width = (await pill.boundingBox())!.width;
       expect(width, state).toBeLessThanOrEqual(360);

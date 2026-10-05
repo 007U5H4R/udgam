@@ -1163,7 +1163,8 @@
   }
   /* admin.html `body.detail-open .rail{display:none}`: an open detail hides the floating tab bar, so the
      sticky decision controls sit at the bottom edge (the Back button returns to the list and the bar). */
-  body:has(.review.detail-open) .admin-rail {
+  body:has(.review.detail-open) .admin-rail,
+  body:has(.review.detail-open) .admin-rail-out {
     display: none;
   }
   .review .act-row {

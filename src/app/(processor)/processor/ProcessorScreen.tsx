@@ -2,13 +2,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Icon, NaMark } from '../../../components/admin/QueueList';
-import { Pill } from '../../../components/ui/Pill';
 import { RailShell } from '../../../components/ui/Rail';
 import { VerdictMark } from '../../../components/ui/VerdictChip';
 import { env } from '../../../lib/config/env';
 import { COPY, cropName, istShort, rowStatus, type RowStatus } from '../../../lib/processing/copy';
 import type { ProcessorBatch } from '../../../lib/processing/read';
-import { signOut } from '../../(public)/sign-in/actions';
 import { ErrorCard } from './ErrorCard';
 import '../../../styles/admin.css';
 import './processor.css';
@@ -128,13 +126,6 @@ function BatchQueue({ state, batches, orgName, current }: { state: ScreenState; 
 
       {state === 'error' ? <ErrorCard /> : null}
 
-      <div className="q-foot">
-        <form action={signOut}>
-          <Pill variant="ghost" type="submit">
-            {COPY.signOut}
-          </Pill>
-        </form>
-      </div>
     </section>
   );
 }
