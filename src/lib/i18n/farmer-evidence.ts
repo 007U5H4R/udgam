@@ -30,7 +30,9 @@ const ICON: Record<CheckId, FarmerIcon> = {
 
 /** The n-th capture group of `re` in `s`, or null. */
 const grab = (s: string, re: RegExp, n = 1): string | null => re.exec(s)?.[n] ?? null;
-const metres = (s: string) => grab(s, /(-?\d+ m)\b/);
+/** A number with its unit ("150 m", "24 h 1 min") held on one line: its spaces become no-break spaces (QA-P5-8). */
+const unit = (s: string | null): string | null => s?.replace(/ /g, '\u00a0') ?? null;
+const metres = (s: string) => unit(grab(s, /(-?\d+ m)\b/));
 const plotName = (ctx: Ctx, tr: Tr) => ctx.plot ?? tr('fe.plot.default');
 
 /**
@@ -69,8 +71,8 @@ function findingLine(c: CheckResult, tr: Tr, ctx: Ctx): string | null {
       return /no location/.test(e) ? tr('fe.photoGps.none') : tr('fe.photoGps.far', { m: metres(e) ?? '' });
     case 'exif_time_agreement': {
       if (/no time data/.test(e)) return tr('fe.photoTime.none');
-      const photo = grab(e, /Photo time (.+?) from capture time/);
-      const clock = grab(e, /phone clock (.+?) from server/);
+      const photo = unit(grab(e, /Photo time (.+?) from capture time/));
+      const clock = unit(grab(e, /phone clock (.+?) from server/));
       // Name the gap that crossed its fail limit (EXE10): the phone clock only when the sentence says the
       // clock gap ("fail over 7 days") failed and the photo gap ("fail over 24 h") did not.
       if (c.status === 'fail' && clock && /fail over 7 days/.test(e) && !/fail over 24 h/.test(e)) return tr('fe.photoTime.clock', { d: clock });
@@ -78,7 +80,7 @@ function findingLine(c: CheckResult, tr: Tr, ctx: Ctx): string | null {
     }
     case 'movement_plausibility':
       if (/did not advance/.test(e)) return tr('fe.move.clock');
-      return tr('fe.move.far', { m: grab(e, /entry (\d+ m) away/) ?? '', min: grab(e, /away (-?\d+) min/) ?? '' });
+      return tr('fe.move.far', { m: unit(grab(e, /entry (\d+ m) away/)) ?? '', min: grab(e, /away (-?\d+) min/) ?? '' });
     case 'photo_uniqueness':
       return tr('fe.photos.used', { k: grab(e, /^(\d+) of/) ?? '', n: grab(e, /of (\d+)/) ?? '' });
     case 'deforestation_overlap':

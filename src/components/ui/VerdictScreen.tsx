@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { Ic } from '../field/icons';
 import { Cherry } from './Cherry';
 import { Pill } from './Pill';
@@ -45,7 +45,9 @@ export function VerdictScreen({
   onDone: () => void;
 }) {
   const h1 = useRef<HTMLHeadingElement>(null);
-  useEffect(() => {
+  // A layout effect, so the t1 frame is queued in the commit that first shows the card and cannot lag
+  // its paint the way a passive effect can under load (TASK-11 spec r3 N5).
+  useLayoutEffect(() => {
     h1.current?.focus({ preventScroll: true });
     const id = requestAnimationFrame(() => performance.mark(T1_MARK));
     return () => cancelAnimationFrame(id);

@@ -281,8 +281,9 @@ export async function submitCapture(
   const item: OutboxSend = { id, payload: payloadString, signature, files, deviceId: signer.deviceId, seq: signer.nextSeq };
   try {
     opts.onSaved?.(item);
-  } catch {
-    // the screen's bookkeeping must never stop the send
+  } catch (err) {
+    // the screen's bookkeeping must never stop the send, but its failure is seen (the class only)
+    console.error('capture.on_saved_failed', { errClass: errName(err) });
   }
   const r = await sendOutboxItem(item, opts);
   return { ...r, item };

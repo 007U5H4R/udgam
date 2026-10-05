@@ -152,6 +152,27 @@ describe('submitCapture: a local store failure after the server answered (qualit
     expect(await outboxCount()).toBe(0);
   });
 
+  it('an onSaved callback that throws is logged by error class only and the send still completes (TKT-10 nit)', async () => {
+    const { gps } = fakeGps(fixAgo(1_000));
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      const r = await submitCapture(
+        { plotId: 'PL-1', cherryKg: 42.5, photos: [photo()], gps },
+        {
+          onSaved: () => {
+            throw new RangeError('screen state gone');
+          },
+          fetchImpl: async () => new Response(verdictBody(), { status: 200 }),
+        },
+      );
+      expect(r.kind).toBe('verdict');
+      expect(errors).toHaveBeenCalledWith('capture.on_saved_failed', { errClass: 'RangeError' });
+      expect(JSON.stringify(errors.mock.calls)).not.toContain('screen state gone');
+    } finally {
+      errors.mockRestore();
+    }
+  });
+
   it('Try again after a lost connection re-sends byte-identical bytes (same payload, signature and photo), never a new signature', async () => {
     const { gps } = fakeGps(fixAgo(1_000));
     const attempts: Sent[] = [];
