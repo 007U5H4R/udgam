@@ -271,6 +271,11 @@ export const media = sqliteTable(
     mime: text('mime').notNull(),
     exif: text('exif'),
     thumbPath: text('thumb_path'),
+    /**
+     * Where the bytes came from, when not a phone camera: `generated-demo` for the seeded demo pickings'
+     * AI-generated photos (TP29, TKT-20). Null for every real capture. Not part of any ledger payload.
+     */
+    source: text('source'),
   },
   // Not unique: a rejected replay still stores its row (§4.1).
   (t) => [index('media_sha256_idx').on(t.sha256), index('media_event_idx').on(t.eventId)],
