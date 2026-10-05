@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { defineConfig } from '@playwright/test';
+import { DEMO_SPECS } from './e2e/helpers/spec-patterns';
 
 // `pnpm demo` (technical-plan TSK-20.5, TC-078, EVAL-073/074): the automated Kodagu demo. The web server
 // seeds a fresh demo state (`seed --reset` into .e2e-data/demo), builds and starts the app with
@@ -22,7 +23,7 @@ export const DEMO_DATA_DIR = '.e2e-data/demo';
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: /demo.*\.spec\.ts$/,
+  testMatch: DEMO_SPECS,
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,

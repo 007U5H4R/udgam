@@ -114,3 +114,26 @@ describe('the demo seed refuses outside development, test or E2E (review finding
     expect(await orgCount()).toBe(1);
   });
 });
+
+describe('--reset deletes only the database the app opens (review minor 1)', () => {
+  it('refuses --reset, before deleting anything, when DATABASE_URL is not DATA_DIR/udgam.db', async () => {
+    const elsewhere = mkdtempSync(join(tmpdir(), 'udgam-seed-elsewhere-'));
+    try {
+      const { run } = await load({ NODE_ENV: 'test', DATABASE_URL: `file:${join(elsewhere, 'other.db')}` });
+      const r = await runMain(run, ['--reset']);
+      expect(r.code).toBe(1);
+      expect(r.error).toBe(`seed: ${run.SEED_RESET_ELSEWHERE}`);
+      expect(run.SEED_RESET_ELSEWHERE).toBe('--reset recreates only DATA_DIR/udgam.db, but DATABASE_URL points elsewhere: unset DATABASE_URL or point it there. Nothing was changed.');
+      expect(readFileSync(SENTINEL, 'utf8')).toBe('real photo bytes');
+      expect(await orgCount()).toBe(1);
+      expect(existsSync(join(elsewhere, 'other.db'))).toBe(false);
+    } finally {
+      rmSync(elsewhere, { recursive: true, force: true });
+    }
+  });
+
+  it('accepts a DATABASE_URL that names DATA_DIR/udgam.db by another spelling (past the reset check)', async () => {
+    const { run } = await load({ NODE_ENV: 'test', DATABASE_URL: `file:${join(DATA_DIR, '.', 'media', '..', 'udgam.db')}` });
+    expect(run.resetTargetsDataDir()).toBe(true);
+  });
+});

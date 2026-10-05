@@ -4,7 +4,8 @@ import { and, desc, eq } from 'drizzle-orm';
 import { createAuth } from '../../../../lib/auth/auth';
 import type { Env } from '../../../../lib/config/env';
 import type { Db } from '../../../../lib/db/client';
-import { farmers, harvestEvents, plots, verificationRuns } from '../../../../lib/db/schema';
+import { isAttackId, type AttackId, type AttackManifest } from '../../../../lib/demo/manifest';
+import { farmers, harvestEvents, plots, user, verificationRuns } from '../../../../lib/db/schema';
 import type { CheckResult, Verdict } from '../../../../lib/verification/types';
 import { POST as capturePost } from '../../../api/capture/route';
 
@@ -24,26 +25,7 @@ export function demoEnabled(e: DemoEnv): boolean {
   return e.DEMO_MODE === '1' && (e.E2E === '1' || e.NODE_ENV !== 'production');
 }
 
-export const ATTACK_IDS = ['gps-spoof', 'replay', 'yield-inflation', 'plot-laundering'] as const;
-export type AttackId = (typeof ATTACK_IDS)[number];
-export const isAttackId = (v: unknown): v is AttackId => typeof v === 'string' && (ATTACK_IDS as readonly string[]).includes(v);
-
-/** DATA_DIR/demo/attacks/manifest.json, as scripts/seed/attacks.ts writes it. */
-export type AttackManifest = {
-  v: 1;
-  deviceId: string;
-  agentEmail: string;
-  attacks: {
-    id: AttackId;
-    title: string;
-    story: string;
-    plotId: string;
-    cherryKg: number;
-    payloadHash: string;
-    photos: string[];
-    expected: { verdict: 'Needs Review' | 'Rejected'; check: string; evidence: string };
-  }[];
-};
+export { isAttackId, type AttackId, type AttackManifest };
 
 const attacksDir = (dataDir: string) => join(dataDir, 'demo', 'attacks');
 const SAFE_NAME = /^photo\d\.jpg$/;
@@ -117,22 +99,32 @@ const cookieOf = (res: Response) =>
     .map((c) => c.split(';')[0]!)
     .join('; ');
 
+const SUBMIT_FAILURES = ['not_staged', 'no_session', 'refused', 'failed'] as const;
+export type SubmitFailure = (typeof SUBMIT_FAILURES)[number];
+
 export type SubmitResult =
   | { ok: true; verdict: Verdict; eventId: string; checks: { id: string; status: string; evidence: string }[]; idempotent: boolean }
-  | { ok: false; reason: 'not_staged' | 'no_session' | 'refused' | 'failed'; status: number; detail?: string };
+  | { ok: false; reason: SubmitFailure; status: number; detail?: string };
+
+/** A `?error=` value the page may show: one of the known failure codes, else nothing (never echoed text). */
+export const failureOf = (v: unknown): SubmitFailure | null => (typeof v === 'string' && (SUBMIT_FAILURES as readonly string[]).includes(v) ? (v as SubmitFailure) : null);
 
 /** One NDJSON line of the capture answer. */
 type Line = { t: string; verdict?: Verdict; eventId?: string; checks?: { id: string; status: string; evidence: string }[]; idempotent?: boolean; reason?: string; status?: number };
 
 /**
- * Submit staged attack `id`: sign in as the staging phone's agent (a server-side session of its own,
- * never the admin's cookie), then POST the staged payload, signature and photos to /api/capture's
- * handler and read its NDJSON answer to the verdict. Resubmitting gets the original verdict back (TP7).
+ * Submit staged attack `id` for an admin of `orgId`: sign in as the staging phone's agent (a server-side
+ * session of its own, never the admin's cookie), POST the staged payload, signature and photos to
+ * /api/capture's handler and read its NDJSON answer to the verdict, then sign that session out again.
+ * Resubmitting gets the original verdict back (TP7). Refused as not staged when the staging agent is not
+ * in the admin's organisation.
  */
-export async function submitStaged(db: Db, dataDir: string, id: AttackId): Promise<SubmitResult> {
+export async function submitStaged(db: Db, dataDir: string, id: AttackId, orgId: string): Promise<SubmitResult> {
   const m = await readManifest(dataDir);
   const a = m?.attacks.find((x) => x.id === id);
   if (!m || !a) return { ok: false, reason: 'not_staged', status: 404 };
+  const [agent] = await db.select({ orgId: user.orgId }).from(user).where(eq(user.email, m.agentEmail)).limit(1);
+  if (!agent || agent.orgId !== orgId) return { ok: false, reason: 'not_staged', status: 404 };
   const dir = join(attacksDir(dataDir), a.id);
   let payload: string;
   let signature: string;
@@ -148,10 +140,20 @@ export async function submitStaged(db: Db, dataDir: string, id: AttackId): Promi
   const password = await seededPassword(dataDir, m.agentEmail);
   if (!password) return { ok: false, reason: 'no_session', status: 401 };
   // A plain instance (no Next cookie plugin): the agent's session must never be set on the admin's browser.
-  const signIn = await createAuth(db).api.signInEmail({ body: { email: m.agentEmail, password }, asResponse: true });
+  const auth = createAuth(db);
+  const signIn = await auth.api.signInEmail({ body: { email: m.agentEmail, password }, asResponse: true });
   const cookie = cookieOf(signIn);
   if (!signIn.ok || !cookie) return { ok: false, reason: 'no_session', status: 401 };
+  try {
+    return await postStaged(payload, signature, photos, cookie);
+  } finally {
+    // Revoke the agent's session at once: it existed only for this one submission.
+    await auth.api.signOut({ headers: new Headers({ cookie }) });
+  }
+}
 
+/** POST one staged capture to /api/capture's handler under `cookie`, and read its answer. */
+async function postStaged(payload: string, signature: string, photos: Uint8Array<ArrayBuffer>[], cookie: string): Promise<SubmitResult> {
   const form = new FormData();
   form.set('payload', payload);
   form.set('signature', signature);

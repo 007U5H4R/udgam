@@ -12,7 +12,7 @@
 |---|---|
 | `NODE_ENV=development pnpm seed` | Builds the demo state in `DATA_DIR` (default `./data`). It refuses a database that already holds data: "DATA_DIR is not empty — use --reset". |
 | `NODE_ENV=development pnpm seed --reset` | Removes `DATA_DIR/{udgam.db*, media, attestations, staging, demo, seed-keys, seed-credentials.txt}` and builds again. The provenance tables refuse DELETE, so the database file is recreated, never emptied. The ledger key and the admins' signing keys in `DATA_DIR/keys` are kept. |
-| `pnpm demo` | Runs the Playwright demo (`playwright.demo.config.ts`) at 375 px and 1280 px. It does a fresh `seed --reset` into `.e2e-demo-data`, then `next build` and `next start` with `DEMO_MODE=1 E2E=1` on port `E2E_PORT` (default 3330). |
+| `pnpm demo` | Runs the Playwright demo (`playwright.demo.config.ts`) at 375 px and 1280 px. It does a fresh `seed --reset` into `.e2e-data/demo`, then `next build` and `next start` with `DEMO_MODE=1 E2E=1` on port `E2E_PORT` (default 3330). |
 
 `pnpm seed` prints one line: the counts and the path of the credentials file. It never prints a password.
 
@@ -58,3 +58,4 @@ The demo state:
 
 - **Seed again shortly before a live demo.** The staged attacks are signed at seed time, with capture times between 1 and 7 hours before it. Submitted more than 24 hours later, they also flag the phone-clock gap (`exif_time_agreement`). The catching checks and verdicts stay the same.
 - **Y01's honest pickings fall in the current coffee season** (from 1 October, IST). The yield attack meets their season total. If the season turns between the seed and the demo, run `pnpm seed --reset` again.
+- **Early in a season the seed squeezes Y01's run in** (`scripts/seed/timeline.ts`). Usually the run ends 90 minutes before the seed, its pickings 150 minutes apart. Within a few hours of 1 October 00:00 IST it ends a quarter of the season's elapsed time before the seed and starts just after the season start, closer together. In the season's first 10 minutes there is not room for it, and the seed refuses: run it after 00:10 IST.
