@@ -3,6 +3,7 @@ import type { VerifyResult } from '../../../src/lib/verification/types';
 import { assertCase, type CaseResult } from '../../scorers/case-assertions';
 import type { EvalCase } from '../dataset';
 import type { Provenance } from '../provenance';
+import type { Readiness } from '../readiness';
 import { regate, type ResultsFile } from '../run';
 
 // A small, self-consistent world for the release tests (TASK-22 fix round 1): a dataset with one attack
@@ -69,6 +70,17 @@ export function caseResult(c: EvalCase, result: VerifyResult | null): CaseResult
   };
 }
 
+/**
+ * `pnpm eval:ready` as it reads for the repository dataset at the M-001 gate: READY, with the HR3 warning
+ * (TP29). The world's own dataset is far too small to be READY, so formal-release tests inject this.
+ */
+export const WORLD_READY: Readiness = {
+  ready: true,
+  milestone: 'M1',
+  checks: [{ id: 'registry', pass: true, detail: '12/12 checks registered' }],
+  warnings: ['WARNING: docs/exec/hr3-field-calibration.md is absent: HR3 field calibration was waived (decisions.md TP29), so S2 realism (the legitimate-set jitter) and the S3 reference condition are unvalidated assumptions. The gate report must print this line.'],
+};
+
 export const WORLD_GIT: Provenance['git'] = { commit: 'a'.repeat(40), shortSha: 'aaaaaaa', branch: 'build/stage7', dirty: false };
 
 /**
@@ -88,8 +100,11 @@ export function worldHarness(o: { git?: Provenance['git']; undetected?: string[]
       environment: 'local',
       dataset: { path: 'evals/eval-dataset.json', version: '0.8.0', sha256: 'd'.repeat(64) },
       config: { version: 'cfg-1', hash: CONFIG_HASH, mode: 'full', enabledChecks: [], object: {} },
+      provider: 'fixture',
+      ledger: 'hashchain',
       suites: ['harness-verifier', 'harness-proof'],
       seed: 1,
+      seedPolicy: 'default',
       timestampUtc: '2026-10-05T00:00:00.000Z',
       durationMs: 1,
     },

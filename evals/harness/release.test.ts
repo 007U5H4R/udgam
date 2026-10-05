@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -28,7 +28,7 @@ import {
 } from './release';
 import { evaluate, type ResultsFile } from './run';
 import { parseSuiteArgs, sidecarPath, suiteCommands, type SuiteReport, type SuiteRunRecord } from './test-suites';
-import { kase, WORLD, WORLD_GIT, worldHarness } from './testing/release-world';
+import { kase, WORLD, WORLD_GIT, WORLD_READY, worldHarness } from './testing/release-world';
 import type { TreeState } from './tree-state';
 
 // TSK-21.4 (TKT-21, TC-079, S7): the release evaluation merges the harness, the EVAL-titled Vitest and
@@ -537,12 +537,96 @@ describe('eval:release CLI', () => {
     expect(() => parseReleaseArgs(['--bogus'])).toThrow(/unknown flag/);
   });
 
-  it('formalRefusals: a dirty tree, a missing input, or an input outside the results directory', () => {
-    const args = (o: { harness?: string; perf?: string }) => ({ milestone: 'M1' as const, out: 'formal' as const, reuse: false, ...o });
-    expect(formalRefusals(args({ harness: '/r/eval-run-0.1.0-aaaaaaa.json', perf: '/r/baseline-perf-v1.json' }), HEAD, '/r')).toEqual([]);
-    expect(formalRefusals(args({ harness: '/r/h.json', perf: '/r/p.json' }), { ...HEAD, dirty: true, changes: [' M src/a.ts'] }, '/r')).toEqual(['the tree has changes outside the untracked formal outputs:  M src/a.ts']);
-    expect(formalRefusals(args({ perf: '/r/p.json' }), HEAD, '/r')[0]).toMatch(/^--harness=<file> is required/);
-    expect(formalRefusals(args({ harness: '/tmp/h.json', perf: '/r/p.json' }), HEAD, '/r')).toEqual(['--harness must name a formal file in /r/, got /tmp/h.json']);
+  describe('formalRefusals (nothing is run or written when any applies)', () => {
+    const args = (o: { harness?: string; perf?: string; milestone?: 'M1' | 'M2' }) => ({ milestone: 'M1' as const, out: 'formal' as const, reuse: false, ...o });
+    /** A results directory holding a formal harness file (worldHarness, with `over` merged into its provenance or scope) and a perf file. */
+    function formalDir(o: { provenance?: Record<string, unknown>; scope?: Record<string, unknown>; text?: string } = {}) {
+      const dir = join(root, `formal-${++k}`, 'results');
+      mkdirSync(dir, { recursive: true });
+      const h = worldHarness();
+      const harness = join(dir, 'eval-run-0.1.0-aaaaaaa.json');
+      writeFileSync(harness, o.text ?? JSON.stringify({ ...h, provenance: { ...h.provenance, ...o.provenance }, scope: { ...h.scope, ...o.scope } }));
+      const perf = join(dir, 'baseline-perf-v1.json');
+      writeFileSync(perf, JSON.stringify(perfFile()));
+      return { dir, harness, perf };
+    }
+
+    it('accepts the formal M-001 inputs on a clean tree with READY readiness', () => {
+      const f = formalDir();
+      expect(formalRefusals(args({ harness: f.harness, perf: f.perf }), HEAD, f.dir, WORLD_READY)).toEqual([]);
+    });
+
+    it('a dirty tree, a missing input, or an input outside the results directory', () => {
+      const f = formalDir();
+      expect(formalRefusals(args({ harness: f.harness, perf: f.perf }), { ...HEAD, dirty: true, changes: [' M src/a.ts'] }, f.dir, WORLD_READY)).toEqual(['the tree has changes outside the untracked formal outputs:  M src/a.ts']);
+      expect(formalRefusals(args({ perf: f.perf }), HEAD, f.dir, WORLD_READY)[0]).toMatch(/^--harness=<file> is required/);
+      expect(formalRefusals(args({ harness: '/tmp/h.json', perf: f.perf }), HEAD, f.dir, WORLD_READY)).toEqual([`--harness must name a formal file in ${f.dir}/, got /tmp/h.json`]);
+    });
+
+    // Re-review R-2 / Q-5: readiness is a precondition, not a printout; the HR3 warning stays a warning.
+    it('NOT READY readiness refuses, naming each failing check; READY with the HR3 warning does not', () => {
+      const f = formalDir();
+      const notReady = { ...WORLD_READY, ready: false, checks: [{ id: 'scenario-1', pass: false, detail: '1 active attack cases (need ≥ 10)' }, { id: 'registry', pass: true, detail: '12/12' }] };
+      expect(formalRefusals(args({ harness: f.harness, perf: f.perf }), HEAD, f.dir, notReady)).toEqual(['pnpm eval:ready is NOT READY for M1: scenario-1 (1 active attack cases (need ≥ 10))']);
+      expect(WORLD_READY.warnings[0]).toMatch(/^WARNING: .*TP29/);
+      expect(formalRefusals(args({ harness: f.harness, perf: f.perf }), HEAD, f.dir, WORLD_READY)).toEqual([]);
+    });
+
+    // Re-review R-1 / Q-2: a formal release runs once per commit; an earlier attempt is never retried away.
+    it.each([['eval-run-v1-release-aaaaaaa.json'], ['eval-run-v1-release-aaaaaaa-r2.json'], ['eval-run-v1-release-aaaaaaaaaa.json'], ['eval-run-v1-release-aaaa.json']])('row %#: an existing formal release file %s for this commit refuses', (name) => {
+      const f = formalDir();
+      writeFileSync(join(f.dir, name), '{}');
+      expect(formalRefusals(args({ harness: f.harness, perf: f.perf }), HEAD, f.dir, WORLD_READY)).toEqual([
+        `a formal release of ${HEAD.shortSha} already exists (${name}): a formal release runs once per commit, and an earlier attempt is never rerun until it passes`,
+      ]);
+    });
+
+    it('a formal release file of another commit does not refuse', () => {
+      const f = formalDir();
+      writeFileSync(join(f.dir, 'eval-run-v1-release-bbbbbbb.json'), '{}');
+      expect(formalRefusals(args({ harness: f.harness, perf: f.perf }), HEAD, f.dir, WORLD_READY)).toEqual([]);
+    });
+
+    // Re-review R-5 / Q-4: the harness input is a regular file made with the formal M-001 options.
+    it('a symlink, a directory or a missing file refuses (harness and perf alike)', () => {
+      const f = formalDir();
+      const outside = join(root, `outside-${++k}.json`);
+      writeFileSync(outside, readFileSync(f.harness));
+      const link = join(f.dir, 'eval-run-link.json');
+      symlinkSync(outside, link);
+      expect(formalRefusals(args({ harness: link, perf: f.perf }), HEAD, f.dir, WORLD_READY)).toEqual([`--harness must be a regular file, not a symlink: ${link}`]);
+      const perfLink = join(f.dir, 'eval-run-perf-link.json');
+      symlinkSync(f.perf, perfLink);
+      expect(formalRefusals(args({ harness: f.harness, perf: perfLink }), HEAD, f.dir, WORLD_READY)).toEqual([`--perf must be a regular file, not a symlink: ${perfLink}`]);
+      const sub = join(f.dir, 'eval-run-dir.json');
+      mkdirSync(sub);
+      expect(formalRefusals(args({ harness: sub, perf: f.perf }), HEAD, f.dir, WORLD_READY)).toEqual([`--harness must be a regular file, not a directory: ${sub}`]);
+      const missing = join(f.dir, 'eval-run-none.json');
+      expect(formalRefusals(args({ harness: f.harness, perf: missing }), HEAD, f.dir, WORLD_READY)).toEqual([`--perf names no file: ${missing}`]);
+    });
+
+    it.each([
+      ['the ledger-only config', { provenance: { config: { ...worldHarness().provenance.config, mode: 'ledger-only' } } }, 'config.mode is ledger-only, not full'],
+      ['a chosen seed (--seed)', { provenance: { seed: 999, seedPolicy: 'chosen' } }, 'the seed 999 was chosen with --seed, not the harness default'],
+      ['no recorded seed policy', { provenance: { seedPolicy: undefined } }, 'it records no seed policy, so the default seed cannot be shown'],
+      ['the live provider', { provenance: { provider: 'live' } }, 'provider is live, not fixture'],
+      ['one harness suite only', { provenance: { suites: ['harness-verifier'] } }, 'suites are harness-verifier, not harness-verifier, harness-proof'],
+      ['the EVM ledger', { provenance: { ledger: 'evm' } }, 'ledger is evm, not hashchain'],
+      ['milestone M2', { scope: { milestone: 'M2' } }, 'milestone is M2, not M1'],
+    ])('row %#: a harness file made with %s refuses', (_why, over, reason) => {
+      const f = formalDir(over);
+      expect(formalRefusals(args({ harness: f.harness, perf: f.perf }), HEAD, f.dir, WORLD_READY)).toEqual([`--harness is not the formal M-001 harness run (pnpm eval --baseline=v1): ${reason}`]);
+    });
+
+    it('a harness file that is not JSON refuses', () => {
+      const f = formalDir({ text: '{not json' });
+      expect(formalRefusals(args({ harness: f.harness, perf: f.perf }), HEAD, f.dir, WORLD_READY)[0]).toMatch(/^--harness is not readable JSON:/);
+    });
+
+    it('a formal release is defined for M1 only', () => {
+      const f = formalDir();
+      expect(formalRefusals(args({ harness: f.harness, perf: f.perf, milestone: 'M2' }), HEAD, f.dir, WORLD_READY)).toEqual(['--out=formal is defined for --milestone=M1 (the M-001 gate) only; got M2']);
+    });
   });
 
   it('--out=formal on a dirty tree, or with --reuse, exits 2 and runs and writes nothing', async () => {

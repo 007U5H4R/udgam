@@ -11,8 +11,8 @@ import { publishedKeys } from '../../../src/lib/ledger/keys';
 import { verifyFeed } from '../../../src/lib/ledger/proof';
 import { DATASET_GRADE, fundedAndGraded, settle, settleAsStranger, settlementWorld, tempDataDir, type SettlementWorld } from './settlement';
 
-// EVAL-093–099 (TC-084, integration half; technical-plan TSK-25.6) end to end through the settlement
-// service against ContractFarming + MockINR on the `evm` project's Anvil. Expected values are the
+// EVAL-093, EVAL-094, EVAL-095, EVAL-096, EVAL-097, EVAL-098 and EVAL-099 (TC-084, integration half;
+// technical-plan TSK-25.6) end to end through the settlement service against ContractFarming + MockINR on the `evm` project's Anvil. Expected values are the
 // dataset's literals: ₹50,000.00 = 5,000,000 paise; 500 kg agreed; minimum B (Very good · 80).
 
 const rpcUrl = inject('anvilRpcUrl');
@@ -44,7 +44,7 @@ const code = async (p: Promise<unknown>) =>
     (e: unknown) => (e instanceof AgreementError ? e.code : e instanceof ChainError ? `${e.kind}:${e.reason}` : String(e)),
   );
 
-describe('settlement through the service (EVAL-093–099)', () => {
+describe('settlement through the service (TC-084; one EVAL case per test, each named in full)', () => {
   it('EVAL-093 releases exactly ₹50,000.00 to the FPO when quantity, grade and verification hold; anchored with its tx; closed', async () => {
     const w = await world();
     const r = await fundedAndGraded(w, { kgs: [256, 256] });

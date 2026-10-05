@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { main, type ReleaseFile } from './release';
 import { runSuite, type SuiteCommand } from './test-suites';
-import { WORLD, worldHarness } from './testing/release-world';
+import { WORLD, WORLD_READY, worldHarness } from './testing/release-world';
 import { treeState } from './tree-state';
 
 // The M-001 formal sequence (docs/exec/m-001-formal-run.md; TASK-22 fix round 1, A-6), simulated end to
@@ -80,7 +80,7 @@ describe('the M-001 formal sequence in a temporary repository', () => {
     const w = gateCommit('pass');
     const gate = w.tree();
     expect(gate).toMatchObject({ dirty: false, changes: [], formalOutputs: [] }); // 1. clean tree at the gate commit
-    // 2. `pnpm eval:ready` checks the repository dataset (readiness.test.ts); the fixture world has no gate there.
+    // 2. `pnpm eval:ready` READY (injected: the fixture world is too small; the repository dataset is checked in readiness.test.ts).
     const harness = formalHarnessRun(w); // 3.
     const perf = formalPerfRun(w); // 4.
     const perfGit = JSON.parse(readFileSync(perf, 'utf8')).provenance.git;
@@ -88,7 +88,7 @@ describe('the M-001 formal sequence in a temporary repository', () => {
 
     // 5. the suites and the formal release, at the same HEAD
     const lines: string[] = [];
-    const code = await main(['--milestone=M1', '--out=formal', `--harness=${harness}`, `--perf=${perf}`], { log: (s) => lines.push(s), error: (s) => lines.push(s) }, { git: w.tree, resultsDir: w.results, reportsDir: w.reports, dataset: WORLD, runSuite: fixtureRunner()(w.tree) });
+    const code = await main(['--milestone=M1', '--out=formal', `--harness=${harness}`, `--perf=${perf}`], { log: (s) => lines.push(s), error: (s) => lines.push(s) }, { git: w.tree, resultsDir: w.results, reportsDir: w.reports, dataset: WORLD, readiness: () => WORLD_READY, runSuite: fixtureRunner()(w.tree) });
     expect(lines.filter((l) => l.includes('problem'))).toEqual([]);
     expect(code).toBe(0);
     expect(lines[0]).toBe('eval:release (M1) — PASS');
@@ -102,6 +102,9 @@ describe('the M-001 formal sequence in a temporary repository', () => {
       ['e2e-demo', 0, 0],
       ['perf', null, 0],
     ]);
+
+    // the HR3 warning (TP29) stays a warning, and the release report carries it
+    expect(readFileSync(join(w.reports, 'eval-report-v1.md'), 'utf8')).toContain(WORLD_READY.warnings[0]);
 
     const formal = [
       `evals/reports/eval-report-0.1.0-${gate.shortSha}.md`,
@@ -128,11 +131,68 @@ describe('the M-001 formal sequence in a temporary repository', () => {
     writeFileSync(join(w.dir, 'notes.txt'), 'scratch\n');
     let ran = 0;
     const errors: string[] = [];
-    const code = await main(['--out=formal', `--harness=${harness}`, `--perf=${perf}`], { log: () => {}, error: (s) => errors.push(s) }, { git: w.tree, resultsDir: w.results, reportsDir: w.reports, dataset: WORLD, runSuite: async () => void ran++ });
+    const code = await main(['--out=formal', `--harness=${harness}`, `--perf=${perf}`], { log: () => {}, error: (s) => errors.push(s) }, { git: w.tree, resultsDir: w.results, reportsDir: w.reports, dataset: WORLD, readiness: () => WORLD_READY, runSuite: async () => void ran++ });
     expect(code).toBe(2);
     expect(errors[0]).toMatch(/the tree has changes outside the untracked formal outputs: \?\? notes\.txt/);
     expect(ran).toBe(0);
     expect(w.tree().formalOutputs.filter((f) => f.includes('release') || f.endsWith('eval-report-v1.md'))).toEqual([]);
+  });
+
+  // TASK-22 re-review R-1 / Q-2 (the probe): attempt 1 fails, attempt 2 at the same HEAD is refused, so a
+  // formal release can never be rerun until it passes; the FAIL pair stays for step 6's commit.
+  it('a second formal release at the same HEAD is refused (exit 2) and the first attempt stays as it was', async () => {
+    const w = gateCommit('retry');
+    const harness = formalHarnessRun(w);
+    const perf = formalPerfRun(w);
+    const deps = { git: w.tree, resultsDir: w.results, reportsDir: w.reports, dataset: WORLD, readiness: () => WORLD_READY };
+    // attempt 1 fails: the dataset names a case no test covers, so it is missing
+    const lines1: string[] = [];
+    const dsNoE2e = { cases: WORLD.cases.map((c) => (c.id === 'EVAL-064' ? { ...c, id: 'EVAL-065' } : c)) }; // EVAL-065 has no test: missing, so the release FAILs
+    expect(await main(['--out=formal', `--harness=${harness}`, `--perf=${perf}`], { log: (s) => lines1.push(s), error: (s) => lines1.push(s) }, { ...deps, dataset: dsNoE2e, runSuite: fixtureRunner()(w.tree) })).toBe(1);
+    expect(lines1[0]).toBe('eval:release (M1) — FAIL');
+    const sha = w.tree().shortSha;
+    const before = readdirSync(w.results).sort();
+    expect(before).toContain(`eval-run-v1-release-${sha}.json`);
+    const firstText = readFileSync(join(w.results, `eval-run-v1-release-${sha}.json`), 'utf8');
+
+    // attempt 2, with every suite passing, is refused before anything runs
+    let ran = 0;
+    const errors: string[] = [];
+    expect(await main(['--out=formal', `--harness=${harness}`, `--perf=${perf}`], { log: () => {}, error: (s) => errors.push(s) }, { ...deps, runSuite: async () => void ran++ })).toBe(2);
+    expect(errors.join('\n')).toMatch(new RegExp(`a formal release of ${sha} already exists \\(eval-run-v1-release-${sha}\\.json\\)`));
+    expect(ran).toBe(0);
+    expect(readdirSync(w.results).sort()).toEqual(before); // no -r2
+    expect(readFileSync(join(w.results, `eval-run-v1-release-${sha}.json`), 'utf8')).toBe(firstText);
+    expect(readdirSync(w.reports).filter((f) => f.startsWith('eval-report-v1'))).toEqual(['eval-report-v1.md']);
+  });
+
+  // Re-review R-2 / Q-5 (the probe): the fixture world is NOT READY; the formal release used to PASS on it.
+  it('refuses the formal release (exit 2) when pnpm eval:ready is NOT READY', async () => {
+    const w = gateCommit('not-ready');
+    const harness = formalHarnessRun(w);
+    const perf = formalPerfRun(w);
+    let ran = 0;
+    const errors: string[] = [];
+    expect(await main(['--out=formal', `--harness=${harness}`, `--perf=${perf}`], { log: () => {}, error: (s) => errors.push(s) }, { git: w.tree, resultsDir: w.results, reportsDir: w.reports, dataset: WORLD, runSuite: async () => void ran++ })).toBe(2);
+    expect(errors.join('\n')).toMatch(/pnpm eval:ready is NOT READY for M1: .*scenario-1 \(1 active attack cases \(need ≥ 10\)\)/);
+    expect(ran).toBe(0);
+    expect(readdirSync(w.results).filter((f) => f.includes('release'))).toEqual([]);
+  });
+
+  // Re-review R-5 / Q-4 (the probe): a symlink named like a formal output, pointing outside the repository.
+  it('refuses a harness input that is a symlink to a file outside the repository', async () => {
+    const w = gateCommit('symlink');
+    const harness = formalHarnessRun(w);
+    const perf = formalPerfRun(w);
+    const outside = join(root, 'outside-harness.json');
+    copyFileSync(harness, outside);
+    const link = join(w.results, 'eval-run-link.json');
+    symlinkSync(outside, link);
+    let ran = 0;
+    const errors: string[] = [];
+    expect(await main(['--out=formal', `--harness=${link}`, `--perf=${perf}`], { log: () => {}, error: (s) => errors.push(s) }, { git: w.tree, resultsDir: w.results, reportsDir: w.reports, dataset: WORLD, readiness: () => WORLD_READY, runSuite: async () => void ran++ })).toBe(2);
+    expect(errors.join('\n')).toContain(`--harness must be a regular file, not a symlink: ${link}`);
+    expect(ran).toBe(0);
   });
 
   it('a perf file measured before the gate commit (another HEAD) fails the release', async () => {
@@ -142,7 +202,7 @@ describe('the M-001 formal sequence in a temporary repository', () => {
     git(w.dir, 'commit', '-q', '-am', 'later commit'); // … then the gate commit moved on
     const harness = formalHarnessRun(w);
     const lines: string[] = [];
-    expect(await main(['--out=formal', `--harness=${harness}`, `--perf=${perf}`], { log: (s) => lines.push(s), error: (s) => lines.push(s) }, { git: w.tree, resultsDir: w.results, reportsDir: w.reports, dataset: WORLD, runSuite: fixtureRunner()(w.tree) })).toBe(1);
+    expect(await main(['--out=formal', `--harness=${harness}`, `--perf=${perf}`], { log: (s) => lines.push(s), error: (s) => lines.push(s) }, { git: w.tree, resultsDir: w.results, reportsDir: w.reports, dataset: WORLD, readiness: () => WORLD_READY, runSuite: fixtureRunner()(w.tree) })).toBe(1);
     expect(lines.some((l) => /problem: perf: the perf results .*baseline-perf-v1\.json is from [0-9a-f]{7}, the release runs at [0-9a-f]{7}/.test(l))).toBe(true);
   });
 
@@ -152,7 +212,7 @@ describe('the M-001 formal sequence in a temporary repository', () => {
     const perf = formalPerfRun(w);
     const runner = fixtureRunner({ during: () => writeFileSync(join(w.dir, 'README'), 'changed by a test\n') })(w.tree);
     const lines: string[] = [];
-    expect(await main(['--out=formal', `--harness=${harness}`, `--perf=${perf}`], { log: (s) => lines.push(s), error: (s) => lines.push(s) }, { git: w.tree, resultsDir: w.results, reportsDir: w.reports, dataset: WORLD, runSuite: runner })).toBe(1);
+    expect(await main(['--out=formal', `--harness=${harness}`, `--perf=${perf}`], { log: (s) => lines.push(s), error: (s) => lines.push(s) }, { git: w.tree, resultsDir: w.results, reportsDir: w.reports, dataset: WORLD, readiness: () => WORLD_READY, runSuite: runner })).toBe(1);
     expect(lines.some((l) => /problem: e2e: the e2e run \(tree before it\) was produced on a dirty tree \(CF-12\):  M README/.test(l))).toBe(true);
     expect(lines.some((l) => /problem: the release tree has changes outside the untracked formal outputs \( M README\)/.test(l))).toBe(true);
   });
