@@ -1,6 +1,7 @@
 /* The certificate's journey (TKT-16), ported from .design/exploration/final/verify.html "4 · journey":
    .journey, .tl, .t-dot, .t-step, .t-when, .t-where. The dots and the line use --accent, which the
-   mismatch state turns neutral; the check icons are hidden there (verify.html). */
+   mismatch state turns neutral; the check icons are hidden there (verify.html) and, DES-210, in every
+   state that is not verified. */
 .journey {
   padding: 22px 20px 8px;
 }
@@ -48,7 +49,8 @@
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-:global(body[data-state='mismatch']) .dot .ic {
+/* DES-210: and before the proof is verified (checking, could not check, no JavaScript): no ✓ until it is */
+:global(body:not([data-state='verified'])) .dot .ic {
   display: none;
 }
 .step {

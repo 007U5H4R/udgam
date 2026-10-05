@@ -244,6 +244,18 @@
   border: 1px dashed rgba(255, 140, 126, 0.5);
   background: rgba(239, 106, 91, 0.08);
 }
+/* DES-210: the same note when the key could not be fetched, in the neutral dashed outline (nothing failed) */
+.unconfirmed.neutral {
+  border-color: var(--hairline);
+  background: rgba(255, 255, 255, 0.05);
+}
+/* DES-206: the no-JavaScript line, under the "Checking…" row it explains */
+.noscript {
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline);
+  font-weight: 600;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .spin,

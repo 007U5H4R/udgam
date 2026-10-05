@@ -43,6 +43,7 @@ export const certCopy = {
     checkAgain: 'Check again',
     unconfirmedLead: 'The details below are what the seller published.',
     unconfirmedRest: ' Until the check passes, they are not confirmed.',
+    noScript: 'This page checks its records in your browser and needs JavaScript. Nothing here is confirmed until it runs.',
     unavailableTitle: 'Could not check yet',
     unavailableLine: 'Your browser could not fetch Udgam’s public key, so nothing on this page is confirmed yet. Check your connection and try again.',
     how: 'How this was checked',

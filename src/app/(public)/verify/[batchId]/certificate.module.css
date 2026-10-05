@@ -26,6 +26,14 @@
 :global(body[data-state='loading']) .page {
   --pill-glow: none;
 }
+/* DES-210: until the visitor's own browser has verified the proof (checking, could not check, or no
+   JavaScript, when body has no state at all) the map and the journey draw in mismatch's neutral set: no
+   mint glow and no ✓ (Timeline.module.css), so nothing looks confirmed before it is. */
+:global(body:not([data-state='verified'])) .where {
+  --accent: #f3f6f4;
+  --accent-glow: rgba(243, 246, 244, 0);
+  --accent-soft: rgba(255, 255, 255, 0.08);
+}
 
 .page h1,
 .page h2,
@@ -248,8 +256,7 @@
   stroke-width: 2.6;
   stroke-linejoin: round;
 }
-:global(body[data-state='mismatch']) .mLine,
-:global(body[data-state='loading']) .mLine {
+:global(body:not([data-state='verified'])) .mLine {
   stroke-dasharray: 10 8;
 }
 .mLabel {
