@@ -13,7 +13,7 @@ import { E2E_DATA_DIR } from './tracer';
 
 export type { SeededCapture };
 
-export function seedCaptureWorld(o: { plots?: string[]; events?: string[]; photo?: string; refusal?: string; phone?: string } = {}): SeededCapture {
+export function seedCaptureWorld(o: { plots?: string[]; events?: string[]; photo?: string; refusal?: string; phone?: string; code?: boolean } = {}): SeededCapture {
   const env: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: 'test', DATA_DIR: E2E_DATA_DIR, LOG_LEVEL: 'silent' };
   delete env.DATABASE_URL;
   const args = ['e2e/helpers/seed-capture.ts'];
@@ -22,6 +22,7 @@ export function seedCaptureWorld(o: { plots?: string[]; events?: string[]; photo
   if (o.photo) args.push('--photo', o.photo);
   if (o.refusal) args.push('--refusal', o.refusal);
   if (o.phone) args.push('--phone', o.phone);
+  if (o.code) args.push('--code');
   const out = execFileSync('./node_modules/.bin/tsx', args, { env, stdio: ['ignore', 'pipe', 'inherit'] }).toString();
   return JSON.parse(out.trim().split('\n').at(-1)!) as SeededCapture;
 }

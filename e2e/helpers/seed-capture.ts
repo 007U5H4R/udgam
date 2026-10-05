@@ -11,15 +11,19 @@
 // so its run carries the check the farmer copy layer explains; `--refusal <reason>` anchors one boundary
 // refusal of this phone (after the events); `--phone <tel>` sets the organisation's office phone.
 //
+// EVAL-086 adds `--code`: an admin in the same organisation issues a one-time enrolment code for the
+// agent, so a spec can enrol a fresh phone through /enrol (the seeded phone stays enrolled beside it).
+//
 // Usage: NODE_ENV=test DATA_DIR=.e2e-data pnpm exec tsx e2e/helpers/seed-capture.ts
 //          [--plots P01,P09] [--events "38.5:Verified,44:Needs Review:cloud"] [--photo <file>]
-//          [--refusal plot_not_assigned] [--phone +918000000000]
+//          [--refusal plot_not_assigned] [--phone +918000000000] [--code]
 import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { hashPassword } from 'better-auth/crypto';
 import { generateKeyPair, jcs, jwkThumbprint, publicMembers, sha256Hex, sign } from '../../src/lib/crypto';
 import { persistAccepted, persistRejected, type StoredMedia } from '../../src/lib/capture/persist';
 import { closeDb, getDbReady, writeTx } from '../../src/lib/db/client';
+import { issueCode } from '../../src/lib/enrolment/codes';
 import { runMigrations } from '../../src/lib/db/migrate';
 import { account, agentPlots, devices, farmers, organisations, plots, user } from '../../src/lib/db/schema';
 import { locate } from '../../src/lib/geo/geofence';
@@ -44,6 +48,8 @@ export type SeededCapture = {
   events: { eventId: string; cherryKg: number; verdict: Verdict }[];
   /** The boundary refusal seeded with --refusal, if any. */
   refusal?: { eventId: string; cherryKg: number; reason: string };
+  /** TEST-ONLY one-time enrolment code for the agent (--code), valid 24 h. Never used outside .e2e-data. */
+  testOnlyCode?: string;
 };
 
 const arg = (name: string): string | undefined => {
@@ -97,6 +103,8 @@ try {
   const tag = orgId.slice(4).toLowerCase();
   const agentId = newId('USR-');
   const agentEmail = `agent-${tag}@capture.udgam.test`;
+  const withCode = process.argv.includes('--code');
+  const adminId = newId('USR-');
   const password = randomBytes(18).toString('base64url');
   const farmerId = newId('FA-');
   const producerId = newId('PR-');
@@ -122,6 +130,7 @@ try {
     await tx.insert(organisations).values({ id: orgId, type: 'fpo', name: `Capture FPO ${tag}`, officePhone: arg('--phone') ?? null });
     await tx.insert(user).values({ id: agentId, name: `Capture agent ${tag}`, email: agentEmail, emailVerified: true, role: 'agent', orgId, createdAt: now, updatedAt: now });
     await tx.insert(account).values({ id: `${agentId}-credential`, accountId: agentId, providerId: 'credential', userId: agentId, password: hash, createdAt: now, updatedAt: now });
+    if (withCode) await tx.insert(user).values({ id: adminId, name: `Capture admin ${tag}`, email: `admin-${tag}@capture.udgam.test`, emailVerified: true, role: 'admin', orgId, createdAt: now, updatedAt: now });
     await tx.insert(farmers).values({ id: farmerId, orgId, name: farmerName, producerId });
     for (const p of seeded) {
       const a = await append(tx, 'plot_registered', { plotId: p.id, producerId, crop: 'arabica', areaHa: p.areaHa, polygon: p.geometry });
@@ -207,6 +216,8 @@ try {
     refusal = { eventId, cherryKg: 30, reason: refusalReason };
   }
 
+  const testOnlyCode = withCode ? (await issueCode(db, { agentId, adminId, orgId })).code : undefined;
+
   const seed: SeededCapture = {
     orgId,
     agentEmail,
@@ -219,6 +230,7 @@ try {
     plots: seeded.map(({ id, fixture, areaHa, inside }) => ({ id, fixture, areaHa, inside })),
     events: out,
     ...(refusal ? { refusal } : {}),
+    ...(testOnlyCode ? { testOnlyCode } : {}),
   };
   console.log(JSON.stringify(seed));
 } finally {
