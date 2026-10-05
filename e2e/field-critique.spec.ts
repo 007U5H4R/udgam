@@ -238,3 +238,24 @@ test('DES-007: the current language and the current plot carry a check mark, not
   await expect(pressed.locator('svg.ic')).toHaveCount(1);
   await expect(plots.locator('button[aria-pressed="false"] svg.ic')).toHaveCount(0);
 });
+
+test('DES-012: the tab bar sits at the bottom edge on a short page, and clears the last control at the end of a long one', async ({ page, context }) => {
+  const seed = seedCaptureWorld({ events: ['38.5:Verified', '44:Needs Review:cloud'] });
+  await openField(page, context, seed);
+  const bar = page.locator('nav.tabbar');
+  const gap = () => bar.evaluate((el) => innerHeight - el.getBoundingClientRect().bottom);
+
+  await page.goto('/field/pickings?state=empty');
+  await expect(page.getByTestId('pickings-empty')).toBeVisible();
+  expect(await gap()).toBeGreaterThanOrEqual(10);
+  expect(await gap()).toBeLessThanOrEqual(30);
+
+  await page.setViewportSize({ width: 360, height: 740 });
+  await page.goto('/field/pickings');
+  await page.locator('section[data-month] li.row[data-event] a.r-open').last().click();
+  const summary = page.getByTestId('all-checks').locator('summary');
+  await expect(summary).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const [s, b] = await Promise.all([summary.boundingBox(), bar.boundingBox()]);
+  expect(s!.y + s!.height).toBeLessThanOrEqual(b!.y);
+});

@@ -519,16 +519,20 @@ html[lang='kn'] body {
   border-radius: 999px;
 }
 
-/* Floating glass tab bar */
+/* Floating glass tab bar. DES-012: fixed to the bottom edge of the screen (above the safe area) on every
+   tabbed screen, short or long, so it never floats mid-screen under short content; the screen keeps
+   room for it below its content (.has-tabs). */
 .tabbar {
-  position: sticky;
+  position: fixed;
+  left: 0;
+  right: 0;
   bottom: calc(14px + env(safe-area-inset-bottom));
   z-index: 6;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 4px;
-  width: min(100%, 344px);
-  margin: 28px auto 14px;
+  width: min(calc(100% - 2 * var(--pad)), 344px);
+  margin: 0 auto;
   padding: 6px;
   border-radius: 999px;
   background: rgba(28, 34, 31, 0.62);
@@ -563,8 +567,9 @@ html[lang='kn'] body {
 .tabbar .tab:hover {
   color: #fff;
 }
+/* The bar's height (≤ 88 px with two-line Kannada labels), its 14 px lift and 28 px of clearance. */
 .has-tabs {
-  padding-bottom: 0;
+  padding-bottom: calc(130px + env(safe-area-inset-bottom));
 }
 
 /* ── s2 Photos ────────────────────────────────────────── */

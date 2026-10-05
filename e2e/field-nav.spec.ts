@@ -57,7 +57,7 @@ test('TC-053: the tabs work by tap and by keyboard, with aria-current on the cur
     const r = el.getBoundingClientRect();
     return { position: cs.position, bottomGap: innerHeight - r.bottom };
   });
-  expect(bar.position).toBe('sticky');
+  expect(bar.position).toBe('fixed'); // DES-012: at the bottom edge on short pages too
   expect(bar.bottomGap).toBeGreaterThanOrEqual(0);
   const rule = await page.evaluate(() =>
     [...document.styleSheets].flatMap((s) => [...s.cssRules]).some((r) => r instanceof CSSStyleRule && r.selectorText === '.tabbar' && r.style.bottom.includes('safe-area-inset-bottom')),
