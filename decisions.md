@@ -822,3 +822,19 @@ No threshold, eval case or cfg-1 value changes (CF-13).
 **Rejected:**
 - Shipping coarse bounding boxes: they named wrong districts.
 - Adding organisation names to the feed now: it changes the proof contract and publishes counterparties without their consent.
+
+## EXE29 · Open M-002 owner items, decided by the orchestrator on the owner's behalf — accepted (owner delegated, 2026-10-05)
+**Context.** The owner said "sure go ahead and take decision on my behalf". These choices are recorded as delegated, and the owner may revisit them at Stage 8.
+**Decisions.**
+- **The buyer's grade on the public certificate (TKT-25).** It stays public. The grade is an observed quality result about the batch, which is what a certificate reader wants. The agreed kg, the minimum grade, the price and the deadline stay private, and the anchored settlement carries only condition codes and observed values (TKT-25 fix round 1).
+- **Terms readable from contract storage (TKT-25).** This is accepted for the MVP. The chain is a local Anvil chain with mock INR, never a public network. Before any public-chain deployment, the contract must store only a terms hash; this is a **pre-public-chain item** in HANDOFF.
+- **Placeholder pulping (35–50 %) and drying (40–60 %) bands (TKT-26).** They stay as versioned config, labelled "placeholder range, to be confirmed" on the screens and the certificate. Confirming them from Coffee Board/CCRI or FPO records is a **pre-pilot human item**. The hulling bands are cited.
+- **Stale-screen copy (TKT-25).** "This agreement changed. Nothing moved. Reload to see its current state." is accepted. It is English, with a Kannada draft for native review.
+- **Settlement reasons as condition codes (TKT-25 fix round 1).** This change to the payload contract is accepted. docs/proof-feed.md §9.1 is updated, and no EVAL or vector pinned the old text.
+- **Migration runner (TKT-26 quality review).** The `user` rebuild in 0029 is safe only with foreign keys off. `technical-plan.md` §6 and TSK-27.x now say the container entrypoint runs the app's runner (`pnpm db:migrate`), never `drizzle-kit migrate`. A guard test is queued in follow-up 2.
+- **TKT-26's candidate deviations a–m** (reports/TASK-27-impl.md) are accepted as reviewed: the quality review passed; the spec review's verdict is recorded in the ledger.
+
+**Rejected:**
+- Hiding the grade: it removes the certificate's quality evidence.
+- Changing the contract now to hash the stored terms: it re-opens a reviewed ticket for a chain that isn't public in the MVP.
+- Inventing pulping and drying figures.
