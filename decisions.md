@@ -749,3 +749,16 @@ The owner's open review items stay listed for the owner and are not treated as a
 - A custom text date field in "31 Dec 2026" form: it is harder to enter on a phone than the native picker and needs its own parsing.
 - The amber Needs-a-check mark for statuses that wait on someone: in the frozen system that mark means something is not as agreed.
 - An error summary box above the forms: no form has more than six fields, and focus moves to the first field that needs a change.
+
+## EXE23 · Owner decisions OD-1, 2, 3, 4, 6 and 9 before baseline-v1 — accepted (owner, 2026-10-05)
+**Decision (owner),** answering docs/exec/m-001-gate.md:
+- **OD-1 → b.** EVAL-122 (a 23 h EXIF gap) tests the check status `flag` and accepts Verified, since a lone flag stays Verified under EV7. My EXE10 brief had copied EVAL-034's verdict expectation by mistake.
+- **OD-2 → yes.** EVAL-116's expected evidence substring changes from "fail over 7 days" to "fail over 24 h" (EXE10). The verdict is unchanged.
+- **OD-3 → b.** The harness can submit EVAL-049 as several pickings, so the season total reaches 0.30×U without any single picking exceeding the 500 kg capture limit. The case's expected verdict and class are unchanged.
+- **OD-4 → acknowledged.** Replay X, Y, X returns the original X refusal (EXE20).
+- **OD-6 → a.** The TC-073 brief deviation is accepted. Three doc-only sufficiency reviews (YES) and the import-isolation test stand in for a doc-only rebuild.
+- **OD-9 → a.** `DEFAULT_MILESTONE` stays M1 with the hashchain ledger. M-002 runs via `--ledger=evm --milestone=M2` in contracts.yml.
+
+**Still open:** OD-5 (D5's "when" line on Needs a check) and OD-8 (the certificate size budget and S4 host).
+
+**Rejected.** Changing any threshold, weight or cfg-1 value: none of these decisions touches them (CF-13).
