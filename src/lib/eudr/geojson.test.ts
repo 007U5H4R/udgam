@@ -18,6 +18,7 @@ import { buildEudrGeoJson, serializeEudrGeoJson, type EudrFeature } from './geoj
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const FEED = JSON.parse(readFileSync(join(ROOT, 'evals/fixtures/feeds/batch-3-events.json'), 'utf8')) as ProofFeedV1;
 const SCHEMA = JSON.parse(readFileSync(join(ROOT, 'docs/eudr-geojson.schema.json'), 'utf8')) as object;
+const DOC_PATH = join(ROOT, 'docs/eudr-geojson.md');
 const BASE = 'https://udgam.test';
 
 const fixture = (id: string): Polygon => (JSON.parse(readFileSync(join(ROOT, `evals/fixtures/plots/${id}.geojson`), 'utf8')) as { geometry: Polygon }).geometry;
@@ -216,5 +217,17 @@ describe('serializeEudrGeoJson (at least 6 decimal digits on the wire)', () => {
       }
     }
     expect(n).toBe(2 + 2 * (fixture('P10').coordinates[0]!.length + fixture('P03').coordinates[0]!.length));
+  });
+});
+
+describe('docs/eudr-geojson.md (TSK-17.3)', () => {
+  it('its property table lists exactly the keys the builder emits', () => {
+    const table = readFileSync(DOC_PATH, 'utf8')
+      .split('\n')
+      .filter((l) => /^\|\s*`[A-Za-z_]+`\s*\|/.test(l))
+      .map((l) => /^\|\s*`([A-Za-z_]+)`/.exec(l)![1]!);
+    const emitted = new Set(buildEudrGeoJson(MIXED, BASE).features.flatMap((f) => Object.keys(f.properties)));
+    expect(new Set(table)).toEqual(emitted);
+    expect([...emitted].sort()).toEqual([...TP24_KEYS].sort());
   });
 });
