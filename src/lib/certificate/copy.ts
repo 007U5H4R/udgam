@@ -137,12 +137,15 @@ export const certCopy = {
     heading: 'Organic',
     partOf: (plots: string) => `Covers ${plots} only, not every farm in this batch.`,
     notChecked: 'Not checked by satellite.',
+    none: 'No organic certificate on record for this batch.',
   },
 
   files: {
     heading: 'Files',
     geojson: 'Download EUDR map file (GeoJSON)',
     print: 'Print certificate',
+    skip: 'Go to the EUDR map file and what this can’t prove',
+    unconfirmed: 'These files come from this page as published, which did not match its seal. Do not rely on them.',
   },
 
   limits: {

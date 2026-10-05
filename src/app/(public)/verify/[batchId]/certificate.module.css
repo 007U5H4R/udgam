@@ -384,6 +384,27 @@
   display: grid;
   gap: 12px;
 }
+/* DES-215: in mismatch, one line above the downloads says they come from the unconfirmed page */
+.filesNote {
+  display: none;
+  margin-bottom: 12px;
+  padding: 14px 18px;
+  border-radius: 22px;
+  border: 1px dashed rgba(255, 140, 126, 0.5);
+  background: rgba(239, 106, 91, 0.08);
+}
+:global(body[data-state='mismatch']) .filesNote {
+  display: block;
+}
+/* DES-207: the link from a long batch's headline down to the files */
+.skip {
+  margin-top: 10px;
+}
+.skip a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+}
 @media (min-width: 640px) {
   .downloads {
     grid-template-columns: 1fr 1fr;

@@ -149,7 +149,8 @@ test.describe('certificate entries, organic line, files and limits (TSK-16.5)', 
     expect(await proofFinalState(page)).toBe('verified');
     await expect(page.getByTestId('override-reason').filter({ visible: true })).toHaveText('Decided by the office: Verified · Reason: Scale photo checked by the office');
     await expect(page.getByTestId('attestation-line')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Organic' })).toHaveCount(0);
+    // Stage 8 DES-214: no certificate is said, not left out, so "none" cannot read as "not shown"
+    await expect(page.getByTestId('organic-none')).toHaveText('No organic certificate on record for this batch.');
   });
 });
 

@@ -36,6 +36,9 @@ import './print.css';
 
 export const dynamic = 'force-dynamic';
 
+/** DES-207: past this many entries the headline carries a link down to the files and the limits. */
+const LONG_BATCH = 10;
+
 type SearchParams = Record<string, string | string[] | undefined>;
 type Props = { params: Promise<{ batchId: string }>; searchParams: Promise<SearchParams> };
 
@@ -134,6 +137,12 @@ export default async function CertificatePage({ params, searchParams }: Props) {
               {certCopy.headline(kgShort(view.headline.quantityKg), view.headline.crop, view.headline.farmCount, view.headline.district)}
             </h1>
             <p className={c.meta}>{certCopy.meta(view.headline.region, harvestRange)}</p>
+            {/* DES-207: a long batch puts the files and the limits thousands of pixels down; one link reaches them */}
+            {view.entries.length > LONG_BATCH ? (
+              <p className={c.skip} data-screen-only>
+                <a href="#dl-block">{certCopy.files.skip}</a>
+              </p>
+            ) : null}
           </section>
         </div>
 
@@ -195,9 +204,22 @@ export default async function CertificatePage({ params, searchParams }: Props) {
                 </div>
               </div>
             </section>
-          ) : null}
+          ) : (
+            // DES-214: "none on record" is said, so it cannot be mistaken for "not shown"
+            <section className={c.block} aria-labelledby="org-h">
+              <h2 id="org-h">{certCopy.organic.heading}</h2>
+              <div className={`${c.glass} ${c.organic}`} data-testid="organic-none">
+                <CertIcon name="seal" className={c.ic} />
+                <p className={c.organicText}>{certCopy.organic.none}</p>
+              </div>
+            </section>
+          )}
           <section className={c.block} id="dl-block" aria-labelledby="dl-h">
             <h2 id="dl-h">{certCopy.files.heading}</h2>
+            {/* DES-215: shown only in mismatch (certificate.module.css), beside files that come from the unconfirmed page */}
+            <p className={c.filesNote} data-testid="files-unconfirmed">
+              {certCopy.files.unconfirmed}
+            </p>
             <div className={c.downloads}>
               <a className={c.pill} id="geojson" href={`/api/verify/${encodeURIComponent(view.batchId)}/geojson?h=${view.shortHash}`} download={`udgam-${view.batchId}-eudr.geojson`}>
                 <CertIcon name="download" className={c.ic} />
