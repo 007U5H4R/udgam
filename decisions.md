@@ -897,3 +897,16 @@ No threshold, eval case or cfg-1 value changes (CF-13).
 **Context.** TKT-20's quality review found that `pnpm seed --reset` on a production host with NODE_ENV unset would wipe the database and ledger.
 **Decision.** The seed runs only when the raw `NODE_ENV` is exactly `development` or `test`, or `E2E=1`. A bare `pnpm seed` is refused, so the documented command is `NODE_ENV=development pnpm seed [--reset]`. `--reset` refuses unless DATABASE_URL is `DATA_DIR/udgam.db`, and refuses before any write or delete.
 **Rejected.** Defaulting an unset NODE_ENV to development for the seed.
+
+## EXE36 · Formal-release residuals after the TKT-21 re-review — accepted (orchestrator, under the owner's delegation, 2026-10-05)
+**Decided (implemented in the residuals merge).** A formal release:
+- is M1-only, and refuses a second release file for the same commit;
+- needs a READY readiness check, with the HR3/TP29 warning printed;
+- refuses `skip-worktree` or `assume-unchanged` files;
+- accepts only regular, non-symlink inputs under `evals/results/`, produced with the M-001 formal options and the default seed policy (`--baseline=v1` refuses `--seed`). Older results files without a `seedPolicy` are not formal inputs.
+
+The freeze rule counts only active attack cases. Config-change rows in HTML comments and code blocks do not count.
+**Accepted residuals, recorded for the Stage 9 review:**
+- **R-6:** a config-changes row citing an EV/TP decision whose heading says "Rejected" still authorises. It matters only after baseline-v1, when a config change is proposed, and an owner reviews any such change. To tighten later: require the decision's heading to read "accepted".
+- **Repeated harness run:** a formal `pnpm eval` harness run can be repeated at the same HEAD (it writes `-r2`). The default seed makes the run deterministic, so a repeat can't seed-shop.
+- **Edit-plus-hash forgery:** editing a report together with its run record's SHA-256 can't be detected without signing.
