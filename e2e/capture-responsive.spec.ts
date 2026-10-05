@@ -15,8 +15,9 @@ import { mockGeolocation } from './helpers/stubs';
 //     Not targets: the visually hidden camera inputs (1 px, clip-path, tabindex -1), opened by "Open camera";
 //   - the step's primary action lies inside the viewport and is not clipped or covered, without scrolling.
 // The demo photos (assets/demo-photos) carry no EXIF time, so the photo line reads "2 new photos".
-// On the verdict, each evidence line is visible inside the viewport width, unclipped, at ≥ 13 px (Design.md
-// §12 "minimum 13 px anywhere"), so it reads without pinch-zoom.
+// On the verdict, the evidence text itself (each `.ev-t` and its text-bearing descendants) is inside the
+// viewport width, not cut off or clipped, at ≥ 13 px (Design.md §12 "minimum 13 px anywhere"), so it
+// reads without pinch-zoom.
 
 test.describe.configure({ timeout: 180_000 });
 
@@ -129,11 +130,53 @@ async function expectInViewAndUnclipped(page: Page, action: Locator, name: strin
   expect(hits.clippers, `${name}: no clipping ancestor`).toEqual([]);
 }
 
+/**
+ * The verdict evidence text itself (EvidenceList's `.ev-t` and every descendant that holds text, e.g. its
+ * `small`), not the `li` around it: each at ≥ 13 px, not cut off (`scrollWidth ≤ clientWidth` on block
+ * boxes), its box inside the viewport width, and every rendered line of text inside the viewport width and
+ * inside every ancestor that clips its overflow. Returns the problems found (none when readable).
+ */
+async function evidenceText(span: Locator): Promise<{ texts: number; problems: string[] }> {
+  return span.evaluate((root, minPx) => {
+    const vw = document.documentElement.clientWidth;
+    const problems: string[] = [];
+    const tag = (el: Element) => el.tagName.toLowerCase() + (typeof el.className === 'string' && el.className ? `.${el.className.trim().split(/\s+/).join('.')}` : '');
+    const holders = [root, ...Array.from(root.querySelectorAll('*'))].filter((el) => Array.from(el.childNodes).some((n) => n.nodeType === Node.TEXT_NODE && n.textContent!.trim() !== ''));
+    for (const el of holders) {
+      const cs = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      const fontPx = parseFloat(cs.fontSize);
+      if (fontPx < minPx) problems.push(`${tag(el)}: font-size ${fontPx}px < ${minPx}px`);
+      if (cs.display !== 'inline' && el.scrollWidth > el.clientWidth) problems.push(`${tag(el)}: cut off (scrollWidth ${el.scrollWidth} > clientWidth ${el.clientWidth})`);
+      if (r.left < 0 || r.right > vw) problems.push(`${tag(el)}: box ${Math.round(r.left)}–${Math.round(r.right)} outside 0–${vw}`);
+      // Every rendered line of its own text, inside the viewport width and inside each clipping ancestor.
+      const clips: DOMRect[] = [];
+      for (let a: Element | null = el; a && a !== document.documentElement; a = a.parentElement) {
+        const acs = getComputedStyle(a);
+        if (acs.overflowX !== 'visible' || acs.overflowY !== 'visible') clips.push(a.getBoundingClientRect());
+      }
+      for (const n of Array.from(el.childNodes)) {
+        if (n.nodeType !== Node.TEXT_NODE || n.textContent!.trim() === '') continue;
+        const range = document.createRange();
+        range.selectNodeContents(n);
+        for (const t of Array.from(range.getClientRects())) {
+          if (t.width === 0) continue;
+          if (t.left < -0.5 || t.right > vw + 0.5) problems.push(`${tag(el)}: text line ${Math.round(t.left)}–${Math.round(t.right)} outside 0–${vw}`);
+          if (clips.some((c) => t.left < c.left - 0.5 || t.right > c.right + 0.5 || t.top < c.top - 0.5 || t.bottom > c.bottom + 0.5)) problems.push(`${tag(el)}: text line clipped by an overflow ancestor`);
+        }
+      }
+    }
+    return { texts: holders.length, problems };
+  }, MIN_TEXT_PX);
+}
+
 /** One step of the flow: unscrolled, no sideways scroll, no zoom, targets ≥ 24 × 24, the primary action in view. */
 async function checkStep(page: Page, step: string, primary: Locator | null) {
   await page.evaluate(() => window.scrollTo(0, 0));
   await expectNoHorizontalScroll(page);
   const view = await page.evaluate(() => ({ scale: window.visualViewport?.scale ?? 1, clientWidth: document.documentElement.clientWidth }));
+  // On the isMobile phone project a missing or wrong meta viewport lays the page out at 980 px and zooms
+  // out to fit, so the clientWidth check below does the work; the scale check stays as a cheap guard.
   expect(view.scale, `${step}: not zoomed`).toBe(1);
   expect(view.clientWidth, `${step}: layout width is the viewport width`).toBe(page.viewportSize()!.width);
   const all = await targets(page);
@@ -234,16 +277,11 @@ test('EVAL-086 capture flow usable at 375 and 768 px: enrol, choose a plot, add 
   const lines = page.getByTestId('evidence').getByRole('listitem');
   await expect(lines).toHaveCount(3);
   await expect(lines).toHaveText([/^You were \d+ m inside Plot 2$/, '2 new photos', 'Forest map: no trees cleared since 2021 (demo data)']);
-  const vpWidth = page.viewportSize()!.width;
-  for (const line of await lines.all()) {
+  for (const [i, line] of (await lines.all()).entries()) {
     await expect(line).toBeVisible();
-    const m = await line.evaluate((el) => {
-      const r = el.getBoundingClientRect();
-      return { left: r.left, right: r.right, scrollWidth: el.scrollWidth, clientWidth: el.clientWidth, fontPx: parseFloat(getComputedStyle(el).fontSize) };
-    });
-    expect(m.left, 'evidence line starts inside the viewport').toBeGreaterThanOrEqual(0);
-    expect(m.right, 'evidence line ends inside the viewport').toBeLessThanOrEqual(vpWidth);
-    expect(m.scrollWidth, 'evidence text is not cut off').toBeLessThanOrEqual(m.clientWidth);
-    expect(m.fontPx, 'evidence text size').toBeGreaterThanOrEqual(MIN_TEXT_PX);
+    await expect(line.locator('.ev-t'), `evidence line ${i + 1} has its text span`).toHaveCount(1);
+    const m = await evidenceText(line.locator('.ev-t'));
+    expect(m.texts, `evidence line ${i + 1}: text-bearing elements measured`).toBeGreaterThan(0);
+    expect(m.problems, `evidence line ${i + 1}: text readable inside the viewport`).toEqual([]);
   }
 });
