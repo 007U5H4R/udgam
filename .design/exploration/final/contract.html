@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Udgam M-002 · Agreements, settlement, processing</title>
-<meta name="description" content="Design prototype, M-002 addendum (Design.md §28): buyer agreements, funding and grading; the FPO admin's settlement panel; the processor's processing step and hand-on; the extra certificate journey step. Same tokens and components as admin.html.">
+<meta name="description" content="Design prototype, M-002 addendum (Design.md §28): buyer agreements, funding and grading; the FPO admin's settlement panel; the processor's processing step and hand-on; the extra certificate journey step; and the touch points on existing M-001 screens. Same tokens and components as admin.html.">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#0A0E0C">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -371,12 +371,14 @@ a.q-item{color:inherit;text-decoration:none}
 .d-body > * + .glass{margin-top:16px}
 .mock{display:block;font-size:13px;font-weight:600;color:var(--ink-2)}
 
-/* rail with fewer items (buyer: 2, processor: 1) — same component, fewer columns */
+/* shells: the buyer has no rail (frozen buyer IA, Design.md §5); the processor has the rail with
+   one item, hidden on phones. Same components, nothing new. */
+body[data-rail="0"] .shell{grid-template-columns:minmax(0,1fr)}
+body[data-rail="0"] .rail{display:none}
+a.back{color:inherit;text-decoration:none}
 @media (max-width:699.98px){
-  .rail ul[data-n="2"]{grid-template-columns:repeat(2,1fr)}
-  .rail[data-n="2"]{width:min(calc(100% - 20px),260px)}
   .rail[data-n="1"]{display:none}
-  body[data-rail="1"] .queue{padding-bottom:32px}
+  body[data-rail="0"] .queue,body[data-rail="1"] .queue{padding-bottom:32px}
 }
 
 /* agreement terms (definition rows in a frosted card) */
@@ -419,8 +421,10 @@ a.q-item{color:inherit;text-decoration:none}
 .opt .o-txt{flex:1;min-width:0}
 .opt .o-txt span{display:block;font-size:var(--fs-small);font-weight:500;color:var(--ink-2)}
 .opt .o-num{font-variant-numeric:tabular-nums;font-weight:700}
-.opt-note{display:flex;align-items:flex-start;gap:7px;font-size:var(--fs-small);font-weight:600;color:var(--check-ink)}
-.opt-note .mk{width:18px;height:18px;margin-top:1px}
+/* field check (Design.md §28.7 "Field checks"): word + mark + colour under the field; the field keeps its value */
+.field input[aria-invalid="true"],.field select[aria-invalid="true"]{border-color:var(--check)}
+.f-err{display:flex;align-items:flex-start;gap:7px;font-size:var(--fs-small);font-weight:600;color:var(--check-ink)}
+.f-err .mk{width:18px;height:18px;margin-top:1px}
 .band-line{display:flex;align-items:flex-start;gap:8px;font-size:var(--fs-small);color:var(--ink)}
 .band-line .ic{width:20px;height:20px;color:#B9F5D2;margin-top:1px}
 .inline-err{display:flex;align-items:flex-start;gap:12px;padding:16px 18px;border-radius:var(--r-row);border:1px solid rgba(255,214,150,.22);background:linear-gradient(180deg,rgba(242,184,75,.22),rgba(242,184,75,.06) 55%),rgba(24,22,18,.72)}
@@ -432,6 +436,8 @@ a.q-item{color:inherit;text-decoration:none}
 .batch-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
 .batch-line + .batch-line{margin-top:4px}
 .handed{display:grid;gap:8px}
+.head-acts{display:grid;gap:10px;margin-top:16px}
+.q-head .back{margin-bottom:10px}
 
 /* ── Certificate journey step: verify.html journey, verbatim, scoped to .cert ── */
 .cert{--accent:#B9F5D2;--accent-glow:rgba(127,227,193,.75);--accent-soft:rgba(127,227,193,.14);max-width:820px;margin:0 auto;padding:16px var(--pad) 48px}
@@ -527,7 +533,7 @@ body:not([data-screen="certificate"]) .cert{display:none}
   </main>
 </div>
 
-<main class="cert" id="cert" aria-labelledby="c-h"></main>
+<main class="cert" id="cert" aria-labelledby="c-h" hidden></main>
 
 <p class="vh" aria-live="polite" id="live"></p>
 
@@ -556,9 +562,40 @@ body:not([data-screen="certificate"]) .cert{display:none}
   const spin = icon('i-ring', 'ic spin');
   const wideMQ = matchMedia('(min-width: 1100px)');
 
-  /* ── Grade scale (Design.md §28.4): label → number 0–100; the contract stores uint8 ── */
+  /* ── Grade scale (Design.md §28.3): label → number 0–100; the contract stores uint8 ── */
   const GRADES = [['Excellent', 90], ['Very good', 80], ['Good', 70], ['Fair', 60], ['Low', 40]];
   const g = n => { const x = GRADES.find(([, v]) => v === n); return `${x[0]} · ${n}`; };
+
+  /* ── Display formats (Design.md §28.7 "Input formats"): what a field shows is exactly what was typed;
+     the grouped amount and the "31 Dec 2026" date appear only on display (hint, terms, chips) ── */
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const inr = raw => {
+    const m = String(raw).replace(/,/g, '').trim().match(/^(\d+)(?:\.(\d{1,2}))?$/);
+    if (!m || !/[1-9]/.test(m[1] + (m[2] || ''))) return null;
+    const w = m[1].replace(/^0+(?=\d)/, ''), last3 = w.slice(-3), rest = w.slice(0, -3);
+    return `₹${rest ? `${rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',')},` : ''}${last3}.${(m[2] || '').padEnd(2, '0')}`;
+  };
+  const dmy = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? `${+m[3]} ${MONTHS[+m[2] - 1]} ${m[1]}` : ''; };
+  const amtHint = raw => inr(raw) ? `Reads as ${inr(raw)} (mock INR). No real money moves.` : 'Mock INR for the demo. No real money moves.';
+  const byHint = iso => dmy(iso) ? `Open until ${dmy(iso)}, end of the day (IST). If nothing has settled by then, you can take the money back.` : 'If nothing has settled by then, you can take the money back.';
+
+  /* ── Field checks (Design.md §28.7): plain words, what to do next, an example; never blame ── */
+  const FC = {
+    kgEmpty: 'Enter the agreed quantity in kg, for example 600.0.',
+    amtDec: 'Paise take two digits at most, for example 150000.50.',
+    byPast: 'Choose a date after today.',
+    minEmpty: 'Choose the lowest grade you accept.',
+    gradeEmpty: 'Choose one of the five grades.',
+    outZero: 'Output must be more than 0 kg.',
+  };
+  // aria-describedby lists the message first, then the hint; aria-invalid marks the field; the value is kept
+  const desc = (id, err, hint) => { const ids = [err ? `${id}-e` : '', hint ? `${id}-h` : ''].filter(Boolean).join(' '); return `${ids ? ` aria-describedby="${ids}"` : ''}${err ? ' aria-invalid="true"' : ''}`; };
+  const fErr = (id, err) => err ? `<p class="f-err" id="${id}-e">${mk('mk-check')}<span>${err}</span></p>` : '';
+  const fHint = (id, hint) => hint ? `<p class="hint" id="${id}-h">${hint}</p>` : '';
+  const input = ({ id, label, value = '', hint, err, dis = '', type = 'text' }) => `<div class="field"><label for="${id}">${label}</label>
+      <input id="${id}" type="${type}"${type === 'text' ? ' inputmode="decimal" autocomplete="off"' : ''} value="${value}"${desc(id, err, hint)}${dis}>${fErr(id, err)}${fHint(id, hint)}</div>`;
+  const select = ({ id, label, options, hint, err, dis = '' }) => `<div class="field"><label for="${id}">${label}</label>
+      <select id="${id}"${desc(id, err, hint)}${dis}>${options}</select>${fErr(id, err)}${fHint(id, hint)}</div>`;
 
   /* ── Demo data: pseudonymous orgs, mock INR (2 decimals = paise) ── */
   const AG = {
@@ -569,14 +606,17 @@ body:not([data-screen="certificate"]) .cert{display:none}
     'AG-0004': { fpo: 'Hosahalli FPO', crop: 'Arabica cherry', kg: '500.0', min: 60, amt: '₹1,25,000.00', by: '30 Nov 2026', made: '28 Jul 2026' },
   };
 
-  /* ── Shells: the admin rail component with each role's items ── */
+  /* ── Shells. The buyer has no rail: the frozen buyer IA (Design.md §5) is Batches → Batch detail →
+     Certificate, and Agreements is reached from a link in the Batches header. Admin keeps its frozen
+     four-item rail. The processor uses the rail component with one item (hidden on phones). ── */
   const RAILS = {
-    buyer: { n: 2, me: ['MS', 'Meera S.', 'Buyer B-07'], items: [['Batches', 'i-box'], ['Agreements', 'i-seal', true]] },
+    buyer: { n: 0 },
     admin: { n: 4, me: ['AK', 'Asha K.', 'FPO admin'], items: [['Review', 'i-inbox', false, 4], ['Plots', 'i-plot'], ['Batches', 'i-box', true], ['Phones', 'i-phone']] },
-    processor: { n: 1, me: ['RP', 'Ravi P.', 'Curing works C-03'], items: [['Batches', 'i-box', true]] },
+    processor: { n: 1, me: ['RP', 'Ravi P.', 'Processor C-03'], items: [['Batches', 'i-box', true]] },
   };
   function railHTML(kind) {
     const r = RAILS[kind];
+    if (!r.n) return '';
     return `<span class="rail-mark"><img src="cherry.svg" alt="" width="52" height="52">Udgam</span>
       <ul data-n="${r.n}">${r.items.map(([w, ic, cur, cnt]) => `<li><a class="rail-item" href="#" data-nav="${w}"${cur ? ' aria-current="page"' : ''}><span class="ri-ic">${icon(ic)}${cnt ? `<span class="count" aria-hidden="true">${cnt}</span>` : ''}</span>${w}${cnt ? `<span class="vh">, ${cnt} waiting</span>` : ''}</a></li>`).join('')}</ul>
       <p class="rail-me"><span class="avatar" aria-hidden="true">${r.me[0]}</span><span>${r.me[1]}<small>${r.me[2]}</small></span></p>`;
@@ -584,14 +624,16 @@ body:not([data-screen="certificate"]) .cert{display:none}
 
   /* ── Shared pieces ── */
   const brand = `<span class="q-brand"><img src="cherry.svg" alt="" width="36" height="36">Udgam</span>`;
-  const head = (eyebrow, h1, sub, count) => `${brand}<header class="q-head"><p class="eyebrow">${eyebrow}</p>
-    <h1 id="q-h" tabindex="-1">${count != null ? `<span class="lit">${count}</span> ` : ''}${h1}</h1>${sub ? `<p class="q-sub">${sub}</p>` : ''}</header>`;
+  const head = (eyebrow, h1, sub, count, { nav = '', acts = '' } = {}) => `${brand}<header class="q-head">${nav}<p class="eyebrow">${eyebrow}</p>
+    <h1 id="q-h" tabindex="-1">${count != null ? `<span class="lit">${count}</span> ` : ''}${h1}</h1>${sub ? `<p class="q-sub">${sub}</p>` : ''}${acts ? `<div class="head-acts">${acts}</div>` : ''}</header>`;
   const listLoading = label => `<p class="load-note">${icon('i-ring')}${label}</p><ul class="q-list" aria-hidden="true">${[62, 58, 64].map(w => `<li class="glass sk-row"><span class="sk"></span><span class="sk sk-line" style="width:${w}%"></span><span class="sk sk-line" style="width:${w - 18}%"></span><span class="sk sk-line" style="width:${w + 10}%"></span></li>`).join('')}</ul>`;
   const detailLoading = `<div class="d-body" aria-hidden="true"><div class="d-sk"><span class="sk m"></span><span class="sk h"></span><span class="sk box"></span><span class="sk box2"></span></div></div>`;
   const emptyCard = (h, p, extra = '') => `<div class="glass card state-card"><div class="cherry" aria-hidden="true"><img src="cherry.svg" alt="" width="112" height="112"></div><h2>${h}</h2><p>${p}</p>${extra}</div>`;
   const errorCard = (h, p) => `<div class="glass card state-card err" role="alert"><div class="st-ic" aria-hidden="true">${icon('i-wifi-off')}</div><h2>${h}</h2><p>${p}</p><button class="pill amber" type="button" data-retry>${icon('i-retry')}Try again</button></div>`;
   const inlineErr = (b, p) => `<div class="inline-err" role="alert">${icon('i-wifi-off')}<p><b>${b}</b>${p}</p></div>`;
+  const working = text => `<p class="load-note" role="status">${icon('i-ring')}${text}</p>`;
   const back = label => `<button class="back d-back" type="button" data-back>${icon('i-arrow-left')}${label}</button>`;
+  const note = text => `<div class="glass card form-card q-new"><p class="hint">${text}</p></div>`;
   const row = (href, bub, bubCls, id, kg, when, whyCls, whyMk, why, cur) => `<li><a class="q-item" href="${href}" aria-current="${!!cur}">
       <span class="q-bub ${bubCls}">${icon(bub)}</span><span class="q-id">${id}</span><span class="q-kg">${kg}</span>
       <span class="q-when">${when}</span><span class="q-why ${whyCls}">${mk(whyMk)}<span>${why}</span></span></a></li>`;
@@ -603,6 +645,7 @@ body:not([data-screen="certificate"]) .cert{display:none}
       <div><dt>Deadline</dt><dd>${a.by}</dd></div>
       <div><dt>With</dt><dd>${a.fpo}</dd></div></dl></section>`;
   const dHead = (eyebrow, h, chipHTML, meta) => `<header><p class="eyebrow">${eyebrow}</p><div class="d-title"><h2 id="d-h" tabindex="-1">${h}</h2>${chipHTML}</div><p class="d-meta">${meta}</p></header>`;
+  const pillBtn = (st, idle, busy, extra = '') => `<button class="pill" type="button"${st === 'working' ? ' disabled' : ''}${extra}>${st === 'working' ? `${spin}${busy}` : ['error', 'acterr'].includes(st) ? `${icon('i-retry')}Try again` : idle}</button>`;
 
   /* ── Settlement panel: three conditions, each value vs threshold ── */
   function conditions(v) {
@@ -624,30 +667,37 @@ body:not([data-screen="certificate"]) .cert{display:none}
     ready:    { pending: 1, q: [1, '<b>612.0 kg</b> delivered · at least 600.0 kg agreed'], gr: [1, `Graded <b>${g(80)}</b> · minimum ${g(70)}`], ver: [1, '<b>14 of 14</b> pickings Verified · all must be Verified'] },
     notrel:   { at: '1 Oct 2026, 9:40 am', q: [0, '<b>598.5 kg</b> delivered · at least 600.0 kg agreed (1.5 kg short)'], gr: [1, `Graded <b>${g(80)}</b> · minimum ${g(70)}`], ver: [0, '<b>13 of 14</b> pickings Verified · all must be Verified. One picking (Farm F-0231, 24 Sep) still Needs a check.'] },
   };
-  const outcomeReleased = (who) => `<div class="glass outcome ok-o" role="status"><p class="o-top">${chip('ok', 'Payment released')}</p>
+  const outcomeReleased = () => `<div class="glass outcome ok-o" role="status"><p class="o-top">${chip('ok', 'Payment released')}</p>
       <p class="o-amount">₹1,50,000.00 <span class="mock">mock INR · not real money</span></p>
-      <p>${who === 'buyer' ? 'Paid from escrow to Hosahalli FPO' : 'Paid from escrow to Hosahalli FPO'} on 30 Sep 2026, 4:12 pm. All three conditions were met.</p>
+      <p>Paid from escrow to Hosahalli FPO on 30 Sep 2026, 4:12 pm. All three conditions were met.</p>
       <p class="o-meta">Ledger: Anvil (local test chain) · block 1,284 · tx <code>0x3f2a…9c1e</code></p></div>`;
-  const outcomeNot = (who) => `<div class="glass outcome check-o" role="status"><p class="o-top">${chip('check', 'Not released')}</p>
+  const outcomeNot = who => `<div class="glass outcome check-o" role="status"><p class="o-top">${chip('check', 'Not released')}</p>
       <p><b>2 conditions are not met:</b> delivered quantity (598.5 kg of 600.0 kg) and Verified pickings (13 of 14).</p>
       <p class="o-meta">${who === 'buyer' ? 'Your ₹1,50,000.00 (mock INR) stays in escrow.' : 'The ₹1,50,000.00 (mock INR) stays in escrow.'} A later delivery under this agreement can still settle it until 31 Dec 2026.</p></div>`;
 
   /* ════ Screens ═══════════════════════════════════════════════════════════════ */
+  // Status → mark (Design.md §28.7 "Statuses"): mk-ok = done as agreed; mk-check = something is not as agreed
+  // (Not met, Not released, Flagged); mk-na (neutral) = waiting on someone, including an action to take.
   const BUYER_ROWS = cur => `<ul class="q-list" aria-label="Your agreements">
-      ${row('#s=buyer-grade', 'i-seal', '', 'AG-0007 · Hosahalli FPO', '600.0 kg', 'Arabica · ₹1,50,000.00 · by 31 Dec', '', 'mk-check', 'Delivered · needs your grade', cur === 'AG-0007')}
+      ${row('#s=buyer-grade', 'i-seal', 'na', 'AG-0007 · Hosahalli FPO', '600.0 kg', 'Arabica · ₹1,50,000.00 · by 31 Dec', 'na', 'mk-na', 'Delivered · needs your grade', cur === 'AG-0007')}
       ${row('#s=buyer-agreements', 'i-seal', '', 'AG-0008 · Hosahalli FPO', '600.0 kg', 'Arabica · ₹1,50,000.00 · by 31 Dec', '', 'mk-check', 'Not released yet · 2 conditions not met', cur === 'AG-0008')}
       ${row('#s=buyer-fund&v=fund', 'i-seal', 'na', 'AG-0009 · Hosahalli FPO', '1,200.0 kg', 'Robusta · ₹2,40,000.00 · by 15 Feb', 'na', 'mk-na', 'Not funded yet', cur === 'AG-0009')}
       ${row('#s=buyer-agreements', 'i-seal', 'ok', 'AG-0004 · Hosahalli FPO', '500.0 kg', 'Arabica · ₹1,25,000.00 · 22 Sep', 'ok', 'mk-ok', 'Payment released', cur === 'AG-0004')}
       ${row('#s=buyer-fund&v=refund', 'i-seal', 'na', 'AG-0005 · Hosahalli FPO', '400.0 kg', 'Arabica · ₹1,00,000.00 · ended 30 Sep', 'na', 'mk-na', 'Deadline passed · you can take it back', cur === 'AG-0005')}
     </ul>`;
+  // No rail: the Agreements list links back to Batches from its header (Design.md §28.4)
+  const toBatches = `<a class="back" href="#s=touch&v=buyer-batches">${icon('i-arrow-left')}Batches</a>`;
   const buyerList = (st, cur) => {
-    const h = head('Buyer B-07 · Agreements', 'Agreements', st === 'data' || st === 'working' ? 'Money is held in escrow and paid to the FPO only when all three conditions are met. Amounts are mock INR.' : '', st === 'data' || st === 'working' ? 5 : null);
+    const h = head('Buyer B-07 · Agreements', 'Agreements', st === 'data' || st === 'working' ? 'Money is held in escrow and paid to the FPO only when all three conditions are met. Amounts are mock INR.' : '', st === 'data' || st === 'working' ? 5 : null, { nav: toBatches });
     const newBtn = `<a class="pill q-new" href="#s=buyer-new">${icon('i-arrow-right')}New agreement</a>`;
     if (st === 'loading') return h + listLoading('Loading your agreements…');
     if (st === 'empty') return h + emptyCard('No agreements yet.', 'Set one up with an FPO: what you need, the lowest grade you accept, and what you pay.', newBtn.replace('q-new', ''));
     if (st === 'error') return h + errorCard('Couldn’t load your agreements.', 'Nothing was changed.');
     return h + newBtn + BUYER_ROWS(cur);
   };
+  const adminBatchesHead = primary => head('Hosahalli FPO · Batches', 'Batches', 'Verified pickings of one crop, grouped for sale. A batch is signed when it is created and locked once it is transferred.', null,
+    { acts: `<a class="pill${primary ? '' : ' ghost'}" href="#" data-nav="New batch">${icon('i-box')}New batch</a><a class="pill ghost" href="#s=admin-agreement&v=ready">${icon('i-seal')}Agreements with buyers</a>` });
+  const notFound = id => emptyCard(`There’s no agreement ${id} for your account.`, 'Check the number, or go back to your agreements.');
 
   const SCREENS = {
     /* 1 · Buyer: agreement list (detail = AG-0008, settlement result read-only) */
@@ -659,7 +709,7 @@ body:not([data-screen="certificate"]) .cert{display:none}
         const a = AG['AG-0008'];
         return `<div class="d-body">${back('Back to agreements')}
           ${dHead('Agreement · Hosahalli FPO', 'AG-0008', chip('check', 'Not released yet'), `Created ${a.made} · batch ${a.batch} delivered ${a.dwhen}`)}
-          ${st === 'working' ? `<p class="load-note" role="status">${icon('i-ring')}Hosahalli FPO is settling this agreement…</p>` : outcomeNot('buyer')}
+          ${st === 'working' ? working('Hosahalli FPO is settling this agreement…') : outcomeNot('buyer')}
           ${terms(a)}
           ${conditions(C.notrel)}
         </div>`;
@@ -668,43 +718,46 @@ body:not([data-screen="certificate"]) .cert{display:none}
 
     /* 2 · Buyer: new agreement */
     'buyer-new': {
-      label: 'Buyer · New agreement', short: 'New agreement', shell: 'buyer', focus: 'detail', states: ['data', 'loading', 'empty', 'error', 'working'],
+      label: 'Buyer · New agreement', short: 'New agreement', shell: 'buyer', focus: 'detail', states: ['data', 'loading', 'empty', 'error', 'invalid', 'working'],
       list: st => buyerList(st === 'loading' ? 'loading' : 'data', null),
       detail: st => {
         if (st === 'loading') return detailLoading;
         const top = `${back('Back to agreements')}${dHead('Buyer B-07 · Agreements', 'New agreement', '', 'The FPO is paid from escrow only when all three conditions are met.')}`;
         if (st === 'empty') return `<div class="d-body">${top}${emptyCard('No FPO to agree with yet.', 'An agreement needs an FPO that has joined Udgam. Ask the FPO to get in touch.')}</div>`;
-        const dis = st === 'working' ? ' disabled' : '';
-        const opt = (v, sel) => `<option value="${v}"${sel ? ' selected' : ''}>${g(v)}</option>`;
+        const dis = st === 'working' ? ' disabled' : '', bad = st === 'invalid';
+        // field-check example: kg left empty, three paise digits, a past date, no minimum chosen — values kept as typed
+        const v = bad ? { kg: '', amt: '1,50,000.505', by: '2026-09-30', min: null } : { kg: '600.0', amt: '150000', by: '2026-12-31', min: 70 };
+        const minOpts = `${v.min ? '' : '<option value="" selected>Choose a grade</option>'}${GRADES.map(([, n]) => `<option value="${n}"${n === v.min ? ' selected' : ''}>${g(n)}</option>`).join('')}`;
         return `<div class="d-body">${top}
           <form class="glass card form-card" novalidate aria-labelledby="d-h" style="margin-top:16px">
             <div class="f-row">
-              <div class="field"><label for="f-fpo">With</label><select id="f-fpo"${dis}><option>Hosahalli FPO</option></select></div>
-              <div class="field"><label for="f-crop">Crop</label><select id="f-crop"${dis}><option selected>Arabica cherry</option><option>Robusta cherry</option></select></div>
+              ${select({ id: 'f-fpo', label: 'With', options: '<option>Hosahalli FPO</option>', dis })}
+              ${select({ id: 'f-crop', label: 'Crop', options: '<option selected>Arabica cherry</option><option>Robusta cherry</option>', dis })}
             </div>
             <div class="f-row">
-              <div class="field"><label for="f-kg">Agreed quantity (kg)</label><input id="f-kg" type="text" inputmode="decimal" value="600.0" aria-describedby="f-kg-h"${dis}><p class="hint" id="f-kg-h">Payment needs at least this much delivered.</p></div>
-              <div class="field"><label for="f-min">Minimum grade</label><select id="f-min" aria-describedby="f-min-h"${dis}>${GRADES.map(([, v]) => opt(v, v === 70)).join('')}</select><p class="hint" id="f-min-h">You grade each delivered batch from 0 to 100.</p></div>
+              ${input({ id: 'f-kg', label: 'Agreed quantity (kg)', value: v.kg, hint: 'Payment needs at least this much delivered.', err: bad && FC.kgEmpty, dis })}
+              ${select({ id: 'f-min', label: 'Minimum grade', options: minOpts, hint: 'You will pick one of these five grades for each delivered batch. Each is a number out of 100.', err: bad && FC.minEmpty, dis })}
             </div>
             <div class="f-row">
-              <div class="field"><label for="f-amt">Amount (mock INR)</label><input id="f-amt" type="text" inputmode="decimal" value="1,50,000.00" aria-describedby="f-amt-h"${dis}><p class="hint" id="f-amt-h">Mock INR for the demo. No real money moves.</p></div>
-              <div class="field"><label for="f-by">Deadline</label><input id="f-by" type="date" value="2026-12-31" aria-describedby="f-by-h"${dis}><p class="hint" id="f-by-h">If nothing settles by then, you can take the money back.</p></div>
+              ${input({ id: 'f-amt', label: 'Amount (mock INR)', value: v.amt, hint: amtHint(v.amt), err: bad && FC.amtDec, dis })}
+              ${input({ id: 'f-by', label: 'Deadline', type: 'date', value: v.by, hint: byHint(v.by), err: bad && FC.byPast, dis })}
             </div>
             ${st === 'error' ? inlineErr('Couldn’t create the agreement.', 'Nothing was saved. What you typed is still here. Try again.') : ''}
             <p class="dec-note">${icon('i-seal')}<span>The server records this agreement on the ledger for your account. You fund it in the next step.</span></p>
-            <button class="pill" type="button"${dis}>${st === 'working' ? `${spin}Creating the agreement…` : st === 'error' ? `${icon('i-retry')}Try again` : `${icon('i-check')}Create agreement`}</button>
+            ${pillBtn(st, `${icon('i-check')}Create agreement`, 'Creating the agreement…')}
           </form></div>`;
       },
     },
 
-    /* 3 · Buyer: fund */
+    /* 3 · Buyer: fund, and after the deadline take the money back */
     'buyer-fund': {
       label: 'Buyer · Fund an agreement', short: 'Fund', shell: 'buyer', focus: 'detail', states: ['data', 'loading', 'empty', 'error', 'working'],
       variants: { fund: 'Fund', refund: 'Deadline passed: take it back' },
-      list: (st, v) => buyerList(st === 'loading' ? 'loading' : 'data', v === 'refund' ? 'AG-0005' : 'AG-0009'),
+      list: (st, v) => buyerList(st === 'loading' ? 'loading' : 'data', st === 'empty' ? null : v === 'refund' ? 'AG-0005' : 'AG-0009'),
       detail: (st, v) => {
         if (st === 'loading') return detailLoading;
         if (v === 'refund') {
+          if (st === 'empty') return `<div class="d-body">${back('Back to agreements')}${notFound('AG-0005')}</div>`;
           const r = AG['AG-0005'];
           return `<div class="d-body">${back('Back to agreements')}
           ${dHead('Agreement · Hosahalli FPO', 'AG-0005', chip('na', 'Deadline passed · not settled'), `Funded 2 Aug 2026 · ended ${r.by} · nothing was delivered under it`)}
@@ -712,13 +765,14 @@ body:not([data-screen="certificate"]) .cert{display:none}
           <form class="decide" style="margin-top:16px" aria-labelledby="rf-h" novalidate>
             <h3 id="rf-h">Take the money back</h3>
             <p>This agreement ended on ${r.by} without settling. ${r.amt} (mock INR) goes from escrow back to your balance, and the agreement closes.</p>
+            <p class="bal">Your mock INR balance: ₹2,60,000.00 → ₹3,60,000.00 after taking it back.</p>
+            ${st === 'error' ? inlineErr('Couldn’t take the money back.', `The ledger didn’t answer, so nothing moved. The ${r.amt} (mock INR) is still in escrow.`) : ''}
             <p class="dec-note">${icon('i-seal')}<span>Recorded on the ledger for your account.</span></p>
-            <button class="pill" type="button">${icon('i-retry')}Take back ${r.amt}</button>
+            ${pillBtn(st, `${icon('i-arrow-left')}Take back ${r.amt}`, `Moving ${r.amt} back to your balance…`)}
           </form></div>`;
         }
-        if (st === 'empty') return `<div class="d-body">${back('Back to agreements')}${emptyCard('There’s no agreement AG-0009 for your account.', 'Check the number, or go back to your agreements.')}</div>`;
+        if (st === 'empty') return `<div class="d-body">${back('Back to agreements')}${notFound('AG-0009')}</div>`;
         const a = AG['AG-0009'];
-        const dis = st === 'working' ? ' disabled' : '';
         return `<div class="d-body">${back('Back to agreements')}
           ${dHead('Agreement · Hosahalli FPO', 'AG-0009', chip('na', 'Not funded yet'), `Created ${a.made} · nothing is held until you fund it`)}
           ${terms(a)}
@@ -729,50 +783,54 @@ body:not([data-screen="certificate"]) .cert{display:none}
             <p class="bal">Your mock INR balance: ₹5,00,000.00 → ₹2,60,000.00 after funding.</p>
             ${st === 'error' ? inlineErr('Couldn’t fund the agreement.', 'The ledger didn’t answer, so nothing moved. Your balance is unchanged.') : ''}
             <p class="dec-note">${icon('i-clock')}<span>If nothing settles by 15 Feb 2027, you can take the full amount back.</span></p>
-            <button class="pill" type="button"${dis}>${st === 'working' ? `${spin}Moving ₹2,40,000.00 into escrow…` : st === 'error' ? `${icon('i-retry')}Try again` : `${icon('i-check')}Fund ₹2,40,000.00`}</button>
+            ${pillBtn(st, `${icon('i-check')}Fund ₹2,40,000.00`, 'Moving ₹2,40,000.00 into escrow…')}
           </form></div>`;
       },
     },
 
     /* 4 · Buyer: grade a delivered batch */
     'buyer-grade': {
-      label: 'Buyer · Grade a delivered batch', short: 'Grade', shell: 'buyer', focus: 'detail', states: ['data', 'loading', 'empty', 'error', 'working'],
+      label: 'Buyer · Grade a delivered batch', short: 'Grade', shell: 'buyer', focus: 'detail', states: ['data', 'loading', 'empty', 'error', 'invalid', 'working'],
       list: st => buyerList(st === 'loading' ? 'loading' : 'data', 'AG-0007'),
       detail: st => {
         if (st === 'loading') return detailLoading;
         const a = AG['AG-0007'];
-        const top = `${back('Back to agreements')}${dHead('Agreement · Hosahalli FPO', 'AG-0007', st === 'empty' ? chip('na', 'Funded · waiting for delivery') : chip('check', 'Needs your grade'), `Funded 3 Sep 2026 · ₹1,50,000.00 (mock INR) held in escrow`)}`;
+        const top = `${back('Back to agreements')}${dHead('Agreement · Hosahalli FPO', 'AG-0007', st === 'empty' ? chip('na', 'Funded · waiting for delivery') : chip('na', 'Needs your grade'), `Funded 3 Sep 2026 · ₹1,50,000.00 (mock INR) held in escrow`)}`;
         if (st === 'empty') return `<div class="d-body">${top}${terms(a)}${emptyCard('No batch delivered yet.', 'When Hosahalli FPO delivers a batch under this agreement, you grade it here.')}</div>`;
-        const dis = st === 'working' ? ' disabled' : '';
+        const dis = st === 'working' ? ' disabled' : '', bad = st === 'invalid', chosen = bad ? null : 80;
         return `<div class="d-body">${top}
           <section class="glass card terms" aria-labelledby="b-h"><h3 class="sec-h" id="b-h">Delivered batch</h3>
             <dl><div><dt>Batch</dt><dd>${a.batch} · <a href="verify.html">certificate</a></dd></div><div><dt>Delivered</dt><dd>${a.dkg} kg · ${a.dwhen}</dd></div>
             <div><dt>Pickings</dt><dd>14 of 14 Verified</dd></div><div><dt>Minimum grade</dt><dd>${g(a.min)}</dd></div></dl></section>
           <form class="decide" style="margin-top:16px" aria-labelledby="gr-h" novalidate>
             <h3 id="gr-h">Grade batch ${a.batch}</h3>
-            <div class="field"><fieldset><legend>Quality grade</legend>
-              <div class="opts">${GRADES.map(([w, v]) => `<label class="opt"><input type="radio" name="grade" value="${v}"${v === 80 ? ' checked' : ''}${dis}><span class="o-txt">${w}${v === a.min ? '<span>The agreed minimum</span>' : v < a.min ? '<span>Below the agreed minimum</span>' : ''}</span><span class="o-num">${v}</span></label>`).join('')}</div>
+            <div class="field"><fieldset aria-describedby="${bad ? 'gr-e ' : ''}gr-n"><legend>Quality grade</legend>
+              ${fErr('gr', bad && FC.gradeEmpty)}
+              <div class="opts">${GRADES.map(([w, v]) => `<label class="opt"><input type="radio" name="grade" value="${v}"${v === chosen ? ' checked' : ''}${bad ? ' aria-invalid="true"' : ''}${dis}><span class="o-txt">${w}${v === a.min ? '<span>The agreed minimum</span>' : v < a.min ? '<span>Below the agreed minimum</span>' : ''}</span><span class="o-num">${v}</span></label>`).join('')}</div>
             </fieldset></div>
-            <p class="hint">A grade below ${g(a.min)} means the payment is not released for this batch.</p>
+            <p class="hint" id="gr-n">A grade below ${g(a.min)} means the payment is not released for this batch.</p>
             ${st === 'error' ? inlineErr('Couldn’t save the grade.', 'Nothing was signed. Your choice is still selected. Try again.') : ''}
             <p class="dec-note">${icon('i-seal')}<span>Signed by the server on behalf of your buyer account and recorded permanently. You can’t change it after signing.</span></p>
-            <button class="pill" type="button"${dis}>${st === 'working' ? `${spin}Signing the grade…` : st === 'error' ? `${icon('i-retry')}Try again` : `${icon('i-check')}Sign: ${g(80)}`}</button>
+            ${pillBtn(st, `${icon('i-check')}${chosen ? `Sign: ${g(chosen)}` : 'Sign the grade'}`, 'Signing the grade…')}
           </form></div>`;
       },
     },
 
     /* 5 · FPO admin: agreement detail with the settlement panel */
     'admin-agreement': {
-      label: 'FPO admin · Agreement and settlement', short: 'Settlement', shell: 'admin', focus: 'detail', states: ['data', 'loading', 'empty', 'error', 'working'],
-      variants: { notrel: 'Not released (2 conditions)', ready: 'Ready to settle', released: 'Released' },
+      label: 'FPO admin · Agreement and settlement', short: 'Settlement', shell: 'admin', focus: 'detail',
+      states: v => v === 'ready' ? ['data', 'loading', 'empty', 'error', 'working', 'acterr'] : ['data', 'loading', 'empty', 'error'],
+      variants: { ready: 'Ready to settle', notrel: 'Not released (2 conditions)', released: 'Released' },
       list: (st, v) => {
-        const h = head('Hosahalli FPO · Batches', 'Agreements with buyers', st === 'data' || st === 'working' ? 'Payments held for you in escrow. Each pays out when its three conditions are met.' : '', st === 'data' || st === 'working' ? 4 : null);
+        const h = head('Hosahalli FPO · Batches', 'Agreements with buyers', st === 'data' || st === 'working' || st === 'acterr' ? 'Payments held for you in escrow. Each pays out when its three conditions are met.' : '', st === 'data' || st === 'working' || st === 'acterr' ? 4 : null,
+          { nav: `<a class="back" href="#s=touch&v=admin-batches">${icon('i-arrow-left')}Batches</a>` });
         if (st === 'loading') return h + listLoading('Loading agreements…');
         if (st === 'empty') return h + emptyCard('No agreements yet.', 'An agreement appears here when a buyer sets one up with your FPO.');
         if (st === 'error') return h + errorCard('Couldn’t load the agreements.', 'Nothing was changed.');
         const relNow = v === 'released';
+        // "Ready to settle" is not a problem: the same neutral mark and chip as the detail (Q3)
         return h + `<ul class="q-list" aria-label="Agreements with buyers">
-          ${row('#s=admin-agreement&v=' + (relNow ? 'released' : 'ready'), 'i-seal', relNow ? 'ok' : '', 'AG-0007 · Buyer B-07', '600.0 kg', 'Arabica · ₹1,50,000.00 · by 31 Dec', relNow ? 'ok' : '', relNow ? 'mk-ok' : 'mk-check', relNow ? 'Payment released' : 'Ready to settle', v !== 'notrel')}
+          ${row('#s=admin-agreement&v=' + (relNow ? 'released' : 'ready'), 'i-seal', relNow ? 'ok' : 'na', 'AG-0007 · Buyer B-07', '600.0 kg', 'Arabica · ₹1,50,000.00 · by 31 Dec', relNow ? 'ok' : 'na', relNow ? 'mk-ok' : 'mk-na', relNow ? 'Payment released' : 'Ready to settle', v !== 'notrel')}
           ${row('#s=admin-agreement&v=notrel', 'i-seal', '', 'AG-0008 · Buyer B-07', '600.0 kg', 'Arabica · ₹1,50,000.00 · by 31 Dec', '', 'mk-check', 'Not released · 2 conditions not met', v === 'notrel')}
           ${row('#s=admin-agreement', 'i-seal', 'na', 'AG-0009 · Buyer B-07', '1,200.0 kg', 'Robusta · ₹2,40,000.00 · by 15 Feb', 'na', 'mk-na', 'Buyer hasn’t funded it yet')}
           ${row('#s=admin-agreement', 'i-seal', 'ok', 'AG-0004 · Buyer B-07', '500.0 kg', 'Arabica · ₹1,25,000.00 · 22 Sep', 'ok', 'mk-ok', 'Payment released')}
@@ -781,31 +839,35 @@ body:not([data-screen="certificate"]) .cert{display:none}
       detail: (st, v) => {
         if (st === 'loading' || st === 'empty' || st === 'error') return detailLoading;
         const id = v === 'notrel' ? 'AG-0008' : 'AG-0007', a = AG[id];
-        const chipH = v === 'released' ? chip('ok', 'Payment released') : v === 'notrel' ? chip('check', 'Not released') : chip('na', 'Funded · ready to settle');
+        const chipH = v === 'released' ? chip('ok', 'Payment released') : v === 'notrel' ? chip('check', 'Not released') : chip('na', 'Ready to settle');
         const top = `${back('Back to agreements')}${dHead('Agreement · Buyer B-07', id, chipH, `Funded ${v === 'notrel' ? '5 Sep' : '3 Sep'} 2026 · batch ${a.batch} delivered ${a.dwhen} · deadline ${a.by}`)}`;
-        if (st === 'working') return `<div class="d-body">${top}
-            <p class="load-note" role="status">${icon('i-ring')}Settling: sending the three conditions to the ledger…</p>${conditions(C.ready)}${terms(a)}</div>
-          <div class="d-actions"><button class="pill" type="button" disabled>${spin}Settling…</button></div>`;
-        if (v === 'released') return `<div class="d-body">${top}${outcomeReleased('admin')}${conditions(C.released)}${terms(a)}</div>`;
+        if (v === 'released') return `<div class="d-body">${top}${outcomeReleased()}${conditions(C.released)}${terms(a)}</div>`;
         if (v === 'notrel') return `<div class="d-body">${top}${outcomeNot('admin')}${conditions(C.notrel)}${terms(a)}</div>
           <div class="d-actions"><a class="pill ghost" href="admin.html">${icon('i-inbox')}Open the picking that needs a check</a></div>`;
-        return `<div class="d-body">${top}${conditions(C.ready)}${terms(a)}</div>
-          <div class="d-actions"><button class="pill" type="button">${icon('i-check')}Settle: pay ₹1,50,000.00 to Hosahalli FPO</button><p class="again-hint" style="text-align:left">The ledger checks all three conditions again before it pays.</p></div>`;
+        // ready: data · working · acterr. A settle that didn't go through is not a "Not released" result:
+        // the chip stays neutral, the conditions stay "Before settling", and the panel says nothing moved.
+        return `<div class="d-body">${top}
+            ${st === 'working' ? working('Settling: sending the three conditions to the ledger…') : ''}
+            ${st === 'acterr' ? inlineErr('Couldn’t settle.', 'The ledger didn’t answer, so nothing moved and the conditions were not judged. The ₹1,50,000.00 (mock INR) is still in escrow.') : ''}
+            ${conditions(C.ready)}${terms(a)}</div>
+          <div class="d-actions">${pillBtn(st, `${icon('i-check')}Settle: pay ₹1,50,000.00 to Hosahalli FPO`, 'Settling…')}<p class="again-hint" style="text-align:left">The ledger checks all three conditions again before it pays.</p></div>`;
       },
     },
 
     /* 6 · Processor: record a processing step and hand on */
     'processor': {
-      label: 'Processor · Record a step, hand on', short: 'Processor', shell: 'processor', focus: 'detail', states: ['data', 'loading', 'empty', 'error', 'working'],
+      label: 'Processor · Record a step, hand on', short: 'Processor', shell: 'processor', focus: 'detail',
+      states: v => v === 'form' ? ['data', 'loading', 'empty', 'error', 'invalid', 'working', 'acterr'] : v === 'handed' ? ['data', 'loading', 'empty', 'error'] : ['data', 'loading', 'empty', 'error', 'working', 'acterr'],
       variants: { form: 'Record a step', within: 'Recorded · within range', flagged: 'Recorded · flagged', handed: 'Handed on' },
       list: (st, v) => {
-        const h = head('Curing works C-03', 'Batches with you', st === 'data' || st === 'working' ? 'Record what you did to each batch, then hand it on to the buyer.' : '', st === 'data' || st === 'working' ? (v === 'handed' ? 1 : 2) : null);
+        const live = !['loading', 'empty', 'error'].includes(st);
+        const h = head('Processor C-03', 'Batches with you', live ? 'Record what you did to each batch, then hand it on to the buyer.' : '', live ? (v === 'handed' ? 1 : 2) : null);
         if (st === 'loading') return h + listLoading('Loading your batches…');
         if (st === 'empty') return h + emptyCard('No batches with you right now.', 'A batch appears here when an FPO hands it to you.');
         if (st === 'error') return h + errorCard('Couldn’t load your batches.', 'Nothing was changed.');
         const why = { form: ['na', 'mk-na', 'Ready for a processing step'], within: ['ok', 'mk-ok', 'Hulled · within the expected range'], flagged: ['', 'mk-check', 'Hulled · flagged: 70.0% of input'], handed: ['ok', 'mk-ok', 'Handed on to Buyer B-07'] }[v];
         return h + `<ul class="q-list" aria-label="Batches with you">
-          ${row('#s=processor&v=' + v, 'i-box', why[0] || '', 'KDG-2026-0151 · Arabica', '600.0 kg', 'From Hosahalli FPO · 30 Sep', why[0], why[1], why[2], true)}
+          ${row('#s=processor&v=' + v, 'i-box', why[0], 'KDG-2026-0151 · Arabica', '600.0 kg', 'From Hosahalli FPO · 30 Sep', why[0], why[1], why[2], true)}
           ${v === 'handed' ? '' : row('#s=processor&v=form', 'i-box', 'na', 'KDG-2026-0160 · Robusta', '880.0 kg', 'From Hosahalli FPO · 2 Oct', 'na', 'mk-na', 'Ready for a processing step')}
         </ul>`;
       },
@@ -814,19 +876,21 @@ body:not([data-screen="certificate"]) .cert{display:none}
         const chipH = { form: chip('na', 'With you'), within: chip('ok', 'Within range'), flagged: chip('check', 'Flagged'), handed: chip('ok', 'Handed on') }[v];
         const top = `${back('Back to batches')}${dHead('Batch · from Hosahalli FPO', 'KDG-2026-0151', chipH, 'Arabica · 14 pickings · received 30 Sep 2026, signed on behalf of Hosahalli FPO')}`;
         const dis = st === 'working' ? ' disabled' : '';
-        if (v === 'form' || st === 'working') {
+        if (v === 'form') {
           const procs = [['Pulping', 'Fresh cherry to wet parchment · placeholder range, to be confirmed'], ['Drying', 'Placeholder range, to be confirmed'], ['Hulling parchment', 'Expected output 75–85% of input (Arabica)'], ['Hulling dry cherry', 'Expected output 48.5–58.5% of input (Arabica)']];
+          const out = { data: '', invalid: '0', working: '480.0', acterr: '480.0' }[st];
           return `<div class="d-body">${top}
             <form class="glass card form-card" style="margin-top:16px" aria-labelledby="p-h" novalidate>
               <h3 class="sec-h" id="p-h">Record a processing step</h3>
               <div class="field"><fieldset><legend>Process</legend><div class="opts">${procs.map(([w, s]) => `<label class="opt"><input type="radio" name="proc"${w === 'Hulling parchment' ? ' checked' : ''}${dis}><span class="o-txt">${w}<span>${s}</span></span></label>`).join('')}</div></fieldset></div>
               <div class="f-row">
-                <div class="field"><label for="p-in">Input (kg)</label><input id="p-in" type="text" inputmode="decimal" value="600.0" aria-describedby="p-in-h"${dis}><p class="hint" id="p-in-h">What you weighed going in.</p></div>
-                <div class="field"><label for="p-out">Output (kg)</label><input id="p-out" type="text" inputmode="decimal" value="${st === 'working' ? '480.0' : ''}" aria-describedby="p-out-h"${dis}><p class="hint" id="p-out-h">What you weighed coming out.</p></div>
+                ${input({ id: 'p-in', label: 'Input (kg)', value: '600.0', hint: 'What you weighed going in.', dis })}
+                ${input({ id: 'p-out', label: 'Output (kg)', value: out, hint: 'What you weighed coming out. More than the input is allowed; the step is then flagged.', err: st === 'invalid' && FC.outZero, dis })}
               </div>
               <p class="band-line">${icon('i-trend')}<span>For hulling parchment (Arabica), output is usually 75–85% of input. Outside that range the step is flagged, not refused.</span></p>
+              ${st === 'acterr' ? inlineErr('Couldn’t record the step.', 'Nothing was signed or saved. What you entered is still here.') : ''}
               <p class="dec-note">${icon('i-seal')}<span>Signed by the server on behalf of your account and recorded permanently.</span></p>
-              <button class="pill" type="button"${dis}>${st === 'working' ? `${spin}Recording the step…` : `${icon('i-check')}Sign and record step`}</button>
+              ${pillBtn(st, `${icon('i-check')}Sign and record step`, 'Recording the step…')}
             </form></div>`;
         }
         const flagged = v === 'flagged';
@@ -835,13 +899,14 @@ body:not([data-screen="certificate"]) .cert{display:none}
           <ol class="checks"><li class="chk ${flagged ? 'check' : ''}"><div class="c-top"><span class="c-stat ${flagged ? 'check' : 'ok'}">${mk(flagged ? 'mk-check' : 'mk-ok')}${flagged ? 'Flagged' : 'Within range'}</span><span class="c-name">Weight in and out<code>mass_balance · mb-1</code></span></div>
           <p class="c-ev">Output ${flagged ? '420.0' : '480.0'} kg is ${flagged ? '70.0' : '80.0'}% of input 600.0 kg (expected 75–85% for hulling parchment).${flagged ? '<span class="again">Nothing is refused. The step is recorded, and the flag shows on the batch’s certificate.</span>' : ''}</p></li></ol></section>`;
         if (v === 'handed') return `<div class="d-body">${top}${result}
-          <div class="glass outcome handed" style="margin-top:16px" role="status"><p class="o-top">${chip('ok', 'Handed on to Buyer B-07')}<b>Recorded</b></p><p class="o-meta">Signed on behalf of Ravi P. (Curing works C-03) on 1 Oct 2026, 10:20 am. This batch is no longer with you.</p></div></div>`;
+          <div class="glass outcome handed" style="margin-top:16px" role="status"><p class="o-top">${chip('ok', 'Handed on to Buyer B-07')}<b>Recorded</b></p><p class="o-meta">Signed on behalf of Ravi P. (Processor C-03) on 1 Oct 2026, 10:20 am. This batch is no longer with you.</p></div></div>`;
         return `<div class="d-body">${top}${result}
           <form class="decide" style="margin-top:16px" aria-labelledby="h-h" novalidate>
             <h3 id="h-h">Hand on to a buyer</h3>
-            <div class="field"><label for="h-to">Buyer</label><select id="h-to"><option>Buyer B-07</option></select></div>
+            ${select({ id: 'h-to', label: 'Buyer', options: '<option>Buyer B-07</option>', dis })}
+            ${st === 'acterr' ? inlineErr('Couldn’t hand on the batch.', 'Nothing was signed. The batch is still with you.') : ''}
             <p class="dec-note">${icon('i-seal')}<span>Signed by the server on behalf of your account. After this, the batch is no longer with you.</span></p>
-            <button class="pill" type="button">${icon('i-arrow-right')}Sign and hand on</button>
+            ${pillBtn(st, `${icon('i-arrow-right')}Sign and hand on`, 'Handing on to Buyer B-07…')}
           </form></div>`;
       },
     },
@@ -877,37 +942,73 @@ body:not([data-screen="certificate"]) .cert{display:none}
           <p class="cert-note">${st === 'empty' ? 'This batch had no processing step, so the journey is the same as before M-002.' : 'Only the “Hulled” step is new. The rest of the certificate is unchanged (verify.html).'}</p></section>`;
       },
     },
+
+    /* 8 · M-001 screens that gain a touch point (Design.md §28.1 "Touch points"). Content-level additions
+       only: each frozen screen keeps its layout, components and IA; only what is named below is new. */
+    'touch': {
+      label: 'M-001 screens · M-002 touch points', short: 'Touch points', focus: v => v === 'admin-open' || v === 'admin-delivered' ? 'detail' : 'list', states: ['data'],
+      shell: v => v === 'buyer-batches' ? 'buyer' : 'admin',
+      variants: { 'buyer-batches': 'Buyer Batches header: Agreements link', 'admin-batches': 'Admin Batches header: Agreements link', 'admin-open': 'Admin batch: custody to a processor', 'admin-delivered': 'Admin batch: link to its agreement' },
+      list: (st, v) => {
+        if (v === 'buyer-batches') return head('Buyer B-07', 'Batches', 'Batches transferred to you. Each has a certificate anyone can check.', null,
+          { acts: `<a class="pill ghost" href="#s=buyer-agreements">${icon('i-seal')}Agreements with FPOs</a>` })
+          + note('New in M-002: only the “Agreements with FPOs” link in this header. The batch list below it, the batch detail and the certificate are the M-001 screens, unchanged (Design.md §5).');
+        return adminBatchesHead(v === 'admin-batches')
+          + note('New in M-002: only the “Agreements with buyers” link in this header. The admin rail keeps its four items, with Batches current (Design.md §5). The batch list below is the M-001 screen, unchanged.');
+      },
+      detail: (st, v) => {
+        if (v === 'buyer-batches') return `<div class="d-body"><div class="glass card form-card"><p>Choose a batch to see its plots, custody and certificate.</p></div></div>`;
+        if (v === 'admin-batches') return `<div class="d-body"><div class="glass card form-card"><p>Choose a batch to see its pickings and transfer it.</p></div></div>`;
+        if (v === 'admin-open') return `<div class="d-body">${back('Back to batches')}
+          ${dHead('Hosahalli FPO · Batch', 'KDG-2026-0151', chip('na', 'Open'), 'Arabica · 600.0 kg · 14 pickings')}
+          <form class="decide" style="margin-top:16px" aria-labelledby="tc-h" novalidate>
+            <h3 id="tc-h">Transfer custody</h3>
+            ${select({ id: 'tc-to', label: 'Hand to', options: '<option value="" selected>Choose a buyer or processor</option><optgroup label="Buyers"><option>Buyer B-07</option></optgroup><optgroup label="Processors"><option>Processor C-03</option></optgroup>', hint: 'A processor records a processing step and then hands the batch on to a buyer.' })}
+            <p class="dec-note">${icon('i-seal')}<span>This is signed and recorded permanently. The server signs it on behalf of your account, and the batch is locked.</span></p>
+            <button class="pill" type="button">${icon('i-check')}Sign and transfer</button>
+          </form>
+          ${note('New in M-002: processor organisations in the recipient list, under their own group, and the label “Hand to” (was “Buyer”). The rest of the batch detail is the M-001 screen, unchanged.')}</div>`;
+        return `<div class="d-body">${back('Back to batches')}
+          ${dHead('Hosahalli FPO · Batch', 'KDG-2026-0142', chip('na', 'Transferred'), 'Arabica · 612.0 kg · 14 pickings · locked')}
+          <section class="glass card terms" style="margin-top:16px" aria-labelledby="ag-h"><h3 class="sec-h" id="ag-h">Agreement</h3>
+            <dl><div><dt>Delivered under</dt><dd><a href="#s=admin-agreement&v=released">AG-0007 with Buyer B-07</a></dd></div><div><dt>Status</dt><dd>Payment released · 30 Sep 2026</dd></div></dl></section>
+          ${note('New in M-002: only the “Agreement” card, shown when a batch is delivered under an agreement. The custody chain and the rest of the batch detail are the M-001 screen, unchanged.')}</div>`;
+      },
+    },
   };
 
   /* ════ Routing ═══════════════════════════════════════════════════════════════ */
-  const STATE_LABEL = { data: 'Data', loading: 'Loading', empty: 'Empty', error: 'Error', working: 'Working' };
+  const STATE_LABEL = { data: 'Data', loading: 'Loading', empty: 'Empty', error: 'Error', invalid: 'Field check', working: 'Working', acterr: 'Action error' };
+  const val = (x, v) => typeof x === 'function' ? x(v) : x;
   let cur = { s: 'buyer-agreements', st: 'data', v: null };
   function parse() {
     const p = new URLSearchParams(location.hash.slice(1));
     const s = SCREENS[p.get('s')] ? p.get('s') : 'buyer-agreements', S = SCREENS[s];
-    const st = S.states.includes(p.get('st')) ? p.get('st') : 'data';
     const vs = S.variants ? Object.keys(S.variants) : [null];
     const v = vs.includes(p.get('v')) ? p.get('v') : vs[0];
+    const st = val(S.states, v).includes(p.get('st')) ? p.get('st') : 'data';
     return { s, st, v };
   }
   const href = (s, st, v) => '#' + new URLSearchParams(Object.entries({ s, st, v }).filter(([, x]) => x && x !== 'data')).toString();
   function render() {
     cur = parse();
-    const S = SCREENS[cur.s], b = document.body;
+    const S = SCREENS[cur.s], b = document.body, shell = val(S.shell, cur.v), focus = val(S.focus, cur.v);
     b.dataset.screen = cur.s;
     $('#bn-where').textContent = `${S.short} · ${STATE_LABEL[cur.st]}`;
-    if (S.shell) {
+    // one <main> at a time: the inactive one carries the hidden attribute
+    $('#main').hidden = !shell; $('#cert').hidden = !!shell;
+    if (shell) {
       const rail = $('#rail');
-      rail.innerHTML = railHTML(S.shell); rail.dataset.n = RAILS[S.shell].n;
-      rail.setAttribute('aria-label', { buyer: 'Buyer sections', admin: 'Admin sections', processor: 'Processor sections' }[S.shell]);
-      b.dataset.rail = RAILS[S.shell].n;
+      rail.innerHTML = railHTML(shell); rail.dataset.n = RAILS[shell].n; rail.hidden = !RAILS[shell].n;
+      rail.setAttribute('aria-label', { buyer: 'Buyer sections', admin: 'Admin sections', processor: 'Processor sections' }[shell]);
+      b.dataset.rail = RAILS[shell].n;
       // list-level states (list-focused screens, and empty/error where the list itself is empty) use admin.html's single-column rule
-      const listLevel = S.focus === 'list' ? cur.st : (['admin-agreement', 'processor'].includes(cur.s) && ['empty', 'error'].includes(cur.st)) ? cur.st : (cur.st === 'loading' ? 'loading' : 'working');
+      const listLevel = focus === 'list' ? cur.st : (['admin-agreement', 'processor'].includes(cur.s) && ['empty', 'error'].includes(cur.st)) ? cur.st : (cur.st === 'loading' ? 'loading' : 'working');
       b.dataset.state = listLevel === 'data' ? 'working' : listLevel;
       $('#queue').innerHTML = S.list(cur.st, cur.v);
       $('#detail').innerHTML = S.detail(cur.st, cur.v);
       let listPref = false; try { listPref = !!sessionStorage.getItem('m2-list'); } catch (e) {}
-      const open = S.focus === 'detail' && !['empty', 'error', 'loading'].includes(b.dataset.state) && !listPref && !wideMQ.matches;
+      const open = focus === 'detail' && !['empty', 'error', 'loading'].includes(b.dataset.state) && !listPref && !wideMQ.matches;
       b.classList.toggle('detail-open', open);
       // < 1100 px with the detail as the whole screen, the list (and its h1) is hidden: repeat the list's h1, visually hidden, above the detail
       if (open) { const h1 = document.createElement('h1'); h1.className = 'vh'; h1.textContent = $('#q-h').textContent.trim(); $('#detail').prepend(h1); }
@@ -919,14 +1020,21 @@ body:not([data-screen="certificate"]) .cert{display:none}
       $('#queue').innerHTML = ''; $('#detail').innerHTML = ''; $('#rail').innerHTML = '';
       const c = $('#cert'); c.dataset.cert = cur.st === 'error' ? 'mismatch' : cur.st; c.innerHTML = S.cert(cur.st, cur.v);
     }
-    // reviewer menu
+    // reviewer menu (links name the page, so axe does not read them as skip links; same-document navigation)
     $('#screen-menu').innerHTML = Object.entries(SCREENS).flatMap(([k, X]) => (X.variants ? Object.entries(X.variants) : [[null, null]]).map(([vk, vl]) =>
-      `<a href="${href(k, cur.st !== 'data' && X.states.includes(cur.st) ? cur.st : null, vk)}" aria-current="${k === cur.s && vk === cur.v}">${X.label}${vl ? `<small>${vl}</small>` : ''}</a>`)).join('');
-    $('#state-menu').innerHTML = S.states.map(st => `<a href="${href(cur.s, st, cur.v)}" aria-current="${st === cur.st}">${STATE_LABEL[st]}</a>`).join('');
+      `<a href="contract.html${href(k, cur.st !== 'data' && val(X.states, vk).includes(cur.st) ? cur.st : null, vk)}" aria-current="${k === cur.s && vk === cur.v}">${X.label}${vl ? `<small>${vl}</small>` : ''}</a>`)).join('');
+    $('#state-menu').innerHTML = val(S.states, cur.v).map(st => `<a href="contract.html${href(cur.s, st, cur.v)}" aria-current="${st === cur.st}">${STATE_LABEL[st]}</a>`).join('');
     window.scrollTo(0, 0);
+    // field check: on submit, focus moves to the first field that needs a change (Design.md §28.7)
+    if (cur.st === 'invalid') { const f = $('[aria-invalid="true"]'); if (f) f.focus({ preventScroll: true }); }
   }
   wideMQ.addEventListener('change', () => render());
   addEventListener('hashchange', () => { try { sessionStorage.removeItem('m2-list'); } catch (e) {} render(); });
+  // display-only echoes: the field keeps exactly what was typed (no live grouping); the hint reads it back
+  document.addEventListener('input', e => {
+    if (e.target.id === 'f-amt') $('#f-amt-h').textContent = amtHint(e.target.value);
+    if (e.target.id === 'f-by') $('#f-by-h').textContent = byHint(e.target.value);
+  });
   document.addEventListener('click', e => {
     const nav = e.target.closest('[data-nav]');
     if (nav) { e.preventDefault(); $('#live').textContent = `${nav.textContent.trim()} is not part of this prototype.`; return; }
