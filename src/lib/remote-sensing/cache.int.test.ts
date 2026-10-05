@@ -1,8 +1,13 @@
 import { sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
+import { makeContext, makeDevice, makeSubmission } from '../../../tests/helpers/verify';
 import { writeTx } from '../db/client';
 import { remoteSensingCache } from '../db/schema';
+import { deforestationOverlap } from '../verification/checks/deforestation_overlap';
+import { ndviCultivation } from '../verification/checks/ndvi_cultivation';
+import { CONFIG } from '../verification/config';
+import { runCheck } from '../verification/verify';
 import { withCache } from './cache';
 import { withTimeouts } from './index';
 import { ProviderError, type PlotGeom, type RemoteSensingProvider } from './types';
@@ -33,7 +38,7 @@ const plot = (geometryHash = 'a'.repeat(64)): PlotGeom => ({ id: 'PL-CACHE001', 
  * A counting provider; `fail` makes every call reject with an HTTP 500. `clearMonths` sets how many of
  * the 12 history months were clear (default 12); `cloud` makes the harvest window cloud-blocked.
  */
-function counting(opts: { fail?: boolean; clearMonths?: number; cloud?: boolean } = {}) {
+function counting(opts: { fail?: boolean; clearMonths?: number; cloud?: boolean; lossPct?: number; months?: unknown } = {}) {
   const calls = { forestLoss: 0, ndviHistory: 0, ndviWindow: 0 };
   const source = 'fixture' as const;
   const provider: RemoteSensingProvider = {
@@ -41,12 +46,13 @@ function counting(opts: { fail?: boolean; clearMonths?: number; cloud?: boolean 
     async forestLoss() {
       calls.forestLoss++;
       if (opts.fail) throw new ProviderError('gfw', 500);
-      return { lossHa: 0.036, lossPct: 3, yearsFrom: 2021, dataYear: 2025, source };
+      return { lossHa: 0.036, lossPct: opts.lossPct ?? 3, yearsFrom: 2021, dataYear: 2025, source };
     },
     async ndviHistory(_p, endMonth) {
       calls.ndviHistory++;
       if (opts.fail) throw new ProviderError('sentinel-hub', 500);
       const clear = opts.clearMonths ?? 12;
+      if (opts.months !== undefined) return { months: opts.months as never, source };
       return { months: Array.from({ length: 12 }, (_, i) => ({ month: `${endMonth}#${i}`, mean: i < clear ? 0.7 : null, clearFraction: i < clear ? 0.9 : 0 })), source };
     },
     async ndviWindow() {
@@ -234,6 +240,44 @@ describe('withCache (TC-033)', () => {
     await rs6.settled();
     await rs6.ndviHistory(plot(), '2026-12');
     expect(six.calls.ndviHistory).toBe(1);
+  });
+
+  it('a nonsensical forest-loss answer (NaN, negative, infinite) is not cached, so a re-run asks again (TKT-07 r2 nit 1)', async () => {
+    for (const lossPct of [Number.NaN, -1, Number.POSITIVE_INFINITY]) {
+      const { provider, calls } = counting({ lossPct });
+      const rs = withCache(provider, t.db, { now: NOW });
+      await rs.forestLoss(plot(`${lossPct}`.padEnd(64, '0')));
+      await rs.settled();
+      await rs.forestLoss(plot(`${lossPct}`.padEnd(64, '0')));
+      expect(calls.forestLoss).toBe(2);
+    }
+    expect(await t.db.select().from(remoteSensingCache)).toEqual([]);
+  });
+
+  it('a history whose months field is not an array is reported malformed, never thrown as a TypeError (TKT-07 r2 nit 2)', async () => {
+    const { provider } = counting({ months: 'not-a-list' });
+    const rs = withCache(provider, t.db, { now: NOW });
+    await expect(rs.ndviHistory(plot(), '2026-12')).resolves.toMatchObject({ months: 'not-a-list' });
+    await rs.settled();
+    expect(await t.db.select().from(remoteSensingCache)).toEqual([]);
+    const device = await makeDevice();
+    const r = await runCheck(ndviCultivation, await makeSubmission({ device }), { ...makeContext(device, { remoteSensing: rs }), plot: { ...makeContext(device).plot, ...plot() } }, CONFIG);
+    expect(r).toMatchObject({ status: 'unavailable' });
+    expect(r.evidence).toContain('malformed response');
+    expect(r.evidence).not.toContain('TypeError');
+  });
+
+  it('end to end: a fixture answer, cached, then served from the cache still ends with " (demo data)" (TKT-07 r2 nit 4)', async () => {
+    const { provider, calls } = counting();
+    const rs = withCache(provider, t.db, { now: NOW });
+    const device = await makeDevice();
+    const ctx = { ...makeContext(device, { remoteSensing: rs }), plot: { ...makeContext(device).plot, ...plot() } };
+    const SENTENCE = '3.0% of plot area lost since 2021 (hard fail at 10.0%) (demo data)';
+    expect((await runCheck(deforestationOverlap, await makeSubmission({ device }), ctx, CONFIG)).evidence).toBe(SENTENCE);
+    await rs.settled();
+    const hit = await runCheck(deforestationOverlap, await makeSubmission({ device }), ctx, CONFIG);
+    expect(calls.forestLoss).toBe(1); // served from the cache
+    expect(hit.evidence).toBe(SENTENCE);
   });
 
   it('keeps the provider name', () => {

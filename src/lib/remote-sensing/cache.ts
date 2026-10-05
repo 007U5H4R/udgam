@@ -34,8 +34,14 @@ const errClass = (err: unknown) => (err instanceof Error ? err.constructor.name 
 
 /** A window answer with no clear observation is weather, not a result: not cached. */
 const clearWindow = (w: NdviWindow) => w.mean !== null && w.clearObservations > 0;
-/** A history with too few clear months cannot be judged yet: not cached. */
-const enoughClearMonths = (h: NdviHistory) => h.months.filter((m) => m.mean !== null).length >= CONFIG.ndviCultivation.minClearMonths;
+/**
+ * A history with too few clear months cannot be judged yet: not cached. A malformed answer (no months
+ * list) is not cached either, and is left for the check to report as malformed, never thrown here.
+ */
+const enoughClearMonths = (h: NdviHistory) =>
+  Array.isArray(h.months) && h.months.filter((m) => m?.mean !== null && m?.mean !== undefined).length >= CONFIG.ndviCultivation.minClearMonths;
+/** A forest-loss answer that is not a real share of the plot (NaN, negative, infinite) is malformed: not cached. */
+const realLoss = (l: { lossPct: number }) => Number.isFinite(l.lossPct) && l.lossPct >= 0;
 
 export function withCache(provider: RemoteSensingProvider, db: Db, opts: CacheOptions = {}): CachedProvider {
   const now = opts.now ?? (() => new Date());
@@ -98,7 +104,7 @@ export function withCache(provider: RemoteSensingProvider, db: Db, opts: CacheOp
 
   return {
     name: provider.name,
-    forestLoss: (plot, o) => cached(plot, 'gfw', 'loss', 'static', () => provider.forestLoss(plot, o)),
+    forestLoss: (plot, o) => cached(plot, 'gfw', 'loss', 'static', () => provider.forestLoss(plot, o), realLoss),
     ndviHistory: (plot, endMonth, o) => cached(plot, 'sentinel-hub', 'ndvi_history', endMonth, () => provider.ndviHistory(plot, endMonth, o), enoughClearMonths),
     ndviWindow: (plot, centreDate, days, o) =>
       cached(plot, 'sentinel-hub', 'ndvi_window', centreDate.slice(0, 7), () => provider.ndviWindow(plot, centreDate, days, o), clearWindow),

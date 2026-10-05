@@ -146,6 +146,22 @@ describe('token (client credentials, cached until exp − 60 s)', () => {
     expect(cdse.tokenCalls()).toHaveLength(3);
   });
 
+  it('a failed probe keeps the valid cached token: the next call makes no extra token request (TKT-07 r2 nit 3)', async () => {
+    let fail = false;
+    const cdse = fakeCdse(
+      () => json(200, recorded('sentinel-P01-history.json')),
+      () => (fail ? json(503, {}) : json(200, { access_token: TOKEN, expires_in: 600, token_type: 'Bearer' })),
+    );
+    const s = createSentinelProvider({ clientId: CLIENT_ID, clientSecret: SECRET, fetch: cdse.fetch });
+    await s.ndviHistory(PLOT, '2026-12');
+    fail = true;
+    await expect(s.probe()).rejects.toEqual(new ProviderError('sentinel-hub', 503));
+    await s.ndviHistory(PLOT, '2026-12');
+    expect(cdse.tokenCalls()).toHaveLength(2); // the first token and the probe's; none after the failed probe
+    const bearer = cdse.statCalls().map((c) => (c.init.headers as Record<string, string>).authorization);
+    expect(bearer).toEqual([`Bearer ${TOKEN}`, `Bearer ${TOKEN}`]);
+  });
+
   it('a refused token → ProviderError http; a token body without access_token → malformed', async () => {
     const refused = fakeCdse([], () => json(401, { error: 'invalid_client' }));
     await expect(createSentinelProvider({ clientId: CLIENT_ID, clientSecret: SECRET, fetch: refused.fetch }).ndviHistory(PLOT, '2026-12')).rejects.toEqual(new ProviderError('sentinel-hub', 401));
