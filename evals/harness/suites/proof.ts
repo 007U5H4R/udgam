@@ -27,7 +27,8 @@ import { buildProofFixture } from '../proof-fixture';
 const ROOT = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const TSX = join(ROOT, 'node_modules', '.bin', 'tsx');
 const CLEAN_ROOM_CLI = join(ROOT, 'evals', 'scorers', 'independent-verifier', 'cli.ts');
-const PROOF_CASES = ['EVAL-058', 'EVAL-059', 'EVAL-060', 'EVAL-061', 'EVAL-062', 'EVAL-063', 'EVAL-066'] as const;
+/** The cases runProofSuite produces a result for (the readiness check reads it, TSK-21.1). */
+export const PROOF_CASES = ['EVAL-058', 'EVAL-059', 'EVAL-060', 'EVAL-061', 'EVAL-062', 'EVAL-063', 'EVAL-066'] as const;
 /** EVAL-103 re-runs these on the EVM adapter (TC-083). */
 const EVM_RERUN = ['EVAL-058', 'EVAL-059', 'EVAL-060', 'EVAL-061', 'EVAL-062', 'EVAL-063'] as const;
 const execFileAsync = promisify(execFile);

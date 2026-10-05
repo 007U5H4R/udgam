@@ -21,6 +21,7 @@
     "verify": "pnpm typecheck && pnpm lint && pnpm test",
     "eval": "tsx evals/harness/run.ts",
     "eval:validate": "tsx evals/harness/dataset.ts --validate",
+    "eval:ready": "tsx evals/harness/readiness.ts",
     "eval:perf": "tsx evals/perf/run.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/lib/db/migrate.ts",

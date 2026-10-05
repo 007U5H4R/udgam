@@ -245,7 +245,7 @@ async function withWatchdog(body: Promise<SuiteBody>, ms: number): Promise<Suite
 const notBuilt = (why: string): SuiteBody => ({ outcome: 'not_yet_implemented', missingChecks: [], result: null, assertions: [], detected: null, error: null, notes: [why] });
 
 /** harness-proof cases that need the EVM ledger adapter: reported as not_yet_implemented (never dropped) on hashchain. */
-const PROOF_EVM_ONLY: Record<string, string> = {
+export const PROOF_EVM_ONLY: Record<string, string> = {
   'EVAL-103': 'EVAL-103 runs only with --ledger=evm (Anvil, TSK-24.8); this run used the hash-chain adapter',
 };
 
