@@ -18,12 +18,16 @@ import { t } from '../../../../../lib/i18n';
 import { istDate } from '../../../../../lib/format';
 import { requireSession, scopedById } from '../../../../_auth/require';
 import { BuyerList } from '../../BuyerList';
+import { pageTitle } from '../../../../../lib/page-title';
 
 // /buyer/batches/[batchId] (TSK-14.6, TC-060): score, quantity, the plots by producer ID (never a
 // farmer's name, EV16), the custody chain and the certificate link. A batch this buyer does not hold is
 // a 404, like an unknown one (EVAL-080).
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Batch · Udgam' };
+// DES-110: "<Screen> <ID> · Udgam", so two tabs or history entries can be told apart.
+export async function generateMetadata({ params }: { params: Promise<{ batchId: string }> }): Promise<Metadata> {
+  return { title: pageTitle('Batch', (await params).batchId) };
+}
 
 type Props = { params: Promise<{ batchId: string }> };
 
@@ -41,6 +45,8 @@ export default async function BuyerBatchPage({ params }: Props) {
     <main className={`${screen.main} ${screen.detailOpen}`}>
       <BuyerList orgName={orgName} batches={batches} state={null} currentId={batch.batchId} />
       <section className={screen.detail} aria-labelledby="d-h">
+        {/* the list's h1, visually hidden, for when the detail is the whole screen (< 1100 px; DES-103, §28.8) */}
+        <h1 className={screen.narrowH1}>{t('batches.title')}</h1>
         <div className={screen.dBody}>
           <Link className={screen.back} href="/buyer">
             <Icon name="arrowLeft" />

@@ -18,12 +18,16 @@ import { RegistrationCard } from '../RegistrationCard';
 import { forcedState } from '../state';
 import s from '../plots.module.css';
 import { AttestationCard } from './attestation/AttestationCard';
+import { pageTitle } from '../../../../../lib/page-title';
 
 // /admin/plots/[plotId] (TKT-06): one plot's outline (PlotSvg), area in hectares, registration status,
 // the registration checks with "Check again" (TKT-07), the organic certificate attestation (TKT-13) and the boundary editor. Another org's plot ID is a 404, like an unknown one (TC-019). The tile key
 // is read on the server and handed only to this admin page's editor (TP19).
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Plot · Udgam' };
+// DES-110: "<Screen> <ID> · Udgam", so two tabs or history entries can be told apart.
+export async function generateMetadata({ params }: { params: Promise<{ plotId: string }> }): Promise<Metadata> {
+  return { title: pageTitle('Plot', (await params).plotId) };
+}
 
 export default async function PlotPage({
   params,

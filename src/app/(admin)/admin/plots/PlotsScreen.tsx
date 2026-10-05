@@ -80,6 +80,8 @@ export function PlotsScreen({
           ) : null}
         </section>
         <section className={s.detail} aria-label="Plot detail">
+          {/* the list's h1, visually hidden, when the detail is the whole screen (< 1100 px; DES-103, §28.8) */}
+          {detailOpen ? <h1 className={s.narrowH1}>Registered plots</h1> : null}
           <div className={s.dBody}>
             <Link href="/admin/plots" className={s.back}>
               <Icon name="back" className={s.ic} />

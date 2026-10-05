@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Icon } from '../admin/QueueList';
 import pill from '../ui/Pill.module.css';
+import { SignOutPill } from '../ui/SignOut';
 import { adminStatus, buyerStatus, rowFacts, type AgreementView } from '../../lib/agreements/read';
 import { t } from '../../lib/i18n';
 import { AgreementRow, Brand, EmptyCard, ErrorCard, ListLoading } from './parts';
@@ -89,6 +90,8 @@ export function AgreementList({
           </ul>
         </>
       )}
+      {/* The buyer has no rail (§5): Sign out ends the list column, as on Batches (DES-105). */}
+      {buyer ? <SignOutPill className="q-foot" /> : null}
     </section>
   );
 }

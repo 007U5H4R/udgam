@@ -17,3 +17,19 @@
   outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
+/* DES-109: the §28.7 field check under the select (the agreement and processor forms' `.f-err`) */
+.fieldErr {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 8px 0 0;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--check-ink);
+}
+.fieldErr :global(.mk) {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 1px;
+}

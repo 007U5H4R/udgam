@@ -9,13 +9,14 @@ import { Icon } from '../../../../../components/admin/QueueList';
 import { buyerBalance } from '../../../../../lib/agreements/env-chain';
 import { formatInr, formatKg1, istDayLong } from '../../../../../lib/agreements/format';
 import { gradeDisplay, type Grade } from '../../../../../lib/agreements/grades';
-import { batchToGrade, buyerStatus, getAgreementView, listBuyerAgreements, type AgreementView } from '../../../../../lib/agreements/read';
+import { batchToGrade, buyerStatus, getAgreementView, listBuyerAgreements, readyBatch, type AgreementView, type DeliveredBatch } from '../../../../../lib/agreements/read';
 import { forcedAgreementState } from '../../../../../lib/agreements/view-state';
 import { orgNames } from '../../../../../lib/batches/read';
 import { getDbReady } from '../../../../../lib/db/client';
 import { t } from '../../../../../lib/i18n';
 import { requireSession } from '../../../../_auth/require';
 import { fundAgreementAction, gradeBatchAction, refundAgreementAction } from '../actions';
+import { pageTitle } from '../../../../../lib/page-title';
 
 // /buyer/agreements/[id] (TSK-25.8, Design.md §28.1 screens 1, 3, 3r and 4): one agreement of the
 // buyer's organisation. Created → fund (what moves where, the three conditions, the refund date);
@@ -23,9 +24,43 @@ import { fundAgreementAction, gradeBatchAction, refundAgreementAction } from '..
 // money back; otherwise the terms with the latest result and its conditions, read-only. Another
 // organisation's agreement is a 404 like an unknown one (EVAL-080). `?state=loading|working` for e2e.
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Agreement · Udgam' };
+// DES-110: "<Screen> <ID> · Udgam", so two tabs or history entries can be told apart.
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  return { title: pageTitle('Agreement', (await params).id) };
+}
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+/** The delivered batch under the agreement: its certificate, kg and date, Verified pickings and the minimum grade. */
+function DeliveredCard({ b, minGrade }: { b: DeliveredBatch; minGrade: Grade }) {
+  return (
+    <section className="glass card terms" aria-labelledby="b-h">
+      <h3 className="sec-h" id="b-h">
+        {t('agreements.delivered.title')}
+      </h3>
+      <dl>
+        <div>
+          <dt>{t('agreements.delivered.batch')}</dt>
+          <dd>
+            {b.batchId} · <Link href={`/verify/${encodeURIComponent(b.batchId)}?h=${b.shortHash}`}>{t('agreements.delivered.certificate')}</Link>
+          </dd>
+        </div>
+        <div>
+          <dt>{t('agreements.delivered.delivered')}</dt>
+          <dd>{t('agreements.delivered.kgWhen', { kg: formatKg1(b.deliveredKg), when: b.deliveredAt ? istDayLong(b.deliveredAt) : '' })}</dd>
+        </div>
+        <div>
+          <dt>{t('agreements.delivered.pickings')}</dt>
+          <dd>{t('agreements.delivered.pickingsValue', { n: b.verifiedPickings, of: b.pickings })}</dd>
+        </div>
+        <div>
+          <dt>{t('agreements.terms.minGrade')}</dt>
+          <dd>{gradeDisplay(minGrade)}</dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
 
 function Body({ v, balance, forcedWorking }: { v: AgreementView; balance: bigint | null; forcedWorking: boolean }) {
   const a = v.row;
@@ -91,34 +126,27 @@ function Body({ v, balance, forcedWorking }: { v: AgreementView; balance: bigint
   if (a.status === 'funded' && toGrade) {
     return (
       <>
-        <section className="glass card terms" aria-labelledby="b-h">
-          <h3 className="sec-h" id="b-h">
-            {t('agreements.delivered.title')}
-          </h3>
-          <dl>
-            <div>
-              <dt>{t('agreements.delivered.batch')}</dt>
-              <dd>
-                {toGrade.batchId} · <Link href={`/verify/${encodeURIComponent(toGrade.batchId)}?h=${toGrade.shortHash}`}>{t('agreements.delivered.certificate')}</Link>
-              </dd>
-            </div>
-            <div>
-              <dt>{t('agreements.delivered.delivered')}</dt>
-              <dd>{t('agreements.delivered.kgWhen', { kg: formatKg1(toGrade.deliveredKg), when: toGrade.deliveredAt ? istDayLong(toGrade.deliveredAt) : '' })}</dd>
-            </div>
-            <div>
-              <dt>{t('agreements.delivered.pickings')}</dt>
-              <dd>{t('agreements.delivered.pickingsValue', { n: toGrade.verifiedPickings, of: toGrade.pickings })}</dd>
-            </div>
-            <div>
-              <dt>{t('agreements.terms.minGrade')}</dt>
-              <dd>{gradeDisplay(a.minGrade as Grade)}</dd>
-            </div>
-          </dl>
-        </section>
+        <DeliveredCard b={toGrade} minGrade={a.minGrade as Grade} />
         <div style={{ marginTop: 16 }}>
           <GradeForm action={gradeBatchAction} agreementId={a.id} batchId={toGrade.batchId} minGrade={a.minGrade} forcedWorking={forcedWorking} />
         </div>
+        <Terms v={v} side="buyer" />
+      </>
+    );
+  }
+  const graded = readyBatch(v);
+  if (graded?.grade) {
+    // Graded, waiting for the FPO to settle (DES-101, EXE40): the batch, the grade the buyer signed (read-only) and who acts next.
+    return (
+      <>
+        <DeliveredCard b={graded} minGrade={a.minGrade as Grade} />
+        <section className="glass card graded" aria-labelledby="g-h" data-testid="grade-card">
+          <h3 className="sec-h" id="g-h">
+            {t('agreements.graded.title')}
+          </h3>
+          <p className="g-line">{t('agreements.graded.line', { grade: gradeDisplay(graded.grade) })}</p>
+          <p className="g-next">{t('agreements.graded.next', { fpo: v.fpoName })}</p>
+        </section>
         <Terms v={v} side="buyer" />
       </>
     );
@@ -174,7 +202,7 @@ export default async function BuyerAgreementPage({ params, searchParams }: Props
     <main className="review agr no-rail detail-open" data-state="working" id="main">
       <AgreementList side="buyer" orgName={orgName} items={items} state={forced === 'loading' ? 'loading' : 'data'} currentId={a.id} />
       {forced === 'loading' ? (
-        <DetailSkeleton />
+        <DetailSkeleton listTitle={t('agreements.buyer.title')} />
       ) : (
         <DetailColumn backHref="/buyer/agreements" backLabel={t('agreements.back')} listTitle={t('agreements.buyer.title')}>
           <DetailHead eyebrow={t('agreements.detailEyebrow', { other: v.fpoName })} title={a.id} chip={<StatusChip status={{ mark: status.mark, word: status.short }} />} meta={meta} />

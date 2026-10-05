@@ -140,5 +140,4 @@ export const COPY = {
   stepH: (process: string, when: string) => t('processor.detail.stepH', { process, when }),
   stepSum: (inKg: number, outKg: number) => t('processor.detail.stepSum', { in: kg1(inKg), out: kg1(outKg) }),
   metaList: t('processor.meta.list'),
-  metaDetail: t('processor.meta.detail'),
 } as const;

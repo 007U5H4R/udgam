@@ -75,6 +75,19 @@ test.describe('buyer agreements (Design.md §28.1 screens 1–4)', () => {
     await checkSurface(page);
   });
 
+  test('DES-101: after grading, the buyer sees the FPO settles next, the delivered batch and the signed grade', async ({ page }) => {
+    await asBuyer(page);
+    await page.goto('/buyer/agreements');
+    await expect(page.locator(`[data-agreement="${seeded.ready.id}"]`)).toContainText('Graded · waiting for the FPO to settle');
+    await page.goto(`/buyer/agreements/${seeded.ready.id}`);
+    await expect(page.locator('.d-title .vchip')).toHaveText('Waiting for the FPO to settle');
+    await expect(page.getByRole('heading', { name: 'Delivered batch' })).toBeVisible();
+    await expect(page.getByTestId('grade-card')).toContainText('You graded it Very good · 80.');
+    await expect(page.getByTestId('grade-card')).toContainText(`${seeded.ready.fpoName} settles it next.`);
+    await expect(page.getByRole('radio')).toHaveCount(0); // read-only: no grade form
+    await checkSurface(page);
+  });
+
   for (const state of ['loading', 'empty', 'error'] as const) {
     test(`list ${state} state`, async ({ page }) => {
       await asBuyer(page);
@@ -244,7 +257,10 @@ test.describe('FPO admin agreements and settlement (Design.md §28.1 screen 5)',
     await expect(page.getByText('The contract does the arithmetic.')).toBeVisible();
     if (wide(page)) expect(await primaryPills(page)).toBe(1);
     const pill = page.getByTestId('action-pill');
-    await expect(pill).toHaveText(`Settle: pay ₹1,50,000.00 to ${seeded.ready.fpoName}`);
+    // DES-114: a short sticky label that stays on one line; the FPO is named in the hint above it.
+    await expect(pill).toHaveText('Settle · ₹1,50,000.00');
+    expect((await pill.boundingBox())!.height).toBeLessThanOrEqual(60);
+    await expect(page.getByText(`The ledger checks all three conditions again before it pays ${seeded.ready.fpoName}.`)).toBeVisible();
     await pill.click();
     await expect(page.getByRole('alert').filter({ hasText: 'Couldn’t settle.' })).toContainText('nothing moved and the conditions were not judged');
     await expect(page.locator('.d-title .vchip')).toHaveText('Ready to settle');

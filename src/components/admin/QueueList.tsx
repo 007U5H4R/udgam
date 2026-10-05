@@ -143,15 +143,12 @@ export function QueueList({
   orgName,
   current,
   now = new Date(),
-  signOut,
 }: {
   state: QueueState;
   queue: ReviewQueue | null;
   orgName: string | null;
   current?: string;
   now?: Date;
-  /** The sign-out form (the admin's only sign-out; the rail has none). */
-  signOut?: ReactNode;
 }) {
   const waiting = queue?.waiting ?? [];
   const final = queue?.final ?? [];
@@ -251,7 +248,6 @@ export function QueueList({
         </div>
       ) : null}
 
-      {signOut ? <div className="q-foot">{signOut}</div> : null}
     </section>
   );
 }

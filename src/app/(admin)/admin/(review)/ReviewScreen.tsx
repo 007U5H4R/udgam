@@ -1,11 +1,8 @@
 import type { ReactNode } from 'react';
 import { QueueList, type QueueState } from '../../../../components/admin/QueueList';
-import { Pill } from '../../../../components/ui/Pill';
 import { RailShell } from '../../../../components/ui/Rail';
 import { env } from '../../../../lib/config/env';
-import { t } from '../../../../lib/i18n';
 import type { ReviewQueue } from '../../../../lib/review/queue';
-import { signOut } from '../../../(public)/sign-in/actions';
 import '../../../../styles/admin.css';
 
 // The review screen layout (TSK-12.2), shared by /admin and /admin/review/[runId]: TKT-05's rail (with
@@ -45,13 +42,6 @@ export function ReviewScreen({
           queue={queue}
           orgName={orgName}
           current={current}
-          signOut={
-            <form action={signOut}>
-              <Pill variant="ghost" type="submit">
-                {t('signOut')}
-              </Pill>
-            </form>
-          }
         />
         {state === 'loading' ? <DetailSkeleton /> : state === 'working' ? detail : null}
       </main>

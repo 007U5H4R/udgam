@@ -9,7 +9,7 @@ import { forcedState, PickAnItem, ReviewScreen } from '../ReviewScreen';
 // organisation's Needs Review pickings, oldest first, and the hard-failed ones "Not accepted by the
 // checks". At ≥ 1100 px the detail column says "Pick an item"; below that the list stands alone.
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Review · Udgam admin' };
+export const metadata: Metadata = { title: 'Review · Udgam' };
 
 type Props = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
 

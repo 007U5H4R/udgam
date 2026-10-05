@@ -17,6 +17,9 @@ const EXPECTED: Record<string, { verdict: 'Needs Review' | 'Rejected'; evidence:
   'plot-laundering': { verdict: 'Rejected', evidence: ['% of plot area lost since 2021', '25.0%'] },
 };
 
+/** The farmer's words (D5) for the system verdicts, as admin shows them everywhere else. */
+const WORD = { 'Needs Review': 'Needs a check', Rejected: 'Not accepted' } as const;
+
 test('@eval EVAL-074 the four demo attacks show the evidence that caught them', async ({ page }, info) => {
   const t = stepTimer();
   try {
@@ -35,6 +38,7 @@ test('@eval EVAL-074 the four demo attacks show the evidence that caught them', 
       await t.step(`${a.id}: submit, then the card and the review show the catching evidence`, async () => {
         await page.goto('/admin/demo');
         const card = page.getByTestId(`attack-${a.id}`);
+        await expect(card.getByText(/^Should be caught by:/)).toHaveText(new RegExp(`\\(${WORD[want.verdict]}\\)$`)); // DES-112
         const submit = card.getByRole('button', { name: /^Submit/ });
         if (await submit.count()) {
           await expect(card.getByRole('button')).toHaveCount(1); // one pill per card
@@ -43,7 +47,12 @@ test('@eval EVAL-074 the four demo attacks show the evidence that caught them', 
         const result = card.getByTestId('attack-result');
         await expect(result).toBeVisible({ timeout: 60_000 });
         await expect(result.locator('[data-verdict]')).toHaveAttribute('data-verdict', want.verdict);
-        await expect(result.locator('[data-verdict]')).toHaveText(want.verdict); // the system state, on an admin surface
+        // The D5 word on the chip (DES-112); the system state stays in data-verdict.
+        await expect(result.locator('[data-verdict]')).toHaveText(WORD[want.verdict]);
+        // DES-100: the verdict mark is chip-sized, not an unsized SVG filling the card.
+        const mark = (await result.locator('[data-verdict] svg').boundingBox())!;
+        expect(mark.width).toBeLessThanOrEqual(24);
+        expect(mark.height).toBeLessThanOrEqual(24);
         for (const e of want.evidence) await expect(card.getByTestId('attack-evidence')).toContainText(e);
         await expect(card.getByTestId('attack-evidence')).toHaveAttribute('data-check', a.expected.check);
 
@@ -52,6 +61,11 @@ test('@eval EVAL-074 the four demo attacks show the evidence that caught them', 
         const main = page.getByRole('main');
         for (const e of want.evidence) await expect(main.getByText(e, { exact: false }).first()).toBeVisible();
         await expect(main.locator(`[data-verdict="${want.verdict}"]`).first()).toBeVisible();
+        if (a.id === 'replay') {
+          // DES-102 (admin.html r5): each reused photo is outlined and names the picking it came from
+          await expect(main.locator('[data-used-before]')).toHaveCount(3);
+          await expect(main.locator('[data-used-before] .ph-flag').first()).toHaveText(/^Same photo as the \d{1,2} [A-Z][a-z]{2} picking$/);
+        }
         await noHorizontalScroll(page);
       });
     }

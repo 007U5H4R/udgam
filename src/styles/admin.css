@@ -145,6 +145,14 @@
   color: #fff;
 }
 
+/* DES-103 (Design.md §28.8): a detail that is the whole screen repeats the list's h1, visually hidden;
+   side by side (≥ 1100 px) the list's h1 is the page's one h1. */
+@media (min-width: 1100px) {
+  .review .narrow-h1 {
+    display: none;
+  }
+}
+
 /* ── Verdict chips + marks (word + mark + colour) ── */
 .review .mk {
   width: 22px;
@@ -732,6 +740,24 @@
   font-weight: 500;
   color: var(--ink-2);
 }
+/* DES-102: the photo the photo check caught (admin.html `.ph.bad`, `.ph-flag`) */
+.review .ph.bad .thumb {
+  box-shadow: 0 0 0 2px var(--bad);
+}
+.review .ph-flag {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--bad-ink);
+}
+.review .ph-flag .mk {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+}
 .review .ph-none {
   margin-top: 10px;
   color: var(--ink-2);
@@ -1163,7 +1189,8 @@
   }
   /* admin.html `body.detail-open .rail{display:none}`: an open detail hides the floating tab bar, so the
      sticky decision controls sit at the bottom edge (the Back button returns to the list and the bar). */
-  body:has(.review.detail-open) .admin-rail {
+  body:has(.review.detail-open) .admin-rail,
+  body:has(.review.detail-open) .admin-rail-out {
     display: none;
   }
   .review .act-row {
@@ -1199,6 +1226,21 @@
   .review .state-card {
     margin-top: 20px;
     padding: 24px 18px 22px;
+  }
+}
+/* DES-113: between the phone bar and the wide two-column layout the detail is narrow, so the three
+   decision buttons keep their words on one line at the phone bar's size (16 px) and the two pills share
+   the width evenly. */
+@media (min-width: 700px) and (max-width: 1279.98px) {
+  .review .act-row {
+    grid-template-columns: 1fr 1fr auto;
+  }
+  .review .act-row .act-pill,
+  .review .act-row .textbtn {
+    white-space: nowrap;
+    font-size: 16px;
+    padding: 0 12px;
+    gap: 6px;
   }
 }
 @media (max-width: 380px) {

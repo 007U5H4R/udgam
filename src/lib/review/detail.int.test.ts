@@ -56,6 +56,26 @@ describe('getReviewDetail (TSK-12.3)', () => {
     expect(d!.history).toEqual([{ runId: c.runId, runNo: 1, verdict: 'Needs Review', score: 100, at: c.serverReceivedAt }]);
   });
 
+  it('DES-102: marks each photo used before, with the earlier picking’s time when it is this organisation’s', async () => {
+    const seenHere = 'd'.repeat(64);
+    const seenElsewhere = 'e'.repeat(64);
+    const fresh = 'f'.repeat(64);
+    await seedReviewCapture(t.db, a, { checks: cloudy, media: [{ sha256: seenHere }], receivedAt: '2026-09-12T03:00:00.000Z' });
+    await seedReviewCapture(t.db, b, { checks: cloudy, media: [{ sha256: seenElsewhere }], receivedAt: '2026-09-13T03:00:00.000Z' });
+    const replay = checksWith({ photo_uniqueness: { status: 'fail', hardFail: true, evidence: '2 of 3 photos seen before' } });
+    const c = await seedReviewCapture(t.db, a, { checks: replay, media: [{ sha256: fresh }, { sha256: seenHere }, { sha256: seenElsewhere }], receivedAt: '2026-09-24T02:12:00.000Z' });
+    const d = await getReviewDetail(t.db, a.orgId, c.runId);
+    expect(d!.photos.map((p) => p.usedBefore)).toEqual([null, { at: '2026-09-12T03:00:00.000Z' }, { at: null }]); // another org's time is not shown
+  });
+
+  it('DES-102: no photo is marked when the photo check passed', async () => {
+    const same = 'a'.repeat(64);
+    await seedReviewCapture(t.db, a, { checks: cloudy, media: [{ sha256: same }], receivedAt: '2026-09-12T03:00:00.000Z' });
+    const c = await seedReviewCapture(t.db, a, { checks: cloudy, media: [{ sha256: same }], receivedAt: '2026-09-24T02:12:00.000Z' });
+    const d = await getReviewDetail(t.db, a.orgId, c.runId);
+    expect(d!.photos.map((p) => p.usedBefore)).toEqual([null]);
+  });
+
   it('another organisation’s run, and an unknown run, are null (the page answers 404)', async () => {
     const c = await seedReviewCapture(t.db, a, { checks: cloudy });
     expect(await getReviewDetail(t.db, b.orgId, c.runId)).toBeNull();

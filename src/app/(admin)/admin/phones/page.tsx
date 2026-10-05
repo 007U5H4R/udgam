@@ -15,7 +15,7 @@ import s from './phones.module.css';
 // shows their phones (set up, last picking, revoked), "Issue code", "Revoke" and their plots.
 // `?state=loading|empty|error` renders that state in dev and e2e builds only (§11).
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Phones · Udgam admin' };
+export const metadata: Metadata = { title: 'Phones · Udgam' };
 
 type Forced = 'loading' | 'empty' | 'error' | null;
 

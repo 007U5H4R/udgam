@@ -5,7 +5,7 @@ import { locate } from '../../lib/geo/geofence';
 import { projectToBox } from '../../lib/geo/svg';
 import type { LatLng, PlotPolygon } from '../../lib/geo/types';
 import { t } from '../../lib/i18n';
-import { CHECK_NAME, istClock, istDay, waited, whyLine } from '../../lib/review/copy';
+import { CHECK_NAME, istClock, istDay, istDayMonth, waited, whyLine } from '../../lib/review/copy';
 import { formatScore, kg1 } from '../../lib/format';
 import type { ReviewDetail as Detail } from '../../lib/review/detail';
 import { GlassCard } from '../ui/GlassCard';
@@ -126,6 +126,8 @@ export function ReviewDetail({ d, next, adminName, now = new Date() }: { d: Deta
   return (
     // tabIndex: at ≥ 1100 px the column scrolls on its own, so a keyboard user can focus and scroll it (axe scrollable-region-focusable)
     <section className="detail" aria-labelledby="d-h" tabIndex={0}>
+      {/* the list's h1, visually hidden, for when the detail is the whole screen (< 1100 px; DES-103, §28.8) */}
+      <h1 className="vh narrow-h1">Pickings to check</h1>
       <div className="d-body">
         <Link className="back d-back" href="/admin">
           <Icon name="arrowLeft" />
@@ -218,7 +220,7 @@ export function ReviewDetail({ d, next, adminName, now = new Date() }: { d: Deta
             {d.photos.length ? (
               <ul className="ph-grid">
                 {d.photos.map((p, i) => (
-                  <li key={p.mediaId} className="ph">
+                  <li key={p.mediaId} className={p.usedBefore ? 'ph bad' : 'ph'} data-used-before={p.usedBefore ? '' : undefined}>
                     <div className="thumb">
                       <Image src={`/api/media/${encodeURIComponent(p.mediaId)}/thumb`} alt={`Photo ${i + 1}, ${SLOTS[i] ?? 'photo'}`} width={320} height={320} unoptimized />
                     </div>
@@ -226,6 +228,13 @@ export function ReviewDetail({ d, next, adminName, now = new Date() }: { d: Deta
                       {i + 1} · {SLOTS[i] ?? 'Photo'}
                       <span>{p.takenAt ? `taken ${istClock(p.takenAt)}` : 'no time saved'}</span>
                     </p>
+                    {/* DES-102 (admin.html r5): which photo the photo check caught, and from which picking */}
+                    {p.usedBefore ? (
+                      <p className="ph-flag">
+                        <VerdictMark kind="bad" />
+                        {p.usedBefore.at ? t('review.photoUsedBefore', { date: istDayMonth(p.usedBefore.at) }) : t('review.photoSeenBefore')}
+                      </p>
+                    ) : null}
                   </li>
                 ))}
               </ul>

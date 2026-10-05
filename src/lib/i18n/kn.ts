@@ -28,6 +28,17 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'signIn.certificateHint': 'ಕಾಫಿ ಪ್ರಮಾಣಪತ್ರ ಹುಡುಕುತ್ತಿದ್ದೀರಾ? ನಿಮಗೆ ನೀಡಿದ ಲಿಂಕ್ ಅಥವಾ QR ಕೋಡ್ ತೆರೆಯಿರಿ.', // REVIEW: native speaker
   'signOut':'ಸೈನ್ ಔಟ್', // REVIEW: native speaker
 
+  'notFound.title': 'ಆ ಪುಟ ಸಿಗುತ್ತಿಲ್ಲ.', // REVIEW: native speaker
+  'notFound.body': 'ಲಿಂಕ್ ಹಳೆಯದಿರಬಹುದು, ಅಥವಾ ಬೇರೆ ಖಾತೆಗೆ ಸೇರಿರಬಹುದು. ಏನನ್ನೂ ಬದಲಾಯಿಸಲಾಗಿಲ್ಲ.', // REVIEW: native speaker
+  'notFound.home': 'ನಿಮ್ಮ ಮುಖಪುಟಕ್ಕೆ ಹೋಗಿ', // REVIEW: native speaker
+  'notFound.toReview': 'ಪರಿಶೀಲನೆಗೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
+  'notFound.toBatches': 'ಬ್ಯಾಚ್‌ಗಳಿಗೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
+  'notFound.toHome': 'ಮುಖಪುಟಕ್ಕೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
+  'review.photoUsedBefore': '{date} ರ ಕೊಯ್ಲಿನ ಅದೇ ಫೋಟೋ', // REVIEW: native speaker
+  'review.photoSeenBefore': 'ಈ ಫೋಟೋ ಬೇರೆ ಕೊಯ್ಲಿನಲ್ಲಿ ಮೊದಲೇ ಕಂಡಿದೆ', // REVIEW: native speaker
+  'notFound.picking.title': 'ಆ ಕೊಯ್ಲು ಸಿಗುತ್ತಿಲ್ಲ.', // REVIEW: native speaker
+  'notFound.picking.body': 'ಇದು ಹಳೆಯ ಲಿಂಕ್ ಆಗಿರಬಹುದು, ಅಥವಾ ಬೇರೆ ಫೋನ್‌ನ ಕೊಯ್ಲು ಆಗಿರಬಹುದು. ನಿಮ್ಮ ಉಳಿಸಿದ ಕೊಯ್ಲುಗಳು ಈ ಫೋನ್‌ನಲ್ಲಿ ಸುರಕ್ಷಿತವಾಗಿವೆ.', // REVIEW: native speaker
+
   'shell.field.title': 'ಮುಖಪುಟ', // REVIEW: native speaker
   'shell.field.empty': 'ಇನ್ನೂ ಯಾವುದೇ ಕೊಯ್ಲು ದಾಖಲಾಗಿಲ್ಲ.', // REVIEW: native speaker
   'shell.admin.title': 'ಪರಿಶೀಲನೆ', // REVIEW: native speaker
@@ -383,6 +394,12 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'batches.builder.create.many': 'ಬ್ಯಾಚ್ ರಚಿಸಿ · {n} ಕೊಯ್ಲುಗಳು · {kg} ಕೆಜಿ', // REVIEW: native speaker
   'batches.builder.working': 'ಬ್ಯಾಚ್ ರಚಿಸಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
   'batches.builder.note': 'ಬ್ಯಾಚ್ ರಚಿಸಿದಾಗ ಅದರ ಕೊಯ್ಲುಗಳಿಗೆ ಸಹಿ ಹಾಕಿ ಶಾಶ್ವತವಾಗಿ ದಾಖಲಿಸಲಾಗುತ್ತದೆ.', // REVIEW: native speaker
+  'batches.builder.filter': 'ಪ್ಲಾಟ್', // REVIEW: native speaker
+  'batches.builder.filterAll': 'ಎಲ್ಲಾ ಪ್ಲಾಟ್‌ಗಳು ({n})', // REVIEW: native speaker
+  'batches.builder.filterPlot': '{plot} ({n})', // REVIEW: native speaker
+  'batches.builder.selectAll': 'ಎಲ್ಲಾ {crop} ಆಯ್ಕೆಮಾಡಿ ({n})', // REVIEW: native speaker
+  'batches.builder.clearAll': '{crop} ಆಯ್ಕೆ ತೆಗೆಯಿರಿ', // REVIEW: native speaker
+  'batches.builder.shown': '{n} ರಲ್ಲಿ {shown} ಕೊಯ್ಲುಗಳನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ', // REVIEW: native speaker
   'batches.builder.empty.title': 'ಬ್ಯಾಚ್ ಮಾಡಲು ಪರಿಶೀಲಿತ ಕೊಯ್ಲುಗಳಿಲ್ಲ.', // REVIEW: native speaker
   'batches.builder.empty.body': 'ಕೊಯ್ಲುಗಳು ಪರಿಶೀಲಿತವಾಗಿ ಯಾವುದೇ ಬ್ಯಾಚ್‌ನಲ್ಲಿ ಇಲ್ಲದಿದ್ದಾಗ ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ.', // REVIEW: native speaker
   'batches.builder.error.empty': 'ಕನಿಷ್ಠ ಒಂದು ಕೊಯ್ಲನ್ನು ಆರಿಸಿ.', // REVIEW: native speaker
@@ -447,6 +464,8 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'agreements.status.notReleasedCount': 'ಬಿಡುಗಡೆಯಾಗಿಲ್ಲ · {count}', // REVIEW: native speaker
   'agreements.status.waitingDelivery': 'ಹಣ ಹಾಕಲಾಗಿದೆ · ವಿತರಣೆಗಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
   'agreements.status.ready': 'ಇತ್ಯರ್ಥಕ್ಕೆ ಸಿದ್ಧ', // REVIEW: native speaker
+  'agreements.status.gradedWaitingSettle': 'ಗ್ರೇಡ್ ಮಾಡಲಾಗಿದೆ · FPO ಇತ್ಯರ್ಥಕ್ಕಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
+  'agreements.status.gradedWaitingSettleShort': 'FPO ಇತ್ಯರ್ಥಕ್ಕಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
   'agreements.status.waitingBuyerGrade': 'ತಲುಪಿದೆ · ಖರೀದಿದಾರರ ದರ್ಜೆಗಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
   'agreements.status.waitingBuyerGradeShort': 'ಖರೀದಿದಾರರ ದರ್ಜೆಗಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
   'agreements.status.waitingGrade': 'ದರ್ಜೆಗಾಗಿ ಕಾಯುತ್ತಿದೆ', // REVIEW: native speaker
@@ -545,6 +564,9 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'agreements.delivered.kgWhen': '{kg} ಕೆಜಿ · {when}', // REVIEW: native speaker
   'agreements.delivered.pickings': 'ಕೊಯ್ಲುಗಳು', // REVIEW: native speaker
   'agreements.delivered.pickingsValue': '{of} ರಲ್ಲಿ {n} ಪರಿಶೀಲಿತ', // REVIEW: native speaker
+  'agreements.graded.title': 'ನಿಮ್ಮ ಗ್ರೇಡ್', // REVIEW: native speaker
+  'agreements.graded.line': 'ನೀವು ಇದಕ್ಕೆ {grade} ಗ್ರೇಡ್ ನೀಡಿದ್ದೀರಿ.', // REVIEW: native speaker
+  'agreements.graded.next': '{fpo} ಮುಂದೆ ಇದನ್ನು ಇತ್ಯರ್ಥಗೊಳಿಸುತ್ತದೆ. ಮೂರೂ ಷರತ್ತುಗಳು ಪೂರೈಸಿದರೆ ಮಾತ್ರ ಪಾವತಿ ಬಿಡುಗಡೆಯಾಗುತ್ತದೆ.', // REVIEW: native speaker
   'agreements.grade.title': 'ಬ್ಯಾಚ್ {batch} ಗೆ ದರ್ಜೆ ನೀಡಿ', // REVIEW: native speaker
   'agreements.grade.legend': 'ಗುಣಮಟ್ಟದ ದರ್ಜೆ', // REVIEW: native speaker
   'agreements.grade.atMin': 'ಒಪ್ಪಿದ ಕನಿಷ್ಠ', // REVIEW: native speaker
@@ -558,10 +580,10 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'agreements.grade.errBody': 'ಯಾವುದಕ್ಕೂ ಸಹಿ ಹಾಕಿಲ್ಲ. ನಿಮ್ಮ ಆಯ್ಕೆ ಇನ್ನೂ ಆರಿಸಿದಂತೆಯೇ ಇದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', // REVIEW: native speaker
   'agreements.grade.emptyTitle': 'ಇನ್ನೂ ಯಾವುದೇ ಬ್ಯಾಚ್ ತಲುಪಿಲ್ಲ.', // REVIEW: native speaker
   'agreements.grade.emptyBody': '{fpo} ಈ ಒಪ್ಪಂದದಡಿ ಬ್ಯಾಚ್ ತಲುಪಿಸಿದಾಗ, ನೀವು ಇಲ್ಲಿ ದರ್ಜೆ ನೀಡುತ್ತೀರಿ.', // REVIEW: native speaker
-  'agreements.settle.idle': 'ಇತ್ಯರ್ಥ: {fpo} ಗೆ {amount} ಪಾವತಿಸಿ', // REVIEW: native speaker
+  'agreements.settle.idle': 'ಇತ್ಯರ್ಥ · {amount}', // REVIEW: native speaker
   'agreements.settle.busy': 'ಇತ್ಯರ್ಥವಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
   'agreements.settle.working': 'ಇತ್ಯರ್ಥ: ಮೂರು ಷರತ್ತುಗಳನ್ನು ಲೆಡ್ಜರ್‌ಗೆ ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
-  'agreements.settle.hint': 'ಪಾವತಿಸುವ ಮೊದಲು ಲೆಡ್ಜರ್ ಮೂರೂ ಷರತ್ತುಗಳನ್ನು ಮತ್ತೆ ಪರಿಶೀಲಿಸುತ್ತದೆ.', // REVIEW: native speaker
+  'agreements.settle.hint': '{fpo} ಗೆ ಪಾವತಿಸುವ ಮೊದಲು ಲೆಡ್ಜರ್ ಮೂರೂ ಷರತ್ತುಗಳನ್ನು ಮತ್ತೆ ಪರಿಶೀಲಿಸುತ್ತದೆ.', // REVIEW: native speaker
   'agreements.settle.errTitle': 'ಇತ್ಯರ್ಥ ಮಾಡಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
   'agreements.settle.noAnswer': 'ಲೆಡ್ಜರ್ ಉತ್ತರಿಸಲಿಲ್ಲ, ಆದ್ದರಿಂದ ಏನೂ ಸರಿಯಲಿಲ್ಲ ಮತ್ತು ಷರತ್ತುಗಳನ್ನು ನಿರ್ಣಯಿಸಲಿಲ್ಲ. {amount} (ಅಣಕು INR) ಇನ್ನೂ ಎಸ್ಕ್ರೋದಲ್ಲಿದೆ.', // REVIEW: native speaker
   'agreements.settle.turnedAway': 'ಷರತ್ತುಗಳನ್ನು ನಿರ್ಣಯಿಸುವ ಮೊದಲೇ ಲೆಡ್ಜರ್ ವಿನಂತಿಯನ್ನು ತಿರಸ್ಕರಿಸಿತು, ಆದ್ದರಿಂದ ಏನೂ ಸರಿಯಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ; ಮತ್ತೆ ಹೀಗಾದರೆ ಉದ್ಗಮ್ ತಂಡಕ್ಕೆ ತಿಳಿಸಿ.', // REVIEW: native speaker
@@ -586,8 +608,7 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'processor.detailLabel': 'ಬ್ಯಾಚ್ ವಿವರ', // REVIEW: native speaker
   'processor.railLabel': 'ಸಂಸ್ಕರಣಾಕಾರರ ವಿಭಾಗಗಳು', // REVIEW: native speaker
   'processor.signOut': 'ಸೈನ್ ಔಟ್', // REVIEW: native speaker
-  'processor.meta.list': 'ಬ್ಯಾಚ್‌ಗಳು · ಉದ್ಗಮ್ ಸಂಸ್ಕರಣಾಕಾರ', // REVIEW: native speaker
-  'processor.meta.detail': 'ಬ್ಯಾಚ್ · ಉದ್ಗಮ್ ಸಂಸ್ಕರಣಾಕಾರ', // REVIEW: native speaker
+  'processor.meta.list': 'ಬ್ಯಾಚ್‌ಗಳು · ಉದ್ಗಮ್', // REVIEW: native speaker
   'processor.kg': '{kg} ಕೆಜಿ', // REVIEW: native speaker
   'processor.row.id': '{id} · {crop}', // REVIEW: native speaker
   'processor.row.from': '{org} ಇಂದ · {when}', // REVIEW: native speaker
