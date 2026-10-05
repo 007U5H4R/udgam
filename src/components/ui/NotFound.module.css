@@ -1,0 +1,62 @@
+/* The not-found card (DES-104, DES-011), composed from admin.html's `.state-card` (centred glass card,
+   empty-state cherry, h at 24 px, a sentence in --ink-2, a pill at most 320 px wide). No new colours,
+   radii or motion. It sits on the app's dark ground (globals.css body), never on white. */
+.page {
+  display: grid;
+  align-content: start;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding: 48px var(--pad) 32px;
+}
+.card {
+  width: 100%;
+  max-width: 560px;
+  margin: 28px auto 0;
+  padding: 28px 26px 26px;
+  text-align: center;
+}
+.cherry {
+  display: grid;
+  place-items: center;
+  margin: 0 auto 10px;
+}
+.cherry img {
+  width: 96px;
+  height: 96px;
+}
+.h {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.body {
+  margin: 6px 0 0;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.back {
+  max-width: 320px;
+  margin: 20px auto 0;
+}
+.ic {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@media (max-width: 699.98px) {
+  .page {
+    padding-top: 24px;
+  }
+  .card {
+    margin-top: 20px;
+    padding: 24px 18px 22px;
+  }
+}

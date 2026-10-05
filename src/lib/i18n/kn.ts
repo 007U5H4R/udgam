@@ -26,6 +26,15 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'signIn.unavailable': 'ಈಗ ಸೈನ್ ಇನ್ ಮಾಡಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', // REVIEW: native speaker
   'signOut':'ಸೈನ್ ಔಟ್', // REVIEW: native speaker
 
+  'notFound.title': 'ಆ ಪುಟ ಸಿಗುತ್ತಿಲ್ಲ.', // REVIEW: native speaker
+  'notFound.body': 'ಲಿಂಕ್ ಹಳೆಯದಿರಬಹುದು, ಅಥವಾ ಬೇರೆ ಖಾತೆಗೆ ಸೇರಿರಬಹುದು. ಏನನ್ನೂ ಬದಲಾಯಿಸಲಾಗಿಲ್ಲ.', // REVIEW: native speaker
+  'notFound.home': 'ನಿಮ್ಮ ಮುಖಪುಟಕ್ಕೆ ಹೋಗಿ', // REVIEW: native speaker
+  'notFound.toReview': 'ಪರಿಶೀಲನೆಗೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
+  'notFound.toBatches': 'ಬ್ಯಾಚ್‌ಗಳಿಗೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
+  'notFound.toHome': 'ಮುಖಪುಟಕ್ಕೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
+  'notFound.picking.title': 'ಆ ಕೊಯ್ಲು ಸಿಗುತ್ತಿಲ್ಲ.', // REVIEW: native speaker
+  'notFound.picking.body': 'ಇದು ಹಳೆಯ ಲಿಂಕ್ ಆಗಿರಬಹುದು, ಅಥವಾ ಬೇರೆ ಫೋನ್‌ನ ಕೊಯ್ಲು ಆಗಿರಬಹುದು. ನಿಮ್ಮ ಉಳಿಸಿದ ಕೊಯ್ಲುಗಳು ಈ ಫೋನ್‌ನಲ್ಲಿ ಸುರಕ್ಷಿತವಾಗಿವೆ.', // REVIEW: native speaker
+
   'shell.field.title': 'ಮುಖಪುಟ', // REVIEW: native speaker
   'shell.field.empty': 'ಇನ್ನೂ ಯಾವುದೇ ಕೊಯ್ಲು ದಾಖಲಾಗಿಲ್ಲ.', // REVIEW: native speaker
   'shell.admin.title': 'ಪರಿಶೀಲನೆ', // REVIEW: native speaker

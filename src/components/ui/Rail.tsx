@@ -50,7 +50,8 @@ const initials = (name: string) =>
     .join('');
 
 export type RailProps = {
-  current: RailSection;
+  /** The open section; absent on a screen outside the four (the not-found, DES-104). */
+  current?: RailSection;
   /** The signed-in admin, shown at the foot of the rail. */
   me?: { name: string };
   /** Pickings waiting for review (the badge on Review); hidden when 0 or absent. */

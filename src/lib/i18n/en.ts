@@ -14,6 +14,16 @@ export const en = {
   'signIn.unavailable': "Couldn't sign in right now. Try again.",
   'signOut': 'Sign out',
 
+  // The not-found card (DES-104, DES-011): the root, admin, buyer, processor and field route groups
+  'notFound.title': 'We can’t find that page.',
+  'notFound.body': 'The link may be old, or it may belong to another account. Nothing was changed.',
+  'notFound.home': 'Go to your home screen',
+  'notFound.toReview': 'Back to Review',
+  'notFound.toBatches': 'Back to Batches',
+  'notFound.toHome': 'Back to Home',
+  'notFound.picking.title': 'We can’t find that picking.',
+  'notFound.picking.body': 'It may be an old link, or a picking from another phone. Your saved pickings are safe on this phone.',
+
   'shell.field.title': 'Home',
   'shell.field.empty': 'No pickings recorded yet.',
   'shell.admin.title': 'Review',
