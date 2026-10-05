@@ -197,6 +197,20 @@
       "when": 1791184072062,
       "tag": "0027_agreements_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1791187236651,
+      "tag": "0028_settlement_batch_once",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1791187237742,
+      "tag": "0029_settlement_batch_once_guards",
+      "breakpoints": true
     }
   ]
 }
