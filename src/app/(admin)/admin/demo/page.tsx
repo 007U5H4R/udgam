@@ -50,7 +50,7 @@ export default async function DemoPage({ searchParams }: { searchParams: Promise
         </header>
         {!manifest ? (
           <p className={s.sub} data-testid="demo-not-staged">
-            Nothing is staged. Run <code>pnpm seed --reset</code> first.
+            Nothing is staged. Run <code>NODE_ENV=development pnpm seed --reset</code> first.
           </p>
         ) : (
           <section aria-labelledby="demo-attacks">
@@ -90,7 +90,7 @@ export default async function DemoPage({ searchParams }: { searchParams: Promise
                         </Pill>
                         {failed && sp.sent === a.id ? (
                           <p className={s.muted} role="alert">
-                            Not sent ({failed}). Run <code>pnpm seed --reset</code> and try again.
+                            Not sent ({failed}). Run <code>NODE_ENV=development pnpm seed --reset</code> and try again.
                           </p>
                         ) : null}
                       </form>

@@ -55,6 +55,10 @@ async function publicKeyOf(jwk: unknown): Promise<PublicJwk | null> {
  * and its `device_enrolled` entry {deviceId, agentId, thumbprint}, the key's RFC 7638 thumbprint. Also
  * used by the test and tracer seeds (scripts/tracer-world.ts, tests/helpers/batch-*.ts), so they anchor
  * exactly what enrolment does. `publicJwk` must already be the key's public members.
+ *
+ * It performs no checks of its own: no key validation, no key-uniqueness check, no code redemption and
+ * no rate limit. Its only callers are enrolDevice (after all of those guards, in the same transaction)
+ * and those test and tracer seeds; anything else must run enrolDevice instead.
  */
 export async function anchorEnrolledDevice(
   tx: Tx,

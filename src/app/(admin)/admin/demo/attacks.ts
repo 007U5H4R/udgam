@@ -6,6 +6,7 @@ import type { Env } from '../../../../lib/config/env';
 import type { Db } from '../../../../lib/db/client';
 import { isAttackId, type AttackId, type AttackManifest } from '../../../../lib/demo/manifest';
 import { farmers, harvestEvents, plots, user, verificationRuns } from '../../../../lib/db/schema';
+import { log } from '../../../../lib/log';
 import type { CheckResult, Verdict } from '../../../../lib/verification/types';
 import { POST as capturePost } from '../../../api/capture/route';
 
@@ -147,8 +148,13 @@ export async function submitStaged(db: Db, dataDir: string, id: AttackId, orgId:
   try {
     return await postStaged(payload, signature, photos, cookie);
   } finally {
-    // Revoke the agent's session at once: it existed only for this one submission.
-    await auth.api.signOut({ headers: new Headers({ cookie }) });
+    // Revoke the agent's session at once: it existed only for this one submission. A failure here is
+    // logged (the error's class only, never the cookie) and does not replace the capture's own result.
+    try {
+      await auth.api.signOut({ headers: new Headers({ cookie }) });
+    } catch (err) {
+      log.warn({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'demo.agent_signout_failed');
+    }
   }
 }
 

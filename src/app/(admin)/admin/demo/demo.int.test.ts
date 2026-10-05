@@ -206,4 +206,46 @@ describe('/admin/demo with DEMO_MODE=1', () => {
     const { actions } = await load({ DEMO_MODE: '1' });
     expect(await actions.submitAttack('../../etc/passwd')).toEqual({ ok: false, reason: 'not_staged', status: 404 });
   });
+
+  it('a failed sign-out after the submit is logged without secrets and does not replace the capture’s result (re-review nit 3)', async () => {
+    const warn = vi.fn();
+    const quiet = vi.fn();
+    const logger = { warn, error: quiet, info: quiet, debug: quiet };
+    vi.doMock('../../../../lib/log', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('../../../../lib/log')>()),
+      log: logger,
+      withRequestId: () => logger,
+    }));
+    vi.doMock('../../../../lib/auth/auth', async (importOriginal) => {
+      const real = await importOriginal<typeof import('../../../../lib/auth/auth')>();
+      return {
+        ...real,
+        createAuth: (...args: Parameters<typeof real.createAuth>) => {
+          const auth = real.createAuth(...args);
+          return {
+            ...auth,
+            api: {
+              ...auth.api,
+              signOut: async () => {
+                throw new Error('session store unavailable');
+              },
+            },
+          };
+        },
+      };
+    });
+    try {
+      const { attacks } = await load({ DEMO_MODE: '1' });
+      const { getDbReady } = await import('../../../../lib/db/client');
+      const r = await attacks.submitStaged(await getDbReady(), DATA_DIR, 'replay', 'ORG-HOSAHALLI');
+      expect(r).toMatchObject({ ok: true, verdict: 'Rejected', idempotent: true });
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith({ errClass: 'Error' }, 'demo.agent_signout_failed');
+      // the session the sign-out could not revoke is still there (the log line is the only trace)
+      expect(await agentSessions()).toBe(1);
+    } finally {
+      vi.doUnmock('../../../../lib/log');
+      vi.doUnmock('../../../../lib/auth/auth');
+    }
+  });
 });

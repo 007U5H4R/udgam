@@ -144,6 +144,8 @@ const silent = { error: () => undefined, info: () => undefined, warn: () => unde
 /** Build the demo world into `db` (migrated, empty) and `dataDir`. */
 export async function runSeed(db: Db, { dataDir, now = new Date() }: { dataDir: string; now?: Date }): Promise<{ counts: Omit<SeedCounts, 'credentials'>; world: SeededWorld }> {
   if (!(await isEmpty(db))) throw new Error(SEED_NOT_EMPTY);
+  // The pickings' times first: in the season's first 10 minutes this refuses before anything is written.
+  const times = historyTimes(now);
   mkdirSync(dataDir, { recursive: true });
   const store = localMediaStore(dataDir);
   const orgId = SEED.fpo.id;
@@ -203,7 +205,6 @@ export async function runSeed(db: Db, { dataDir, now = new Date() }: { dataDir: 
   }
 
   // The honest history: each picking signed by agent 1's phone and run through the capture pipeline.
-  const times = historyTimes(now);
   const plotOf = (id: string) => SEED.plots.find((p) => p.id === id)!;
   const photos: Uint8Array<ArrayBuffer>[][] = [];
   const eventIds: string[] = [];
@@ -287,9 +288,10 @@ export async function runSeed(db: Db, { dataDir, now = new Date() }: { dataDir: 
  * The seed on the app's own database (DATA_DIR): --reset closes it, removes it and the seed's files,
  * then migrates a new one. Resolves with the counts.
  */
-export async function seed({ reset = false, now }: { reset?: boolean; now?: Date } = {}): Promise<SeedCounts> {
+export async function seed({ reset = false, now = new Date() }: { reset?: boolean; now?: Date } = {}): Promise<SeedCounts> {
   // Before anything under DATA_DIR is touched (--reset deletes the database, the ledger and the media).
   if (!seedAllowed()) throw new Error(SEED_REFUSED);
+  historyTimes(now); // refuses in the season's first 10 minutes (SEASON_JUST_STARTED), before the reset
   const dataDir = env.DATA_DIR;
   if (reset) {
     if (!resetTargetsDataDir()) throw new Error(SEED_RESET_ELSEWHERE);
@@ -298,7 +300,7 @@ export async function seed({ reset = false, now }: { reset?: boolean; now?: Date
   }
   const db = await getDbReady();
   await prepareDatabase(db);
-  const { counts } = await runSeed(db, { dataDir, ...(now ? { now } : {}) });
+  const { counts } = await runSeed(db, { dataDir, now });
   return { ...counts, credentials: join(dataDir, 'seed-credentials.txt') };
 }
 
