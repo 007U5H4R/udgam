@@ -32,7 +32,7 @@ export function PhotoSlot({
       <span className="s-name">{name}</span>
       <span className="s-state">
         {stateIcon}
-        {stateLabel}
+        <span>{stateLabel}</span>
       </span>
     </GlassCard>
   );

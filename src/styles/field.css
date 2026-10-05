@@ -42,9 +42,34 @@ html[lang='kn'] body {
 :lang(kn) :is(p, li, .lede, .facts, .greet, .ev-t, .v-sub, .kg-hint, .r-why, .help-row, .caption) {
   line-height: 1.6;
 }
-:lang(kn) :is(.tab, .textbtn, .chip, .vchip, .back, .eyebrow, .s-name, .s-state, .c-state, .r-date) {
+:lang(kn) :is(.tab, .textbtn, .back, .eyebrow, .s-name, .c-state, .r-date) {
   white-space: normal;
   overflow-wrap: anywhere;
+}
+/* DES-008, DES-009: a verdict word, the language chip and a slot's state never break inside a word. A
+   verdict chip may wrap between words; the chip keeps its one word; a slot's state word moves below
+   its icon instead (and breaks only if the word alone is wider than the slot). */
+:lang(kn) .vchip {
+  white-space: normal;
+  overflow-wrap: normal;
+}
+.top .chip {
+  flex: none;
+  white-space: nowrap;
+}
+.top .h1 {
+  min-width: 0;
+}
+.slot .s-state {
+  flex-wrap: wrap;
+}
+.slot .s-state > span {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+/* DES-023: two-line Kannada headings need room for the vowel signs above and below the line. */
+:lang(kn) :is(.h1, .v-word) {
+  line-height: 1.35;
 }
 .ic {
   width: 24px;
@@ -1275,6 +1300,11 @@ html[lang='kn'] body {
 .help-row .ic {
   margin-top: 2px;
   color: #b9f5d2;
+}
+/* DES-008: the verdict legend stacks the chip above its explanation (full width, in both languages). */
+.help-row.legend {
+  flex-direction: column;
+  gap: 6px;
 }
 /* "Call the office": a link inside a sentence is told apart by its underline, not its colour alone (WCAG 1.4.1). */
 .help-row a {

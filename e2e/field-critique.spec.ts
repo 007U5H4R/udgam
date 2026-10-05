@@ -113,3 +113,44 @@ test('DES-021: Help → More → Sign out ends the session and opens sign-in; th
   await page.goto('/field');
   await expect(page).toHaveURL(/\/sign-in/);
 });
+
+/** How many lines an element's text takes (its height over its line-height). */
+const lines = (el: Element) => {
+  const cs = getComputedStyle(el);
+  return Math.round((el.getBoundingClientRect().height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)) / parseFloat(cs.lineHeight));
+};
+
+test('DES-008, DES-009, DES-023 (Kannada): verdict words, the language chip and slot states never break inside a word; headings get 1.35 leading', async ({ page, context }) => {
+  const seed = seedCaptureWorld({ events: ['38.5:Verified'] });
+  await context.addCookies([{ name: 'udgam_lang', value: 'kn', url: test.info().project.use.baseURL! }]);
+  await openField(page, context, seed);
+  await expect(page.locator('html')).toHaveAttribute('lang', 'kn');
+  const h1 = await page.locator('h1.h1').first().evaluate((el) => parseFloat(getComputedStyle(el).lineHeight) / parseFloat(getComputedStyle(el).fontSize));
+  expect(h1).toBeCloseTo(1.35, 2);
+
+  // Help legend: each chip sits on its own line above its explanation; a one-word verdict is one line
+  await page.getByRole('navigation', { name: 'Main' }).locator('.tab').nth(2).click();
+  const legend = page.getByTestId('help-verdicts').locator('.help-row');
+  await expect(legend).toHaveCount(3);
+  for (let i = 0; i < 3; i++) {
+    const [chip, text] = await legend.nth(i).evaluate((row) => {
+      const c = row.querySelector('.vchip')!.getBoundingClientRect();
+      const t = row.querySelector('span:last-child')!.getBoundingClientRect();
+      return [c, t].map((r) => ({ top: r.top, bottom: r.bottom }));
+    });
+    expect(text!.top).toBeGreaterThanOrEqual(chip!.bottom - 1);
+  }
+  expect(await legend.nth(2).locator('.vchip').evaluate(lines)).toBe(1); // ಸ್ವೀಕರಿಸಿಲ್ಲ
+  expect(await legend.nth(0).locator('.vchip').evaluate(lines)).toBe(1); // ಪರಿಶೀಲಿತ
+  await page.keyboard.press('Escape');
+
+  // Pickings header: the title wraps, the chip keeps its word on one line
+  await page.goto('/field/pickings');
+  const chip = page.locator('header.top .chip');
+  expect(await chip.locator('span[lang]').evaluate(lines)).toBe(1);
+
+  // Photo slots: the "next" slot's state word is never split
+  await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
+  const state = page.locator('.slot[data-state="next"] .s-state > span');
+  expect(await state.evaluate(lines)).toBe(1);
+});

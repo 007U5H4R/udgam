@@ -24,9 +24,9 @@ import { Ic } from './icons';
 
 export type { HelpInfo };
 
-function Row({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+function Row({ icon, children, legend = false }: { icon: ReactNode; children: ReactNode; legend?: boolean }) {
   return (
-    <p className="help-row">
+    <p className={legend ? 'help-row legend' : 'help-row'}>
       {icon}
       <span>{children}</span>
     </p>
@@ -76,9 +76,9 @@ export function HelpSheet({ open, onClose, lang, info, onLanguage }: { open: boo
           sheet is open, so these chips never sit, hidden, beside the page's own verdict chips. */}
       {open ? (
         <div data-testid="help-verdicts">
-          <Row icon={<VerdictChip verdict="Verified" lang={lang} />}>{tr('help.verified')}</Row>
-          <Row icon={<VerdictChip verdict="Needs Review" lang={lang} />}>{tr('help.check')}</Row>
-          <Row icon={<VerdictChip verdict="Rejected" lang={lang} />}>{tr('help.rejected')}</Row>
+          <Row legend icon={<VerdictChip verdict="Verified" lang={lang} />}>{tr('help.verified')}</Row>
+          <Row legend icon={<VerdictChip verdict="Needs Review" lang={lang} />}>{tr('help.check')}</Row>
+          <Row legend icon={<VerdictChip verdict="Rejected" lang={lang} />}>{tr('help.rejected')}</Row>
         </div>
       ) : null}
 
