@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createPublicClient, createWalletClient, http, parseAbi, parseEther, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { ANVIL_CHAIN_ID, CONTRACTS_DIR, forgeBuild } from '../ledger/evm/foundry';
+import { CONTRACTS_DIR, forgeBuild, fundOperatorOnLocalAnvil } from '../ledger/evm/foundry';
 import { loadOrCreateOperatorKey } from '../ledger/evm/operator-key';
 import { FARMING_ABI, TOKEN_ABI } from './chain';
 import { readEscrowDeployment, writeEscrowDeployment, type EscrowDeployment } from './deployment';
@@ -17,7 +17,6 @@ import { readEscrowDeployment, writeEscrowDeployment, type EscrowDeployment } fr
 
 const OPERATOR_ABI = parseAbi(['function operator() view returns (address)']);
 const MIN_BALANCE = parseEther('5');
-const FUND_AMOUNT = parseEther('100');
 
 export type EscrowDeployOptions = { rpcUrl: string; deploymentPath: string; operatorKeyPath: string; contractsDir?: string };
 
@@ -50,14 +49,7 @@ export async function deployEscrow(o: EscrowDeployOptions): Promise<{ deployment
 
   const key = await loadOrCreateOperatorKey(o.operatorKeyPath);
   const operator = privateKeyToAccount(key);
-  if ((await pub.getBalance({ address: operator.address })) < MIN_BALANCE) {
-    const version = chainId === ANVIL_CHAIN_ID ? ((await pub.request({ method: 'web3_clientVersion' } as never)) as string) : '';
-    if (!String(version).toLowerCase().startsWith('anvil')) throw new Error(`EVM operator ${operator.address} has no funds on chain ${chainId}; fund it, then deploy again`);
-    const [dev] = (await pub.request({ method: 'eth_accounts' } as never)) as Address[];
-    if (!dev) throw new Error('local Anvil exposes no unlocked dev account to fund the operator');
-    const hash = await createWalletClient({ account: dev, transport }).sendTransaction({ account: dev, to: operator.address, value: FUND_AMOUNT, chain: null });
-    await pub.waitForTransactionReceipt({ hash });
-  }
+  await fundOperatorOnLocalAnvil(pub, transport, operator.address, { chainId, minBalance: MIN_BALANCE });
 
   const dir = o.contractsDir ?? CONTRACTS_DIR;
   await forgeBuild(dir);

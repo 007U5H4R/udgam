@@ -5,6 +5,7 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { createWalletClient, parseEther, type Address, type PublicClient, type Transport } from 'viem';
 
 // Foundry tooling for scripts, the eval harness and EVM tests (docs/spikes/foundry.md §7). Never imported
 // by the app. Binaries are the pinned Foundry 1.8.3 that scripts/cloud-setup.sh installs in
@@ -116,4 +117,32 @@ export async function startAnvil(opts: AnvilOptions = {}): Promise<AnvilHandle> 
 /** `forge build` in contracts/ (compiles offline with the pinned solc; a no-op when nothing changed). */
 export async function forgeBuild(contractsDir = CONTRACTS_DIR): Promise<void> {
   await execFileAsync(foundryBin('forge'), ['build'], { cwd: contractsDir, env: foundryEnv(), timeout: 180_000, maxBuffer: 16 * 1024 * 1024 });
+}
+
+/** What a local-Anvil top-up sends the operator. */
+export const ANVIL_FUND_AMOUNT = parseEther('100');
+
+/**
+ * Top up the operator for a deploy, on local Anvil ONLY (chain id 31337 and a client that answers
+ * web3_clientVersion with "anvil"): when its balance is below `minBalance`, Anvil's first unlocked dev
+ * account sends it ANVIL_FUND_AMOUNT by eth_sendTransaction, so no dev private key appears anywhere. On
+ * any other chain an underfunded operator is an error naming its address. True when it sent funds.
+ * Shared by the BatchRegistry and escrow deploys (final branch review finding 5).
+ */
+export async function fundOperatorOnLocalAnvil(
+  pub: PublicClient,
+  transport: Transport,
+  operator: Address,
+  o: { chainId: number; minBalance: bigint },
+): Promise<boolean> {
+  if ((await pub.getBalance({ address: operator })) >= o.minBalance) return false;
+  const version = o.chainId === ANVIL_CHAIN_ID ? ((await pub.request({ method: 'web3_clientVersion' } as never)) as unknown) : '';
+  if (typeof version !== 'string' || !version.toLowerCase().startsWith('anvil')) {
+    throw new Error(`EVM operator ${operator} has no funds on chain ${o.chainId}; fund it, then deploy again`);
+  }
+  const [dev] = (await pub.request({ method: 'eth_accounts' } as never)) as Address[];
+  if (!dev) throw new Error('local Anvil exposes no unlocked dev account to fund the operator');
+  const hash = await createWalletClient({ account: dev, transport }).sendTransaction({ account: dev, to: operator, value: ANVIL_FUND_AMOUNT, chain: null });
+  await pub.waitForTransactionReceipt({ hash });
+  return true;
 }

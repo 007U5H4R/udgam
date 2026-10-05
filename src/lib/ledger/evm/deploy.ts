@@ -4,10 +4,10 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { createPublicClient, createWalletClient, getContractAddress, http, parseAbi, parseEther, type Address } from 'viem';
+import { createPublicClient, getContractAddress, http, parseAbi, parseEther, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { defaultConfirmations, readDeployment, writeDeployment, type Deployment } from './deployment';
-import { ANVIL_CHAIN_ID, CONTRACTS_DIR, foundryBin, foundryEnv } from './foundry';
+import { CONTRACTS_DIR, foundryBin, foundryEnv, fundOperatorOnLocalAnvil } from './foundry';
 import { loadOrCreateOperatorKey } from './operator-key';
 
 // Deploy BatchRegistry (technical-plan TSK-24.3). Tooling: used by `pnpm contracts:deploy`, the eval
@@ -26,7 +26,6 @@ const OPERATOR_ABI = parseAbi(['function operator() view returns (address)']);
 
 /** Below this, the operator is topped up on local Anvil (a registry append costs well under 0.001 ETH). */
 const MIN_BALANCE = parseEther('1');
-const FUND_AMOUNT = parseEther('100');
 
 export type DeployOptions = { rpcUrl: string; deploymentPath: string; operatorKeyPath: string; contractsDir?: string };
 export type DeployResult = { deployment: Deployment; created: boolean };
@@ -52,12 +51,6 @@ async function deployedAt(pub: ReturnType<typeof createPublicClient>, address: A
   return Number(lo);
 }
 
-async function isLocalAnvil(pub: ReturnType<typeof createPublicClient>, chainId: number): Promise<boolean> {
-  if (chainId !== ANVIL_CHAIN_ID) return false;
-  const version = (await pub.request({ method: 'web3_clientVersion' } as never)) as string;
-  return typeof version === 'string' && version.toLowerCase().startsWith('anvil');
-}
-
 export async function deployRegistry(o: DeployOptions): Promise<DeployResult> {
   const transport = http(o.rpcUrl, { retryCount: 0, timeout: 15_000 });
   const pub = createPublicClient({ transport, pollingInterval: 250 });
@@ -74,14 +67,7 @@ export async function deployRegistry(o: DeployOptions): Promise<DeployResult> {
   const key = await loadOrCreateOperatorKey(o.operatorKeyPath);
   const operator = privateKeyToAccount(key).address;
 
-  if ((await pub.getBalance({ address: operator })) < MIN_BALANCE) {
-    if (!(await isLocalAnvil(pub, chainId))) throw new Error(`EVM operator ${operator} has no funds on chain ${chainId}; fund it, then deploy again`);
-    const [dev] = (await pub.request({ method: 'eth_accounts' } as never)) as Address[];
-    if (!dev) throw new Error('local Anvil exposes no unlocked dev account to fund the operator');
-    const devWallet = createWalletClient({ account: dev, transport });
-    const fundTx = await devWallet.sendTransaction({ account: dev, to: operator, value: FUND_AMOUNT, chain: null });
-    await pub.waitForTransactionReceipt({ hash: fundTx });
-  }
+  await fundOperatorOnLocalAnvil(pub, transport, operator, { chainId, minBalance: MIN_BALANCE });
 
   const nonce = await pub.getTransactionCount({ address: operator, blockTag: 'pending' });
   const expected = getContractAddress({ from: operator, nonce: BigInt(nonce) });
