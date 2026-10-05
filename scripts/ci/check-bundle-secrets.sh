@@ -18,7 +18,7 @@ ENV_FILE="${1:-.env.ci.example}"
 NEXT_DIR="${2:-.next}"
 # Every secret name in .env.example: a copy of src/lib/config/secret-names.ts, which log.ts redacts
 # (tests/bundle-secrets.test.ts asserts the two lists are equal).
-SECRET_NAMES=(BETTER_AUTH_SECRET GFW_API_KEY CDSE_CLIENT_ID CDSE_CLIENT_SECRET ARCGIS_API_KEY MAPTILER_KEY)
+SECRET_NAMES=(BETTER_AUTH_SECRET GFW_API_KEY CDSE_CLIENT_ID CDSE_CLIENT_SECRET ARCGIS_API_KEY MAPTILER_KEY ANVIL_RPC_URL)
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "check-bundle-secrets: env file $ENV_FILE not found" >&2

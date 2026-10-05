@@ -10,6 +10,7 @@ export type FakeRegistryOptions = {
   delayMs?: number;
   /** When set, rpcChainId() rejects with this message (a dead or timing-out RPC). */
   rpcError?: string;
+  confirmations?: number;
 };
 
 export type FakeRegistry = RegistryClient & {
@@ -25,7 +26,7 @@ export type FakeRegistry = RegistryClient & {
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export function fakeRegistry(opts: FakeRegistryOptions = {}): FakeRegistry {
-  const o: FakeRegistryOptions = { chainId: 31337, delayMs: 0, ...opts };
+  const o: FakeRegistryOptions = { chainId: 31337, delayMs: 0, confirmations: 1, ...opts };
   const hashes = new Map<number, string>();
   const receipts = new Map<number, AnchorReceipt>();
   let block = 1;
@@ -39,6 +40,9 @@ export function fakeRegistry(opts: FakeRegistryOptions = {}): FakeRegistry {
     chainId: o.chainId!,
     registry: `0x${'5f'.repeat(20)}`,
     operator: `0x${'0a'.repeat(20)}`,
+    get confirmations() {
+      return o.confirmations ?? 1;
+    },
     calls,
     hashes,
     set(p) {
@@ -67,6 +71,7 @@ export function fakeRegistry(opts: FakeRegistryOptions = {}): FakeRegistry {
         return forced !== undefined ? forced : (hashes.get(seq) ?? null);
       }),
     nextSeq: () => rpc('nextSeq', () => hashes.size + 1),
+    blockNumber: () => rpc('blockNumber', () => block),
     anchoredLog: (seq) =>
       rpc('anchoredLog', () => {
         const r = receipts.get(seq);

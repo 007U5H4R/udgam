@@ -65,7 +65,7 @@ describe('EVM ledger adapter', () => {
     expect(await ledger.anchorPending()).toEqual({ anchored: 0, pending: 0 });
   });
 
-  it('anvil killed mid-run → rows stay pending (attempts, last_error); restarted → they anchor in order', async () => {
+  it('anvil down between runs → rows stay pending (attempts, last_error); restarted → they anchor in order', async () => {
     const t = await tempDb();
     worlds.push(t);
     const state = join(t.dir, 'anvil-state.json');
@@ -100,6 +100,53 @@ describe('EVM ledger adapter', () => {
       const entries = await t.db.select().from(ledgerEntries).orderBy(asc(ledgerEntries.seq));
       for (const e of entries) expect(await client.entryHash(e.seq)).toBe(e.entryHash);
       expect(all[3]!.blockNumber!).toBeLessThan(all[4]!.blockNumber!);
+    } finally {
+      await chain.stop();
+    }
+  });
+
+  it('anvil killed while an append transaction is in flight → the row stays pending; restarted → it anchors, in order', async () => {
+    const t = await tempDb();
+    worlds.push(t);
+    const state = join(t.dir, 'anvil-state.json');
+    let chain = await startAnvil({ statePath: state });
+    try {
+      const deploymentPath = join(t.dir, 'evm', 'deployment.json');
+      const operatorKeyPath = join(t.dir, 'keys', 'evm-operator.key');
+      const { deployment } = await deployRegistry({ rpcUrl: chain.rpcUrl, deploymentPath, operatorKeyPath });
+      const client = createRegistryClient({ rpcUrl: chain.rpcUrl, deployment, operatorKey: await readOperatorKey(operatorKeyPath), timeoutMs: 3_000 });
+      const ledger = createEvmLedger({ db: t.db, registry: async () => client });
+      await appendN(t, ledger, 2);
+      expect(await ledger.anchorPending()).toMatchObject({ anchored: 2, pending: 0 });
+
+      const rpc = async (method: string, params: unknown[] = []) => {
+        const res = await fetch(chain.rpcUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
+        return ((await res.json()) as { result?: unknown }).result;
+      };
+      await rpc('evm_setAutomine', [false]); // the next transaction waits in the mempool
+      await appendN(t, ledger, 1, 3);
+      const inFlight = ledger.anchorPending();
+      const deadline = Date.now() + 15_000;
+      for (;;) {
+        const pool = (await rpc('txpool_status')) as { pending: string } | undefined;
+        if (pool && Number(pool.pending) > 0) break;
+        if (Date.now() > deadline) throw new Error('the append transaction never reached the mempool');
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      await chain.stop(); // killed mid-run: the pass is waiting for the receipt
+      const r = await inFlight;
+      expect(r).toMatchObject({ anchored: 0, pending: 1, stoppedAt: { seq: 3 } });
+      const row = (await rows(t)).find((x) => x.seq === 3)!;
+      expect(row).toMatchObject({ status: 'pending', attempts: 1 });
+      expect(row.lastError).toBeTruthy();
+
+      chain = await startAnvil({ port: chain.port, statePath: state });
+      expect(await ledger.anchorPending()).toEqual({ anchored: 1, pending: 0 });
+      const all = await rows(t);
+      expect(all.map((x) => x.status)).toEqual(['anchored', 'anchored', 'anchored']);
+      const entries = await t.db.select().from(ledgerEntries).orderBy(asc(ledgerEntries.seq));
+      for (const e of entries) expect(await client.entryHash(e.seq)).toBe(e.entryHash);
+      expect(await client.nextSeq()).toBe(4);
     } finally {
       await chain.stop();
     }

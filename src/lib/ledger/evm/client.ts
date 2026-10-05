@@ -16,20 +16,35 @@ export type RegistryClient = {
   chainId: number;
   registry: Address;
   operator: Address;
+  /** Blocks (including its own) an anchor needs before it is recorded (deployment.json; default 1). */
+  confirmations: number;
+  /** The chain head's block number. */
+  blockNumber(): Promise<number>;
   /** The chain id the RPC reports (must equal the deployment's). */
   rpcChainId(): Promise<number>;
-  /** Send append(seq, entryHash) and wait for the receipt. Throws on a revert or a dead RPC. */
+  /** Send append(seq, entryHash) and wait for the receipt with `confirmations`. Throws on a revert or a dead RPC. */
   append(seq: number, entryHash: string): Promise<AnchorReceipt>;
   /** The hash anchored at `seq` (64 lowercase hex), or null when nothing is anchored there. */
   entryHash(seq: number): Promise<string | null>;
   nextSeq(): Promise<number>;
-  /** The EntryAnchored log for `seq`, if any (recovers a tx sent before a crash). */
+  /** The EntryAnchored log for `seq`, if any (recovers a tx sent before a crash). Scans in bounded block ranges. */
   anchoredLog(seq: number): Promise<AnchoredLog | null>;
   /** Every EntryAnchored log in a mined transaction, with its block; null if the tx is unknown. */
   receiptLogs(txHash: Hex): Promise<{ blockNumber: number; success: boolean; logs: { seq: number; entryHash: string }[] } | null>;
 };
 
-export type RegistryClientOptions = { rpcUrl: string; deployment: Deployment; operatorKey?: Hex; timeoutMs?: number };
+export type RegistryClientOptions = {
+  rpcUrl: string;
+  deployment: Deployment;
+  operatorKey?: Hex;
+  timeoutMs?: number;
+  /** Blocks per eth_getLogs call (default 5,000): hosted RPCs cap the range of one log query. */
+  logRangeBlocks?: number;
+  /** Observe each JSON-RPC request (tests). */
+  onFetchRequest?: (request: Request) => void | Promise<void>;
+};
+
+export const LOG_RANGE_BLOCKS = 5_000;
 
 const HASH_RE = /^[0-9a-f]{64}$/;
 const ZERO = '0'.repeat(64);
@@ -47,7 +62,9 @@ export function createRegistryClient(o: RegistryClientOptions): RegistryClient {
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: { default: { http: [o.rpcUrl] } },
   });
-  const transport = http(o.rpcUrl, { retryCount: 0, timeout: o.timeoutMs ?? 10_000 });
+  const transport = http(o.rpcUrl, { retryCount: 0, timeout: o.timeoutMs ?? 10_000, onFetchRequest: o.onFetchRequest });
+  const confirmations = deployment.confirmations ?? 1;
+  const logRange = BigInt(Math.max(1, o.logRangeBlocks ?? LOG_RANGE_BLOCKS));
   const pub = createPublicClient({ chain, transport, pollingInterval: 250 });
   const account = o.operatorKey ? privateKeyToAccount(o.operatorKey) : undefined;
   if (account && account.address.toLowerCase() !== deployment.operator.toLowerCase()) {
@@ -71,11 +88,15 @@ export function createRegistryClient(o: RegistryClientOptions): RegistryClient {
     chainId: deployment.chainId,
     registry,
     operator: deployment.operator,
+    confirmations,
     rpcChainId: () => pub.getChainId(),
+    blockNumber: async () => Number(await pub.getBlockNumber({ cacheTime: 0 })),
     async append(seq, entryHash) {
       if (!wallet || !account) throw new Error('EVM registry client has no operator key: read-only');
       const txHash = await wallet.writeContract({ address: registry, abi: BATCH_REGISTRY_ABI, functionName: 'append', args: [BigInt(seq), toBytes32(entryHash)], account, chain });
-      const receipt = await pub.waitForTransactionReceipt({ hash: txHash, timeout: o.timeoutMs ?? 30_000 });
+      // Recorded only after `confirmations` blocks (1 on Anvil). A reorg deeper than that is caught by
+      // `pnpm ledger:audit` and the §13.2 check, never repaired silently (docs/proof-feed.md §13.3).
+      const receipt = await pub.waitForTransactionReceipt({ hash: txHash, confirmations, timeout: o.timeoutMs ?? 30_000 });
       if (receipt.status !== 'success') throw new Error(`append(${seq}) reverted in tx ${txHash}`);
       return { txHash, blockNumber: Number(receipt.blockNumber) };
     },
@@ -87,18 +108,23 @@ export function createRegistryClient(o: RegistryClientOptions): RegistryClient {
       return Number(await read<bigint>('nextSeq'));
     },
     async anchoredLog(seq) {
-      const logs = await pub.getContractEvents({
-        address: registry,
-        abi: BATCH_REGISTRY_ABI,
-        eventName: 'EntryAnchored',
-        args: { seq: BigInt(seq) },
-        fromBlock: BigInt(deployment.deployedAtBlock),
-        toBlock: 'latest',
-      });
-      const log = logs.find((l) => l.transactionHash && l.blockNumber !== null);
-      if (!log || !log.transactionHash || log.blockNumber === null) return null;
-      const args = (log as unknown as { args: { seq: bigint; entryHash: Hex } }).args;
-      return { seq: Number(args.seq), entryHash: fromBytes32(args.entryHash), txHash: log.transactionHash, blockNumber: Number(log.blockNumber) };
+      const head = await pub.getBlockNumber({ cacheTime: 0 });
+      for (let from = BigInt(deployment.deployedAtBlock); from <= head; from += logRange) {
+        const to = from + logRange - BigInt(1) < head ? from + logRange - BigInt(1) : head;
+        const logs = await pub.getContractEvents({
+          address: registry,
+          abi: BATCH_REGISTRY_ABI,
+          eventName: 'EntryAnchored',
+          args: { seq: BigInt(seq) },
+          fromBlock: from,
+          toBlock: to,
+        });
+        const log = logs.find((l) => l.transactionHash && l.blockNumber !== null);
+        if (!log || !log.transactionHash || log.blockNumber === null) continue;
+        const args = (log as unknown as { args: { seq: bigint; entryHash: Hex } }).args;
+        return { seq: Number(args.seq), entryHash: fromBytes32(args.entryHash), txHash: log.transactionHash, blockNumber: Number(log.blockNumber) };
+      }
+      return null;
     },
     async receiptLogs(txHash) {
       let receipt;

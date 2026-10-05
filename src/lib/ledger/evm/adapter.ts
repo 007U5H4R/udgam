@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { writeTx, type Db, type Tx } from '../../db/client';
 import { evmAnchors } from '../../db/schema';
 import { log } from '../../log';
@@ -18,8 +18,9 @@ import type { AnchorReceipt, RegistryClient } from './client';
 // hashchain.append directly, or before the adapter was switched on), so every entry is anchored in order.
 //
 // Statuses: pending → anchored (terminal; tx_hash immutable, migration 0020). 'failed' is terminal too
-// and means the chain already holds a DIFFERENT hash at that seq: anchoring stops there and the
-// mismatch is for an operator (and `pnpm ledger:audit`) to explain.
+// and means the chain already holds a DIFFERENT hash at that seq: anchoring halts there until the
+// operator records one resolution (`pnpm ledger:evm:resolve`, migration 0023, docs/proof-feed.md §13.4).
+// An anchor is recorded after `confirmations` blocks (deployment.json; 1 on Anvil).
 
 export type AnchorRunReport = {
   /** Rows anchored by this run. */
@@ -162,6 +163,7 @@ export function createEvmLedger(o: EvmLedgerOptions): EvmLedger {
     await backfill(pending.filter((r) => !r.hasRow).map((r) => r.seq));
 
     let anchored = 0;
+    // At most one error write per pass: every stop() ends the pass.
     const stop = async (row: { seq: number; attempts: number }, reason: string, failed = false): Promise<AnchorRunReport> => {
       if (failed) await markFailed(row.seq, row.attempts, reason);
       else await noteError(row.seq, row.attempts, reason);
@@ -169,9 +171,19 @@ export function createEvmLedger(o: EvmLedgerOptions): EvmLedger {
       return { anchored, pending: pending.length - anchored - (failed ? 1 : 0), stoppedAt: { seq: row.seq, reason } };
     };
 
-    // A failed seq (the chain holds another hash there) halts anchoring until an operator resolves it.
-    const [failed] = await db.select({ seq: evmAnchors.seq }).from(evmAnchors).where(eq(evmAnchors.status, 'failed')).orderBy(asc(evmAnchors.seq)).limit(1);
-    if (failed && failed.seq < pending[0]!.seq) return stop(pending[0]!, `seq ${failed.seq} failed to anchor (the registry holds a different hash); anchoring is halted`);
+    // An unresolved failed seq (the chain holds another hash there) halts anchoring until the operator
+    // records a resolution (resolve.ts, `pnpm ledger:evm:resolve`). A halted pass sends and writes nothing.
+    const [failed] = await db
+      .select({ seq: evmAnchors.seq })
+      .from(evmAnchors)
+      .where(and(eq(evmAnchors.status, 'failed'), isNull(evmAnchors.resolution)))
+      .orderBy(asc(evmAnchors.seq))
+      .limit(1);
+    if (failed && failed.seq < pending[0]!.seq) {
+      const reason = `seq ${failed.seq} failed to anchor (the registry holds a different hash); anchoring is halted until it is resolved`;
+      log.warn({ seq: pending[0]!.seq, failedSeq: failed.seq }, 'evm.anchor_halted');
+      return { anchored: 0, pending: pending.length, stoppedAt: { seq: pending[0]!.seq, reason } };
+    }
 
     let client: RegistryClient;
     let chainNext: number;
@@ -190,9 +202,13 @@ export function createEvmLedger(o: EvmLedgerOptions): EvmLedger {
         if (row.seq < chainNext) {
           // Already on chain: sent before a crash, or the DB update was lost. Adopt it if it matches.
           const onChain = await client.entryHash(row.seq);
+          // null below nextSeq is an inconsistent read (a lagging replica): transient, retried next pass.
+          if (onChain === null) return await stop(row, `registry read no hash at seq ${row.seq} below nextSeq ${chainNext}; retrying`);
           if (onChain !== row.entryHash) return await stop(row, `registry holds a different hash at seq ${row.seq}`, true);
           const found = await client.anchoredLog(row.seq);
           if (!found) return await stop(row, `seq ${row.seq} is on chain but its EntryAnchored log was not found`);
+          const depth = (await client.blockNumber()) - found.blockNumber + 1;
+          if (depth < client.confirmations) return await stop(row, `seq ${row.seq} has ${depth} of ${client.confirmations} confirmations`);
           receipt = found;
         } else if (row.seq > chainNext) {
           return await stop(row, `registry expects seq ${chainNext} next, so seq ${row.seq} must wait`);

@@ -61,26 +61,39 @@ const LOOP_KEY = Symbol.for('udgam.evm.anchor-loop');
 /**
  * Boot hook (src/instrumentation.ts). With LEDGER_ADAPTER=evm, anchor whatever is pending now and then
  * every `intervalMs`, in the background: anchoring never blocks a request, and a failure is logged and
- * retried on the next tick. One loop per process, however many times this module is loaded.
+ * retried on the next tick. One loop per process, however many times this module is loaded; a tick
+ * never overlaps a running one. `deps` lets tests pass the adapter and the anchoring call.
  */
-export function startLedger(intervalMs = 5_000): void {
-  if (env.LEDGER_ADAPTER !== 'evm') return;
+export function startLedger(
+  intervalMs = 5_000,
+  deps: { adapter?: LedgerAdapterName; anchor?: () => Promise<unknown> } = {},
+): void {
+  if ((deps.adapter ?? env.LEDGER_ADAPTER) !== 'evm') return;
   const g = globalThis as Record<symbol, unknown>;
   if (g[LOOP_KEY]) return;
-  const tick = async () => {
-    try {
-      await ledgerFor(await getDbReady(), 'evm').anchorPending();
-    } catch (e) {
-      log.warn({ errClass: e instanceof Error ? e.constructor.name : 'unknown' }, 'evm.anchor_loop_failed');
-    }
-  };
+  const anchor = deps.anchor ?? (async () => ledgerFor(await getDbReady(), 'evm').anchorPending());
   let running = false;
-  const timer = setInterval(() => {
+  const tick = async () => {
     if (running) return;
     running = true;
-    void tick().finally(() => (running = false));
-  }, intervalMs);
-  timer.unref();
+    try {
+      await anchor();
+    } catch (e) {
+      log.warn({ errClass: e instanceof Error ? e.constructor.name : 'unknown' }, 'evm.anchor_loop_failed');
+    } finally {
+      running = false;
+    }
+  };
+  const timer = setInterval(() => void tick(), intervalMs);
+  timer.unref?.();
   g[LOOP_KEY] = timer;
   void tick();
+}
+
+/** Stop the anchoring loop (tests, shutdown). */
+export function stopLedger(): void {
+  const g = globalThis as Record<symbol, unknown>;
+  const timer = g[LOOP_KEY] as ReturnType<typeof setInterval> | undefined;
+  if (timer) clearInterval(timer);
+  delete g[LOOP_KEY];
 }

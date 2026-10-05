@@ -41,8 +41,8 @@ describe('deployRegistry', () => {
 
     const onDisk = await readDeployment(deploymentPath);
     expect(onDisk).toEqual(first.deployment);
-    expect(onDisk).toMatchObject({ chainId: 31337, operator });
-    expect(Object.keys(onDisk).sort()).toEqual(['chainId', 'deployedAtBlock', 'operator', 'registry']);
+    expect(onDisk).toMatchObject({ chainId: 31337, operator, confirmations: 1 });
+    expect(Object.keys(onDisk).sort()).toEqual(['chainId', 'confirmations', 'deployedAtBlock', 'operator', 'registry']);
     const pub = createPublicClient({ transport: http(rpcUrl) });
     expect(await pub.getCode({ address: onDisk.registry })).toMatch(/^0x[0-9a-f]{10,}/);
     expect(await pub.getCode({ address: onDisk.registry, blockNumber: BigInt(onDisk.deployedAtBlock - 1) })).toBeUndefined();

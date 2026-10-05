@@ -2,7 +2,7 @@ import { asc } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { tempDb, type TempDb } from '../../../../tests/helpers/db';
 import { writeTx } from '../../db/client';
-import { evmAnchors } from '../../db/schema';
+import { evmAnchors, ledgerEntries } from '../../db/schema';
 import { append as hashchainAppend, setOnAppended } from '../hashchain';
 import { createEvmLedger } from './adapter';
 import { fakeRegistry } from './testing/fake-registry';
@@ -103,5 +103,33 @@ describe('pending snapshot (spec Minor 2)', () => {
     const all = await rows();
     expect(all).toHaveLength(30);
     expect(all.every((r) => r.status === 'anchored' && r.lastError === null && r.attempts === 1)).toBe(true);
+  });
+});
+
+describe('transient chain answers are retried, never marked failed (quality minors 4 and 7)', () => {
+  it('a null on-chain hash below nextSeq (a lagging replica) → the row stays pending with the error; the next pass adopts it', async () => {
+    const reg = fakeRegistry();
+    const ledger = createEvmLedger({ db: t.db, registry: async () => reg });
+    await writeTx(t.db, (tx) => ledger.append(tx, 'plot_registered', { plotId: 'P-1' }));
+    const [e1] = await t.db.select().from(ledgerEntries);
+    await reg.append(1, e1!.entryHash); // sent before a crash: on chain, DB never updated
+    reg.entryHashOverride = () => null; // the replica reads seq 1 as empty
+    expect(await ledger.anchorPending()).toMatchObject({ anchored: 0, stoppedAt: { seq: 1, reason: 'registry read no hash at seq 1 below nextSeq 2; retrying' } });
+    expect((await rows())[0]).toMatchObject({ status: 'pending', attempts: 1, lastError: 'registry read no hash at seq 1 below nextSeq 2; retrying' });
+    reg.entryHashOverride = undefined;
+    expect(await ledger.anchorPending()).toEqual({ anchored: 1, pending: 0 });
+    expect((await rows())[0]).toMatchObject({ status: 'anchored', attempts: 2, lastError: null });
+  });
+
+  it('an adopted on-chain anchor is recorded only once it has the configured confirmations', async () => {
+    const reg = fakeRegistry({ confirmations: 3 });
+    const ledger = createEvmLedger({ db: t.db, registry: async () => reg });
+    await writeTx(t.db, (tx) => ledger.append(tx, 'plot_registered', { plotId: 'P-1' }));
+    const [e1] = await t.db.select().from(ledgerEntries);
+    await reg.append(1, e1!.entryHash); // its block is the head: 1 of 3 confirmations
+    expect(await ledger.anchorPending()).toMatchObject({ anchored: 0, stoppedAt: { seq: 1, reason: 'seq 1 has 1 of 3 confirmations' } });
+    expect((await rows())[0]).toMatchObject({ status: 'pending', attempts: 1 });
+    reg.mine(2);
+    expect(await ledger.anchorPending()).toEqual({ anchored: 1, pending: 0 });
   });
 });

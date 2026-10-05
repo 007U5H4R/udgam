@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { createPublicClient, createWalletClient, getContractAddress, http, parseAbi, parseEther, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { readDeployment, writeDeployment, type Deployment } from './deployment';
+import { defaultConfirmations, readDeployment, writeDeployment, type Deployment } from './deployment';
 import { ANVIL_CHAIN_ID, CONTRACTS_DIR, foundryBin, foundryEnv } from './foundry';
 import { loadOrCreateOperatorKey } from './operator-key';
 
@@ -19,7 +19,7 @@ import { loadOrCreateOperatorKey } from './operator-key';
 //     other chain an unfunded operator is an error naming its address.
 //  4. contracts/script/Deploy.s.sol is broadcast by `forge script`, with the key passed in the child's
 //     environment (never argv), and broadcast files kept in a temp directory.
-//  5. DATA_DIR/evm/deployment.json = { chainId, registry, operator, deployedAtBlock }.
+//  5. DATA_DIR/evm/deployment.json = { chainId, registry, operator, deployedAtBlock, confirmations }.
 
 const execFileAsync = promisify(execFile);
 const OPERATOR_ABI = parseAbi(['function operator() view returns (address)']);
@@ -101,7 +101,7 @@ export async function deployRegistry(o: DeployOptions): Promise<DeployResult> {
     await rm(broadcast, { recursive: true, force: true });
   }
 
-  const deployment: Deployment = { chainId, registry: expected, operator, deployedAtBlock: await deployedAt(pub, expected) };
+  const deployment: Deployment = { chainId, registry: expected, operator, deployedAtBlock: await deployedAt(pub, expected), confirmations: defaultConfirmations(chainId) };
   if (!(await liveDeployment(pub, deployment, chainId))) throw new Error(`forge script finished but no BatchRegistry with operator ${operator} is at ${expected}`);
   await writeDeployment(o.deploymentPath, deployment);
   return { deployment, created: true };
