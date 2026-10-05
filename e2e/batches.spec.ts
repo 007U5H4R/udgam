@@ -207,11 +207,21 @@ test.describe('buyer list and detail (TSK-14.6, TC-060, EVAL-080)', () => {
     const certificate = page.getByTestId('certificate-link');
     await expect(certificate).toHaveText('Open the certificate');
     await expect(certificate).toHaveAttribute('href', `/verify/${batchId}?h=${shortHash}`);
+    // TSK-16.7 (TC-069): the certificate QR card carries the absolute link with h
+    await expect(page.getByTestId('batch-qr')).toContainText(`/verify/${batchId}?h=${shortHash}`);
+    await expect(page.getByTestId('batch-qr').locator('svg')).toBeVisible();
     // The certificate page itself arrives with TKT-16; its data is the proof feed, served for this h.
     const feed = await page.request.get(`/api/verify/${batchId}?h=${shortHash}`);
     expect(feed.status()).toBe(200);
     expect((await feed.json()).shortHash).toBe(shortHash);
     await checkSurface(page);
+
+    // TKT-16 (carried from TKT-14 / QA-P4): the link opens the public certificate, and the buyer's own
+    // browser verifies its proof
+    await certificate.click();
+    await expect(page).toHaveURL(new RegExp(`/verify/${batchId}\\?h=${shortHash}$`));
+    await expect(page.locator('body')).toHaveAttribute('data-state', 'verified', { timeout: 20_000 });
+    await expect(page.getByText('Verified on this device just now')).toBeVisible();
   });
 
   test("buyer B does not see buyer A's batch, and opening it is a 404 (EVAL-080, TC-019)", async ({ page }) => {

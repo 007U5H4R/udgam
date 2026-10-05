@@ -1,0 +1,63 @@
+/* The batch QR card (TSK-16.7), composed from ported parts (TP17): a frosted card (GlassCard values), the
+   code on white with its quiet zone, the URL as small text, and a ghost pill. */
+.card {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 20px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  backdrop-filter: blur(20px) saturate(1.2);
+  border: 1px solid var(--hairline);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .card {
+    background: var(--surface-solid);
+  }
+}
+.h {
+  justify-self: start;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+.code {
+  width: min(220px, 100%);
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+.code svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.url {
+  margin: 0;
+  max-width: 100%;
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+.print {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 24px;
+  border-radius: 999px;
+  border: 1px solid var(--pill-line);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.print:hover {
+  background: rgba(255, 255, 255, 0.09);
+}

@@ -4,6 +4,7 @@ import { CustodyChain } from '../../../../../components/buyer/CustodyChain';
 import { Icon } from '../../../../../components/buyer/Icon';
 import screen from '../../../../../components/buyer/BatchScreen.module.css';
 import { cropLabel, pickingsLabel, plotsLabel } from '../../../../../components/buyer/labels';
+import { BatchQr } from '../../../../../components/ui/BatchQr';
 import { GlassCard } from '../../../../../components/ui/GlassCard';
 import pill from '../../../../../components/ui/Pill.module.css';
 import { getBuyerBatch, listBuyerBatches } from '../../../../../lib/batches/buyer';
@@ -65,6 +66,8 @@ export default async function BuyerBatchPage({ params }: Props) {
               {t('batches.detail.certificateNote')}
             </p>
           </GlassCard>
+
+          <BatchQr batchId={batch.batchId} shortHash={batch.shortHash} />
 
           <GlassCard as="section" className={screen.card} aria-labelledby="plots-h">
             <h2 className={screen.secH} id="plots-h">

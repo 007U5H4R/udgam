@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 //   - every exported function of a 'use server' file and every inline 'use server' function, anywhere
 //     under src/app (any Server Action is reachable by POST), except the allowlisted public actions;
 //   - every exported HTTP handler of a route.ts under a group or under api/ (minus the public api/auth,
-//     api/health, api/verify);
+//     api/health, api/verify and the certificate beacon api/telemetry, TKT-16);
 //   - the default export of every page.tsx and layout.tsx under (agent), (admin) and (buyer).
 // Each target must `await requireSession('<role>'…)` in an unconditional top-level statement of its
 // body before anything touches the database. Inside a group the role literal must be the group's own.
@@ -32,7 +32,7 @@ import { describe, expect, it } from 'vitest';
 const ROOT = join(__dirname, '..');
 const APP = join(ROOT, 'src', 'app');
 const GROUPS = ['(agent)', '(admin)', '(buyer)'] as const;
-const PUBLIC_API = ['auth', 'health', 'verify'];
+const PUBLIC_API = ['auth', 'health', 'verify', 'telemetry'];
 /** Server Action files (relative to the app root) that are public by nature and read nothing org-scoped. */
 const PUBLIC_ACTIONS = ['(public)/sign-in/actions.ts'];
 const HTTP_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']);

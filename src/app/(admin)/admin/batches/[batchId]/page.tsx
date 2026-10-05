@@ -4,6 +4,7 @@ import { TransferForm } from '../../../../../components/admin/TransferForm';
 import { CustodyChain, LockedLine } from '../../../../../components/buyer/CustodyChain';
 import { Icon } from '../../../../../components/buyer/Icon';
 import screen from '../../../../../components/buyer/BatchScreen.module.css';
+import { BatchQr } from '../../../../../components/ui/BatchQr';
 import { GlassCard } from '../../../../../components/ui/GlassCard';
 import { RailShell } from '../../../../../components/ui/Rail';
 import { formatKg, formatScore, istDateTime } from '../../../../../lib/batches/format';
@@ -63,6 +64,8 @@ export default async function BatchDetailPage({ params }: Props) {
               </a>
               <p className={screen.note}>{t('batches.detail.certificateNote')}</p>
             </GlassCard>
+
+            <BatchQr batchId={batch.batchId} shortHash={batch.shortHash} />
 
             <GlassCard as="section" className={screen.card} aria-labelledby="members-h">
               <h2 className={screen.secH} id="members-h">
