@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { demoPhoto, openField, seedCaptureWorld, type SeededCapture } from './helpers/capture';
+import { demoPhoto, openField, seedCaptureWorld, type SeededCapture, choosePhoto } from './helpers/capture';
 
 // TSK-10.10 / TC-045: the checking screen shows the six farmer-facing groups ticking as the server's
 // NDJSON stream reports their checks (TP12), local groups before the satellite ones; the bar fills by
@@ -16,7 +16,7 @@ type Snap = { t: number; now: number; done: string[]; live: number };
 
 async function toSend(page: Page, seed: SeededCapture) {
   await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
-  await page.getByLabel('The branch').setInputFiles({ name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
+  await choosePhoto(page.getByLabel('The branch'), { name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
   await page.getByRole('button', { name: 'Use this photo' }).click();
   await page.getByRole('button', { name: 'Continue with 1 photo' }).click();
   for (const k of ['4', '2', '.', '5']) await page.locator(`#keypad [data-k="${k}"]`).click();

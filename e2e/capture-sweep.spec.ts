@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { demoPhoto, expectNoHorizontalScroll, openField, seedCaptureWorld } from './helpers/capture';
+import { demoPhoto, expectNoHorizontalScroll, openField, seedCaptureWorld, choosePhoto } from './helpers/capture';
 
 // TSK-10.14 · the capture flow held to every viewport (each Playwright project is one: 320 × 568,
 // 375 × 812, 768 × 1024, 1440 × 900):
@@ -54,7 +54,7 @@ test('TC-044 TC-046 TC-080 EVAL-089 /field and every record-flow screen: pill in
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Take up to 3 photos');
   await check('s2-photos', page.getByRole('button', { name: 'Open camera' }));
 
-  await page.getByLabel('The branch').setInputFiles({ name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
+  await choosePhoto(page.getByLabel('The branch'), { name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Is the photo clear?');
   await expect(page.locator('.photo-big img')).toBeVisible();
   await check('s3-review', page.getByRole('button', { name: 'Use this photo' }));
@@ -92,7 +92,7 @@ test('TC-046 TC-080 EVAL-089 Needs a check and Not accepted screens, and Home wi
   if (shots) await page.screenshot({ path: `${shots}/s1-home-empty-${vp.width}x${vp.height}.png` });
 
   await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
-  await page.getByLabel('The branch').setInputFiles({ name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
+  await choosePhoto(page.getByLabel('The branch'), { name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
   await page.getByRole('button', { name: 'Use this photo' }).click();
   await page.getByRole('button', { name: 'Continue with 1 photo' }).click();
   await page.locator('#keypad [data-k="4"]').click();
@@ -110,7 +110,7 @@ test('TC-046 TC-080 EVAL-089 Needs a check and Not accepted screens, and Home wi
   await page.route('**/api/capture', (r) =>
     r.fulfill({ status: 403, contentType: 'application/x-ndjson', body: '{"t":"rejected","reason":"device_revoked","status":403}\n' }),
   );
-  await page.getByLabel('The branch').setInputFiles({ name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
+  await choosePhoto(page.getByLabel('The branch'), { name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
   await page.getByRole('button', { name: 'Use this photo' }).click();
   await page.getByRole('button', { name: 'Continue with 1 photo' }).click();
   await page.locator('#keypad [data-k="4"]').click();

@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createClient } from '@libsql/client';
 import { expect, test, type Page } from '@playwright/test';
-import { demoPhoto, expectNoHorizontalScroll, openField, seedCaptureWorld, type SeededCapture } from './helpers/capture';
+import { demoPhoto, expectNoHorizontalScroll, openField, seedCaptureWorld, type SeededCapture, choosePhoto } from './helpers/capture';
 import { E2E_DATA_DIR } from './helpers/tracer';
 
 // TSK-10.11 · the three verdict screens on one template: Verified (#s5), Needs a check (#s6), and Not
@@ -15,7 +15,7 @@ test.describe.configure({ timeout: 120_000 });
 
 async function record(page: Page, seed: SeededCapture, photo: Buffer, plot = seed.plots[0]!.id) {
   await page.goto(`/field/record?plot=${plot}`);
-  await page.getByLabel('The branch').setInputFiles({ name: 'branch.jpg', mimeType: 'image/jpeg', buffer: photo });
+  await choosePhoto(page.getByLabel('The branch'), { name: 'branch.jpg', mimeType: 'image/jpeg', buffer: photo });
   await page.getByRole('button', { name: 'Use this photo' }).click();
   await page.getByRole('button', { name: 'Continue with 1 photo' }).click();
   for (const k of ['4', '2', '.', '5']) await page.locator(`#keypad [data-k="${k}"]`).click();
@@ -137,7 +137,7 @@ test('Not accepted at the boundary (plot no longer assigned): what happened and 
   const seed = seedCaptureWorld();
   await openField(page, context, seed);
   await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
-  await page.getByLabel('The branch').setInputFiles({ name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
+  await choosePhoto(page.getByLabel('The branch'), { name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
   await page.getByRole('button', { name: 'Use this photo' }).click();
   await page.getByRole('button', { name: 'Continue with 1 photo' }).click();
   await page.locator('#keypad [data-k="9"]').click();
@@ -162,7 +162,7 @@ test('no network at Send: the amber sheet says nothing is lost; Try again sends 
   await openField(page, context, seed);
   await page.route('**/api/capture', (r) => r.abort('internetdisconnected'));
   await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
-  await page.getByLabel('The branch').setInputFiles({ name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
+  await choosePhoto(page.getByLabel('The branch'), { name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
   await page.getByRole('button', { name: 'Use this photo' }).click();
   await page.getByRole('button', { name: 'Continue with 1 photo' }).click();
   for (const k of ['4', '2', '.', '5']) await page.locator(`#keypad [data-k="${k}"]`).click();
@@ -183,7 +183,7 @@ test('a picture the office cannot read (PNG) is refused on "Use this photo", bef
   await openField(page, context, seed);
   await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
   const png = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010806000000', 'hex');
-  await page.getByLabel('The branch').setInputFiles({ name: 'branch.png', mimeType: 'image/png', buffer: png });
+  await choosePhoto(page.getByLabel('The branch'), { name: 'branch.png', mimeType: 'image/png', buffer: png });
   await page.getByRole('button', { name: 'Use this photo' }).click();
   await expect(page.getByTestId('photo-error')).toHaveText('This photo is not a camera picture the office can read. Take it again with Open camera.');
   await expect(page.getByRole('button', { name: 'Use this photo' })).toBeDisabled();

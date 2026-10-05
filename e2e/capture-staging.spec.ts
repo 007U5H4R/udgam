@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { createClient } from '@libsql/client';
 import { expect, test, type BrowserContext, type Page, type Request } from '@playwright/test';
 import { applyReferenceProfile } from '../evals/perf/network';
-import { openField, seedCaptureWorld, type SeededCapture } from './helpers/capture';
+import { openField, seedCaptureWorld, type SeededCapture, choosePhoto } from './helpers/capture';
 import { E2E_DATA_DIR } from './helpers/tracer';
 
 // TSK-30.4 / TSK-30.5 · TC-094 (d, e) · EVAL-070 instrumentation. With the EV9 network profile (5 Mbit/s
@@ -41,7 +41,7 @@ async function acceptThree(page: Page, seed: SeededCapture): Promise<Buffer[]> {
     if (r.url().endsWith('/api/capture/stage') && r.status() === 201) stagedCount++;
   });
   for (const [i, s] of SLOTS.entries()) {
-    await page.getByLabel(s.label).setInputFiles({ name: s.file, mimeType: 'image/jpeg', buffer: photos[i]! });
+    await choosePhoto(page.getByLabel(s.label), { name: s.file, mimeType: 'image/jpeg', buffer: photos[i]! });
     await page.getByRole('button', { name: 'Use this photo' }).click();
     await expect(page.getByRole('button', { name: 'Use this photo' })).toHaveCount(0, { timeout: 30_000 });
   }
@@ -173,7 +173,7 @@ test('EVAL-070 before/after: with staging unavailable the photos go with Send as
   await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
   const photos = SLOTS.map((s) => fourMbPhoto(s.file));
   for (const [i, s] of SLOTS.entries()) {
-    await page.getByLabel(s.label).setInputFiles({ name: s.file, mimeType: 'image/jpeg', buffer: photos[i]! });
+    await choosePhoto(page.getByLabel(s.label), { name: s.file, mimeType: 'image/jpeg', buffer: photos[i]! });
     await page.getByRole('button', { name: 'Use this photo' }).click();
     await expect(page.getByRole('button', { name: 'Use this photo' })).toHaveCount(0, { timeout: 30_000 });
   }

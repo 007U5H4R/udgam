@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { demoPhoto, openField, seedCaptureWorld } from './helpers/capture';
+import { demoPhoto, openField, seedCaptureWorld, choosePhoto } from './helpers/capture';
 
 // TSK-10.7 (s2 Photos, s3 Review) and TC-047 (GPS starts with the record flow; weak or denied location is
 // reported plainly). The camera is the native file input (F4): accept="image/*" capture="environment",
@@ -27,7 +27,7 @@ test('a photo for "The branch" goes to review; Use this photo returns with 1 of 
   await expect(input).toHaveAttribute('capture', 'environment');
   await expect(page.locator('input[type=file]:not([capture="environment"])')).toHaveCount(0);
 
-  await input.setInputFiles({ name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
+  await choosePhoto(input, { name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() });
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Is the photo clear?');
   await expect(page.locator('.checklist li')).toHaveText(['It is in focus', 'The cherries can be seen', 'It is not too dark']);
   await expect(page.getByRole('img', { name: 'Your photo: The branch' })).toBeVisible();

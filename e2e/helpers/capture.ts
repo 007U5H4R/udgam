@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { expect, type BrowserContext, type Page } from '@playwright/test';
+import { expect, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import type { SeededCapture } from './seed-capture';
 import { signIn } from './auth';
 import { mockGeolocation } from './stubs';
@@ -29,6 +29,15 @@ export function seedCaptureWorld(o: { plots?: string[]; events?: string[]; photo
 /** The demo photo with a random trailer after its end-of-image marker: a valid JPEG with unique bytes. */
 export function demoPhoto(file = 'branch-01.jpg'): Buffer {
   return Buffer.concat([readFileSync(`assets/demo-photos/${file}`), randomBytes(16)]);
+}
+
+/**
+ * Choose a photo on a capture slot's file input once the page has hydrated (QA-P5-7): RecordFlow marks
+ * each input `data-hydrated="true"` from a client effect; a file set before that is lost.
+ */
+export async function choosePhoto(input: Locator, files: Parameters<Locator['setInputFiles']>[0]): Promise<void> {
+  await expect(input).toHaveAttribute('data-hydrated', 'true');
+  await input.setInputFiles(files);
 }
 
 /** Put the seeded phone (key imported non-extractable, chain head) into this origin's IndexedDB `udgam`. */

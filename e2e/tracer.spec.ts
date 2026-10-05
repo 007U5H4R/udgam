@@ -4,6 +4,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { P01_INSIDE } from '../scripts/tracer-plot';
 import { jcs, verify } from '../src/lib/crypto';
 import { signIn } from './helpers/auth';
+import { choosePhoto } from './helpers/capture';
 import { mockGeolocation } from './helpers/stubs';
 import { query, seedTracer, type TracerKey } from './helpers/tracer';
 
@@ -63,7 +64,7 @@ async function injectDevice(page: Page, key: TracerKey): Promise<void> {
 /** One picking through the capture app (TKT-10 replaced the TKT-02 tracer page): photo, kg, Send, verdict. */
 async function capture(page: Page, plotId: string, keys: string[]) {
   await page.goto(`/field/record?plot=${plotId}`);
-  await page.getByLabel('The branch').setInputFiles({ name: 'p01.jpg', mimeType: 'image/jpeg', buffer: uniquePhoto() });
+  await choosePhoto(page.getByLabel('The branch'), { name: 'p01.jpg', mimeType: 'image/jpeg', buffer: uniquePhoto() });
   await page.getByRole('button', { name: 'Use this photo' }).click();
   await page.getByRole('button', { name: 'Continue with 1 photo' }).click();
   for (const k of keys) await page.locator(`#keypad [data-k="${k}"]`).click();
