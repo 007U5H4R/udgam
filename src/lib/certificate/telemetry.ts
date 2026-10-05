@@ -6,6 +6,11 @@ import { z } from 'zod';
 // member, and a body of at most 512 bytes. Pure.
 
 export const TELEMETRY_MAX_BYTES = 512;
+/** Beacons per client address (an IPv6 /64, lib/client-ip.ts) per window (TASK-17 fix round 1). */
+export const TELEMETRY_IP_LIMIT = { limit: 30, windowSec: 10 * 60 } as const;
+export const telemetryIpKey = (ip: string) => `telemetry:ip:${ip}`;
+/** A beacon body arrives at once; one that trickles is dropped well before the server's request timeout. */
+export const TELEMETRY_READ_DEADLINE_MS = 5_000;
 
 const STEPS = ['format', 'unknown-key', 'checkpoint-signature', 'payload-hash', 'entry-hash', 'merkle-path', 'payload-signature', 'short-hash', 'closure-incomplete'] as const;
 /** `B-` + 8 Crockford base32 (lib/ids.ts). */

@@ -265,19 +265,19 @@ function closureComplete(feed: ProofFeedV1, batch: FeedEntry): boolean {
   return true;
 }
 
+/** Entries checked concurrently in verifyFeed (bounded so a very large feed does not start every digest at once). */
+const ENTRY_WINDOW = 32;
+
+export type VerifyFeedOptions = {
+  /** Called for each entry that passed steps 4–7, in feed order (`done` of `total` entries); the certificate's progress line (TKT-16). */
+  onProgress?: (done: number, total: number) => void;
+};
+
 /**
  * Verify a whole proof feed and name the first failing step: format; per checkpoint its key and
  * signature; per entry (seq order) payloadHash, entryHash, Merkle path, payload signature; shortHash;
  * closure completeness. Keys must come from /.well-known/udgam-ledger-key, never from the feed.
  */
-/** Entries checked concurrently in verifyFeed (bounded so a very large feed does not start every digest at once). */
-const ENTRY_WINDOW = 32;
-
-export type VerifyFeedOptions = {
-  /** Called after each entry passes steps 4–7 (`done` of `total` entries); the certificate's progress line (TKT-16). */
-  onProgress?: (done: number, total: number) => void;
-};
-
 export async function verifyFeed(feed: unknown, keys: VerifierKey[], opts: VerifyFeedOptions = {}): Promise<FeedOutcome> {
   if (hasForbiddenKey(feed)) return fail('format');
   const parsed = ProofFeedV1Schema.safeParse(feed);
@@ -306,18 +306,16 @@ export async function verifyFeed(feed: unknown, keys: VerifierKey[], opts: Verif
   // window concurrently overlaps its digests instead of waiting on each in turn (S4, TKT-16). The result is
   // the same as one entry after another: within a window the first failure in feed order is reported, and
   // no later window is started after a failure.
+  // Progress is reported once a window is settled, in feed order and only up to its first failure, so
+  // the count never runs past the record that does not match.
   let done = 0;
   for (let start = 0; start < f.entries.length; start += ENTRY_WINDOW) {
-    const window = f.entries.slice(start, start + ENTRY_WINDOW);
-    const results = await Promise.all(
-      window.map(async (entry, k) => {
-        const bad = await checkEntry(entry, canonical[start + k] ?? null, byId.get(entry.checkpointId));
-        if (!bad) opts.onProgress?.(++done, f.entries.length);
-        return bad;
-      }),
-    );
-    const bad = results.find((r) => r !== null);
-    if (bad) return bad;
+    const slice = f.entries.slice(start, start + ENTRY_WINDOW);
+    const results = await Promise.all(slice.map((entry, k) => checkEntry(entry, canonical[start + k] ?? null, byId.get(entry.checkpointId))));
+    for (const bad of results) {
+      if (bad) return bad;
+      opts.onProgress?.(++done, f.entries.length);
+    }
   }
 
   const batches = f.entries.filter((e) => e.kind === 'batch_created' && e.payload.batchId === f.batchId);

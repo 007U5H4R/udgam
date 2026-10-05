@@ -57,6 +57,14 @@ async function settle(pred: () => boolean, ms = 10_000) {
   }
 }
 
+/** Every beacon body sent so far, parsed (all go to /api/telemetry). */
+async function sent(): Promise<unknown[]> {
+  const calls = beacon.mock.calls as [string, Blob][];
+  expect(calls.every(([url]) => url === '/api/telemetry')).toBe(true);
+  return Promise.all(calls.map(async ([, blob]) => JSON.parse(await blob.text()) as unknown));
+}
+const VIEWED = { event: 'certificate.viewed', batchId: FEED.batchId };
+
 const final = () => ['verified', 'mismatch'].includes(document.body.dataset.state ?? '');
 
 beforeEach(() => {
@@ -84,7 +92,10 @@ describe('<ProofPanel> (TSK-16.3, TC-065)', () => {
     expect(text).toContain(`Checkpoint 1 signed by key ${KEYS.keys[0]!.kid.slice(0, 8)}.`);
     expect(container.querySelector('.proof')).not.toBeNull();
     expect(performance.getEntriesByName('proof-final')).toHaveLength(1);
-    expect(beacon).not.toHaveBeenCalled();
+    // TASK-17 fix round 1: verification start is marked too, so §18's verify budget is measured on its own
+    expect(performance.getEntriesByName('proof-start')).toHaveLength(1);
+    // one view beacon per page view (batch id only), no failure beacon
+    expect(await sent()).toEqual([VIEWED]);
     // the key came from the well-known path, never from the feed
     expect(vi.mocked(fetch).mock.calls[0]![0]).toBe('/.well-known/udgam-ledger-key');
   });
@@ -114,10 +125,7 @@ describe('<ProofPanel> (TSK-16.3, TC-065)', () => {
     expect(text).toContain(`ledger record ${h.seq}`);
     expect(text).not.toContain('Verified on this device');
     expect(container.querySelector('[data-mark="ok"]')).toBeNull();
-    expect(beacon).toHaveBeenCalledTimes(1);
-    const [url, blob] = beacon.mock.calls[0] as [string, Blob];
-    expect(url).toBe('/api/telemetry');
-    expect(JSON.parse(await blob.text())).toEqual({ event: 'certificate.proof_failed', step: 'payload-hash', batchId: FEED.batchId });
+    expect(await sent()).toEqual([VIEWED, { event: 'certificate.proof_failed', step: 'payload-hash', batchId: FEED.batchId }]);
   });
 
   it('"Check again" runs the verification again', async () => {
@@ -132,6 +140,8 @@ describe('<ProofPanel> (TSK-16.3, TC-065)', () => {
     await settle(final);
     expect(vi.mocked(fetch).mock.calls.length).toBe(calls + 1);
     expect(document.body.dataset.state).toBe('mismatch');
+    // the view is counted once per page view, not per check
+    expect((await sent()).filter((b) => (b as { event: string }).event === 'certificate.viewed')).toHaveLength(1);
   });
 
   it('a key it cannot fetch is not a mismatch: nothing is confirmed, no green, a retry', async () => {
@@ -140,7 +150,7 @@ describe('<ProofPanel> (TSK-16.3, TC-065)', () => {
     expect(document.body.dataset.state).toBe('loading');
     expect(container.querySelector('[data-mark="ok"]')).toBeNull();
     expect(container.querySelector('#check-again')).not.toBeNull();
-    expect(beacon).not.toHaveBeenCalled();
+    expect(await sent()).toEqual([VIEWED]);
   });
 
   it('removes body[data-state] when it unmounts', async () => {

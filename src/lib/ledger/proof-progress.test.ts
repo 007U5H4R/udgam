@@ -12,20 +12,22 @@ const FEED = JSON.parse(readFileSync(join(ROOT, 'evals/fixtures/feeds/batch-3-ev
 const KEYS = (JSON.parse(readFileSync(join(ROOT, 'evals/fixtures/feeds/batch-3-events.keys.json'), 'utf8')) as { keys: VerifierKey[] }).keys;
 
 describe('verifyFeed onProgress (TSK-16.3)', () => {
-  it('reports 1..n of n for an intact feed (entries are checked in windows, so in completion order); the outcome is the same with or without it', async () => {
+  it('reports 1..n of n for an intact feed (entries are checked in windows, reported in feed order); the outcome is the same with or without it', async () => {
     const seen: [number, number][] = [];
     const out = await verifyFeed(FEED, KEYS, { onProgress: (done, total) => seen.push([done, total]) });
     expect(seen).toEqual(Array.from({ length: 16 }, (_, i) => [i + 1, 16]));
     expect(out).toEqual(await verifyFeed(FEED, KEYS));
   });
 
-  it('never counts the entry that fails, and reports the first failure in feed order', async () => {
+  it('counts only the entries before the first failure in feed order (records 1–7 of 16), and reports that failure', async () => {
     const f = structuredClone(FEED);
     const idx = f.entries.map((e, k) => (e.kind === 'harvest_event' ? k : -1)).filter((k) => k >= 0);
     for (const k of idx) (f.entries[k]!.payload.capture as { cherryKg: number }).cherryKg += 1;
     const seen: number[] = [];
     const out = await verifyFeed(f, KEYS, { onProgress: (done) => seen.push(done) });
     expect(out).toMatchObject({ ok: false, step: 'payload-hash', seq: f.entries[idx[0]!]!.seq });
-    expect(seen.at(-1)).toBe(16 - idx.length);
+    expect(idx).toEqual([7, 9, 11]);
+    // TASK-17 fix round 1: progress never runs past the failing record (it stopped at 13 of 16 before).
+    expect(seen).toEqual([1, 2, 3, 4, 5, 6, 7]);
   });
 });

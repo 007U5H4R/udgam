@@ -9,11 +9,29 @@ import type { PlotPolygon, Position } from '../geo/types';
 /** verify.html draws the map in a 600 × 380 view; the margin leaves room for the labels. */
 export const MAP_BOX: Box = { w: 600, h: 380, pad: 64 };
 
-export type MapPlot = { plotId: string; d: string; label: { x: number; y: number } };
+/** `label`: the plot's box centre, and the box's width and height (view units) a label must stay inside. */
+export type MapPlot = { plotId: string; d: string; label: { x: number; y: number; w: number; h: number } };
+
+/** Average advance of the map's bold label face, per em (a conservative estimate for IDs and numbers). */
+const ADVANCE_EM = 0.62;
+/** A label is squeezed at most to this share of its natural width; below that it is left out. */
+const MIN_SQUEEZE = 0.6;
+
+/**
+ * How a label of `text` at `fontPx` fits in `room` view units (TASK-17 fix round 1, labels must not
+ * overflow the plot outlines): `{}` at its natural width, `{textLength}` squeezed to the room, or null
+ * when it would need squeezing below 60 % (the farm list under the map carries the same text).
+ */
+export function fitLabel(text: string, fontPx: number, room: number): { textLength?: number } | null {
+  const natural = text.length * ADVANCE_EM * fontPx;
+  if (natural <= room) return {};
+  if (room >= natural * MIN_SQUEEZE) return { textLength: Math.floor(room) };
+  return null;
+}
 
 const outerRings = (g: PlotPolygon): Position[][] => (g.type === 'Polygon' ? [g.coordinates[0] ?? []] : g.coordinates.map((p) => p[0] ?? []));
 
-/** One SVG path per plot (an outer ring per `M … Z`; holes are ignored) and a label point at its box centre. */
+/** One SVG path per plot (an outer ring per `M … Z`; holes are ignored) and a label point at its box centre, with the box's size. */
 export function originMapPaths(plots: { plotId: string; polygon: PlotPolygon }[], box: Box = MAP_BOX): MapPlot[] {
   const rings = plots.map((p) => outerRings(p.polygon).filter((r) => r.length > 0));
   const all = rings.flat();
@@ -28,7 +46,10 @@ export function originMapPaths(plots: { plotId: string; polygon: PlotPolygon }[]
     const xs = nums.filter((_, k) => k % 2 === 0);
     const ys = nums.filter((_, k) => k % 2 === 1);
     const r1 = (n: number) => Math.round(n * 10) / 10;
-    const label = xs.length > 0 ? { x: r1((Math.min(...xs) + Math.max(...xs)) / 2), y: r1((Math.min(...ys) + Math.max(...ys)) / 2) } : { x: box.w / 2, y: box.h / 2 };
+    const label =
+      xs.length > 0
+        ? { x: r1((Math.min(...xs) + Math.max(...xs)) / 2), y: r1((Math.min(...ys) + Math.max(...ys)) / 2), w: r1(Math.max(...xs) - Math.min(...xs)), h: r1(Math.max(...ys) - Math.min(...ys)) }
+        : { x: box.w / 2, y: box.h / 2, w: 0, h: 0 };
     return { plotId: p.plotId, d: mine.join(' '), label };
   });
 }
