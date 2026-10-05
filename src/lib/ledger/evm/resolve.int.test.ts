@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { tempDb, type TempDb } from '../../../../tests/helpers/db';
 import { writeTx } from '../../db/client';
 import { evmAnchors } from '../../db/schema';
-import { setOnAppended } from '../hashchain';
+import { append as hashchainAppend, setOnAppended } from '../hashchain';
 import { createEvmLedger, evmFieldsFor } from './adapter';
 import { ResolveRefused, resolveFailedAnchor } from './resolve';
 import { fakeRegistry, type FakeRegistry } from './testing/fake-registry';
@@ -60,6 +60,13 @@ describe('a failed anchor halts anchoring until resolved', () => {
     ]);
   });
 
+  it('a halted pass inserts no pending row for a row-less entry either (r2 nit 5: nothing is written while halted)', async () => {
+    const ledger = await failedAtSeq1();
+    await writeTx(t.db, (tx) => hashchainAppend(tx, 'plot_registered', { plotId: 'P-rowless' })); // no evm_anchors row
+    expect(await ledger.anchorPending()).toMatchObject({ anchored: 0, stoppedAt: { seq: 2 } });
+    expect((await rows()).map((r) => r.seq)).toEqual([1, 2, 3]);
+  });
+
   it('resolveFailedAnchor records the one resolution; anchoring resumes at the next seq; seq 1 stays failed', async () => {
     const ledger = await failedAtSeq1();
     expect(await resolveFailedAnchor(t.db, 1, `  ${REASON}  `, NOW)).toEqual({ seq: 1, resolution: REASON, resolvedAt: '2026-10-05T10:00:00.000Z' });
@@ -86,7 +93,7 @@ describe('a failed anchor halts anchoring until resolved', () => {
   });
 });
 
-describe('database guards on resolution (migration 0023), attempted in raw SQL', () => {
+describe('database guards on resolution (migration 0025), attempted in raw SQL', () => {
   it('a failed row takes exactly one resolution, then nothing changes again', async () => {
     await failedAtSeq1();
     await expect(exec(`UPDATE evm_anchors SET status = 'pending' WHERE seq = 1`)).rejects.toThrow(/terminal/);

@@ -132,4 +132,18 @@ describe('transient chain answers are retried, never marked failed (quality mino
     reg.mine(2);
     expect(await ledger.anchorPending()).toEqual({ anchored: 1, pending: 0 });
   });
+
+  it("the adopt path's log scan starts at the block of the last anchored seq, not the deploy block (r2 #4)", async () => {
+    const reg = fakeRegistry();
+    const ledger = createEvmLedger({ db: t.db, registry: async () => reg });
+    reg.mine(5); // the deploy block is long behind
+    await writeTx(t.db, (tx) => ledger.append(tx, 'plot_registered', { plotId: 'P-1' }));
+    expect(await ledger.anchorPending()).toEqual({ anchored: 1, pending: 0 });
+    expect((await rows())[0]).toMatchObject({ seq: 1, status: 'anchored', blockNumber: 7 });
+    await writeTx(t.db, (tx) => ledger.append(tx, 'plot_registered', { plotId: 'P-2' }));
+    const entries = await t.db.select().from(ledgerEntries).orderBy(asc(ledgerEntries.seq));
+    await reg.append(2, entries[1]!.entryHash); // sent before a crash: on chain, DB still pending
+    expect(await ledger.anchorPending()).toEqual({ anchored: 1, pending: 0 });
+    expect(reg.anchoredLogFrom).toEqual([[2, 7]]);
+  });
 });

@@ -601,9 +601,10 @@ For an entry whose `evm.status` is `anchored`, after the entry has passed §10:
 
 0. **Pin the registry independently of the feed.** Take the expected `chainId` and registry address
    (and its `operator()`) from a source you trust that the feed's server cannot rewrite in the same
-   response, for example the deployment published next to the ledger key at
-   `/.well-known/udgam-ledger-key` and recorded when you first trusted it, or an out-of-band
-   announcement. The feed's `chainId` and `contract` MUST equal the pinned values. The `evm` member is
+   response: an out-of-band announcement by the operator, recorded when you first trusted it. The
+   server does not publish the deployment: `/.well-known/udgam-ledger-key` carries the ledger key
+   only (§2), so it is not a source for these values. The feed's `chainId` and `contract` MUST equal
+   the pinned values. The `evm` member is
    not signed (§13.1): taking `contract` from the feed itself would let a server deploy a fresh
    registry, anchor rewritten hashes there, and pass steps 1–3.
 1. Connect to an RPC endpoint of chain `chainId` (`eth_chainId` must return it).
@@ -631,7 +632,9 @@ A checker that fails an entry names the step: `evm-field` (not anchored, or no `
   nothing yet.
 - **Confirmations and reorganisations.** The server records an anchor only after the transaction has
   `confirmations` blocks on top of and including its block (deployment.json; 1 on Anvil, which never
-  reorganises; `pnpm contracts:deploy` writes 12 for any other chain). A recorded anchor is immutable.
+  reorganises; `pnpm contracts:deploy` writes 12 for any other chain). The wait for the receipt grows
+  with that number (30 s plus 15 s for each further confirmation), so it does not time out on a chain
+  with 12 s blocks. A recorded anchor is immutable.
   If a reorganisation deeper than that removes it, step 3 fails for that entry and
   `pnpm ledger:audit` names its seq (`anchored-in-db-but-not-on-chain`, or a hash mismatch when another
   transaction took the seq); that is an incident for the operator (§13.4), never repaired silently.
@@ -650,7 +653,7 @@ unnoticed. The operator:
 2. records the one resolution with
    `pnpm ledger:evm:resolve --seq=N --reason="what happened and where it is documented"`.
    The reason (10+ characters) and the time are written once on the failed row and can never be
-   changed or removed (database triggers, migration 0023);
+   changed or removed (database triggers, migration 0025);
 3. anchoring resumes with the next `seq`.
 
 The entry stays `failed` in every proof and the audit keeps naming it: a resolution acknowledges the

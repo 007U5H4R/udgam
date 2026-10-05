@@ -27,8 +27,11 @@ export type RegistryClient = {
   /** The hash anchored at `seq` (64 lowercase hex), or null when nothing is anchored there. */
   entryHash(seq: number): Promise<string | null>;
   nextSeq(): Promise<number>;
-  /** The EntryAnchored log for `seq`, if any (recovers a tx sent before a crash). Scans in bounded block ranges. */
-  anchoredLog(seq: number): Promise<AnchoredLog | null>;
+  /**
+   * The EntryAnchored log for `seq`, if any (recovers a tx sent before a crash). Scans in bounded block
+   * ranges from `fromBlock` (the last anchored seq's block; never before the deployment) to the head.
+   */
+  anchoredLog(seq: number, fromBlock?: number): Promise<AnchoredLog | null>;
   /** Every EntryAnchored log in a mined transaction, with its block; null if the tx is unknown. */
   receiptLogs(txHash: Hex): Promise<{ blockNumber: number; success: boolean; logs: { seq: number; entryHash: string }[] } | null>;
 };
@@ -45,6 +48,16 @@ export type RegistryClientOptions = {
 };
 
 export const LOG_RANGE_BLOCKS = 5_000;
+/** A generous block time for the receipt wait: about 12 s on Ethereum-like chains, with slack. */
+export const RECEIPT_MS_PER_CONFIRMATION = 15_000;
+
+/**
+ * How long append waits for its receipt (TASK-25 r2 #3): the base timeout for the first block, plus one
+ * block time for every further confirmation, so 12 confirmations on a 12 s chain do not time out.
+ */
+export function receiptTimeoutMs(confirmations: number, baseMs = 30_000): number {
+  return baseMs + Math.max(0, confirmations - 1) * RECEIPT_MS_PER_CONFIRMATION;
+}
 
 const HASH_RE = /^[0-9a-f]{64}$/;
 const ZERO = '0'.repeat(64);
@@ -96,7 +109,7 @@ export function createRegistryClient(o: RegistryClientOptions): RegistryClient {
       const txHash = await wallet.writeContract({ address: registry, abi: BATCH_REGISTRY_ABI, functionName: 'append', args: [BigInt(seq), toBytes32(entryHash)], account, chain });
       // Recorded only after `confirmations` blocks (1 on Anvil). A reorg deeper than that is caught by
       // `pnpm ledger:audit` and the §13.2 check, never repaired silently (docs/proof-feed.md §13.3).
-      const receipt = await pub.waitForTransactionReceipt({ hash: txHash, confirmations, timeout: o.timeoutMs ?? 30_000 });
+      const receipt = await pub.waitForTransactionReceipt({ hash: txHash, confirmations, timeout: receiptTimeoutMs(confirmations, o.timeoutMs ?? 30_000) });
       if (receipt.status !== 'success') throw new Error(`append(${seq}) reverted in tx ${txHash}`);
       return { txHash, blockNumber: Number(receipt.blockNumber) };
     },
@@ -107,9 +120,10 @@ export function createRegistryClient(o: RegistryClientOptions): RegistryClient {
     async nextSeq() {
       return Number(await read<bigint>('nextSeq'));
     },
-    async anchoredLog(seq) {
+    async anchoredLog(seq, fromBlock) {
       const head = await pub.getBlockNumber({ cacheTime: 0 });
-      for (let from = BigInt(deployment.deployedAtBlock); from <= head; from += logRange) {
+      const start = BigInt(Math.max(deployment.deployedAtBlock, fromBlock ?? 0));
+      for (let from = start; from <= head; from += logRange) {
         const to = from + logRange - BigInt(1) < head ? from + logRange - BigInt(1) : head;
         const logs = await pub.getContractEvents({
           address: registry,
