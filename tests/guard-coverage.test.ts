@@ -323,6 +323,23 @@ describe('guard coverage (TSK-04.4, TC-018)', () => {
     expect(filesInScope().flatMap((f) => offenders(f))).toEqual([]);
   });
 
+  it('the M-002 agreement actions (TSK-25.7) are scanned and guarded with their own group role', () => {
+    const matrix = [
+      ['(buyer)/buyer/agreements/actions.ts', 'buyer', ['createAgreementAction', 'fundAgreementAction', 'refundAgreementAction', 'gradeBatchAction']],
+      ['(admin)/admin/agreements/actions.ts', 'admin', ['settleAgreementAction']],
+    ] as const;
+    const rel = filesInScope().map((f) => relative(APP, f).split(sep).join('/'));
+    for (const [file, role, exported] of matrix) {
+      expect(rel, file).toContain(file);
+      const src = readFileSync(join(APP, file), 'utf8');
+      expect(offenders(join(APP, file), src), file).toEqual([]);
+      for (const name of exported) expect(src, `${file} ${name}`).toMatch(new RegExp(`export async function ${name}\\([^)]*\\)[^{]*\\{\\s*const me = await requireSession\\('${role}', \\{ action: true \\}\\);`));
+      // the other role's guard in this file would be an offender
+      const swapped = src.replaceAll(`requireSession('${role}'`, `requireSession('${role === 'buyer' ? 'admin' : 'buyer'}'`);
+      expect(offenders(join(APP, file), swapped).length, `${file} with the wrong role`).toBe(exported.length);
+    }
+  });
+
   it('every route-group layout awaits requireSession with its own role', () => {
     for (const g of GROUPS) {
       const src = readFileSync(join(APP, g, 'layout.tsx'), 'utf8');
