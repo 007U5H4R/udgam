@@ -1,27 +1,48 @@
-import { parseTelemetry, TELEMETRY_MAX_BYTES } from '../../../lib/certificate/telemetry';
+import { consume } from '../../../lib/capture/rate-limit';
+import { readBodyWithin } from '../../../lib/capture/read-form';
+import { parseTelemetry, TELEMETRY_IP_LIMIT, TELEMETRY_MAX_BYTES, TELEMETRY_READ_DEADLINE_MS, telemetryIpKey } from '../../../lib/certificate/telemetry';
+import { clientIp } from '../../../lib/client-ip';
+import { getDbReady } from '../../../lib/db/client';
 import { log } from '../../../lib/log';
 
 // POST /api/telemetry (TSK-16.3): the certificate page's beacon ("viewed", or "proof failed at step X").
 // Public, no session. Only {event, step?, batchId} is accepted (400 otherwise), and it is logged without
 // the caller's IP address or user agent: the log line carries exactly the three validated members.
+//
+// Bounded before anything is read (TASK-17 fix round 1, as lib/capture/parse.ts checkContentLength):
+// 411 without a numeric Content-Length (sendBeacon always declares one), 413 when it declares more than
+// 512 bytes; then 429 (Retry-After) past 30 beacons per client address per 10 minutes; then the body is
+// read through a reader that is cancelled as soon as it passes 512 bytes (413), whatever was declared,
+// so it is never buffered whole.
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const HEADERS = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
-const BAD = () => new Response('{"error":"bad_request"}', { status: 400, headers: HEADERS });
+
+function refuse(status: number, error: string, retryAfterSec?: number): Response {
+  const headers: Record<string, string> = { ...HEADERS };
+  if (retryAfterSec !== undefined) headers['Retry-After'] = String(retryAfterSec);
+  return new Response(JSON.stringify({ error }), { status, headers });
+}
 
 export async function POST(req: Request): Promise<Response> {
-  const declared = Number(req.headers.get('content-length') ?? '0');
-  if (declared > TELEMETRY_MAX_BYTES) return BAD();
-  let body: string;
+  const raw = req.headers.get('content-length');
+  if (raw === null || !/^\d{1,15}$/.test(raw.trim())) return refuse(411, 'length_required');
+  if (Number(raw.trim()) > TELEMETRY_MAX_BYTES) return refuse(413, 'body_too_large');
+
   try {
-    body = await req.text();
+    const r = await consume(await getDbReady(), telemetryIpKey(clientIp(req.headers)), TELEMETRY_IP_LIMIT.limit, TELEMETRY_IP_LIMIT.windowSec);
+    if (!r.ok) return refuse(429, 'rate_limited', r.retryAfterSec);
   } catch {
-    return BAD();
+    return refuse(503, 'unavailable');
   }
+
+  const read = await readBodyWithin(req, TELEMETRY_READ_DEADLINE_MS, TELEMETRY_MAX_BYTES);
+  if (!read.ok) return read.reason === 'too_large' ? refuse(413, 'body_too_large') : refuse(400, 'bad_request');
+  const body = new TextDecoder().decode(await new Blob(read.chunks).arrayBuffer());
   const event = parseTelemetry(body);
-  if (!event) return BAD();
+  if (!event) return refuse(400, 'bad_request');
   log.info({ event: event.event, batchId: event.batchId, ...('step' in event ? { step: event.step } : {}) }, 'certificate.telemetry');
   return new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } });
 }
