@@ -676,3 +676,33 @@ Each guarantee has a named test in TKT-09.
   - Fix rounds start fresh implementers at the current head instead of resuming old worktrees.
 - **Reviews.** Reviewers work read-only in their own `git clone --shared` copies at a pinned SHA.
 - **Container restarts.** After a restart, interrupted agents resume from their transcripts, and their uncommitted work is reviewed before it is committed.
+
+## D9 · M-002 screens addendum — accepted (approved under the owner's blanket waiver, pending owner review at Stage 8)
+**Context.** The M-002 screens for contract farming (F17) and the processor hop (F18) are not in the frozen design. TKT-23 (TASK-24) is a short Stage 4 re-entry to add them before TSK-25.8 and TSK-26.5 build them. This entry was accepted under the owner's blanket Stage 7 waiver (EXE1). The owner has not yet reviewed the addendum; that review happens at Stage 8.
+**Decision.**
+- **Screens.** Design.md §28 and `.design/exploration/final/contract.html` define seven screens in the frozen visual language, each in loading, empty, error, working and data states:
+  1. the buyer's agreement list;
+  2. a new agreement (crop, agreed kg, minimum grade, amount in mock INR, deadline);
+  3. fund, with a refund after the deadline;
+  4. grade a delivered batch;
+  5. the FPO admin's agreement detail, whose settlement panel shows each of the three conditions as value vs threshold;
+  6. the processor's record-a-step and hand-on screen;
+  7. the processing step in the certificate journey.
+- **Settlement outcome.** *Payment released* uses `--ok`. *Not released* uses `--check` and names every condition that was not met. No accusation words are used.
+- **Components.** The mockup reuses `final/admin.html`'s `:root` tokens, CSS and icons verbatim, and `final/verify.html`'s journey component verbatim. It adds no new colour, radius, type size, motion or icon (TP17). No frozen M-001 item changes.
+- **Processor entry point.** A new `/processor` surface with its own `processor` role, using the admin rail component with one item (hidden on phones). A scoped admin view is not used.
+- **Grade scale.** The buyer picks one of five labels, each mapped to a 0–100 number: Excellent 90 · Very good 80 · Good 70 · Fair 60 · Low 40. The agreement minimum uses the same labels. The app signs the number, the contract stores it as a `uint8`, and the server refuses any other value.
+- **IA.**
+  - The buyer surface gains the rail with Batches and Agreements.
+  - The admin reaches `/admin/agreements` under Batches; the four-item rail is unchanged.
+  - The admin Transfer custody list adds processor organisations.
+  - The public certificate shows the processing step but no agreement or payment.
+- EVAL-105's expected behaviour now names these screens (dataset 0.6.1, wording only).
+**Rejected.**
+- A scoped admin view for processors: every admin guard and query would need an org-type filter, one miss would expose FPO data, and the frozen four-item rail would have to change.
+- Processing inside the buyer surface: a buyer must not record processing.
+- Free numeric grade entry: inconsistent and falsely precise.
+- SCA cupping scores: they need roasted samples at delivery.
+- Letter grades: confused with Indian bean-size grades such as "Plantation A".
+- A fifth admin rail item for agreements: it changes the frozen IA.
+- Showing agreement terms or payments on the public certificate: commercial terms are private.
