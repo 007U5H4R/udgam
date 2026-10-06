@@ -30,9 +30,14 @@ services:
     env_file:
       - path: ${UDGAM_ENV_FILE:-/etc/udgam/app.env}
         required: true
+    # These win over app.env (Q15): the database and every key file stay on the volume, where the
+    # backup's snapshot container (deploy/lib.sh snapshot_db) and keys/ archive find them.
     environment:
       NODE_ENV: production
       DATA_DIR: /data
+      DATABASE_URL: file:/data/udgam.db
+      LEDGER_KEY_PATH: /data/keys/ledger.jwk
+      EVM_OPERATOR_KEY_PATH: /data/keys/evm-operator.key
       PORT: "3000"
       HOSTNAME: 0.0.0.0
     volumes:
