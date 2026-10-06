@@ -3,6 +3,7 @@ import { unstable_doesMiddlewareMatch } from 'next/experimental/testing/server';
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import nextConfig from '../../next.config';
+import { STATIC_SECURITY_HEADERS, staticSecurityHeaders } from '../lib/security/headers';
 import { config, proxy } from '../proxy';
 
 // TSK-19.5 · TC-076 (technical-plan §16): every HTML response carries a per-request nonce CSP from the
@@ -104,5 +105,31 @@ describe('static security headers (TC-076)', () => {
         { key: 'Permissions-Policy', value: 'camera=(self), geolocation=(self), microphone=()' },
       ]),
     );
+  });
+
+  it('no X-Powered-By: Next.js on any response (SEC-102)', () => {
+    expect(nextConfig.poweredByHeader).toBe(false);
+  });
+
+  // SEC-007 (Stage 10): HSTS from the app as well as the proxy, in a real deployment only. Never in dev,
+  // tests or on the Playwright server (E2E=1, a production build served on http://localhost).
+  const HSTS = { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' };
+  it('a production deployment sends Strict-Transport-Security; dev, test and the e2e server do not', () => {
+    expect(staticSecurityHeaders({ NODE_ENV: 'production' })).toEqual([...STATIC_SECURITY_HEADERS, HSTS]);
+    expect(staticSecurityHeaders({ NODE_ENV: 'production', E2E: '0' })).toContainEqual(HSTS);
+    for (const e of [{ NODE_ENV: 'development' }, { NODE_ENV: 'test' }, { NODE_ENV: 'production', E2E: '1' }, { NODE_ENV: '' }]) {
+      expect(staticSecurityHeaders(e), JSON.stringify(e)).toEqual([...STATIC_SECURITY_HEADERS]);
+    }
+  });
+
+  it('next.config.ts sends the headers for the environment it runs in', async () => {
+    const rules = async () => (await (await import('../../next.config')).default.headers!()).find((r) => r.source === '/:path*')?.headers;
+    expect(await rules()).not.toContainEqual(HSTS); // vitest: NODE_ENV=test
+    vi.resetModules();
+    vi.stubEnv('NODE_ENV', 'production');
+    expect(await rules()).toContainEqual(HSTS);
+    vi.resetModules();
+    vi.stubEnv('E2E', '1');
+    expect(await rules()).not.toContainEqual(HSTS);
   });
 });

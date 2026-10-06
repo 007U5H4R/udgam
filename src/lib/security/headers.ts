@@ -1,3 +1,4 @@
+import { testSurfacesOn } from '../config/test-surfaces';
 import { ADMIN_TILE_HOSTS } from '../geo/tiles';
 import { isAdminPath } from './admin-path';
 
@@ -10,6 +11,19 @@ export const STATIC_SECURITY_HEADERS: readonly { key: string; value: string }[] 
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'Permissions-Policy', value: 'camera=(self), geolocation=(self), microphone=()' },
 ];
+
+const HSTS = { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' } as const;
+
+/**
+ * The static headers for the server `e` describes: STATIC_SECURITY_HEADERS, plus HSTS in a real
+ * deployment (SEC-007: defence in depth beside the proxy's, harmless behind it). Never in development,
+ * tests or on the Playwright server, which serve http://localhost: the same one rule as the test-only
+ * surfaces (config/test-surfaces.ts).
+ */
+export function staticSecurityHeaders(e: { NODE_ENV?: string; E2E?: string }): { key: string; value: string }[] {
+  const on = !testSurfacesOn({ NODE_ENV: e.NODE_ENV ?? '', E2E: e.E2E });
+  return on ? [...STATIC_SECURITY_HEADERS, HSTS] : [...STATIC_SECURITY_HEADERS];
+}
 
 export type TileProvider = 'esri' | 'maptiler';
 

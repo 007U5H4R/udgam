@@ -34,8 +34,12 @@ export const STAGE_IP_LIMIT = { limit: 180, windowSec: 10 * 60 } as const;
 export const stageAgentKey = (agentId: string) => `stage:agent:${agentId}`;
 export const stageIpKey = (ip: string) => `stage:ip:${ip}`;
 
-/** Stage uploads read and stored at once, per process (each holds up to MAX_PHOTO_BYTES in memory). */
-export const MAX_STAGES_IN_FLIGHT = 4;
+/**
+ * Stage uploads read and stored at once, per process (each holds up to MAX_PHOTO_BYTES in memory, so
+ * 80 MB in all). Eight, so one agent's share is a quarter of the pool (SEC-004): it takes four accounts
+ * trickling bodies, not two, to hold every slot, as for the capture slots (limits.ts).
+ */
+export const MAX_STAGES_IN_FLIGHT = 8;
 /** Of those, the most one agent may hold: the phone sends at most two at a time (stage-client.ts). */
 export const MAX_STAGES_PER_AGENT = 2;
 

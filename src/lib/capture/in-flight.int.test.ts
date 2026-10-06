@@ -8,7 +8,7 @@ import { makeDevice, type TestDevice } from '../../../tests/helpers/verify';
 import { jcs, sha256Hex, sign } from '../crypto';
 import { capturesInFlight } from './in-flight';
 
-// TASK-20 fix round 1 (review minor 10): at most MAX_CAPTURES_IN_FLIGHT (4) capture bodies are buffered
+// TASK-20 fix round 1 (review minor 10): at most MAX_CAPTURES_IN_FLIGHT (4; 8 since SEC-004) capture bodies are buffered
 // and processed per process. Past that, POST /api/capture answers 503 {t:"error", retryable:true} with
 // Retry-After, before its body is read. Fix round 2 (N2, N7): one agent holds at most 2 slots; the
 // per-address limit is checked before a slot is taken; a body must arrive within the deadline (408); every
@@ -193,16 +193,15 @@ async function stalled(POST: (r: Request) => Promise<Response>, as: string, ip: 
 }
 
 describe('concurrent capture cap (fix round 1)', () => {
-  it('the cap is 4 in flight, and a busy answer asks the phone to retry in 5 s', async () => {
+  it('the cap is 8 in flight, and a busy answer asks the phone to retry in 5 s', async () => {
     const { MAX_CAPTURES_IN_FLIGHT, BUSY_RETRY_AFTER_SEC } = await import('./limits');
-    expect(MAX_CAPTURES_IN_FLIGHT).toBe(4);
+    expect(MAX_CAPTURES_IN_FLIGHT).toBe(8);
     expect(BUSY_RETRY_AFTER_SEC).toBe(5);
   });
 
-  it('with 4 captures in flight (2 in verification, 2 still uploading), a 5th → 503 {t:"error", retryable:true} + Retry-After, body unread; after they finish, captures go through', async () => {
+  it('with 8 captures in flight (2 in verification, 6 still uploading), a 9th → 503 {t:"error", retryable:true} + Retry-After, body unread; after they finish, captures go through', async () => {
     const { POST } = await import('../../app/api/capture/route');
-    const b = await agentCookie('AG-B');
-    const c = await agentCookie('AG-C');
+    const [b, c, d, e] = [await agentCookie('AG-B'), await agentCookie('AG-C'), await agentCookie('AG-D'), await agentCookie('AG-E')];
     holdVerify();
     const both = new Promise<void>((r) => {
       onArrive = () => {
@@ -212,10 +211,12 @@ describe('concurrent capture cap (fix round 1)', () => {
     // Not awaited: a capture's response starts with its first check line, which comes out of verify().
     const running = Array.from({ length: 2 }, async () => POST(await capture()));
     await both; // A's two are past their body and waiting in verify()
-    await stalled(POST, b, '203.0.113.63');
-    await stalled(POST, b, '203.0.113.63');
-    expect(capturesInFlight().total).toBe(4);
-    const { req, pulled } = untouchedBody({ cookie: c, 'x-forwarded-for': '203.0.113.64' });
+    for (const other of [b, c, d]) {
+      await stalled(POST, other, '203.0.113.63');
+      await stalled(POST, other, '203.0.113.63');
+    }
+    expect(capturesInFlight().total).toBe(8);
+    const { req, pulled } = untouchedBody({ cookie: e, 'x-forwarded-for': '203.0.113.64' });
     const busy = await POST(req);
     expect(busy.status).toBe(503);
     expect(busy.headers.get('retry-after')).toBe('5');
@@ -224,7 +225,7 @@ describe('concurrent capture cap (fix round 1)', () => {
     // Fix round 2: the per-address limit runs before a slot is taken, so the busy request was counted.
     expect((await t.client.execute("SELECT key, count FROM rate_limits WHERE key LIKE 'capture:ip:%' ORDER BY key")).rows.map((r) => ({ ...r }))).toEqual([
       { key: 'capture:ip:203.0.113.60', count: 2 },
-      { key: 'capture:ip:203.0.113.63', count: 2 },
+      { key: 'capture:ip:203.0.113.63', count: 6 },
       { key: 'capture:ip:203.0.113.64', count: 1 },
     ]);
     releaseVerify();
@@ -260,10 +261,9 @@ describe('concurrent capture cap (fix round 1)', () => {
 });
 
 describe('capture slots, fix round 2 (N2, N7)', () => {
-  it('one agent holds at most 2 slots: its 3rd → 503 unread and costs no slot; other agents still get the rest; past 4 → 503 for everyone', async () => {
+  it('one agent holds at most 2 slots: its 3rd → 503 unread and costs no slot; other agents still get the rest; past 8 → 503 for everyone', async () => {
     const { POST } = await import('../../app/api/capture/route');
-    const b = await agentCookie('AG-B');
-    const c = await agentCookie('AG-C');
+    const [b, c, d, e] = [await agentCookie('AG-B'), await agentCookie('AG-C'), await agentCookie('AG-D'), await agentCookie('AG-E')];
     await stalled(POST, cookie, '203.0.113.70');
     await stalled(POST, cookie, '203.0.113.70');
     const third = untouchedBody({ 'x-forwarded-for': '203.0.113.70' });
@@ -273,12 +273,14 @@ describe('capture slots, fix round 2 (N2, N7)', () => {
     expect(JSON.parse((await refused.text()).trim())).toEqual({ t: 'error', retryable: true });
     expect(third.pulled()).toBe(false);
     expect(capturesInFlight()).toEqual({ total: 2, agents: { [world.agentId]: 2 } });
-    await stalled(POST, b, '203.0.113.71'); // another agent is not locked out by A's uploads
-    await stalled(POST, b, '203.0.113.71');
-    expect(capturesInFlight().total).toBe(4);
-    const full = untouchedBody({ cookie: c, 'x-forwarded-for': '203.0.113.72' });
+    for (const other of [b, c, d]) {
+      await stalled(POST, other, '203.0.113.71'); // other agents are not locked out by A's uploads
+      await stalled(POST, other, '203.0.113.71');
+    }
+    expect(capturesInFlight().total).toBe(8);
+    const full = untouchedBody({ cookie: e, 'x-forwarded-for': '203.0.113.72' });
     const busy = await POST(full.req);
-    expect(busy.status).toBe(503); // the process-wide cap of 4 still holds
+    expect(busy.status).toBe(503); // the process-wide cap of 8 still holds
     await busy.text();
     expect(full.pulled()).toBe(false);
     // A's first upload breaks off: A may start another one.
@@ -289,21 +291,22 @@ describe('capture slots, fix round 2 (N2, N7)', () => {
     expect(capturesInFlight().agents[world.agentId]).toBe(2);
   });
 
-  it('the per-address limit is checked before a slot is taken: with all 4 slots held, an address over its limit → 429, not 503', async () => {
+  it('the per-address limit is checked before a slot is taken: with all 8 slots held, an address over its limit → 429, not 503', async () => {
     const { POST } = await import('../../app/api/capture/route');
-    const b = await agentCookie('AG-B');
+    const [b, c, d] = [await agentCookie('AG-B'), await agentCookie('AG-C'), await agentCookie('AG-D')];
     const { consume: realConsume } = await vi.importActual<typeof import('../rate-limit')>('../rate-limit');
     const { ipKey, IP_LIMIT } = await vi.importActual<typeof import('./rate-limit')>('./rate-limit');
     // One pinned clock, mid-window, for the fill and for every request after it: the window cannot roll
     // over between them however slow the setup is (it did once under full-suite load: 503 instead of 429).
     rateNow = new Date('2026-10-14T04:15:00.000Z');
     for (let i = 0; i < IP_LIMIT.limit; i++) await realConsume(t.db, ipKey('203.0.113.80'), IP_LIMIT.limit, IP_LIMIT.windowSec, rateNow);
-    await stalled(POST, cookie, '203.0.113.81');
-    await stalled(POST, cookie, '203.0.113.81');
-    await stalled(POST, b, '203.0.113.82');
-    await stalled(POST, b, '203.0.113.82');
-    const c = await agentCookie('AG-C');
-    const over = untouchedBody({ cookie: c, 'x-forwarded-for': '203.0.113.80' });
+    for (const [who, ip] of [[cookie, '203.0.113.81'], [b, '203.0.113.81'], [c, '203.0.113.82'], [d, '203.0.113.82']] as const) {
+      await stalled(POST, who, ip);
+      await stalled(POST, who, ip);
+    }
+    expect(capturesInFlight().total).toBe(8);
+    const e = await agentCookie('AG-E');
+    const over = untouchedBody({ cookie: e, 'x-forwarded-for': '203.0.113.80' });
     const r = await POST(over.req);
     expect(r.status).toBe(429);
     expect(JSON.parse((await r.text()).trim())).toMatchObject({ t: 'rejected', reason: 'rate_limited', status: 429 });

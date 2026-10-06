@@ -45,6 +45,8 @@ async function expectSecureHeaders(page: Page, path: string, tileHost?: string) 
   expect(h['x-content-type-options'], path).toBe('nosniff');
   expect(h['referrer-policy'], path).toBe('strict-origin-when-cross-origin');
   expect(h['permissions-policy'], path).toBe('camera=(self), geolocation=(self), microphone=()');
+  expect(h['strict-transport-security'], path).toBeUndefined(); // SEC-007: production only, never on http://localhost
+  expect(h['x-powered-by'], path).toBeUndefined(); // SEC-102
   // Next put this response's nonce on its bootstrap scripts (chunks they load later need none under
   // 'strict-dynamic'); no script carries any other nonce
   const nonce = /'nonce-([^']+)'/.exec(csp)![1]!;
