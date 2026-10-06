@@ -1,8 +1,8 @@
 import { createPublicClient, createWalletClient, decodeEventLog, defineChain, http, type Abi, type Address, type Hex } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
 import abiJson from './abi/BatchRegistry.json';
 import type { Deployment } from './deployment';
 import { blockWindows, LOG_RANGE_BLOCKS } from './log-range';
+import { evmAccount, receiptOf, sendFrom } from './sender';
 
 // A viem client for BatchRegistry (technical-plan TSK-24.4). SERVER-ONLY. Ledger hashes are 64 lowercase
 // hex without a prefix (§8.1); on chain they are bytes32. The operator key is optional: without it the
@@ -80,7 +80,7 @@ export function createRegistryClient(o: RegistryClientOptions): RegistryClient {
   const confirmations = deployment.confirmations ?? 1;
   const logRange = BigInt(Math.max(1, o.logRangeBlocks ?? LOG_RANGE_BLOCKS));
   const pub = createPublicClient({ chain, transport, pollingInterval: 250 });
-  const account = o.operatorKey ? privateKeyToAccount(o.operatorKey) : undefined;
+  const account = o.operatorKey ? evmAccount(o.operatorKey) : undefined;
   if (account && account.address.toLowerCase() !== deployment.operator.toLowerCase()) {
     throw new Error('EVM operator key does not match the deployment operator');
   }
@@ -107,10 +107,15 @@ export function createRegistryClient(o: RegistryClientOptions): RegistryClient {
     blockNumber: async () => Number(await pub.getBlockNumber({ cacheTime: 0 })),
     async append(seq, entryHash) {
       if (!wallet || !account) throw new Error('EVM registry client has no operator key: read-only');
-      const txHash = await wallet.writeContract({ address: registry, abi: BATCH_REGISTRY_ABI, functionName: 'append', args: [BigInt(seq), toBytes32(entryHash)], account, chain });
+      // One send at a time from the operator, which the agreement actions share (sender.ts, SEC-200).
+      const txHash = await sendFrom(account.address, deployment.chainId, () =>
+        wallet.writeContract({ address: registry, abi: BATCH_REGISTRY_ABI, functionName: 'append', args: [BigInt(seq), toBytes32(entryHash)], account, chain }),
+      );
       // Recorded only after `confirmations` blocks (1 on Anvil). A reorg deeper than that is caught by
       // `pnpm ledger:audit` and the §13.2 check, never repaired silently (docs/proof-feed.md §13.3).
-      const receipt = await pub.waitForTransactionReceipt({ hash: txHash, confirmations, timeout: receiptTimeoutMs(confirmations, o.timeoutMs ?? 30_000) });
+      const receipt = await receiptOf(account.address, deployment.chainId, () =>
+        pub.waitForTransactionReceipt({ hash: txHash, confirmations, timeout: receiptTimeoutMs(confirmations, o.timeoutMs ?? 30_000) }),
+      );
       if (receipt.status !== 'success') throw new Error(`append(${seq}) reverted in tx ${txHash}`);
       return { txHash, blockNumber: Number(receipt.blockNumber) };
     },

@@ -4,6 +4,7 @@ import { generatePrivateKey, privateKeyToAccount, type PrivateKeyAccount } from 
 import { env } from '../config/env';
 import { runtimePath } from '../config/runtime-path';
 import { loadOrCreateKeyFile, type KeyFileCodec } from '../crypto/key-file';
+import { evmAccount } from '../ledger/evm/sender';
 
 // Server-held EVM keys per organisation (technical-plan TSK-25.5, TP15 pattern). SERVER-ONLY.
 //
@@ -86,7 +87,7 @@ export function orgAccount(orgId: string): Promise<PrivateKeyAccount> {
   }
   let p = accounts.get(path);
   if (!p) {
-    p = loadOrCreate(path, orgId).then((k) => privateKeyToAccount(k));
+    p = loadOrCreate(path, orgId).then((k) => evmAccount(k)); // the process nonce manager (SEC-200)
     accounts.set(path, p);
     p.catch(() => accounts.delete(path)); // a failed load is not cached
   }

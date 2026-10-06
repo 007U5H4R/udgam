@@ -32,13 +32,15 @@ else
 fi
 
 # --- pnpm (version pinned by package.json "packageManager") -------------------
-# Strip any `+sha512.…` integrity suffix corepack may append.
+# The version without its `+sha512.…` integrity suffix, to compare with `pnpm --version`; corepack gets
+# the full spec, so it checks the downloaded tarball against that hash (SEC-202).
+PNPM_SPEC="$(node -p 'require("./package.json").packageManager')"
 PNPM_PINNED="$(node -p 'require("./package.json").packageManager.split("@")[1].split("+")[0]')"
 if command -v pnpm >/dev/null 2>&1 && [ "$(pnpm --version)" = "$PNPM_PINNED" ]; then
   ok "pnpm $PNPM_PINNED"
 else
   corepack enable
-  corepack prepare "pnpm@$PNPM_PINNED" --activate
+  corepack prepare "$PNPM_SPEC" --activate
   did "pnpm $PNPM_PINNED activated with corepack"
 fi
 

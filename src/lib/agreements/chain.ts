@@ -14,10 +14,11 @@ import {
   type PublicClient,
   type TransactionReceipt,
 } from 'viem';
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import type { PrivateKeyAccount } from 'viem/accounts';
 import farmingAbi from './abi/ContractFarming.json';
 import tokenAbi from './abi/MockINR.json';
 import { blockWindows, LOG_RANGE_BLOCKS } from '../ledger/evm/log-range';
+import { evmAccount, exclusive, receiptOf, sendFrom } from '../ledger/evm/sender';
 import { orgAccount, type GradeDomain } from './attestor-keys';
 import type { EscrowDeployment } from './deployment';
 
@@ -32,6 +33,10 @@ import type { EscrowDeployment } from './deployment';
 // Errors are classified for the screens (Design.md §28.6): `no_answer` (the ledger did not answer: RPC
 // down, timeout, missing deployment) means nothing moved and nothing was judged; `turned_away` (the
 // contract reverted) means the ledger refused the request before judging it.
+//
+// Sends from one account never overlap in this process (ledger/evm/sender.ts, SEC-200): the operator is
+// shared with the anchoring loop and between buyers' actions, and a buyer's approve/fund pair holds its
+// account so two fundings cannot interleave their allowances.
 
 export const FARMING_ABI = farmingAbi as Abi;
 export const TOKEN_ABI = tokenAbi as Abi;
@@ -144,7 +149,7 @@ export function createEscrowChain(o: EscrowChainOptions): EscrowChain {
   const transport = http(o.rpcUrl, { retryCount: 0, timeout: o.timeoutMs ?? 10_000, onFetchRequest: o.onFetchRequest });
   const pub = createPublicClient({ chain, transport, pollingInterval: 250 }) as PublicClient;
   const logRange = BigInt(Math.max(1, o.logRangeBlocks ?? LOG_RANGE_BLOCKS));
-  const operator = privateKeyToAccount(o.operatorKey);
+  const operator = evmAccount(o.operatorKey);
   if (operator.address.toLowerCase() !== d.operator.toLowerCase()) throw new Error('EVM operator key does not match the escrow deployment operator');
   const wallet = (account: PrivateKeyAccount) => createWalletClient({ account, chain, transport, pollingInterval: 250 });
 
@@ -153,9 +158,11 @@ export function createEscrowChain(o: EscrowChainOptions): EscrowChain {
   /** Simulate (so a revert names its error), send, and wait for a successful receipt. */
   async function send(account: PrivateKeyAccount, address: Address, abi: Abi, functionName: string, args: unknown[]): Promise<TransactionReceipt> {
     try {
-      const { request } = await pub.simulateContract({ account, address, abi, functionName, args, chain });
-      const hash = await wallet(account).writeContract(request);
-      const receipt = await pub.waitForTransactionReceipt({ hash, timeout: o.timeoutMs ?? 30_000 });
+      const hash = await sendFrom(account.address, d.chainId, async () => {
+        const { request } = await pub.simulateContract({ account, address, abi, functionName, args, chain });
+        return wallet(account).writeContract(request);
+      });
+      const receipt = await receiptOf(account.address, d.chainId, () => pub.waitForTransactionReceipt({ hash, timeout: o.timeoutMs ?? 30_000 }));
       if (receipt.status !== 'success') throw new ChainError('turned_away', `${functionName} reverted`);
       return receipt;
     } catch (e) {
@@ -221,8 +228,8 @@ export function createEscrowChain(o: EscrowChainOptions): EscrowChain {
       const account = await orgAccount(orgId);
       try {
         if ((await pub.getBalance({ address: account.address })) < MIN_GAS) {
-          const hash = await wallet(operator).sendTransaction({ account: operator, to: account.address, value: GAS_TOP_UP, chain });
-          await pub.waitForTransactionReceipt({ hash, timeout: o.timeoutMs ?? 30_000 });
+          const hash = await sendFrom(operator.address, d.chainId, () => wallet(operator).sendTransaction({ account: operator, to: account.address, value: GAS_TOP_UP, chain }));
+          await receiptOf(operator.address, d.chainId, () => pub.waitForTransactionReceipt({ hash, timeout: o.timeoutMs ?? 30_000 }));
         }
       } catch (e) {
         throw toChainError(e);
@@ -247,8 +254,12 @@ export function createEscrowChain(o: EscrowChainOptions): EscrowChain {
         if (tx) return tx;
       }
       const account = await orgAccount(orgId);
-      await send(account, d.token, TOKEN_ABI, 'approve', [d.escrow, amountPaise]);
-      return txOf(await send(account, d.escrow, FARMING_ABI, 'fund', [id]));
+      // approve then fund, holding the buyer's account: another funding's approve in between would
+      // overwrite this allowance and its own fund would take it.
+      return exclusive(account.address, d.chainId, async () => {
+        await send(account, d.token, TOKEN_ABI, 'approve', [d.escrow, amountPaise]);
+        return txOf(await send(account, d.escrow, FARMING_ABI, 'fund', [id]));
+      });
     },
 
     async refund(orgId, id) {
