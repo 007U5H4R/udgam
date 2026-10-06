@@ -90,7 +90,7 @@ const schema = base
     // EXE12 (CF-11): fixture satellite answers must never reach a real deployment. The one exception is
     // E2E=1 — the Playwright server (`next build && next start`, so NODE_ENV=production), which also
     // exposes the test-only routes and so is never set in a real deployment. DEMO_MODE is no exception.
-    if (v.NODE_ENV === 'production' && v.REMOTE_SENSING_PROVIDER === 'fixture' && v.E2E !== '1') {
+    if (realDeployment(v) && v.REMOTE_SENSING_PROVIDER === 'fixture') {
       ctx.addIssue({
         code: 'custom',
         path: ['REMOTE_SENSING_PROVIDER'],
