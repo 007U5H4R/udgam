@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { env } from '../../../../lib/config/env';
 import { getDbReady } from '../../../../lib/db/client';
 import { log } from '../../../../lib/log';
+import { errFields } from '../../../_log/err-fields';
 import { requireSession } from '../../../_auth/require';
 import { demoEnabled, isAttackId, submitStaged, type SubmitResult } from './attacks';
 
@@ -22,7 +23,7 @@ export async function submitAttack(id: unknown): Promise<SubmitResult> {
     if (!r.ok) log.warn({ reason: r.reason, status: r.status }, 'demo.attack_refused');
     return r;
   } catch (err) {
-    log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'demo.attack_failed');
+    log.error(errFields(err), 'demo.attack_failed');
     return { ok: false, reason: 'failed', status: 500 };
   }
 }

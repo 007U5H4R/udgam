@@ -9,6 +9,7 @@ import { refundSignIn, reserveSignIn, type SignInReservation } from '../../../li
 import { clientIp } from '../../../lib/client-ip';
 import { getDbReady } from '../../../lib/db/client';
 import { log } from '../../../lib/log';
+import { errFields } from '../../_log/err-fields';
 import { appAuth } from '../../_auth/auth';
 
 // Sign-in and sign-out Server Actions (TKT-04). Public by nature: they create or end a session and
@@ -69,7 +70,7 @@ async function refund(reservation: SignInReservation): Promise<void> {
   try {
     await refundSignIn(await getDbReady(), reservation);
   } catch (err) {
-    log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'auth.sign_in_refund_failed');
+    log.error(errFields(err), 'auth.sign_in_refund_failed');
   }
 }
 

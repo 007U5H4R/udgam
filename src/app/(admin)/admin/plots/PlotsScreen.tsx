@@ -5,6 +5,7 @@ import pill from '../../../../components/ui/Pill.module.css';
 import { RailShell } from '../../../../components/ui/Rail';
 import { formatHa } from '../../../../lib/geo/area';
 import { log } from '../../../../lib/log';
+import { errFields } from '../../../_log/err-fields';
 import type { PlotSummary } from '../../../../lib/plots/plots';
 import { CROP_TEXT, STATUS_TEXT } from './copy';
 import { Icon, StatusMark } from './marks';
@@ -151,7 +152,7 @@ export async function loadList(forced: ViewState | null, load: () => Promise<Plo
     const plots = await load();
     return { state: plots.length === 0 ? 'empty' : 'working', plots };
   } catch (err) {
-    log.error({ errClass: err instanceof Error ? err.constructor.name : 'unknown' }, 'plots.list_failed');
+    log.error(errFields(err), 'plots.list_failed');
     return { state: 'error', plots: [] };
   }
 }
@@ -162,7 +163,7 @@ export async function adminName(load: () => Promise<string | null>): Promise<{ n
     const name = await load();
     return name ? { name } : undefined;
   } catch (err) {
-    log.error({ errClass: err instanceof Error ? err.constructor.name : 'unknown' }, 'plots.admin_name_failed');
+    log.error(errFields(err), 'plots.admin_name_failed');
     return undefined;
   }
 }

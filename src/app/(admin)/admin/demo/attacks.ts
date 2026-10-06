@@ -7,6 +7,7 @@ import type { Db } from '../../../../lib/db/client';
 import { isAttackId, type AttackId, type AttackManifest } from '../../../../lib/demo/manifest';
 import { farmers, harvestEvents, plots, user, verificationRuns } from '../../../../lib/db/schema';
 import { log } from '../../../../lib/log';
+import { errFields } from '../../../_log/err-fields';
 import type { CheckResult, Verdict } from '../../../../lib/verification/types';
 import { POST as capturePost } from '../../../api/capture/route';
 
@@ -153,7 +154,7 @@ export async function submitStaged(db: Db, dataDir: string, id: AttackId, orgId:
     try {
       await auth.api.signOut({ headers: new Headers({ cookie }) });
     } catch (err) {
-      log.warn({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'demo.agent_signout_failed');
+      log.warn(errFields(err), 'demo.agent_signout_failed');
     }
   }
 }

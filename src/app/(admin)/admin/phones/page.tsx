@@ -5,6 +5,7 @@ import { getDbReady } from '../../../../lib/db/client';
 import { formatIst, listPhones, userName, type PhonesView, type PlotOption } from '../../../../lib/enrolment/phones';
 import { t } from '../../../../lib/i18n';
 import { log } from '../../../../lib/log';
+import { errFields } from '../../../_log/err-fields';
 import { requireSession } from '../../../_auth/require';
 import { PhonesClient, type AgentView, type Option } from './PhonesClient';
 import { PhonesEmpty, PhonesError, PhonesSkeleton } from './states';
@@ -59,7 +60,7 @@ export default async function PhonesPage({ searchParams }: { searchParams: Promi
       name = await userName(db, admin.userId);
       agents = toView(await listPhones(db, admin.orgId));
     } catch (err) {
-      log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'phones.load_failed');
+      log.error(errFields(err), 'phones.load_failed');
     }
   }
   const state = forced ?? (agents === null ? 'error' : agents.length === 0 ? 'empty' : 'working');

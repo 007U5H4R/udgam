@@ -7,6 +7,7 @@ import { getFieldHome, type FieldHome } from '../../../lib/db/queries/field-home
 import { getHelpInfo, type HelpInfo } from '../../../lib/db/queries/field-help';
 import { t, type Lang } from '../../../lib/i18n';
 import { log } from '../../../lib/log';
+import { errFields } from '../../_log/err-fields';
 import type { Guarded } from '../../_auth/require';
 import { forcedState, langFromCookies, throwIfForced } from './route-state';
 
@@ -49,7 +50,7 @@ export async function renderFieldHome(agent: Guarded, searchParams: Promise<Reco
       const db = await getDbReady();
       [home, help] = await Promise.all([getFieldHome(db, agent.userId, agent.orgId), getHelpInfo(db, agent.userId, agent.orgId)]);
     } catch (err) {
-      log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'field.home_failed');
+      log.error(errFields(err), 'field.home_failed');
     }
   }
   if (!home || !help) return <HomeError lang={lang} />;
