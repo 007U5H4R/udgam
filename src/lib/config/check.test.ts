@@ -49,3 +49,28 @@ describe('configCheckLine', () => {
     expect(line).not.toContain('\n');
   });
 });
+
+describe('invalidEnvNames lists every invalid variable, also when a field and a cross-variable rule both fail', () => {
+  // zod skips an object's refinements once one of its fields fails; the names must not depend on that.
+  it('a bad LOG_LEVEL does not hide the production rules', () => {
+    expect(invalidEnvNames({ NODE_ENV: 'production', LOG_LEVEL: 'bogus', REMOTE_SENSING_PROVIDER: 'live', PUBLIC_BASE_URL: 'http://insecure.example' })).toEqual([
+      'BETTER_AUTH_SECRET',
+      'BETTER_AUTH_URL',
+      'PUBLIC_BASE_URL',
+      'GFW_API_KEY',
+      'CDSE_CLIENT_ID',
+      'CDSE_CLIENT_SECRET',
+      'LOG_LEVEL',
+    ]);
+  });
+
+  it('a bad number does not hide the fixture provider in production, and a too-short secret is named once', () => {
+    expect(
+      invalidEnvNames({ NODE_ENV: 'production', CAPTURE_DAILY_MAX_BYTES: '-1', BETTER_AUTH_SECRET: 'short', PUBLIC_BASE_URL: 'https://ok.example', BETTER_AUTH_URL: 'https://ok.example' }),
+    ).toEqual(['BETTER_AUTH_SECRET', 'REMOTE_SENSING_PROVIDER', 'CAPTURE_DAILY_MAX_BYTES']);
+  });
+
+  it('an invalid NODE_ENV is named, and the production-only rules are not guessed at', () => {
+    expect(invalidEnvNames({ NODE_ENV: 'prod', LOG_LEVEL: 'bogus' })).toEqual(['NODE_ENV', 'LOG_LEVEL']);
+  });
+});

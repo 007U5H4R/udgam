@@ -68,48 +68,45 @@ function absoluteHttps(v: string | undefined): boolean {
   }
 }
 
+type Variables = z.output<typeof base>;
+
+/**
+ * The rules that span several variables, on whatever variables are known (a field that failed its own
+ * rule is absent). One list for the schema's refinement and for invalidEnvNames.
+ */
+function crossVariableIssues(v: Partial<Variables>): { name: keyof Variables; message: string }[] {
+  const issues: { name: keyof Variables; message: string }[] = [];
+  if (v.REMOTE_SENSING_PROVIDER === 'live') {
+    for (const name of ['GFW_API_KEY', 'CDSE_CLIENT_ID', 'CDSE_CLIENT_SECRET'] as const) {
+      if (!v[name]) issues.push({ name, message: 'required when REMOTE_SENSING_PROVIDER=live' });
+    }
+  }
+  if (v.NODE_ENV === 'production' && !v.BETTER_AUTH_SECRET) {
+    issues.push({ name: 'BETTER_AUTH_SECRET', message: 'required when NODE_ENV=production' });
+  }
+  const real = v.NODE_ENV !== undefined && realDeployment({ NODE_ENV: v.NODE_ENV, E2E: v.E2E });
+  // EXE12 (CF-11): fixture satellite answers must never reach a real deployment. The one exception is
+  // E2E=1 — the Playwright server (`next build && next start`, so NODE_ENV=production), which also
+  // exposes the test-only routes and so is never set in a real deployment. DEMO_MODE is no exception.
+  if (real && v.REMOTE_SENSING_PROVIDER === 'fixture') {
+    issues.push({ name: 'REMOTE_SENSING_PROVIDER', message: 'must be live when NODE_ENV=production (fixture only with E2E=1)' });
+  }
+  // DES-219 (QA-P6-8-3): QR codes, link previews, canonical URLs, GeoJSON certificate links and Better
+  // Auth's origin check are built from these. In a real deployment both are required and https: no
+  // silent http://localhost:3000 fallback. Same exception as the test surfaces and HSTS (SEC-007):
+  // the Playwright production build (E2E=1) runs on http://localhost.
+  if (real) {
+    for (const name of ['PUBLIC_BASE_URL', 'BETTER_AUTH_URL'] as const) {
+      // An unset PUBLIC_BASE_URL has its http://localhost default here, which fails the rule too.
+      if (!absoluteHttps(v[name])) issues.push({ name, message: 'must be an absolute https:// URL when NODE_ENV=production (http only with E2E=1)' });
+    }
+  }
+  return issues;
+}
+
 const schema = base
   .superRefine((v, ctx) => {
-    if (v.REMOTE_SENSING_PROVIDER === 'live') {
-      for (const name of ['GFW_API_KEY', 'CDSE_CLIENT_ID', 'CDSE_CLIENT_SECRET'] as const) {
-        if (!v[name]) {
-          ctx.addIssue({
-            code: 'custom',
-            path: [name],
-            message: 'required when REMOTE_SENSING_PROVIDER=live',
-          });
-        }
-      }
-    }
-    if (v.NODE_ENV === 'production' && !v.BETTER_AUTH_SECRET) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['BETTER_AUTH_SECRET'],
-        message: 'required when NODE_ENV=production',
-      });
-    }
-    // EXE12 (CF-11): fixture satellite answers must never reach a real deployment. The one exception is
-    // E2E=1 — the Playwright server (`next build && next start`, so NODE_ENV=production), which also
-    // exposes the test-only routes and so is never set in a real deployment. DEMO_MODE is no exception.
-    if (realDeployment(v) && v.REMOTE_SENSING_PROVIDER === 'fixture') {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['REMOTE_SENSING_PROVIDER'],
-        message: 'must be live when NODE_ENV=production (fixture only with E2E=1)',
-      });
-    }
-    // DES-219 (QA-P6-8-3): QR codes, link previews, canonical URLs, GeoJSON certificate links and Better
-    // Auth's origin check are built from these. In a real deployment both are required and https: no
-    // silent http://localhost:3000 fallback. Same exception as the test surfaces and HSTS (SEC-007):
-    // the Playwright production build (E2E=1) runs on http://localhost.
-    if (realDeployment(v)) {
-      for (const name of ['PUBLIC_BASE_URL', 'BETTER_AUTH_URL'] as const) {
-        // An unset PUBLIC_BASE_URL has its http://localhost default here, which fails the rule too.
-        if (!absoluteHttps(v[name])) {
-          ctx.addIssue({ code: 'custom', path: [name], message: 'must be an absolute https:// URL when NODE_ENV=production (http only with E2E=1)' });
-        }
-      }
-    }
+    for (const i of crossVariableIssues(v)) ctx.addIssue({ code: 'custom', path: [i.name], message: i.message });
   })
   .transform((v) => ({
     ...v,
@@ -119,10 +116,15 @@ const schema = base
 
 export type Env = Readonly<z.output<typeof schema>>;
 
-function parseEnv(src: Record<string, string | undefined>) {
+/** Empty strings count as unset (a copied `.env.example` has `NAME=`). */
+function cleanEnv(src: Record<string, string | undefined>): Record<string, string> {
   const cleaned: Record<string, string> = {};
   for (const [k, v] of Object.entries(src)) if (v !== undefined && v !== '') cleaned[k] = v;
-  return schema.safeParse(cleaned);
+  return cleaned;
+}
+
+function parseEnv(src: Record<string, string | undefined>) {
+  return schema.safeParse(cleanEnv(src));
 }
 
 /**
@@ -133,6 +135,15 @@ export function invalidEnvNames(src: Record<string, string | undefined>): string
   const result = parseEnv(src);
   if (result.success) return [];
   const failing = new Set(result.error.issues.map((i) => (i.path.length > 0 ? String(i.path[0]) : '(env)')));
+  // zod runs the object's refinement only when every field parsed, so one bad field would hide the
+  // cross-variable rules. Run them again on the fields that did parse, each on its own.
+  const cleaned = cleanEnv(src);
+  const parsed: Record<string, unknown> = {};
+  for (const [k, field] of Object.entries(base.shape)) {
+    const r = field.safeParse(cleaned[k]);
+    if (r.success) parsed[k] = r.data;
+  }
+  for (const i of crossVariableIssues(parsed as Partial<Variables>)) failing.add(i.name);
   const rank = (n: string) => (VARIABLE_NAMES.includes(n) ? VARIABLE_NAMES.indexOf(n) : VARIABLE_NAMES.length);
   return [...failing].sort((a, b) => rank(a) - rank(b));
 }
