@@ -1,9 +1,8 @@
-import { basename, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { invalidEnvNames } from './env';
 
-// The container's configuration check (EXE55, TKT-27/28). deploy/build-tools.mjs bundles this file as
-// /app/config-check.mjs, and deploy/entrypoint.sh runs it before the migrations:
+// The container's configuration check (EXE55, TKT-27/28). deploy/build-tools.mjs bundles its command,
+// src/lib/config/check-cli.ts, as /app/config-check.mjs, and deploy/entrypoint.sh runs it before the
+// migrations:
 //
 //   valid:    exit 0, no output;
 //   invalid:  ONE line on stderr, `config.invalid: NAME, NAME`, then exit 1. Variable names only,
@@ -18,18 +17,4 @@ import { invalidEnvNames } from './env';
 export function configCheckLine(src: Record<string, string | undefined>): string | null {
   const names = invalidEnvNames(src);
   return names.length === 0 ? null : `config.invalid: ${names.join(', ')}`;
-}
-
-/** Whether this module is the command being run (the bundle, or the source file under tsx). */
-export function isConfigCheckCommand(moduleUrl: string, argv1: string | undefined): boolean {
-  if (!argv1 || !/^(config-check\.mjs|check\.ts)$/.test(basename(argv1))) return false;
-  return moduleUrl === pathToFileURL(resolve(argv1)).href;
-}
-
-if (isConfigCheckCommand(import.meta.url, process.argv[1])) {
-  const line = configCheckLine(process.env);
-  if (line !== null) {
-    process.stderr.write(`${line}\n`);
-    process.exitCode = 1;
-  }
 }

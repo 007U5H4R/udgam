@@ -27,7 +27,7 @@ import { pathToFileURL } from 'node:url';
 /** Bundle name → its entry point. */
 export const TOOLS = {
   'migrate.mjs': 'src/lib/db/migrate.ts',
-  'config-check.mjs': 'src/lib/config/check.ts',
+  'config-check.mjs': 'src/lib/config/check-cli.ts',
   'accounts-create.mjs': 'scripts/accounts-create.ts',
   'accounts-set-password.mjs': 'scripts/accounts-set-password.ts',
 };

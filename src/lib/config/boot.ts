@@ -13,7 +13,7 @@ import { loadEnv } from './env';
 // Compose healthcheck (it needs a 200) marks the container unhealthy and the uptime probe alerts.
 //
 // EXE55: in the production container this path is not reached. deploy/entrypoint.sh runs the same
-// validation first (src/lib/config/check.ts, bundled as /app/config-check.mjs), prints one
+// validation first (src/lib/config/check-cli.ts, bundled as /app/config-check.mjs), prints one
 // `config.invalid: <names>` line and exits, so the deploy gate rolls back at once. This in-process path
 // covers every other way the server runs (a plain `next start`).
 

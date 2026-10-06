@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createClient } from '@libsql/client';
@@ -70,8 +70,8 @@ describe('the bundled migration runner', () => {
 // EXE55: the entrypoint runs config-check.mjs before migrate.mjs. An invalid environment stops the
 // container with one `config.invalid: <names>` line on stderr: never a value, never a stack trace.
 describe('the bundled configuration check', () => {
-  const check = (env: Record<string, string>) =>
-    spawnSync('node', [join(OUT_DIR, 'config-check.mjs')], { encoding: 'utf8', env: { NODE_ENV: 'test', PATH: process.env.PATH ?? '', ...env } });
+  const check = (env: Record<string, string>, file = join(OUT_DIR, 'config-check.mjs')) =>
+    spawnSync('node', [file], { encoding: 'utf8', env: { NODE_ENV: 'test', PATH: process.env.PATH ?? '', ...env } });
   /** Made-up values, built at run time, that must never be printed. */
   const fake = (n: string) => ['fake', 'value', n].join('-');
 
@@ -88,5 +88,21 @@ describe('the bundled configuration check', () => {
     expect(r.stdout).toBe('');
     expect(r.stderr).toBe('config.invalid: BETTER_AUTH_SECRET, BETTER_AUTH_URL, PUBLIC_BASE_URL, CDSE_CLIENT_SECRET\n');
     expect(r.stderr).not.toContain('fake-value');
+  });
+
+  it('never fails open: renamed, or run through a symlinked directory, it still checks (no main-module guard)', () => {
+    const renamed = join(OUT_DIR, 'renamed-check.mjs');
+    copyFileSync(join(OUT_DIR, 'config-check.mjs'), renamed);
+    const linkedDir = `${OUT_DIR}-link`;
+    symlinkSync(OUT_DIR, linkedDir);
+    try {
+      for (const file of [renamed, join(linkedDir, 'config-check.mjs')]) {
+        const r = check({ NODE_ENV: 'production' }, file);
+        expect(r.status, file).toBe(1);
+        expect(r.stderr).toMatch(/^config\.invalid: BETTER_AUTH_SECRET/);
+      }
+    } finally {
+      rmSync(linkedDir, { force: true });
+    }
   });
 });

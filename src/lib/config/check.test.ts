@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { configCheckLine, isConfigCheckCommand } from './check';
+import { configCheckLine } from './check';
 import { invalidEnvNames } from './env';
 
 // EXE55: in the container, the entrypoint checks the configuration before it migrates, and an invalid
@@ -47,13 +47,5 @@ describe('configCheckLine', () => {
     expect(line).toBe('config.invalid: BETTER_AUTH_SECRET, BETTER_AUTH_URL, PUBLIC_BASE_URL, CDSE_CLIENT_ID');
     expect(line).not.toContain('not-a-real');
     expect(line).not.toContain('\n');
-  });
-});
-
-describe('isConfigCheckCommand', () => {
-  it('runs only as the image bundle or the source file itself', () => {
-    expect(isConfigCheckCommand('file:///app/config-check.mjs', '/app/config-check.mjs')).toBe(true);
-    expect(isConfigCheckCommand('file:///app/accounts-create.mjs', '/app/accounts-create.mjs')).toBe(false);
-    expect(isConfigCheckCommand('file:///app/config-check.mjs', undefined)).toBe(false);
   });
 });
