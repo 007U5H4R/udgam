@@ -8,8 +8,12 @@
 # never reaches the app. `trusted_proxies` stays unset (no proxy sits in front of Caddy), and the app
 # port is never published (deploy/docker-compose.yml). tests/deploy/forged-header.stack.test.ts proves it.
 #
-# Request bodies (SEC-005). Caddy refuses an oversized body with 413 before the app reads a byte; the
-# app keeps its own exact limits behind these.
+# Request bodies (SEC-005). `request_body` caps how many bytes can REACH the app: the app reads the body
+# through Caddy, and the read fails with 413 at the first byte past the cap, so the app never buffers
+# more. It is not an early refusal on Content-Length: a handler that answers before reading (a 401, a
+# 411) never reads the body at all, and its bytes are discarded. (Refusing on the declared length would
+# need a numeric matcher; Caddy's header matchers are textual and a CEL int() of a missing header fails
+# the request, so it is not done.) The app keeps its own exact limits behind these.
 #   /api/capture*                  32MB  (3 x 10 MiB photos + the signed payload: MAX_BODY_BYTES 30.25 MiB)
 #   /admin/plots/<id>/attestation  11MiB (an organic certificate, 10 MiB + a 64 KiB form envelope)
 #   /admin*                        3MiB  (Server Actions: the plot upload actions take up to 2 MiB, under

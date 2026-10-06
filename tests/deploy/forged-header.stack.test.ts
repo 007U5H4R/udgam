@@ -124,3 +124,16 @@ describe.skipIf(!BASE)('behind Caddy, forged X-Forwarded-For / X-Real-IP share o
     expect(forgedKeys()).toEqual([]);
   });
 });
+
+// Fix round 1, Q9 (SEC-005): the request_body caps hold behind Caddy. A route that reads its body (the
+// sign-in page's Server Action, an admin page's) gets 413 one byte past its cap and not at the cap.
+describe.skipIf(!BASE || BASE.startsWith('http:'))('behind Caddy, request bodies are capped (SEC-005)', () => {
+  it.each([
+    ['/sign-in', 1_000_000],
+    ['/admin/plots/new', 3 * 1024 * 1024],
+  ])('%s: %d bytes pass to the app, one more is refused with 413', async (path, cap) => {
+    const post = (n: number) => send(path, { method: 'POST', body: Buffer.alloc(n, 0x61), headers: { 'content-type': 'application/octet-stream' } });
+    expect((await post(cap)).status).not.toBe(413);
+    expect((await post(cap + 1)).status).toBe(413);
+  }, 60_000);
+});
