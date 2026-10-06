@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { runtimePath } from '../../../../lib/config/runtime-path';
 import { and, desc, eq } from 'drizzle-orm';
 import { createAuth } from '../../../../lib/auth/auth';
 import type { Env } from '../../../../lib/config/env';
@@ -29,14 +29,14 @@ export function demoEnabled(e: DemoEnv): boolean {
 
 export { isAttackId, type AttackId, type AttackManifest };
 
-const attacksDir = (dataDir: string) => join(dataDir, 'demo', 'attacks');
+const attacksDir = (dataDir: string) => runtimePath(dataDir, 'demo', 'attacks');
 const SAFE_NAME = /^photo\d\.jpg$/;
 
 /** The staged attacks, or null when the seed has not staged them (or the file is not one we wrote). */
 export async function readManifest(dataDir: string): Promise<AttackManifest | null> {
   let m: AttackManifest;
   try {
-    m = JSON.parse(await readFile(join(attacksDir(dataDir), 'manifest.json'), 'utf8')) as AttackManifest;
+    m = JSON.parse(await readFile(runtimePath(attacksDir(dataDir), 'manifest.json'), 'utf8')) as AttackManifest;
   } catch {
     return null;
   }
@@ -83,7 +83,7 @@ export async function attackStatuses(db: Db, orgId: string, m: AttackManifest): 
 /** The staging agent's password from DATA_DIR/seed-credentials.txt (written by the seed, 0600). */
 async function seededPassword(dataDir: string, email: string): Promise<string | null> {
   try {
-    const lines = (await readFile(join(dataDir, 'seed-credentials.txt'), 'utf8')).split('\n');
+    const lines = (await readFile(runtimePath(dataDir, 'seed-credentials.txt'), 'utf8')).split('\n');
     for (const l of lines) {
       const [, e, p] = l.split('\t');
       if (e === email && p) return p;
@@ -127,14 +127,14 @@ export async function submitStaged(db: Db, dataDir: string, id: AttackId, orgId:
   if (!m || !a) return { ok: false, reason: 'not_staged', status: 404 };
   const [agent] = await db.select({ orgId: user.orgId }).from(user).where(eq(user.email, m.agentEmail)).limit(1);
   if (!agent || agent.orgId !== orgId) return { ok: false, reason: 'not_staged', status: 404 };
-  const dir = join(attacksDir(dataDir), a.id);
+  const dir = runtimePath(attacksDir(dataDir), a.id);
   let payload: string;
   let signature: string;
   let photos: Uint8Array<ArrayBuffer>[];
   try {
-    payload = await readFile(join(dir, 'payload.json'), 'utf8');
-    signature = (await readFile(join(dir, 'signature.txt'), 'utf8')).trim();
-    photos = await Promise.all(a.photos.map(async (p) => new Uint8Array(await readFile(join(dir, p)))));
+    payload = await readFile(runtimePath(dir, 'payload.json'), 'utf8');
+    signature = (await readFile(runtimePath(dir, 'signature.txt'), 'utf8')).trim();
+    photos = await Promise.all(a.photos.map(async (p) => new Uint8Array(await readFile(runtimePath(dir, p)))));
   } catch {
     return { ok: false, reason: 'not_staged', status: 404 };
   }
