@@ -35,6 +35,17 @@ Every command below runs as root. Start a root shell once with `sudo -i`, as the
 - **Migrations run at boot, with the app's own runner (EXE29).** The entrypoint runs `migrate.mjs`, a
   bundle of `src/lib/db/migrate.ts`, before `node server.js`. It never runs `drizzle-kit migrate`.
   Migrations are forward-only: a failed migration stops the container from starting.
+- **An invalid configuration stops the container (EXE55).** Before migrating, the entrypoint runs
+  `config-check.mjs`. With an invalid `app.env` it prints one line, `config.invalid: <variable
+  names>` (never a value), and exits 1. `restart: unless-stopped` then restarts it in a loop: a
+  deploy's gate fails at once on `restarting` and rolls back, Caddy answers 502 meanwhile, and the
+  uptime probe alerts. Read the line with
+  `deploy/compose.sh logs --no-log-prefix app | grep '^config.invalid' | tail -1`. Outside the
+  container, a plain `next start` stays up and answers 503 `config:"error"` instead
+  (`docs/ops/monitoring.md` §1).
+- **The image's operator tools** are bundled `.mjs` files beside `server.js`
+  (`deploy/build-tools.mjs`): `migrate.mjs`, `config-check.mjs`, and the accounts CLI
+  `accounts-create.mjs` and `accounts-set-password.mjs` (`docs/ops/monitoring.md` §5).
 - **Secrets stay in `/etc/udgam/app.env`** (0600 root). The owner types them in on the instance. They
   are never echoed, committed or pasted into a session.
   - Validate the stack with **`deploy/compose.sh config --quiet` only**.
@@ -63,6 +74,7 @@ lsblk                                                         # find the block v
 UDGAM_VOLUME_DEVICE=/dev/oracleoci/oraclevdb /opt/udgam/deploy/bootstrap.sh --dry-run
 UDGAM_VOLUME_DEVICE=/dev/oracleoci/oraclevdb UDGAM_FORMAT_VOLUME=1 /opt/udgam/deploy/bootstrap.sh   # formats only an empty volume
 /opt/udgam/deploy/bootstrap.sh                                # again: must print no "did:" line
+# bootstrap.sh refuses any host that is not aarch64 (it formats volumes and rewrites the firewall).
 df -h /mnt/udgam-data
 editor /etc/udgam/app.env      # fill the values (deploy/app.env.example names them; UDGAM_DOMAIN included)
 editor /etc/udgam/backup.env   # AGE_RECIPIENT, OCI_BUCKET (deploy/backup.env.example)
@@ -91,7 +103,7 @@ A deploy runs these steps:
    becomes the one `--restore-db` uses only at this point.
 6. It runs `up -d`. If that fails, the gate fails, and compose's error stays on the terminal.
 7. It waits up to 90 s for the app container to run exactly `:current`'s image and report healthy.
-   A crash loop fails at once.
+   A crash loop fails at once, including an invalid `app.env` (the `config.invalid` line, EXE55).
 8. If the gate fails, it puts both tags back as they were, brings the old image up through the same
    gate, and exits 1.
 
@@ -99,6 +111,24 @@ The failed image keeps its `<sha>` tag for inspection. `--rollback` swaps the im
 checkout stays where it is. It refuses when both tags name the same image. `--restore-db` checks
 that a pre-deploy snapshot is recorded before anything moves, and it loses every write made since
 that deploy. The replaced files are kept in `/mnt/udgam-data/pre-restore-<time>/`.
+
+`--restore-db` runs `restore.sh --undo-if-unhealthy`. From the swap until the older image is healthy on
+the snapshot, any failure or signal makes `restore.sh` undo: it stops the app (or kills it if it will
+not stop), drops the snapshot's own `-wal`/`-shm`, and puts every live file back. Signals are ignored
+while the undo runs, so it always finishes. If the rollback fails, both tags go back to where they
+were. What happens next depends on `restore.sh`'s status:
+
+| Status | Meaning | What `deploy.sh` does |
+|---|---|---|
+| 0 | restored, healthy on the snapshot | the rollback is done |
+| 1 | failed; the live files are in place (nothing moved yet, or the undo put them all back) | brings the image that was running up again on the live files, through the gate; exits 1 |
+| 3 | some live files could not be put back: the data directory is mixed, the app is stopped | starts nothing; the log names `pre-restore-<time>/`. Move the files back by hand, then `deploy/compose.sh up -d app` |
+| 4 | the app could be neither stopped nor killed: it may still run on the snapshot; nothing was moved back | starts nothing; stop the app, move `pre-restore-<time>/`'s files back, then `up -d app` |
+| 130, 143, other | interrupted (SIGINT/SIGTERM) or an unexpected failure. After a signal during the swap or the undo, the live files are back and the app is stopped; before the swap, nothing changed | starts nothing; the data state is reported as unknown. Check `restore.sh`'s lines and `/mnt/udgam-data` before `up -d app` |
+
+The snapshot is never served once the rollback has failed, and no write is lost. A restore run by hand
+(a recovery, without `--undo-if-unhealthy`) leaves an unhealthy app on the restored files and names
+the folder, as before.
 
 During the health gate, Caddy serves the new version as it is. A version that boots but answers 503
 is visible to users until the rollback. Measured locally: about 94 s. That is the price of one
@@ -290,9 +320,16 @@ docker run -d --name udgam-drill --network none --read-only --tmpfs /tmp --tmpfs
   -e LEDGER_ADAPTER=hashchain -v "$drill:/data" udgam-app:current
 # --network none and no -p: never published, and it can never reach production's Anvil or the
 # providers. Its provider status reads "error", which doesn't affect /api/health's 200.
-until [ "$(docker inspect -f '{{.State.Health.Status}}' udgam-drill)" = healthy ]; do sleep 2; done
+# Wait at most 3 minutes for healthy. If it never gets there, STOP: the last log lines say why. Record
+# the failure, then clean up with the last line of this block (docker rm -f …; rm -rf …).
+timeout 180 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" udgam-drill)" = healthy ]; do sleep 2; done' ||
+  { echo "drill app not healthy within 180 s: STOP HERE"; docker logs --tail 50 udgam-drill; }
 docker exec udgam-drill node -e "fetch('http://127.0.0.1:3000/api/verify/<batchId>?h=<shortHash>').then(r=>r.text()).then(t=>require('fs').writeFileSync('/tmp/feed.json',t))"
-docker exec udgam-drill node -e "fetch('http://127.0.0.1:3000/.well-known/udgam-ledger-key').then(r=>r.text()).then(console.log)"   # same kid as https://<domain>/.well-known/udgam-ledger-key
+docker exec udgam-drill node -e "fetch('http://127.0.0.1:3000/.well-known/udgam-ledger-key').then(r=>r.text()).then(t=>require('fs').writeFileSync('/tmp/keys.json',t))"
+# Copy both out BEFORE removing the container: its /tmp is a tmpfs and goes with it.
+docker cp udgam-drill:/tmp/feed.json "/root/drill-$ts-feed.json"
+docker cp udgam-drill:/tmp/keys.json "/root/drill-$ts-keys.json"
+grep -o '"kid":"[^"]*"' "/root/drill-$ts-keys.json"     # same kid as https://<domain>/.well-known/udgam-ledger-key
 # Verify that feed with the clean-room checker (evals/scorers/independent-verifier/cli.ts <feed.json>
 # <keys.json>) in a node container, or open the production certificate in a browser and compare its kid.
 docker rm -f udgam-drill && rm -rf "$drill"                                              # clean up

@@ -2,7 +2,8 @@
 // Check what `output: 'standalone'` put into the server artifact before it goes into the image (TSK-27.1).
 //
 // Usage: node deploy/check-standalone.mjs <standalone-dir> [--max-mb N]
-//   standalone-dir  .next/standalone after `next build` (before public/ and .next/static are copied in)
+//   standalone-dir  .next/standalone after `next build` and deploy/build-tools.mjs (before public/ and
+//                   .next/static are copied in)
 //   --max-mb        the size budget in MB (default 150; a healthy build is about 70 MB)
 //
 // QA-M002-3: one unscoped dynamic path made Next trace the whole project into the server output. The
@@ -16,6 +17,7 @@
 // Paths only are printed, never contents. Exit 1 on a failure, 2 when the directory or server.js is missing.
 import { lstatSync, readdirSync, statSync } from 'node:fs';
 import { basename, join, relative, sep } from 'node:path';
+import { TOOLS } from './build-tools.mjs';
 
 const args = process.argv.slice(2);
 const dir = args[0];
@@ -33,8 +35,11 @@ try {
   process.exit(2);
 }
 
-/** What may sit beside server.js. `src` and `evals` hold only the traced migrations and fixtures. */
-const TOP_LEVEL = new Set(['.next', 'node_modules', 'package.json', 'server.js', 'src', 'evals']);
+/**
+ * What may sit beside server.js. `src` and `evals` hold only the traced migrations and fixtures; the
+ * .mjs files are the operator tools deploy/build-tools.mjs bundles (it refuses a data, key or env input).
+ */
+const TOP_LEVEL = new Set(['.next', 'node_modules', 'package.json', 'server.js', 'src', 'evals', ...Object.keys(TOOLS)]);
 const DATA_DIRS = new Set(['data', 'data-ci', '.e2e-data', '.secrets', 'keys']);
 const ENV_OK = new Set(['.env.example', '.env.ci.example']);
 const KEY_FILE = /\.(key|jwk|pem)$/i;

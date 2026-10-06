@@ -44,6 +44,16 @@ describe('check-standalone.mjs', () => {
     expect(r.stdout).toMatch(/check-standalone: \d+ files, [\d.]+ MB, within the \d+ MB budget/);
   });
 
+  it('passes the operator tool bundles beside server.js (deploy/build-tools.mjs), and nothing else of that kind', () => {
+    healthy();
+    for (const f of ['migrate.mjs', 'accounts-create.mjs', 'accounts-set-password.mjs']) put(f);
+    expect(run().status).toBe(0);
+    put('seed.mjs');
+    const r = run();
+    expect(r.status).toBe(1);
+    expect(r.stdout).toContain('seed.mjs');
+  });
+
   it.each([['technical-plan.md'], ['docs/proof-feed.md'], ['contracts/src/BatchRegistry.sol'], ['tests/x.test.ts'], ['backlog/a.md'], ['e2e/a.spec.ts']])(
     'fails when the project leaks in (%s): the whole-project trace of QA-M002-3',
     (file) => {

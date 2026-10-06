@@ -52,6 +52,8 @@ export function startCheckpointTimer(o: { intervalMs: number; getDb: () => Promi
   const timer = setInterval(() => void tick(), o.intervalMs);
   timer.unref?.();
   g[TIMER_KEY] = timer;
+  // One line at start, so a deployment's log shows the timer runs (a quiet ledger logs no seals).
+  log.info({ intervalSec: o.intervalMs / 1000 }, 'ledger.checkpoint_timer_started');
   return () => {
     clearInterval(timer);
     if (g[TIMER_KEY] === timer) delete g[TIMER_KEY];

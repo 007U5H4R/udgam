@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createClient } from '@libsql/client';
@@ -7,22 +7,23 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 // TSK-27.1 (EXE29): the image's entrypoint migrates with the app's own runner, src/lib/db/migrate.ts
 // (`pnpm db:migrate` semantics), never drizzle-kit. The runtime image has no tsx or pnpm, so
-// deploy/build-migrate.mjs bundles that runner into one file next to server.js, leaving the packages
+// deploy/build-tools.mjs bundles that runner into one file next to server.js, leaving the packages
 // the standalone server already ships (@libsql/client with its native binary, pino) as imports.
 
-const OUT_DIR = resolve('node_modules/.cache/udgam-deploy-test'); // inside the repo: externals resolve
-const OUT = join(OUT_DIR, `migrate-${process.pid}.mjs`);
+// Inside the repo, so the external imports resolve.
+const OUT_DIR = resolve(`node_modules/.cache/udgam-deploy-test/migrate-${process.pid}`);
+const OUT = join(OUT_DIR, 'migrate.mjs');
 let dataDir: string;
 
 beforeAll(() => {
   dataDir = mkdtempSync(join(tmpdir(), 'migrate-bundle-'));
-  const b = spawnSync('node', ['deploy/build-migrate.mjs', OUT], { encoding: 'utf8' });
+  const b = spawnSync('node', ['deploy/build-tools.mjs', OUT_DIR], { encoding: 'utf8' });
   expect(b.stderr).toBe('');
   expect(b.status).toBe(0);
 }, 60_000);
 afterAll(() => {
   rmSync(dataDir, { recursive: true, force: true });
-  rmSync(OUT, { force: true });
+  rmSync(OUT_DIR, { recursive: true, force: true });
 });
 
 // Only what the runner needs: no inherited secret or DATA_DIR reaches it.
@@ -63,5 +64,45 @@ describe('the bundled migration runner', () => {
     const r = migrate({ NODE_ENV: 'production', DATA_DIR: dataDir, REMOTE_SENSING_PROVIDER: 'live' });
     expect(r.status).not.toBe(0);
     expect(r.stderr).toContain('BETTER_AUTH_SECRET');
+  });
+});
+
+// EXE55: the entrypoint runs config-check.mjs before migrate.mjs. An invalid environment stops the
+// container with one `config.invalid: <names>` line on stderr: never a value, never a stack trace.
+describe('the bundled configuration check', () => {
+  const check = (env: Record<string, string>, file = join(OUT_DIR, 'config-check.mjs')) =>
+    spawnSync('node', [file], { encoding: 'utf8', env: { NODE_ENV: 'test', PATH: process.env.PATH ?? '', ...env } });
+  /** Made-up values, built at run time, that must never be printed. */
+  const fake = (n: string) => ['fake', 'value', n].join('-');
+
+  it('exits 0 and prints nothing for a valid environment', () => {
+    const r = check({ NODE_ENV: 'test', DATA_DIR: dataDir });
+    expect(r.stdout + r.stderr).toBe('');
+    expect(r.status).toBe(0);
+  });
+
+  it('exits 1 with exactly one line naming the variables, and no value', () => {
+    const env = { NODE_ENV: 'production', REMOTE_SENSING_PROVIDER: 'live', GFW_API_KEY: fake('gfw'), CDSE_CLIENT_ID: fake('id'), PUBLIC_BASE_URL: `http://${fake('host')}.example` };
+    const r = check(env);
+    expect(r.status).toBe(1);
+    expect(r.stdout).toBe('');
+    expect(r.stderr).toBe('config.invalid: BETTER_AUTH_SECRET, BETTER_AUTH_URL, PUBLIC_BASE_URL, CDSE_CLIENT_SECRET\n');
+    expect(r.stderr).not.toContain('fake-value');
+  });
+
+  it('never fails open: renamed, or run through a symlinked directory, it still checks (no main-module guard)', () => {
+    const renamed = join(OUT_DIR, 'renamed-check.mjs');
+    copyFileSync(join(OUT_DIR, 'config-check.mjs'), renamed);
+    const linkedDir = `${OUT_DIR}-link`;
+    symlinkSync(OUT_DIR, linkedDir);
+    try {
+      for (const file of [renamed, join(linkedDir, 'config-check.mjs')]) {
+        const r = check({ NODE_ENV: 'production' }, file);
+        expect(r.status, file).toBe(1);
+        expect(r.stderr).toMatch(/^config\.invalid: BETTER_AUTH_SECRET/);
+      }
+    } finally {
+      rmSync(linkedDir, { force: true });
+    }
   });
 });

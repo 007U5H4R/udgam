@@ -35,6 +35,10 @@ describe('deploy/docker-compose.yml', () => {
     expect(service('app')).toMatch(/^\s+- \/app\/\.next\/cache:uid=10001,gid=10001,mode=0700,size=\d+m$/m);
   });
 
+  it('gives the accounts CLI a tmpfs for generated passwords, owned by the app user and outside /data (SEC-001)', () => {
+    expect(service('app')).toMatch(/^\s+- \/run\/udgam:uid=10001,gid=10001,mode=0700,size=\d+[km]$/m);
+  });
+
   it('publishes ports only from Caddy (EXE14, SEC-203)', () => {
     expect(service('app')).not.toMatch(/^\s+ports:/m);
     expect(service('anvil')).not.toMatch(/^\s+ports:/m);

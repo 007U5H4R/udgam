@@ -43,6 +43,7 @@ export function sandbox(): Sandbox {
     UDGAM_COMPOSE: join(STUBS, 'compose'),
     UDGAM_LOCK_DIR: root,
     UDGAM_TEST_NONROOT: '1',
+    UDGAM_TEST_SANDBOX: '1', // UDGAM_TEST_NONROOT counts only with this marker (deploy/lib.sh require_root)
   };
   const tagFile = (tag: string) => join(state, 'tags', tag.replace(/[/:]/g, '_'));
   return {

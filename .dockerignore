@@ -14,7 +14,11 @@
 !evals/fixtures
 !scripts/ci/check-trace.mjs
 !deploy/check-standalone.mjs
-!deploy/build-migrate.mjs
+!deploy/build-tools.mjs
+# The accounts CLI's sources, bundled by build-tools.mjs into /app/accounts-*.mjs (SEC-001).
+!scripts/accounts-cli.ts
+!scripts/accounts-create.ts
+!scripts/accounts-set-password.ts
 !deploy/entrypoint.sh
 !deploy/db/backup.mjs
 

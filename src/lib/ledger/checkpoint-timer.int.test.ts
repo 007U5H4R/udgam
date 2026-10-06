@@ -8,6 +8,20 @@ import { append } from './hashchain';
 import { loadLedgerKey, type LedgerKey } from './keys';
 import { checkpointTimerEnabled, startCheckpointTimer } from './checkpoint-timer';
 
+// Every log line, as JSON text (the logger writes to this sink instead of stdout).
+const logged = vi.hoisted(() => ({ lines: [] as string[] }));
+vi.mock('../log', async (orig) => {
+  const real = await orig<typeof import('../log')>();
+  const { Writable } = await import('node:stream');
+  const sink = new Writable({
+    write(chunk: Buffer, _enc, cb) {
+      logged.lines.push(chunk.toString());
+      cb();
+    },
+  });
+  return { ...real, log: real.createLogger('info', sink) };
+});
+
 // EXE54 (TKT-28 fix round 1): a quiet day must not leave entries unsealed until someone opens a
 // certificate. A background timer (instrumentation, server only, one per process) seals the entries
 // after the last checkpoint every LEDGER_CHECKPOINT_INTERVAL_SEC (default 1 h), through writeTx, never
@@ -85,6 +99,19 @@ describe('startCheckpointTimer (EXE54)', () => {
     } finally {
       stop2();
       stop1();
+    }
+  });
+
+  it('logs ledger.checkpoint_timer_started once, with its interval, so a deployment can see it is running', () => {
+    logged.lines.length = 0;
+    const stop = startCheckpointTimer({ intervalMs: 90_000, getDb: async () => t.db, seal: async () => null });
+    const again = startCheckpointTimer({ intervalMs: 90_000, getDb: async () => t.db, seal: async () => null });
+    try {
+      const started = logged.lines.map((l) => JSON.parse(l) as { msg: string; intervalSec?: number }).filter((l) => l.msg === 'ledger.checkpoint_timer_started');
+      expect(started.map((l) => l.intervalSec)).toEqual([90]);
+    } finally {
+      again();
+      stop();
     }
   });
 

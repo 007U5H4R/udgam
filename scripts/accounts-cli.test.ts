@@ -3,7 +3,7 @@ import { mkdirSync, readdirSync, readFileSync, statSync, symlinkSync } from 'nod
 import { basename, join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { tempDirs } from '../tests/helpers/tmp';
-import { choosePassword, parseCliArgs, UsageError } from './accounts-cli';
+import { choosePassword, parseCliArgs, UsageError, wantsHelp } from './accounts-cli';
 
 // SEC-001: where a password comes from and where a generated one goes (the terminal path cannot be
 // driven from a child process without a pty, so it is tested here with stand-in streams).
@@ -28,6 +28,15 @@ describe('parseCliArgs', () => {
     }
   });
 
+  it('refuses -p/-P only as an option: a value that starts with -p (a name such as -Priya) is accepted', () => {
+    expect(parseCliArgs(['--name', '-Priya', '--email', 'p@b.example'], ['name', 'email'])).toEqual({ name: '-Priya', email: 'p@b.example' });
+    expect(parseCliArgs(['--name', '-pat'], ['name'])).toEqual({ name: '-pat' });
+    const word = ['made', 'up'].join('');
+    for (const a of [[`-p${word}`], [`-P${word}`], ['--name', 'Asha', `-p${word}`], ['--name', '-Priya', '-P', word], ['--name=-Priya', '-p', word], ['--password-stdin', `-p${word}`]]) {
+      expect(() => parseCliArgs(a, ['name']), a.join(' ')).toThrow(/never on the command line/);
+    }
+  });
+
   it('never echoes an argument it does not know: an unknown --option by name only, anything else not at all', () => {
     const secret = 'hunter2-positional-secret';
     for (const argv of [[secret], ['--email', 'a@b.example', secret], [`-x${secret}`], [`--colour=${secret}`]]) {
@@ -48,6 +57,24 @@ describe('parseCliArgs', () => {
   it('refuses unknown options and a missing value', () => {
     expect(() => parseCliArgs(['--colour', 'red'], ['email'])).toThrow(/unknown option --colour/);
     expect(() => parseCliArgs(['--email'], ['email'])).toThrow(/--email needs a value/);
+  });
+});
+
+describe('wantsHelp', () => {
+  it('sees --help or -h in option position only: a value such as --name -h is a name', () => {
+    expect(wantsHelp(['--help'])).toBe(true);
+    expect(wantsHelp(['-h'])).toBe(true);
+    expect(wantsHelp(['--name', 'Asha', '--help'])).toBe(true);
+    expect(wantsHelp(['--name', '-h'])).toBe(false);
+    expect(wantsHelp(['--name', '--help'])).toBe(true); // `--name` has no value here; --help is an option
+    expect(wantsHelp(['--email', 'a@b.example'])).toBe(false);
+  });
+
+  it('never answers help when a password is in argv: the refusal comes first', () => {
+    const word = ['made', 'up'].join('');
+    for (const a of [['--password', word, '--help'], [`-p${word}`, '-h'], ['--help', `--pass=${word}`]]) {
+      expect(() => wantsHelp(a), a.join(' ')).toThrow(/never on the command line/);
+    }
   });
 });
 
@@ -163,6 +190,19 @@ describe('choosePassword', () => {
       o.signals.emit(signal);
       expect(readdirSync(o.outDir)).toEqual([]);
       expect(o.exit).toHaveBeenCalledWith(code);
+    }
+  });
+
+  it('once the write has committed (committed), a signal or a later failure no longer removes the file', async () => {
+    for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+      const o = base();
+      const c = await choosePassword(o);
+      c.committed();
+      expect(o.signals.listenerCount('SIGINT') + o.signals.listenerCount('SIGTERM')).toBe(0);
+      o.signals.emit(signal);
+      expect(o.exit).not.toHaveBeenCalled();
+      c.abandon(); // e.g. printing the summary failed after the commit: the account exists, so keep its password
+      expect(readdirSync(o.outDir)).toHaveLength(1);
     }
   });
 

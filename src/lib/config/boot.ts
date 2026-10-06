@@ -11,6 +11,11 @@ import { loadEnv } from './env';
 // messages never carry values) and tell the caller to skip the boot steps. The server stays up and still
 // serves nothing that needs the configuration, while /api/health answers 503 `config:"error"`: the
 // Compose healthcheck (it needs a 200) marks the container unhealthy and the uptime probe alerts.
+//
+// EXE55: in the production container this path is not reached. deploy/entrypoint.sh runs the same
+// validation first (src/lib/config/check-cli.ts, bundled as /app/config-check.mjs), prints one
+// `config.invalid: <names>` line and exits, so the deploy gate rolls back at once. This in-process path
+// covers every other way the server runs (a plain `next start`).
 
 /** True when the environment is valid; otherwise logs config.invalid (names only) and returns false. */
 export function configValidAtBoot(src: Record<string, string | undefined> = process.env): boolean {

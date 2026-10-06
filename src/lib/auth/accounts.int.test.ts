@@ -160,3 +160,28 @@ describe('setAccountPassword (SEC-001)', () => {
     await expect(setAccountPassword(t.db, 'a@fpo1.example', pw)).resolves.toMatchObject({ email: 'a@fpo1.example' });
   });
 });
+
+describe('onCommitted (the accounts CLI disarms its password-file cleanup there)', () => {
+  it('createAccount calls it once, right after the rows are committed, and never on a refusal', async () => {
+    const { createAccount, generatePassword } = await lib();
+    const seen: number[] = [];
+    const onCommitted = async () => {
+      seen.push((await t.db.select({ id: user.id }).from(user).where(eq(user.email, 'commit@fpo1.example'))).length);
+    };
+    await createAccount(t.db, { name: 'Commit', email: 'commit@fpo1.example', role: 'agent', orgId: 'ORG-FPO1' }, generatePassword(), { generated: true, onCommitted: () => void onCommitted() });
+    await vi.waitFor(() => expect(seen).toEqual([1]));
+    let called = 0;
+    await expect(createAccount(t.db, { name: 'Again', email: 'commit@fpo1.example', role: 'agent', orgId: 'ORG-FPO1' }, generatePassword(), { generated: true, onCommitted: () => void called++ })).rejects.toThrow(/email_taken/);
+    expect(called).toBe(0);
+  });
+
+  it('setAccountPassword calls it once after the commit, and never for an unknown account', async () => {
+    const { createAccount, setAccountPassword, generatePassword } = await lib();
+    await createAccount(t.db, { name: 'Set', email: 'set@fpo1.example', role: 'agent', orgId: 'ORG-FPO1' }, generatePassword(), { generated: true });
+    let called = 0;
+    await setAccountPassword(t.db, 'set@fpo1.example', generatePassword(), { generated: true, onCommitted: () => void called++ });
+    expect(called).toBe(1);
+    await expect(setAccountPassword(t.db, 'nobody@fpo1.example', generatePassword(), { generated: true, onCommitted: () => void called++ })).rejects.toThrow(/unknown_account/);
+    expect(called).toBe(1);
+  });
+});

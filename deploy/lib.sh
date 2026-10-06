@@ -26,9 +26,13 @@ die() {
 }
 
 # Refuse to run without root, which owning files as uid 10001 needs. UDGAM_TEST_NONROOT=1 lets the
-# script tests run unprivileged; ownership changes are then skipped (own()).
+# script tests run unprivileged (ownership changes are then skipped, own()), and only together with the
+# test sandbox's marker UDGAM_TEST_SANDBOX=1 (tests/deploy/helpers/script-sandbox.ts): one stray
+# variable in an operator's shell never turns the root check off.
 require_root() {
-  [ "$(id -u)" = 0 ] || [ "${UDGAM_TEST_NONROOT:-0}" = 1 ] || die "run as root (sudo)"
+  [ "$(id -u)" = 0 ] && return 0
+  [ "${UDGAM_TEST_NONROOT:-0}" = 1 ] && [ "${UDGAM_TEST_SANDBOX:-0}" = 1 ] && return 0
+  die "run as root (sudo)"
 }
 own() { if [ "$(id -u)" = 0 ]; then chown "$@"; fi; }
 

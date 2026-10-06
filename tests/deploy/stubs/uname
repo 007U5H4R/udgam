@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Test stub for `uname`: `uname -m` prints STUB_UNAME_M when it is set (an aarch64 or x86_64 host);
+# everything else runs the real uname.
+if [ -n "${STUB_UNAME_M:-}" ] && [ "${1:-}" = -m ] && [ "$#" = 1 ]; then
+  echo "$STUB_UNAME_M"
+  exit 0
+fi
+for d in /usr/bin /bin; do
+  [ -x "$d/uname" ] && exec "$d/uname" "$@"
+done
+exit 127

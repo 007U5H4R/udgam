@@ -3,7 +3,7 @@
 #   tags/<repo_tag>  the image id a tag points at     ids        known image ids
 #   container        "<image-id> <status> <health>" of the app container (written by the compose stub)
 #   calls.log        every call
-# Knobs: STUB_BUILD_FAIL=1, STUB_TAG_FAIL=<dst tag>, STUB_SNAPSHOT_FAIL=1.
+# Knobs: STUB_BUILD_FAIL=1, STUB_TAG_FAIL=<dst tag>, STUB_SNAPSHOT_FAIL=1, STUB_KILL_FAIL=1.
 set -euo pipefail
 S="${STUB_STATE:?STUB_STATE not set}"
 mkdir -p "$S/tags"
@@ -61,6 +61,11 @@ case "$1" in
     [ -e "$UDGAM_DATA_DIR/backups/$name" ] && { echo "stub: exists" >&2; exit 1; }
     echo "snapshot $label" >"$UDGAM_DATA_DIR/backups/$name"
     echo "/data/backups/$name"
+    ;;
+  kill)
+    # docker kill <container>: STUB_KILL_FAIL=1 fails it; otherwise the app container has exited.
+    [ "${STUB_KILL_FAIL:-0}" = 1 ] && { echo "stub: kill failed" >&2; exit 1; }
+    [ -f "$S/container" ] && read -r img _ _ <"$S/container" && echo "$img exited none" >"$S/container"
     ;;
   inspect)
     # docker inspect --format '{{.Image}} {{.State.Status}} {{...Health...}}' <container>

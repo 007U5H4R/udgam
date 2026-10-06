@@ -160,7 +160,34 @@ rollback() {
 
   if [ -n "$restore" ]; then
     log "deploy.sh: restoring $(basename "$snap"); writes since that deploy are lost"
-    "$RESTORE" --snapshot "$snap" --data-dir "$DATA" --health-timeout "$timeout"
+    # --undo-if-unhealthy: if the older image is not healthy on the snapshot, restore.sh puts the live
+    # files back, so the snapshot is never served once this rollback has failed. Only its status 1
+    # means "the live files are in place": any other failure leaves the data state unknown or mixed.
+    local rc=0
+    "$RESTORE" --snapshot "$snap" --data-dir "$DATA" --health-timeout "$timeout" --undo-if-unhealthy || rc=$?
+    if [ "$rc" != 0 ]; then
+      # The tags go back to the image that was running, so :current names it again and a later
+      # --rollback starts from where this one did.
+      docker tag "$cur" udgam-app:current
+      docker tag "$prev" udgam-app:previous
+      if [ "$rc" != 1 ]; then
+        local state
+        case "$rc" in
+          3) state="the data directory is mixed; the app is left stopped" ;;
+          4) state="the app could not be stopped and may still be running on the restored snapshot" ;;
+          *) state="interrupted or failed unexpectedly; the data state is unknown" ;;
+        esac
+        log "deploy.sh: the restore ended with status $rc: $state. No app was started. The live files are in $DATA/pre-restore-* if restore.sh did not put them back (its lines above say); check $DATA before deploy/compose.sh up -d app" >&2
+        die "rollback with --restore-db failed"
+      fi
+      log "deploy.sh: the restore failed and put the live files back; udgam-app:current is the image that was running again" >&2
+      if up_and_wait "$timeout"; then
+        log "deploy.sh: that image is healthy ${UP_SECS}s after up, on the live files" >&2
+      else
+        log "deploy.sh: that image is not healthy either (deploy/compose.sh logs app)" >&2
+      fi
+      die "rollback with --restore-db failed"
+    fi
     log "deploy.sh: rolled back with the pre-deploy database"
     return 0
   fi
@@ -168,5 +195,6 @@ rollback() {
   log "deploy.sh: rolled back, healthy ${UP_SECS}s after up"
 }
 
-main "$@"
-exit $?
+# One line: bash reads this script as it runs, and the checkout may have rewritten the file by the time
+# main returns. Read together with the call, the exit never comes from the new file's text.
+main "$@"; exit $?

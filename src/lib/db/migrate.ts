@@ -1,4 +1,4 @@
-import { resolve } from 'node:path';
+import { basename, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 import type { Db } from './client';
@@ -30,8 +30,19 @@ export async function prepareDatabase(db: Db, migrationsFolder: string = MIGRATI
   await seedYieldReference(db);
 }
 
-// `pnpm db:migrate` (tsx src/lib/db/migrate.ts)
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+/**
+ * Whether this module is the command being run: `pnpm db:migrate` (tsx src/lib/db/migrate.ts) or the
+ * image's bundle of it (migrate.mjs). The file name matters, not only the URL: a bundle of ANOTHER
+ * command that imports this module (the image's accounts-create.mjs, deploy/build-tools.mjs) shares one
+ * import.meta.url with its entry, and must not migrate and close the database under that command.
+ */
+export function isMigrateCommand(moduleUrl: string, argv1: string | undefined): boolean {
+  if (!argv1 || !/^migrate\.(ts|mjs)$/.test(basename(argv1))) return false;
+  return moduleUrl === pathToFileURL(resolve(argv1)).href;
+}
+
+// `pnpm db:migrate` (tsx src/lib/db/migrate.ts), or `node migrate.mjs` in the image
+if (isMigrateCommand(import.meta.url, process.argv[1])) {
   const { closeDb } = await import('./client');
   const { log } = await import('../log');
   try {
