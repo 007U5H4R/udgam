@@ -33,8 +33,17 @@
 #   IPTABLES_RULES (/etc/iptables/rules.v4)  OCI_CLI_DIR (/opt/oci-cli)
 set -euo pipefail
 
-DRY=0
-[ "${1:-}" = --dry-run ] && DRY=1
+# Arguments are parsed before anything runs: an unknown one stops here, never after a change.
+DRY=0 CHECK_KEY=""
+case "${1:-}" in
+  "") ;;
+  --dry-run) DRY=1 ;;
+  --check-docker-key) CHECK_KEY="${2:?--check-docker-key needs a key file}" ;;
+  *)
+    echo "error: unknown argument $1 (bootstrap.sh [--dry-run])" >&2
+    exit 2
+    ;;
+esac
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 MNT="${UDGAM_MOUNT:-/mnt/udgam-data}"
@@ -55,6 +64,22 @@ die() {
 }
 # Run a changing command, or only describe it under --dry-run.
 run() { if [ "$DRY" = 1 ]; then :; else "$@"; fi; }
+
+# Q13: trust Docker's apt key file only if it holds exactly one primary key and that key is Docker's.
+# A file carrying a second key would have apt trust it too. `--check-docker-key <file>` runs this alone.
+check_docker_key() {
+  local listing pubs primary
+  listing="$(gpg --show-keys --with-colons "$1" 2>/dev/null)" || die "$1 is not a readable OpenPGP key file"
+  pubs="$(grep -c '^pub:' <<<"$listing" || true)"
+  [ "$pubs" = 1 ] || die "Docker's apt key file holds $pubs primary keys, not 1"
+  primary="$(awk -F: '/^pub:/ { p = 1; next } p && /^fpr:/ { print $10; exit }' <<<"$listing")"
+  [ "$primary" = "$DOCKER_KEY_FPR" ] || die "Docker's apt key is not $DOCKER_KEY_FPR"
+}
+if [ -n "$CHECK_KEY" ]; then
+  check_docker_key "$CHECK_KEY"
+  echo "ok: $CHECK_KEY is Docker's apt key ($DOCKER_KEY_FPR)"
+  exit 0
+fi
 
 [ "$(id -u)" = 0 ] || die "run as root (sudo)"
 if [ "$(uname -m)" != aarch64 ]; then echo "warn: $(uname -m), not aarch64; continuing" >&2; fi
@@ -79,10 +104,12 @@ else
   if [ "$DRY" = 0 ]; then
     install -d -m 0755 /etc/apt/keyrings
     key="$(mktemp)"
+    trap 'rm -f "$key"' EXIT
     curl -fsSL --max-time 60 https://download.docker.com/linux/ubuntu/gpg -o "$key"
-    gpg --show-keys --with-colons "$key" | grep -q "^fpr:::::::::$DOCKER_KEY_FPR:" || die "Docker's apt key fingerprint is not $DOCKER_KEY_FPR"
+    check_docker_key "$key"
     install -m 0644 "$key" /etc/apt/keyrings/docker.asc
     rm -f "$key"
+    trap - EXIT
     # shellcheck disable=SC1091
     codename="$(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")"
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $codename stable" >/etc/apt/sources.list.d/docker.list
