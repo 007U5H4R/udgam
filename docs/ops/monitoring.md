@@ -48,7 +48,7 @@ jl() { dc logs --no-log-prefix "$@" | grep '^{'; }   # bare JSON log lines, for 
 - `disk` is not `ok`;
 - the oldest unsealed ledger entry is over 24 h old (`ledger.oldestUnsealedAgeSec > 86400`): entries are not being sealed (EXE55). A body without that field fails too, closed.
 
-Checkpoints are made on demand (a certificate's proof feed), every 100th entry, and by a background timer that seals any unsealed entries every `LEDGER_CHECKPOINT_INTERVAL_SEC` (default 3600 s; real deployments only, EXE54; logs `ledger.checkpoint_sealed`). While that works, `oldestUnsealedAgeSec` stays under about one interval. On a quiet day with everything sealed it is 0, however old the last checkpoint is, so quiet days never alert (EXE55). `lastCheckpointAgeSec` and `lastSeq` stay in the body for information only.
+Checkpoints are made on demand (a certificate's proof feed), every 100th entry, and by a background timer that seals any unsealed entries every `LEDGER_CHECKPOINT_INTERVAL_SEC` (default 3600 s; real deployments only, EXE54). It logs `ledger.checkpoint_timer_started {intervalSec}` once at boot, and `ledger.checkpoint_sealed` for each seal; a boot without the first line means the timer is not running. While that works, `oldestUnsealedAgeSec` stays under about one interval. On a quiet day with everything sealed it is 0, however old the last checkpoint is, so quiet days never alert (EXE55). `lastCheckpointAgeSec` and `lastSeq` stay in the body for information only.
 
 A provider outage (`gfw`/`sentinelHub` not `ok`) adds a warning to the run, but it is not an alert. It is external, captures still verify with the provider marked unavailable, and nothing can be done about it at 3 AM.
 
@@ -112,6 +112,7 @@ dc logs --since 24h caddy                                          # the proxy's
 |---|---|
 | Boot and config | `config.invalid` (in the container: the entrypoint's plain `config.invalid: <names>` line, EXE55; elsewhere: fatal, QA-P5-4), `db.migrated`, `db.pragma_failed`, `auth.dev_secret` (never in production) |
 | Health | `health.config_invalid`, `health.db_ping_failed`, `health.ledger_failed`, `health.ledger_key_missing`, `health.disk_low`, `health.disk_unknown`, `ledger.key_mismatch`, `ledger.key_unavailable` |
+| Ledger | `ledger.checkpoint_timer_started` (once at boot, EXE54), `ledger.checkpoint_sealed`, `ledger.checkpoint_timer_failed` |
 | Verification | `verification.completed` (technical-plan §15) is **not emitted** yet: there is no per-run log line with verdict, score and check durations. Read verdicts from the database or the admin queue. The gap is recorded in the ledger. |
 | Capture | `capture.refused` (`reason`, `status`, `anchored`), `capture.budget_exhausted` (SEC-003), `capture.busy`, `capture.failed`, `capture.route_failed`, `capture.idempotent_replay`, `capture.idempotent_race`, `capture.refund_failed`, `capture.media_cleanup_failed`, `capture.staged_cleanup_failed`, `capture.emit_failed` |
 | Staging | `stage.stored`, `stage.refused`, `stage.route_failed`, `stage.integrity_failed`, `stage.sweep_failed`, `stage.swept_at_boot` |
