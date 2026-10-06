@@ -56,6 +56,8 @@ type Out = { isTTY?: boolean; write(s: string): unknown };
 export type Delivery = { kind: 'stdin' } | { kind: 'tty' } | { kind: 'file'; path: string };
 export type ChosenPassword = {
   password: string;
+  /** Made by generatePassword (192 random bits): no other account can share it, so no scan is needed. */
+  generated: boolean;
   delivery: Delivery;
   /** After the account is written: print a terminal password (a file already holds its copy). */
   deliver(): void;
@@ -104,12 +106,13 @@ export async function choosePassword(o: {
   const noop = () => undefined;
   if (o.fromStdin) {
     if (o.stdin.isTTY) throw new UsageError('--password-stdin needs a pipe (printf %s "$PW" | …); on a terminal leave it out and a password is generated');
-    return { password: await readStdinLine(o.stdin), delivery: { kind: 'stdin' }, deliver: noop, abandon: noop };
+    return { password: await readStdinLine(o.stdin), generated: false, delivery: { kind: 'stdin' }, deliver: noop, abandon: noop };
   }
   if (o.stdin.isTTY && o.stdout.isTTY) {
     const password = generatePassword();
     return {
       password,
+      generated: true,
       delivery: { kind: 'tty' },
       deliver: () => o.stdout.write(`\nPassword for ${o.label} (shown once, not stored anywhere): ${password}\n\n`),
       abandon: noop,
@@ -158,6 +161,7 @@ export async function choosePassword(o: {
   };
   return {
     password,
+    generated: true,
     delivery: { kind: 'file', path },
     deliver: release,
     abandon: () => {

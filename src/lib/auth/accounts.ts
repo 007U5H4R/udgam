@@ -58,6 +58,9 @@ async function assertNotInUse(db: Db, password: string, exceptUserId?: string): 
   }
 }
 
+/** `generated`: the password came from generatePassword (192 random bits), so no other account can have it. */
+export type PasswordOptions = { generated?: boolean; now?: Date };
+
 export type NewAccount = { name: string; email: string; role: Role } & ({ orgId: string; newOrgName?: undefined } | { orgId?: undefined; newOrgName: string });
 
 /**
@@ -66,7 +69,8 @@ export type NewAccount = { name: string; email: string; role: Role } & ({ orgId:
  * written) a duplicate email, an unknown organisation, a role that does not fit the organisation's type,
  * a weak password, or a password another account already has.
  */
-export async function createAccount(db: Db, a: NewAccount, password: string, now = new Date()): Promise<{ userId: string; orgId: string; email: string }> {
+export async function createAccount(db: Db, a: NewAccount, password: string, o: PasswordOptions = {}): Promise<{ userId: string; orgId: string; email: string }> {
+  const now = o.now ?? new Date();
   const email = normaliseEmail(a.email);
   const name = a.name.trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new AccountError('bad_email', 'not an email address');
@@ -82,7 +86,7 @@ export async function createAccount(db: Db, a: NewAccount, password: string, now
     throw new AccountError('bad_name', 'an organisation name is required');
   }
   if ((await db.select({ id: user.id }).from(user).where(eq(user.email, email))).length > 0) throw new AccountError('email_taken', 'an account with this email exists');
-  await assertNotInUse(db, password);
+  if (!o.generated) await assertNotInUse(db, password);
 
   const hash = await hashPassword(password);
   const userId = newId('USR-'); // opaque, like Better Auth's own ids (EXE13): it may reach anchored payloads
@@ -101,12 +105,13 @@ export async function createAccount(db: Db, a: NewAccount, password: string, now
  * Give an existing account a new password: replaces (or adds) its credential, ends every session it has
  * (a password change signs the old holder out) and clears its sign-in throttles, as the seed does.
  */
-export async function setAccountPassword(db: Db, emailIn: string, password: string, now = new Date()): Promise<{ userId: string; email: string; sessionsEnded: number }> {
+export async function setAccountPassword(db: Db, emailIn: string, password: string, o: PasswordOptions = {}): Promise<{ userId: string; email: string; sessionsEnded: number }> {
+  const now = o.now ?? new Date();
   const email = normaliseEmail(emailIn);
   checkPassword(password);
   const [u] = await db.select({ id: user.id }).from(user).where(eq(user.email, email));
   if (!u) throw new AccountError('unknown_account', 'no account with this email');
-  await assertNotInUse(db, password, u.id);
+  if (!o.generated) await assertNotInUse(db, password, u.id);
   const hash = await hashPassword(password);
   const sessionsEnded = await writeTx(db, async (tx) => {
     const [cred] = await tx

@@ -100,6 +100,27 @@ describe('createAccount (SEC-001)', () => {
   });
 });
 
+describe('generated passwords skip the shared-password scan (a 192-bit random value cannot collide)', () => {
+  it('create and set-password with { generated: true } verify against no other credential; a typed password still does', async () => {
+    const verify = vi.fn();
+    vi.doMock('better-auth/crypto', async (importOriginal) => {
+      const real = await importOriginal<typeof import('better-auth/crypto')>();
+      return { ...real, verifyPassword: (a: Parameters<typeof real.verifyPassword>[0]) => (verify(), real.verifyPassword(a)) };
+    });
+    try {
+      const { createAccount, setAccountPassword, generatePassword } = await lib();
+      await createAccount(t.db, { name: 'A', email: 'a@fpo1.example', role: 'agent', orgId: 'ORG-FPO1' }, generatePassword(), { generated: true });
+      await createAccount(t.db, { name: 'B', email: 'b@fpo1.example', role: 'agent', orgId: 'ORG-FPO1' }, generatePassword(), { generated: true });
+      await setAccountPassword(t.db, 'a@fpo1.example', generatePassword(), { generated: true });
+      expect(verify).not.toHaveBeenCalled();
+      await setAccountPassword(t.db, 'a@fpo1.example', 'a password somebody typed');
+      expect(verify).toHaveBeenCalledTimes(1); // checked against B's credential (its own is skipped)
+    } finally {
+      vi.doUnmock('better-auth/crypto');
+    }
+  });
+});
+
 describe('setAccountPassword (SEC-001)', () => {
   it('replaces the password, ends the account’s sessions and clears its sign-in throttle', async () => {
     const { createAccount, setAccountPassword, generatePassword } = await lib();
