@@ -8,6 +8,12 @@
 // origin"). When the first line is wider than the copy column it splits after the district (three lines),
 // and only when a line still does not fit does the whole headline step down 1 px at a time until it does.
 //
+// Same pixels on every host: the glyph rasteriser is pinned, not left to the machine (launchOgBrowser). Linux
+// Chromium takes hinting, antialiasing and subpixel order from fontconfig, so the full Chrome binary on a VM
+// whose /etc/fonts says hintslight + RGB and the headless shell on a GitHub runner drew different glyph edges
+// from the same page (mean 2.9/255). The launch points fontconfig at scripts/og/fonts.conf (grayscale, no
+// hinting, no LCD order, host files unread) and passes the matching Chromium switches.
+//
 // Run and commit the output: `pnpm og:render`. e2e/og-image.spec.ts re-renders every variant and compares.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -99,9 +105,20 @@ export async function renderOg(browser: Browser, v: OgVariant): Promise<{ png: B
   }
 }
 
+/** The fontconfig file the render's Chromium reads instead of the host's (see its comment). */
+export const OG_FONTCONFIG = join(ROOT, 'scripts/og/fonts.conf');
+/**
+ * Chromium switches that fix the rasteriser where fontconfig does not reach: the headless shell takes its
+ * hinting from --font-render-hinting (default "full"), not from fontconfig. Both binaries then agree.
+ */
+export const OG_CHROMIUM_ARGS: readonly string[] = ['--font-render-hinting=none', '--disable-font-subpixel-positioning', '--disable-lcd-text'];
+
+/** The only browser the images are rendered or checked with: the script and e2e/og-image.spec.ts both use it. */
 export async function launchOgBrowser(): Promise<Browser> {
   const executablePath = chromiumPath();
-  return chromium.launch(executablePath ? { executablePath } : {});
+  const env: Record<string, string | undefined> = { ...process.env, FONTCONFIG_FILE: OG_FONTCONFIG };
+  delete env.FONTCONFIG_SYSROOT; // would re-root the absolute paths above
+  return chromium.launch({ ...(executablePath ? { executablePath } : {}), args: [...OG_CHROMIUM_ARGS], env });
 }
 
 async function main(): Promise<void> {
