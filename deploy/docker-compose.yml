@@ -28,7 +28,9 @@ services:
     restart: unless-stopped
     init: true
     # Least privilege (fix round 1, Q12): no Linux capabilities, no privilege escalation, and a read-only
-    # root filesystem. Writable: the /data volume, /tmp and Next's own cache (tmpfs, lost on restart).
+    # root filesystem. Writable: the /data volume, /tmp and Next's own cache (tmpfs, lost on restart), and
+    # /run/udgam: where `accounts-create.mjs … --out /run/udgam` writes a generated password, in memory
+    # only and never in /data's backups (SEC-001, docs/ops/monitoring.md §5).
     read_only: true
     cap_drop:
       - ALL
@@ -37,6 +39,7 @@ services:
     tmpfs:
       - /tmp:mode=1777,size=64m
       - /app/.next/cache:uid=10001,gid=10001,mode=0700,size=256m
+      - /run/udgam:uid=10001,gid=10001,mode=0700,size=1m
     env_file:
       - path: ${UDGAM_ENV_FILE:-/etc/udgam/app.env}
         required: true

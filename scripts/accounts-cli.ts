@@ -17,6 +17,17 @@ import { chmodSync, closeSync, openSync, realpathSync, rmSync, statSync, writeSy
 import { join, resolve, sep } from 'node:path';
 import { AccountError, generatePassword } from '../src/lib/auth/accounts';
 
+/**
+ * How the usage line names the command: `node /app/accounts-create.mjs` when run from the production
+ * image's bundle (deploy/build-tools.mjs), `pnpm accounts:create` otherwise.
+ */
+export function commandName(script: 'create' | 'set-password', argv1: string | undefined = process.argv[1]): string {
+  return argv1?.endsWith('.mjs') ? `node ${argv1}` : `pnpm accounts:${script}`;
+}
+
+/** `--help` or `-h` anywhere: print the usage and do nothing else. */
+export const wantsHelp = (argv: readonly string[]) => argv.includes('--help') || argv.includes('-h');
+
 /** A mistake in how the command was called (exit 2). Its message never contains a value. */
 export class UsageError extends Error {}
 

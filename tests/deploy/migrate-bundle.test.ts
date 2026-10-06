@@ -7,22 +7,23 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 // TSK-27.1 (EXE29): the image's entrypoint migrates with the app's own runner, src/lib/db/migrate.ts
 // (`pnpm db:migrate` semantics), never drizzle-kit. The runtime image has no tsx or pnpm, so
-// deploy/build-migrate.mjs bundles that runner into one file next to server.js, leaving the packages
+// deploy/build-tools.mjs bundles that runner into one file next to server.js, leaving the packages
 // the standalone server already ships (@libsql/client with its native binary, pino) as imports.
 
-const OUT_DIR = resolve('node_modules/.cache/udgam-deploy-test'); // inside the repo: externals resolve
-const OUT = join(OUT_DIR, `migrate-${process.pid}.mjs`);
+// Inside the repo, so the external imports resolve.
+const OUT_DIR = resolve(`node_modules/.cache/udgam-deploy-test/migrate-${process.pid}`);
+const OUT = join(OUT_DIR, 'migrate.mjs');
 let dataDir: string;
 
 beforeAll(() => {
   dataDir = mkdtempSync(join(tmpdir(), 'migrate-bundle-'));
-  const b = spawnSync('node', ['deploy/build-migrate.mjs', OUT], { encoding: 'utf8' });
+  const b = spawnSync('node', ['deploy/build-tools.mjs', OUT_DIR], { encoding: 'utf8' });
   expect(b.stderr).toBe('');
   expect(b.status).toBe(0);
 }, 60_000);
 afterAll(() => {
   rmSync(dataDir, { recursive: true, force: true });
-  rmSync(OUT, { force: true });
+  rmSync(OUT_DIR, { recursive: true, force: true });
 });
 
 // Only what the runner needs: no inherited secret or DATA_DIR reaches it.

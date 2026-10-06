@@ -11,11 +11,15 @@
 // Field agents then enrol their phone the usual way (an admin issues an enrolment code, TKT-05).
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { choosePassword, describeDelivery, parseCliArgs, runCli, UsageError } from './accounts-cli';
+import { choosePassword, commandName, describeDelivery, parseCliArgs, runCli, UsageError, wantsHelp } from './accounts-cli';
 
-const USAGE = 'usage: pnpm accounts:create --name <name> --email <email> --role agent|admin|buyer|processor (--org <ORG-id> | --new-org <name>) [--password-stdin | --out <directory>]';
+const USAGE = `usage: ${commandName('create')} --name <name> --email <email> --role agent|admin|buyer|processor (--org <ORG-id> | --new-org <name>) [--password-stdin | --out <directory>]`;
 
 export async function main(argv: string[]): Promise<number> {
+  if (wantsHelp(argv)) {
+    process.stdout.write(`${USAGE}\n`);
+    return 0;
+  }
   return runCli(USAGE, async () => {
     const a = parseCliArgs(argv, ['name', 'email', 'role', 'org', 'new-org', 'out']);
     const str = (k: string) => (typeof a[k] === 'string' ? (a[k] as string) : undefined);

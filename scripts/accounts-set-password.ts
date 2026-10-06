@@ -7,11 +7,15 @@
 //   pnpm accounts:set-password --email asha@fpo.example --out /run/udgam   (no terminal)
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { choosePassword, describeDelivery, parseCliArgs, runCli, UsageError } from './accounts-cli';
+import { choosePassword, commandName, describeDelivery, parseCliArgs, runCli, UsageError, wantsHelp } from './accounts-cli';
 
-const USAGE = 'usage: pnpm accounts:set-password --email <email> [--password-stdin | --out <directory>]';
+const USAGE = `usage: ${commandName('set-password')} --email <email> [--password-stdin | --out <directory>]`;
 
 export async function main(argv: string[]): Promise<number> {
+  if (wantsHelp(argv)) {
+    process.stdout.write(`${USAGE}\n`);
+    return 0;
+  }
   return runCli(USAGE, async () => {
     const a = parseCliArgs(argv, ['email', 'out']);
     const email = typeof a.email === 'string' ? a.email : undefined;

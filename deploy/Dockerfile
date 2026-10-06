@@ -31,17 +31,20 @@ RUN --mount=type=cache,id=udgam-pnpm-store,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store && \
     pnpm install --frozen-lockfile
 
-# --- build: next build (output: 'standalone'), then the artifact checks, then the migration bundle ---
+# --- build: next build (output: 'standalone'), the operator tool bundles, then the artifact checks ---
 FROM deps AS build
 ARG UDGAM_COMMIT=unknown
 ENV NODE_ENV=production \
     UDGAM_COMMIT=${UDGAM_COMMIT}
 COPY . .
 RUN pnpm build
-# EXE39: no data, key or env file in any server trace. QA-M002-3: no whole-project trace, size budget.
+# EXE39: no data, key or env file in any server trace. build-tools: migrate.mjs (the entrypoint's
+# migration runner) and the accounts CLI (SEC-001), each one self-contained file beside server.js, so
+# /app/accounts-create.mjs runs with plain node. QA-M002-3: no whole-project trace, size budget, and the
+# bundles are checked as part of the server artifact.
 RUN node scripts/ci/check-trace.mjs .next && \
-    node deploy/check-standalone.mjs .next/standalone && \
-    node deploy/build-migrate.mjs .next/standalone/migrate.mjs
+    node deploy/build-tools.mjs .next/standalone && \
+    node deploy/check-standalone.mjs .next/standalone
 
 # --- runtime: the standalone server only, as a non-root user ---
 FROM ${NODE_IMAGE} AS runtime

@@ -129,23 +129,46 @@ Each agent may store at most `CAPTURE_DAILY_MAX_CAPTURES` accepted captures and 
 
 ## 5. Accounts (SEC-001)
 
-The demo seed gives every account one shared password, so it refuses production. `scripts/seed-accounts.ts` and `pnpm seed` run only with `NODE_ENV=development` or `test`, or `E2E=1` (EXE35). Production accounts are created one at a time:
+The demo seed gives every account one shared password, so it refuses production. `scripts/seed-accounts.ts` and `pnpm seed` run only with `NODE_ENV=development` or `test`, or `E2E=1` (EXE35). Production accounts are created one at a time, with the accounts CLI.
+
+The image has no `pnpm`, `tsx` or `scripts/`. `deploy/build-tools.mjs` bundles `pnpm accounts:create` and `pnpm accounts:set-password` into `/app/accounts-create.mjs` and `/app/accounts-set-password.mjs`, which run with plain `node` in the running app container. They are the same code, with Better Auth's own hashing bundled in, and run against the same database and environment as the app. `--help` prints the usage. Run them as root on the instance:
 
 ```sh
-# The first admin of an FPO, creating the organisation:
-dc exec app pnpm accounts:create --name "Asha K." --email asha@fpo.example --role admin --new-org "Hosahalli FPO"
-# More accounts in that organisation (its ORG- id is in the first command's output):
-dc exec app pnpm accounts:create --name "Ravi" --email ravi@fpo.example --role agent --org ORG-XXXXXXXX
+sudo -i
+cd /opt/udgam
+# Your own password, piped (works everywhere; the read-only container needs no file for it).
+# `read -rs` before each command: type the password, nothing echoes or reaches the shell history.
+# Every account needs its own password (password_in_use).
+read -rs PW
+printf %s "$PW" | deploy/compose.sh exec -T app node /app/accounts-create.mjs \
+  --name "Asha K." --email asha@fpo.example --role admin --new-org "Hosahalli FPO" --password-stdin
+# More accounts in that organisation (its ORG- id is in the first command's JSON line):
+read -rs PW
+printf %s "$PW" | deploy/compose.sh exec -T app node /app/accounts-create.mjs \
+  --name "Ravi" --email ravi@fpo.example --role agent --org ORG-XXXXXXXX --password-stdin
 # A new password (ends the account's sessions and clears its sign-in throttle):
-dc exec app pnpm accounts:set-password --email ravi@fpo.example
+read -rs PW
+printf %s "$PW" | deploy/compose.sh exec -T app node /app/accounts-set-password.mjs --email ravi@fpo.example --password-stdin
+unset PW
 ```
 
-- The password is never an argument. Any `--password…`/`-p` option is refused. It never appears in a log or in the JSON summary line.
-- **Interactive** (`dc exec` gives a TTY on both stdin and stdout): a generated 32-character password is shown once on the terminal. Hand it over in person.
-- **Not interactive** (`dc exec -T`, cron, output redirected): prefer piping your own password with `--password-stdin` (below). To have one generated, pass `--out <directory>`, for example `--out /run/udgam` (create it first; a tmpfs, so nothing reaches a disk or a backup). The command refuses to run without `--out`, and refuses a directory inside `DATA_DIR`, which is backed up and readable by the app. The password goes to a new 0600 file named `udgam-password-<random>.txt` (never the email), and only the path is printed. Read it with `dc exec app cat <path>`, hand it over, and delete it (`dc exec app rm <path>`). If the run is interrupted (Ctrl-C, SIGTERM) or the account write fails, the file is removed.
-- **Your own password:** `printf %s "$PW" | dc exec -T app pnpm accounts:set-password --email … --password-stdin`. `--password-stdin` is refused on a terminal, because the password would echo.
+To have a password generated instead:
+
+```sh
+# Interactive (no -T: a TTY on stdin and stdout): the password is shown once on the terminal.
+deploy/compose.sh exec app node /app/accounts-create.mjs --name "Ravi" --email ravi@fpo.example --role agent --org ORG-XXXXXXXX
+# Not interactive: into the container's /run/udgam tmpfs (memory only, mode 0700, owned by the app user).
+deploy/compose.sh exec -T app node /app/accounts-set-password.mjs --email ravi@fpo.example --out /run/udgam
+deploy/compose.sh exec -T app cat /run/udgam/udgam-password-<random>.txt    # the path is in the JSON line
+deploy/compose.sh exec -T app rm /run/udgam/udgam-password-<random>.txt
+```
+
+- The container's root filesystem is read-only and has no capabilities, so `--out` has exactly two places to write: `/run/udgam`, a tmpfs that `deploy/docker-compose.yml` mounts for this, and `/tmp`. Use `/run/udgam`. `/data` is refused, because it is backed up and readable by the app. The tmpfs is emptied whenever the container restarts.
+- The password is never an argument. Any `--password…` option, or a `-p…`/`-P…` option, is refused, while a value such as `--name -Priya` is accepted. It never appears in a log or in the JSON summary line.
+- `--password-stdin` reads the first line and is refused on a terminal, because the password would echo. Without it and without a terminal, the command refuses to run unless `--out` is given. The password file is named `udgam-password-<random>.txt` (never the email), mode 0600, and only its path is printed. If the run is interrupted (Ctrl-C, SIGTERM) or the account write fails, the file is removed. Once the account is written, it is kept.
 - No two accounts may share a password (`password_in_use`). Roles fit their organisation: agent and admin belong to an FPO, buyer to a buyer, processor to a processor. Field agents then enrol their phone as usual, with an admin-issued code (TKT-05).
-- These commands need the image to ship `scripts/`, `tsx` and `pnpm`. The image belongs to TKT-27. If it does not ship them, run the command from a one-off container of the build stage against the same `/data` volume.
+- The commands need a valid configuration, like the app: they read the container's environment.
+- Outside the image (a development checkout), `pnpm accounts:create` and `pnpm accounts:set-password` take the same options.
 
 ## 6. Dependency audit (EVAL-085, TC-092)
 
@@ -184,4 +207,4 @@ That advisory is GHSA-67mh-4wv8-2f99 (esbuild ≤ 0.24.2, its dev server), reach
 | TC-091 link unfurl (TSK-28.2, EVAL-090) | the domain, one production certificate |
 | TC-092 live providers, image inspection and the audit of the deployed lockfile | provider keys in `/etc/udgam/app.env`, the deployed image |
 | SEC-101 confirmation before the first production anchor | the owner (`docs/proof-feed.md` §9.2a) |
-| First production accounts | the instance; `pnpm accounts:create` in the image (TKT-27) |
+| First production accounts | the instance; `node /app/accounts-create.mjs` in the app container (§5) |
