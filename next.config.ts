@@ -15,6 +15,8 @@ function gitCommit(): string {
 
 const nextConfig: NextConfig = {
   // No `X-Powered-By: Next.js` on responses (SEC-102): it names the framework for nothing.
+  // A self-contained server (.next/standalone) for the production image (TKT-27, deploy/Dockerfile).
+  output: 'standalone',
   poweredByHeader: false,
   // exifr probes for fs/zlib with a dynamic require that a bundle cannot satisfy ("Couldn't load fs");
   // loaded natively on the server it finds them (TKT-08, media/exif.ts).
@@ -28,7 +30,8 @@ const nextConfig: NextConfig = {
     serverActions: { bodySizeLimit: "3mb" },
   },
   env: {
-    UDGAM_COMMIT: gitCommit(),
+    // The image build has no .git (.dockerignore): deploy/Dockerfile passes the SHA in as a build arg.
+    UDGAM_COMMIT: process.env.UDGAM_COMMIT || gitCommit(),
   },
   // Never trace these into a server bundle's .nft.json, which `output: 'standalone'` (TKT-27) copies into
   // the artifact (final branch review finding 1). DATA_DIR (./data, CI's ./data-ci, e2e's .e2e-data)
