@@ -207,6 +207,7 @@ export const en = {
   'rec.review.type': 'This photo is not a camera picture the office can read. Take it again with Open camera.',
   'rec.review.size': 'This photo is too large to send. Take it again.',
   'rec.review.read': 'This photo could not be read. Take it again.',
+  'rec.review.duplicate': 'This photo is already in slot {n}. Take or choose a different one.', // CR-107
   'gps.finding': 'Finding your location…',
   'gps.weak': 'Move to open sky for a better location. You can still record.',
   'gps.denied': 'Location is off. To allow it:',

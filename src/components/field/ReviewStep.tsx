@@ -13,7 +13,7 @@ import type { PhotoProblem, Slot } from './record-flow';
 
 const CHECKS: MessageKey[] = ['rec.review.focus', 'rec.review.seen', 'rec.review.dark'];
 /** Why this photo cannot be used, in the farmer's words (TASK-11 fix round 1). */
-const PROBLEM: Record<PhotoProblem, MessageKey> = { type: 'rec.review.type', size: 'rec.review.size', read: 'rec.review.read' };
+const PROBLEM: Record<PhotoProblem, MessageKey> = { type: 'rec.review.type', size: 'rec.review.size', read: 'rec.review.read', duplicate: 'rec.review.duplicate' };
 
 export function ReviewStep({
   slot,
@@ -21,6 +21,7 @@ export function ReviewStep({
   lang,
   busy,
   error,
+  duplicateOf,
   onBack,
   onUse,
   onRetake,
@@ -31,6 +32,8 @@ export function ReviewStep({
   busy: boolean;
   /** The photo cannot be sent: the screen says why, and only Take again is offered. */
   error?: PhotoProblem;
+  /** CR-107: with error 'duplicate', the slot that already holds this photo (said as "slot N"). */
+  duplicateOf?: Slot;
   onBack: () => void;
   onUse: () => void;
   onRetake: () => void;
@@ -68,7 +71,7 @@ export function ReviewStep({
         {error ? (
           <p className="photo-error" role="alert" data-testid="photo-error">
             <Ic name="alert" />
-            {tr(PROBLEM[error])}
+            {tr(PROBLEM[error], { n: (duplicateOf ?? 0) + 1 })}
           </p>
         ) : null}
         <Pill icon={<Ic name="check" />} onClick={onUse} disabled={busy || error !== undefined}>

@@ -12,7 +12,7 @@ import { VERDICT_IN_MARK } from '../ui/VerdictScreen';
 import { CheckingStep } from './CheckingStep';
 import { PhotosStep, SLOTS } from './PhotosStep';
 import { hydratedAttr, useHydrated } from './useHydrated';
-import { initialFlow, kgValue, photoProblem, reduce, usedPhotos, type Slot } from './record-flow';
+import { duplicateSlot, initialFlow, kgValue, photoProblem, reduce, usedPhotos, type Slot } from './record-flow';
 import { ReviewStep } from './ReviewStep';
 import { sendPicking, settleAction } from './send-picking';
 import { whenOnline } from './offline';
@@ -137,8 +137,9 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
       const problem = photoProblem(h);
       dispatch(problem ? { type: 'refuse', slot, file, why: problem } : { type: 'use', slot, file, ...h });
       // Upload it now, in the background, so Send carries only the signed picking (TKT-30). Invisible to
-      // the farmer; if it fails the photo simply goes with the picking.
-      if (!problem) void stagePhoto(file, h.sha256, { mime: h.mime, slot });
+      // the farmer; if it fails the photo simply goes with the picking. A photo already in another slot
+      // is not added again (CR-107: the reducer keeps it on review and says which slot), so not staged.
+      if (!problem && duplicateSlot(flow, h.sha256, slot) === null) void stagePhoto(file, h.sha256, { mime: h.mime, slot });
     } catch (err) {
       console.error('capture.photo_read_failed', { errClass: err instanceof Error ? err.name : typeof err });
       dispatch({ type: 'refuse', slot, file, why: 'read' });
@@ -215,6 +216,7 @@ export function RecordFlow({ plot, lang, range = null }: { plot: RecordPlot; lan
           lang={lang}
           busy={hashing}
           error={flow.photoError}
+          duplicateOf={flow.duplicateOf}
           onBack={() => dispatch({ type: 'back' })}
           onUse={() => void acceptPhoto()}
           onRetake={retake}

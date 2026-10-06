@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { VerdictView } from '../../client/capture-client';
 import { MAX_PHOTO_BYTES } from '../../lib/capture/limits';
-import { initialFlow, kgOutOfRange, kgPrompt, photoProblem, reduce, usedPhotos, type FlowAction, type FlowState, type Slot } from './record-flow';
+import { t } from '../../lib/i18n';
+import { duplicateSlot, initialFlow, kgOutOfRange, kgPrompt, photoProblem, reduce, usedPhotos, type FlowAction, type FlowState, type Slot } from './record-flow';
 
 // TSK-10.6: the record flow (photos → review → weight → checking → verdict | saved) as a pure reducer.
 
@@ -259,5 +260,47 @@ describe('DES-006: Try again from the saved sheet', () => {
 
   it('a first Send from the weight step has no retry', () => {
     expect(run(keys(atWeight(), '4'), { type: 'send' }).retry).toBeUndefined();
+  });
+});
+
+describe('the same photo twice (CR-107)', () => {
+  const sameAgain = (): FlowState => {
+    const again = file('same-again.jpg');
+    return run(initialFlow('PL-1'), ...pick(0, H), { type: 'take', slot: 1, file: again }, { type: 'use', slot: 1, file: again, sha256: H, size: 4, mime: 'image/jpeg' });
+  };
+
+  it('a photo whose bytes are already in another slot is not added: review says which slot', () => {
+    const s = sameAgain();
+    expect(s).toMatchObject({ step: 'review', reviewing: 1, photoError: 'duplicate', duplicateOf: 0 });
+    expect(usedPhotos(s).map((p) => p.slot)).toEqual([0]);
+    expect(duplicateSlot(s, H, 1)).toBe(0);
+    expect(duplicateSlot(s, H, 0)).toBeNull();
+    expect(duplicateSlot(s, 'b'.repeat(64), 1)).toBeNull();
+  });
+
+  it('Take again or Back clears it; the first photo stays; another photo is then added as usual', () => {
+    const s = sameAgain();
+    for (const next of [reduce(s, { type: 'retake' }), reduce(s, { type: 'back' })]) {
+      expect(next.photoError).toBeUndefined();
+      expect(next.duplicateOf).toBeUndefined();
+      expect(usedPhotos(next).map((p) => p.slot)).toEqual([0]);
+    }
+    expect(usedPhotos(run(reduce(s, { type: 'back' }), ...pick(1, 'b'.repeat(64)))).map((p) => p.slot)).toEqual([0, 1]);
+  });
+
+  it('the same photo again in its own slot (Take again, then the same file) is not a duplicate', () => {
+    const s = run(initialFlow('PL-1'), ...pick(0, H), ...pick(0, H));
+    expect(s.photoError).toBeUndefined();
+    expect(usedPhotos(s)).toHaveLength(1);
+  });
+
+  it('a duplicate never blocks Send of the photos already added (TP28)', () => {
+    const s = run(reduce(sameAgain(), { type: 'back' }), { type: 'continue' }, { type: 'key', k: '4' }, { type: 'send' });
+    expect(s.step).toBe('checking');
+  });
+
+  it('says which slot, in English and in the Kannada draft', () => {
+    expect(t('rec.review.duplicate', { n: 1 })).toBe('This photo is already in slot 1. Take or choose a different one.');
+    expect(t('rec.review.duplicate', { n: 2 }, 'kn')).toContain('2');
   });
 });

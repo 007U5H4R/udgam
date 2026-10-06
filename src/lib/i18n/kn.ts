@@ -125,6 +125,7 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'rec.review.type': 'ಈ ಫೋಟೋ ಕಚೇರಿ ಓದಬಹುದಾದ ಕ್ಯಾಮೆರಾ ಚಿತ್ರವಲ್ಲ. ಕ್ಯಾಮೆರಾ ತೆರೆಯಿರಿ ಬಳಸಿ ಮತ್ತೆ ತೆಗೆಯಿರಿ.', // REVIEW: native speaker
   'rec.review.size': 'ಈ ಫೋಟೋ ಕಳುಹಿಸಲು ತುಂಬಾ ದೊಡ್ಡದಾಗಿದೆ. ಮತ್ತೆ ತೆಗೆಯಿರಿ.', // REVIEW: native speaker
   'rec.review.read': 'ಈ ಫೋಟೋವನ್ನು ಓದಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ತೆಗೆಯಿರಿ.', // REVIEW: native speaker
+  'rec.review.duplicate': 'ಈ ಫೋಟೋ ಈಗಾಗಲೇ {n}ನೇ ಸ್ಥಾನದಲ್ಲಿದೆ. ಬೇರೆ ಫೋಟೋ ತೆಗೆಯಿರಿ ಅಥವಾ ಆರಿಸಿ.', // REVIEW: native speaker
   'gps.finding': 'ನಿಮ್ಮ ಸ್ಥಳ ಹುಡುಕಲಾಗುತ್ತಿದೆ…', // REVIEW: native speaker
   'gps.weak': 'ಉತ್ತಮ ಸ್ಥಳಕ್ಕಾಗಿ ತೆರೆದ ಆಕಾಶದ ಕೆಳಗೆ ಬನ್ನಿ. ನೀವು ಈಗಲೂ ದಾಖಲಿಸಬಹುದು.', // REVIEW: native speaker
   'gps.denied': 'ಸ್ಥಳ ಆಫ್ ಆಗಿದೆ. ಅನುಮತಿಸಲು:', // REVIEW: native speaker

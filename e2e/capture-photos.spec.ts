@@ -101,6 +101,37 @@ test('a plot that is not assigned to the agent goes back to Home', async ({ page
   await expect(page).toHaveURL(/\/field$/);
 });
 
+// CR-107: a gallery or desktop picker can choose one file for two slots. The same bytes are never added
+// twice: review says which slot already holds the photo, the counter stays, and a different photo is then
+// added as usual. Nothing is refused at Send.
+test('CR-107: the same file chosen twice is not added again; review names the slot it is in', async ({ page, context }) => {
+  const seed = seedCaptureWorld();
+  await openField(page, context, seed);
+  await page.getByRole('button', { name: "Record today's picking" }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Take up to 3 photos');
+
+  const same = { name: 'branch.jpg', mimeType: 'image/jpeg', buffer: demoPhoto() };
+  await choosePhoto(page.getByLabel('The branch'), same);
+  await page.getByRole('button', { name: 'Use this photo' }).click();
+  await expect(page.getByTestId('photo-counter')).toHaveText('1 of 3');
+
+  // the very same file again, for "Basket on the scale"
+  await choosePhoto(page.getByLabel('Basket on the scale'), { ...same, name: 'copy-of-branch.jpg' });
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Is the photo clear?');
+  await page.getByRole('button', { name: 'Use this photo' }).click();
+  await expect(page.getByTestId('photo-error')).toHaveText('This photo is already in slot 1. Take or choose a different one.');
+  await expect(page.getByRole('button', { name: 'Use this photo' })).toBeDisabled();
+
+  // Take again with a different photo: added as the second one
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Take again' }).click();
+  await (await chooser).setFiles({ name: 'scale.jpg', mimeType: 'image/jpeg', buffer: demoPhoto('scale-01.jpg') });
+  await expect(page.getByTestId('photo-error')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Use this photo' }).click();
+  await expect(page.getByTestId('photo-counter')).toHaveText('2 of 3');
+  await expect(page.locator('.slot[data-state="filled"] img')).toHaveCount(2);
+});
+
 // CR-101 = DES-030 (Stage 8 re-run): in ಕನ್ನಡ at 320 px the slot names ("ತಕ್ಕಡಿಯ ಮೇಲಿನ ಬುಟ್ಟಿ") made the
 // third slot wider than its track, so the grid reached x 323 on a 320 px screen. The tracks are
 // minmax(0, 1fr) and the names wrap: no horizontal overflow, every slot inside the screen.

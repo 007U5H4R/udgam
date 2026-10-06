@@ -21,6 +21,8 @@ export type FlowState = {
   needOne?: boolean;
   /** Why the reviewed photo cannot be used (TASK-11 fix round 1): not a camera JPEG/HEIC, too large, or unreadable. */
   photoError?: PhotoProblem;
+  /** CR-107: with photoError 'duplicate', the slot that already holds this photo's bytes. */
+  duplicateOf?: Slot;
   kg: string;
   /** DES-019: the last key was refused (a third decimal, a decimal other than .0/.5, over 500): the screen says the rule. */
   kgRefused?: boolean;
@@ -36,7 +38,8 @@ export type FlowState = {
 
 export type FlowError = { kind: 'offline' | 'server' | 'rejected'; reason?: string; retryAfterSec?: number; again?: boolean };
 
-export type PhotoProblem = 'type' | 'size' | 'read';
+/** CR-107 'duplicate': the same bytes are already in another slot (a gallery or desktop picker can choose one file twice). */
+export type PhotoProblem = 'type' | 'size' | 'read' | 'duplicate';
 
 export type FlowAction =
   | { type: 'take'; slot: Slot; file: File }
@@ -69,6 +72,14 @@ const isReviewing = (s: FlowState, slot: Slot, file: File) => s.step === 'review
 
 export function initialFlow(plotId: string): FlowState {
   return { step: 'photos', plotId, photos: [{ slot: 0 }, { slot: 1 }, { slot: 2 }], kg: '', checks: new Map() };
+}
+
+/**
+ * CR-107: the other slot whose accepted photo has these bytes (sha256), or null. A photo is never added
+ * twice: the evidence counts distinct photos (core CR-001), and three copies of one picture are one photo.
+ */
+export function duplicateSlot(s: FlowState, sha256: string, slot: Slot): Slot | null {
+  return s.photos.find((p) => p.slot !== slot && p.sha256 === sha256)?.slot ?? null;
 }
 
 /** The photos accepted with "Use this photo" (hashed), in slot order: what the payload signs. */
@@ -138,17 +149,20 @@ export function reduce(s: FlowState, a: FlowAction): FlowState {
         retakeSlot: undefined,
         needOne: false,
         photoError: undefined,
+        duplicateOf: undefined,
         photos: withPhoto(s.photos, a.slot, { slot: a.slot, file: a.file }),
       };
     case 'use': {
       if (!isReviewing(s, a.slot, a.file)) return s;
+      const dup = duplicateSlot(s, a.sha256, a.slot);
+      if (dup !== null) return { ...s, photoError: 'duplicate', duplicateOf: dup };
       const photos = withPhoto(s.photos, a.slot, { slot: a.slot, file: a.file, sha256: a.sha256, size: a.size, mime: a.mime });
-      const next = { ...s, photos, reviewing: undefined, photoError: undefined };
+      const next = { ...s, photos, reviewing: undefined, photoError: undefined, duplicateOf: undefined };
       return { ...next, step: usedPhotos(next).length === 3 ? 'weight' : 'photos' };
     }
     case 'refuse':
       if (!isReviewing(s, a.slot, a.file)) return s;
-      return { ...s, photoError: a.why };
+      return { ...s, photoError: a.why, duplicateOf: undefined };
     case 'retake':
       if (s.step !== 'review' || s.reviewing === undefined) return s;
       return {
@@ -157,6 +171,7 @@ export function reduce(s: FlowState, a: FlowAction): FlowState {
         retakeSlot: s.reviewing,
         reviewing: undefined,
         photoError: undefined,
+        duplicateOf: undefined,
         photos: withPhoto(s.photos, s.reviewing, { slot: s.reviewing }),
       };
     case 'continue':
@@ -203,7 +218,7 @@ export function reduce(s: FlowState, a: FlowAction): FlowState {
     case 'back':
       if (s.step === 'weight') return { ...s, step: 'photos' };
       if (s.step === 'review' && s.reviewing !== undefined)
-        return { ...s, step: 'photos', reviewing: undefined, photoError: undefined, photos: withPhoto(s.photos, s.reviewing, { slot: s.reviewing }) };
+        return { ...s, step: 'photos', reviewing: undefined, photoError: undefined, duplicateOf: undefined, photos: withPhoto(s.photos, s.reviewing, { slot: s.reviewing }) };
       return s;
   }
 }
