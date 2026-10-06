@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Test stub for `age`: "encrypts" by copying stdin to -o, "decrypts" (-d -i <identity> <file>) by cat.
+# Knob: STUB_AGE_FAIL=1 writes part of the output, then fails (as a full disk would).
+set -euo pipefail
+echo "age $*" >>"${STUB_STATE:?}/calls.log"
+out="" decrypt=0 file=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) out="$2"; shift 2 ;;
+    -r | -R | -i) shift 2 ;;
+    -d) decrypt=1; shift ;;
+    *) file="$1"; shift ;;
+  esac
+done
+if [ "$decrypt" = 1 ]; then
+  cat "$file"
+  exit 0
+fi
+if [ "${STUB_AGE_FAIL:-0}" = 1 ]; then
+  head -c 10 >"$out"
+  cat >/dev/null
+  echo "age: write error: no space left on device" >&2
+  exit 1
+fi
+cat >"$out"

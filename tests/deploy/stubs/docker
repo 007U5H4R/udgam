@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# Test stub for `docker` (tests/deploy/*.script.test.ts). State lives in $STUB_STATE:
+#   tags/<repo_tag>  the image id a tag points at     ids        known image ids
+#   container        "<image-id> <status> <health>" of the app container (written by the compose stub)
+#   calls.log        every call
+# Knobs: STUB_BUILD_FAIL=1, STUB_TAG_FAIL=<dst tag>, STUB_SNAPSHOT_FAIL=1.
+set -euo pipefail
+S="${STUB_STATE:?STUB_STATE not set}"
+mkdir -p "$S/tags"
+touch "$S/ids"
+echo "docker $*" >>"$S/calls.log"
+
+tagfile() { echo "$S/tags/$(printf '%s' "$1" | tr '/:' '__')"; }
+resolve() {
+  case "$1" in
+    sha256:*) grep -qxF "$1" "$S/ids" && echo "$1" ;;
+    *) [ -f "$(tagfile "$1")" ] && cat "$(tagfile "$1")" ;;
+  esac
+}
+last() { eval "echo \${$#}"; }
+
+case "$1" in
+  compose)
+    # deploy/compose.sh's hand-off: report what it exported (test values only)
+    echo "domain=${UDGAM_DOMAIN:-} profiles=${COMPOSE_PROFILES:-} args=${*:2}"
+    ;;
+  image)
+    # docker image inspect --format '{{.Id}}' <ref>
+    resolve "$(last "$@")" || exit 1
+    ;;
+  tag)
+    [ "${STUB_TAG_FAIL:-}" = "$3" ] && { echo "stub: tag $3 failed" >&2; exit 1; }
+    id="$(resolve "$2")" || { echo "stub: no such image $2" >&2; exit 1; }
+    echo "$id" >"$(tagfile "$3")"
+    ;;
+  rmi)
+    shift
+    for r in "$@"; do rm -f "$(tagfile "$r")"; done
+    ;;
+  build)
+    [ "${STUB_BUILD_FAIL:-0}" = 1 ] && { echo "stub: build failed" >&2; exit 1; }
+    t=""
+    while [ $# -gt 0 ]; do
+      [ "$1" = -t ] && t="$2"
+      shift
+    done
+    id="sha256:built-${t#*:}"
+    echo "$id" >>"$S/ids"
+    echo "$id" >"$(tagfile "$t")"
+    ;;
+  run)
+    # the snapshot container: ... --label <label>
+    [ "${STUB_SNAPSHOT_FAIL:-0}" = 1 ] && { echo "stub: snapshot failed" >&2; exit 1; }
+    label=""
+    while [ $# -gt 0 ]; do
+      [ "$1" = --label ] && label="$2"
+      shift
+    done
+    name="udgam-$(date -u +%Y%m%dT%H%M%SZ)-$label.db"
+    mkdir -p "$UDGAM_DATA_DIR/backups"
+    [ -e "$UDGAM_DATA_DIR/backups/$name" ] && { echo "stub: exists" >&2; exit 1; }
+    echo "snapshot $label" >"$UDGAM_DATA_DIR/backups/$name"
+    echo "/data/backups/$name"
+    ;;
+  inspect)
+    # docker inspect --format '{{.Image}} {{.State.Status}} {{...Health...}}' <container>
+    [ -f "$S/container" ] || exit 1
+    cat "$S/container"
+    ;;
+  *)
+    echo "stub docker: unsupported: $*" >&2
+    exit 2
+    ;;
+esac

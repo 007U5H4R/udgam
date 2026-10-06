@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Test stub for the stack's compose command (UDGAM_COMPOSE). `up` runs the app on udgam-app:current.
+# Knobs: STUB_UP_FAIL=1 (up exits 1 with a message on stderr), STUB_UP_NOOP=1 (up exits 0 but leaves the
+# old container), STUB_UNHEALTHY=<substring of an image id> (that image never gets healthy),
+# STUB_RESTARTING=<substring> (that image crash-loops).
+set -euo pipefail
+S="${STUB_STATE:?STUB_STATE not set}"
+echo "compose $*" >>"$S/calls.log"
+case "$1" in
+  ps)
+    [ -f "$S/container" ] && echo appcid
+    ;;
+  up)
+    [ "${STUB_UP_FAIL:-0}" = 1 ] && { echo "stub compose: up failed: port is already allocated" >&2; exit 1; }
+    [ "${STUB_UP_NOOP:-0}" = 1 ] && exit 0
+    img="$(cat "$S/tags/udgam-app_current")"
+    status=running health=healthy
+    [ -n "${STUB_UNHEALTHY:-}" ] && [[ "$img" == *"$STUB_UNHEALTHY"* ]] && health=unhealthy
+    [ -n "${STUB_RESTARTING:-}" ] && [[ "$img" == *"$STUB_RESTARTING"* ]] && status=restarting health=starting
+    echo "$img $status $health" >"$S/container"
+    ;;
+  stop)
+    [ -f "$S/container" ] && read -r img _ _ <"$S/container" && echo "$img exited none" >"$S/container"
+    ;;
+  *)
+    echo "stub compose: unsupported: $*" >&2
+    exit 2
+    ;;
+esac

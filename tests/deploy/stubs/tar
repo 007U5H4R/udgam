@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Test stub for `tar`: runs the real tar, then exits with STUB_TAR_EXIT when set (1 = "file changed as we
+# read it", 2 = a fatal error), as tar does when it has still written the whole archive.
+real=""
+for d in /usr/bin /bin; do [ -x "$d/tar" ] && real="$d/tar" && break; done
+"$real" "$@"
+st=$?
+[ -n "${STUB_TAR_EXIT:-}" ] && exit "$STUB_TAR_EXIT"
+exit "$st"
