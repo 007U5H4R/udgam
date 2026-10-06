@@ -112,7 +112,7 @@ describe('the bundled accounts CLI (SEC-001 in the image)', () => {
 describe('build-tools input rule', () => {
   it('refuses data, key, env and secrets files as bundle inputs', async () => {
     const { forbiddenInput } = (await import('../../deploy/build-tools.mjs')) as { forbiddenInput: (p: string) => string | null };
-    for (const p of ['.env', '.env.local', 'src/.env.production', '.secrets/auth', 'data/udgam.db', 'keys/ledger.jwk', 'x/ledger.key', 'cert.pem']) expect(forbiddenInput(p), p).not.toBeNull();
+    for (const p of ['.env', '.env.local', 'src/.env.production', '.secrets/auth', 'data/udgam.db', 'keys/ledger.jwk', 'x/ledger.key', 'cert.pem', 'x/udgam.db-wal', 'x/udgam.db-shm', 'x/a.sqlite-wal']) expect(forbiddenInput(p), p).not.toBeNull();
     for (const p of ['src/lib/auth/accounts.ts', 'node_modules/better-auth/dist/crypto/index.mjs']) expect(forbiddenInput(p), p).toBeNull();
   });
 });

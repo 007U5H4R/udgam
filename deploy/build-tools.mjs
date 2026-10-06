@@ -40,7 +40,8 @@ export function forbiddenInput(path) {
   const name = parts.at(-1) ?? '';
   if (parts.slice(0, -1).some((p) => DATA_DIRS.has(p))) return 'a data, key or secrets directory';
   if (name === '.env' || name.startsWith('.env.')) return 'an env file';
-  if (/\.(key|jwk|pem|db|sqlite)$/i.test(name)) return 'a key or database file';
+  if (/\.(key|jwk|pem)$/i.test(name)) return 'a key file';
+  if (/\.(db|sqlite)(-wal|-shm)?$/i.test(name)) return 'a database file'; // as check-standalone.mjs
   return null;
 }
 
