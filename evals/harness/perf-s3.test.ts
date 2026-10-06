@@ -11,13 +11,16 @@ import {
   monthBucket,
   parseS3Args,
   phaseSplit,
+  phaseStats,
   planRuns,
+  providerProbes,
   S3_MARKS,
   S3_MIN_COLD,
   S3_RUNS,
   S3_THRESHOLD_MS,
   scoreS3,
   suiteOf,
+  targetOf,
   terminalOf,
   type Phases,
   type RawTiming,
@@ -107,12 +110,43 @@ describe('S3 scorer (EVAL-070)', () => {
 
     const noUpload = gateRuns(Array(20).fill(9_000));
     noUpload[7] = run(9_000, 'warm', 'verdict', { ...SPLIT, uploadMs: null, verifyMs: null });
-    expect(scoreS3(noUpload).reasons).toContain('run 8: latency split missing (uploadMs+verifyMs or uploadVerifyMs)');
+    expect(scoreS3(noUpload).reasons).toContain('run 8: latency split missing (uploadMs, verifyMs)');
+  });
 
-    // Upload and verify unsplit, but their sum is known: the split is present.
+  it('a merged upload+verify is not a split: EVAL-070 names upload and verify separately', () => {
     const joined = gateRuns(Array(20).fill(9_000));
     joined[7] = run(9_000, 'warm', 'verdict', { ...SPLIT, uploadMs: null, verifyMs: null }, 254);
-    expect(scoreS3(joined).pass).toBe(true);
+    const s = scoreS3(joined);
+    expect(s.pass).toBe(false);
+    expect(s.reasons).toEqual(['run 8: latency split missing (upload/verify not separable)']);
+  });
+
+  it('never throws on an invalid time: a non-finite or negative t1 − t0 fails that run', () => {
+    const runs = gateRuns(Array(20).fill(9_000));
+    runs[0] = run(Number.NaN, 'cold');
+    runs[1] = run(-3, 'cold');
+    const s = scoreS3(runs);
+    expect(s.pass).toBe(false);
+    expect(s.verdicts).toBe(18);
+    expect(s.reasons).toEqual(expect.arrayContaining(['run 1: invalid time (NaN)', 'run 2: invalid time (-3)']));
+  });
+});
+
+describe('phase statistics', () => {
+  it('drop non-finite or negative samples with a warning naming the run, and still report the rest', () => {
+    const warnings: string[] = [];
+    const stats = phaseStats(
+      [
+        { run: 1, phases: SPLIT },
+        { run: 2, phases: { ...SPLIT, gpsMs: Number.NaN, verifyMs: -4 } },
+        { run: 3, phases: { ...SPLIT, gpsMs: 30, uploadMs: null } },
+      ],
+      (w) => warnings.push(w),
+    );
+    expect(stats.gpsMs).toMatchObject({ n: 2, max: 30 });
+    expect(stats.verifyMs).toMatchObject({ n: 2, max: 250 });
+    expect(stats.uploadMs.n).toBe(2);
+    expect(warnings).toEqual(['phase gpsMs of run 2 dropped from the statistics: NaN', 'phase verifyMs of run 2 dropped from the statistics: -4']);
   });
 });
 
@@ -145,7 +179,17 @@ describe('run outcome (a refusal is not a verdict)', () => {
 });
 
 describe('final verdict and formal preconditions', () => {
-  const formalArgs: S3Args = { target: 'https://udgam.example.org', runs: 20, cold: 5, weakRuns: 3, immediateRuns: 5, submit: 'after-staging', dataDir: './data', formal: true };
+  const formalArgs: S3Args = {
+    target: 'https://udgam.example.org',
+    targetLabel: 'production',
+    runs: 20,
+    cold: 5,
+    weakRuns: 3,
+    immediateRuns: 5,
+    submit: 'after-staging',
+    dataDir: './data',
+    formal: true,
+  };
   const live = { gfw: 'ok', sentinelHub: 'ok' };
   const clean = { dirty: false, changes: [] };
   const ok = { args: formalArgs, formalFileExists: false, tree: clean, ci: false, providers: live };
@@ -176,6 +220,65 @@ describe('final verdict and formal preconditions', () => {
     const failing = scoreS3(gateRuns(Array(6).fill(9_000)));
     expect(finalVerdict(failing, { formal: false, providersAfter: live })).toEqual({ pass: false, reasons: failing.reasons });
   });
+
+  it('a formal run fails when a run is not surrounded by all-ok provider probes', () => {
+    const passing = scoreS3(gateRuns(Array(20).fill(9_000)));
+    expect(finalVerdict(passing, { formal: true, providersAfter: live, unprobedRuns: ['reference 11', 'weak 2'] })).toEqual({
+      pass: false,
+      reasons: ['providers not all ok around: reference 11, weak 2'],
+    });
+    expect(finalVerdict(passing, { formal: false, providersAfter: live, unprobedRuns: ['reference 11'] }).pass).toBe(true);
+  });
+});
+
+describe('provider probes between formal runs', () => {
+  const live = { gfw: 'ok', sentinelHub: 'ok' };
+  const down = { gfw: 'ok', sentinelHub: 'error' };
+
+  it('probes before run 1 (the pre-run probe), every 5 runs and at the end; a run is ok only between two all-ok probes', async () => {
+    const answers = [live, live, down];
+    const calls: number[] = [];
+    let i = 0;
+    const probes = providerProbes(
+      async () => {
+        calls.push(i);
+        return answers[i++]!;
+      },
+      { every: 5, initial: live },
+    );
+    for (let seq = 1; seq <= 12; seq++) await probes.before(seq);
+    const after = await probes.end(13);
+    expect(after).toEqual(down);
+    expect(calls).toHaveLength(3); // before runs 6 and 11, and at the end; run 1 uses the initial probe
+    expect(probes.log.map((p) => [p.beforeRun, p.providers])).toEqual([
+      [1, live],
+      [6, live],
+      [11, live],
+      [13, down],
+    ]);
+    expect(probes.okAround(1)).toBe(true);
+    expect(probes.okAround(10)).toBe(true);
+    expect(probes.okAround(11)).toBe(false);
+    expect(probes.okAround(12)).toBe(false);
+  });
+
+  it('a run with no probe after it is not ok', async () => {
+    const probes = providerProbes(async () => live, { every: 5, initial: live });
+    await probes.before(1);
+    expect(probes.okAround(1)).toBe(false);
+    await probes.end(2);
+    expect(probes.okAround(1)).toBe(true);
+  });
+
+  it('a failing probe function reads as unknown, never throws', async () => {
+    const probes = providerProbes(
+      async () => {
+        throw new Error('down');
+      },
+      { every: 5, initial: live },
+    );
+    expect(await probes.end(1)).toBe('unknown');
+  });
 });
 
 describe('mark names', () => {
@@ -200,9 +303,15 @@ describe('perf CLI arguments', () => {
     expect(() => suiteOf(['--suite=s3', '--only=s4'])).toThrow(/--suite=s3 and --only=s4 disagree/);
   });
 
+  it('refuses a bare --suite or --only, so "--suite s3" never silently runs S4', () => {
+    expect(() => suiteOf(['--suite', 's3', '--target=http://x'])).toThrow(/--suite needs a value \(--suite=s3 or --suite=s4\)/);
+    expect(() => suiteOf(['--only'])).toThrow(/--only needs a value/);
+  });
+
   it('S3 defaults: 20 runs, 5 cold, 3 weak-network runs, Submit after staging, local output, data dir from the environment', () => {
     expect(parseS3Args(['--suite=s3', '--target=http://localhost:4780'], { DATA_DIR: '/srv/data' })).toEqual({
       target: 'http://localhost:4780',
+      targetLabel: null,
       runs: 20,
       cold: 5,
       weakRuns: 3,
@@ -240,14 +349,28 @@ describe('perf CLI arguments', () => {
     expect(() => parseS3Args(['--suite=s3', t, '--out=evals/results/x.json'], {})).toThrow(/--out is S4's; S3 writes evals\/results\/local\/ or, with --formal, the baseline/);
   });
 
-  it('S3 --formal only against a production HTTPS host, never a local one', () => {
-    expect(() => parseS3Args(['--suite=s3', '--target=http://localhost:4780', '--formal'], {})).toThrow(/--formal needs an https production target/);
-    expect(() => parseS3Args(['--suite=s3', '--target=https://localhost:4780', '--formal'], {})).toThrow(/--formal needs an https production target/);
-    expect(() => parseS3Args(['--suite=s3', '--target=https://127.0.0.1', '--formal'], {})).toThrow(/--formal/);
-    expect(() => parseS3Args(['--suite=s3', '--target=http://udgam.example.org', '--formal'], {})).toThrow(/--formal/);
-    expect(() => parseS3Args(['--suite=s3', '--target=https://udgam.example.org', '--formal', '--runs=10'], {})).toThrow(/--formal is the gate run: 20 runs, at least 5 cold/);
-    expect(parseS3Args(['--suite=s3', '--target=https://udgam.example.org', '--formal'], {})).toMatchObject({ formal: true, immediateRuns: 5 });
-    expect(() => parseS3Args(['--suite=s3', '--target=https://udgam.example.org', '--formal', '--immediate-runs=2'], {})).toThrow(/--formal also reports at least 5 --submit=immediate runs/);
+  it('S3 --formal only against a remote HTTPS host the operator labels, never a local one', () => {
+    const remote = ['--suite=s3', '--target=https://udgam.example.org', '--formal'];
+    expect(() => parseS3Args(['--suite=s3', '--target=http://localhost:4780', '--formal', '--target-label=production'], {})).toThrow(/--formal needs an https, non-local target \(the baseline is never a local run\)/);
+    expect(() => parseS3Args(['--suite=s3', '--target=https://localhost:4780', '--formal', '--target-label=production'], {})).toThrow(/--formal needs an https, non-local target/);
+    expect(() => parseS3Args(['--suite=s3', '--target=https://127.0.0.1', '--formal', '--target-label=production'], {})).toThrow(/--formal/);
+    expect(() => parseS3Args(['--suite=s3', '--target=http://udgam.example.org', '--formal', '--target-label=production'], {})).toThrow(/--formal/);
+    expect(() => parseS3Args(remote, {})).toThrow(/--formal needs --target-label=staging or --target-label=production \(the runner cannot tell them apart\)/);
+    expect(() => parseS3Args([...remote, '--target-label=production', '--runs=10'], {})).toThrow(/--formal is the gate run: 20 runs, at least 5 cold/);
+    expect(parseS3Args([...remote, '--target-label=production'], {})).toMatchObject({ formal: true, immediateRuns: 5, targetLabel: 'production' });
+    expect(parseS3Args([...remote, '--target-label=staging'], {}).targetLabel).toBe('staging');
+    expect(() => parseS3Args([...remote, '--target-label=production', '--immediate-runs=2'], {})).toThrow(/--formal also reports at least 5 --submit=immediate runs/);
+  });
+
+  it('S3 --target-label is staging or production, optional outside --formal', () => {
+    expect(parseS3Args(['--suite=s3', '--target=https://staging.example.org', '--target-label=staging'], {}).targetLabel).toBe('staging');
+    expect(() => parseS3Args(['--suite=s3', '--target=https://x.example.org', '--target-label=prod'], {})).toThrow(/--target-label must be staging or production/);
+  });
+
+  it('labels the target by where it is (local or remote, with its host), never "production" by itself', () => {
+    expect(targetOf('http://localhost:4780', null)).toEqual({ kind: 'local', host: 'localhost:4780', label: null });
+    expect(targetOf('https://udgam.example.org', null)).toEqual({ kind: 'remote', host: 'udgam.example.org', label: null });
+    expect(targetOf('https://udgam.example.org', 'production')).toEqual({ kind: 'remote', host: 'udgam.example.org', label: 'production' });
   });
 
   it('S3 refuses a value on --formal, a repeated flag, a value flag with no value and an unparseable --target', () => {

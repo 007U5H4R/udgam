@@ -16,7 +16,8 @@ import { treeState } from './tree-state';
 // S3 capture-to-verdict perf runner (EVAL-070, evaluation-plan §4.3, EV9; technical-plan TSK-29.1), behind
 //
 //   pnpm eval:perf --suite=s3 --target=<url> [--runs=20] [--cold=5] [--weak-runs=3] [--immediate-runs=0]
-//                  [--submit=after-staging|immediate] [--data-dir=<target's DATA_DIR>] [--formal]
+//                  [--submit=after-staging|immediate] [--data-dir=<target's DATA_DIR>]
+//                  [--target-label=staging|production] [--formal]
 //
 // Each run is one picking in Playwright Chromium at 375 × 812: three AI-generated demo photos
 // (assets/demo-photos, TP29: never evidence) padded to the 4 MB placeholder size, the phone's GPS mocked
@@ -27,7 +28,13 @@ import { treeState } from './tree-state';
 // 20 runs reaches the verdict card in ≤ 30 s with its latency split recorded, at least 5 of them with a
 // cold harvest-window cache. A run counts only if the capture answered 2xx with a verdict line: a boundary
 // refusal (429, a bad signature, …) also ends on the verdict screen ("Not accepted"), but it is an error
-// here, not a timed verdict. A verifier Rejected verdict is a verdict.
+// here, not a timed verdict. A verifier Rejected verdict is a verdict. Residual: a refusal found only at
+// commit (lateRefusal: the phone revoked or the plot unassigned while the capture was in flight) streams
+// as a 200 whose terminal line is `rejected`. When the streamed body cannot be read (the usual case for a
+// 200: DevTools keeps no copy of a stream the page consumed), the app's `udgam:verdict-in` mark decides,
+// and that mark is also set for such a refusal. It is reachable only if the phone is revoked or the plot
+// unassigned mid-run, which the runner never does to its own seeded worlds.
+// A merged upload+verify time does not count as the split: EVAL-070 names the two parts separately.
 //
 // Seeding, as S4 does (evals/perf/fixtures.ts): the target's own DATA_DIR (--data-dir) is written by the
 // capture-world seeder the e2e specs use (e2e/helpers/seed-capture.ts, in a child process): per seeded
@@ -47,10 +54,14 @@ import { treeState } from './tree-state';
 // photo digests. See phaseSplit. Reported without a gate: weak-network runs (1.5 Mbit/s up, 300 ms) and
 // --submit=immediate runs (Send right after the weight: the photos go inside t0→t1, the worst case).
 //
+// Target: recorded as local or remote with its host. Whether a remote host is staging or production is
+// the operator's --target-label (EXE53), which --formal requires; the runner cannot tell them apart.
+//
 // Output: evals/results/local/perf-s3-<sha>.json (git-ignored, replaced on a re-run). --formal writes
 // evals/results/baseline-perf-v1-s3-<sha>.json, once: only from a clean tree, outside CI, against an HTTPS
-// production host whose /api/health reports live providers before the runs (and again after them, or the
-// run fails), with at least 5 ungated --submit=immediate runs in the file.
+// non-local host labelled with --target-label, whose /api/health reports live providers before the runs,
+// every PROBE_EVERY runs and after them (a run not between two all-ok probes fails the result), with at
+// least 5 ungated --submit=immediate runs in the file.
 
 /** EVAL-070 expected.max_latency_ms (evaluation-plan §4.3): every run at most 30 s. */
 export const S3_THRESHOLD_MS = 30_000;
@@ -186,10 +197,18 @@ export function phaseSplit(raw: RawTiming): { totalMs: number | null; exactMs: n
 /** The parts of the EV9 split a verdict run lacks (EVAL-070 fails a run with its split missing). */
 export function splitMissing(phases: Phases, uploadVerifyMs: number | null): string[] {
   const missing: string[] = (['gpsMs', 'hashSignMs', 'resendMs'] as const).filter((k) => phases[k] === null);
-  if ((phases.uploadMs === null || phases.verifyMs === null) && uploadVerifyMs === null) missing.push('uploadMs+verifyMs or uploadVerifyMs');
+  // EVAL-070 names upload and verify as separate parts: their sum alone (uploadVerifyMs, kept in the
+  // output for diagnosis) is not a split.
+  if (phases.uploadMs === null || phases.verifyMs === null) {
+    if (uploadVerifyMs !== null) missing.push('upload/verify not separable');
+    else missing.push(...(['uploadMs', 'verifyMs'] as const).filter((k) => phases[k] === null));
+  }
   if (phases.responseMs === null) missing.push('responseMs');
   return missing;
 }
+
+/** A time the scorer can use: finite and not negative. */
+const validMs = (x: number): boolean => Number.isFinite(x) && x >= 0;
 
 // ---------------------------------------------------------------------------------------------------
 // Scorer
@@ -228,13 +247,17 @@ export function latencyStats(samples: number[]): Stats {
  * harvest-window cache. S3 names no percentile, so the gate is on the maximum; p50 and p95 are reported.
  */
 export function scoreS3(runs: ScoredRun[]): S3Summary {
-  const timed = runs.filter((r) => r.outcome === 'verdict' && r.ms !== null);
+  const timed = runs.filter((r) => r.outcome === 'verdict' && r.ms !== null && validMs(r.ms));
   const stats = latencyStats(timed.map((r) => r.ms!));
   const count = (c: CacheState) => runs.filter((r) => r.cache === c).length;
   const reasons: string[] = [];
   runs.forEach((r, i) => {
     if (r.outcome !== 'verdict' || r.ms === null) {
       reasons.push(`run ${i + 1}: no verdict card (${r.outcome})`);
+      return;
+    }
+    if (!validMs(r.ms)) {
+      reasons.push(`run ${i + 1}: invalid time (${r.ms})`);
       return;
     }
     if (r.ms > S3_THRESHOLD_MS) reasons.push(`run ${i + 1}: ${r1(r.ms)} ms > ${S3_THRESHOLD_MS} ms`);
@@ -258,15 +281,76 @@ export function scoreS3(runs: ScoredRun[]): S3Summary {
   };
 }
 
+const PHASE_KEYS: (keyof Phases)[] = ['gpsMs', 'hashSignMs', 'resendMs', 'uploadMs', 'verifyMs', 'responseMs'];
+
+/**
+ * Per-phase p50 / p95 / max over `runs`. A sample that is not finite or is negative (a clock or mark
+ * anomaly) is dropped with a warning naming the run, so one bad sample never costs the result file.
+ */
+export function phaseStats(runs: { run: number; phases: Phases }[], warn: (message: string) => void): Record<keyof Phases, Stats> {
+  const out = {} as Record<keyof Phases, Stats>;
+  for (const k of PHASE_KEYS) {
+    const samples: number[] = [];
+    for (const r of runs) {
+      const v = r.phases[k];
+      if (v === null) continue;
+      if (validMs(v)) samples.push(v);
+      else warn(`phase ${k} of run ${r.run} dropped from the statistics: ${v}`);
+    }
+    out[k] = latencyStats(samples);
+  }
+  return out;
+}
+
 /** Whether /api/health reports every provider `ok` (live and reachable; `fixture` is not live). */
 export const liveProviders = (p: Providers): boolean => p !== 'unknown' && Object.keys(p).length > 0 && Object.values(p).every((v) => v === 'ok');
 const describeProviders = (p: Providers): string => (p === 'unknown' ? '/api/health unreadable' : Object.entries(p).map(([k, v]) => `${k}=${v}`).join(', '));
 
-/** The result's pass: the gate, and for a formal run live providers after the runs too. */
-export function finalVerdict(summary: S3Summary, o: { formal: boolean; providersAfter: Providers }): { pass: boolean; reasons: string[] } {
+/**
+ * The result's pass: the gate, and for a formal run live providers after the runs and around every run
+ * (`unprobedRuns`: the runs not between two all-ok probes, e.g. "reference 11").
+ */
+export function finalVerdict(summary: S3Summary, o: { formal: boolean; providersAfter: Providers; unprobedRuns?: string[] }): { pass: boolean; reasons: string[] } {
   const reasons = [...summary.reasons];
   if (o.formal && !liveProviders(o.providersAfter)) reasons.push(`providers not all ok after the runs: ${describeProviders(o.providersAfter)}`);
+  if (o.formal && o.unprobedRuns && o.unprobedRuns.length > 0) reasons.push(`providers not all ok around: ${o.unprobedRuns.join(', ')}`);
   return { pass: reasons.length === 0, reasons };
+}
+
+/** Formal runs probe /api/health before run 1, before every PROBE_EVERY-th run after it, and at the end. */
+export const PROBE_EVERY = 5;
+export type ProbeRecord = { beforeRun: number; at: string; providers: Providers };
+
+/**
+ * The provider probes around the runs (`seq` counts every run of every series, from 1). `initial` is the
+ * probe taken before run 1; `before(seq)` probes again every `every` runs; `end(nextSeq)` probes after the
+ * last run. A run is ok only between two probes that were both all ok. A probe that throws reads as unknown.
+ */
+export function providerProbes(probe: () => Promise<Providers>, o: { every?: number; initial: Providers }) {
+  const every = o.every ?? PROBE_EVERY;
+  const log: ProbeRecord[] = [{ beforeRun: 1, at: new Date().toISOString(), providers: o.initial }];
+  const take = async (beforeRun: number): Promise<Providers> => {
+    let providers: Providers;
+    try {
+      providers = await probe();
+    } catch {
+      providers = 'unknown';
+    }
+    log.push({ beforeRun, at: new Date().toISOString(), providers });
+    return providers;
+  };
+  return {
+    log,
+    async before(seq: number): Promise<void> {
+      if (seq > 1 && (seq - 1) % every === 0) await take(seq);
+    },
+    end: take,
+    okAround(seq: number): boolean {
+      const prev = log.filter((p) => p.beforeRun <= seq).at(-1);
+      const next = log.find((p) => p.beforeRun > seq);
+      return !!prev && !!next && liveProviders(prev.providers) && liveProviders(next.providers);
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -317,15 +401,31 @@ export class UsageError extends Error {}
 
 /** The perf suite: --suite (the plan's name) or --only (TKT-21's), S4 when neither is given. */
 export function suiteOf(argv: string[]): string {
+  // A bare flag (`--suite s3`, with a space) would read as no suite and silently run S4.
+  for (const name of ['suite', 'only']) if (argv.includes(`--${name}`)) throw new UsageError(`--${name} needs a value (--${name}=s3 or --${name}=s4)`);
   const suite = argOf(argv, 'suite');
   const only = argOf(argv, 'only');
   if (suite !== undefined && only !== undefined && suite !== only) throw new UsageError(`--suite=${suite} and --only=${only} disagree`);
   return suite ?? only ?? 's4';
 }
 
-export type S3Args = { target: string; runs: number; cold: number; weakRuns: number; immediateRuns: number; submit: SubmitMode; dataDir: string; formal: boolean };
+/** What the operator says a remote target is (EXE53): the runner cannot tell staging from production. */
+export type TargetLabel = 'staging' | 'production';
 
-const VALUE_FLAGS = new Set(['suite', 'only', 'target', 'runs', 'cold', 'weak-runs', 'immediate-runs', 'submit', 'data-dir']);
+export type S3Args = {
+  target: string;
+  /** --target-label; required by --formal, recorded in the result and its assumptions. */
+  targetLabel: TargetLabel | null;
+  runs: number;
+  cold: number;
+  weakRuns: number;
+  immediateRuns: number;
+  submit: SubmitMode;
+  dataDir: string;
+  formal: boolean;
+};
+
+const VALUE_FLAGS = new Set(['suite', 'only', 'target', 'target-label', 'runs', 'cold', 'weak-runs', 'immediate-runs', 'submit', 'data-dir']);
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1', '0.0.0.0']);
 const GATE_RUN = `--formal is the gate run: ${S3_RUNS} runs, at least ${S3_MIN_COLD} cold, --submit=after-staging`;
 
@@ -334,6 +434,11 @@ export const isLocalTarget = (target: string): boolean => {
   const host = new URL(target).hostname;
   return LOCAL_HOSTS.has(host) || host.endsWith('.localhost') || host.startsWith('127.');
 };
+
+/** Where the target is (local or remote, and its host) plus the operator's label; never "production" by itself. */
+export function targetOf(target: string, label: TargetLabel | null): { kind: 'local' | 'remote'; host: string; label: TargetLabel | null } {
+  return { kind: isLocalTarget(target) ? 'local' : 'remote', host: new URL(target).host, label };
+}
 
 const int = (raw: string | undefined, fallback: number): number => (raw === undefined ? fallback : /^-?\d+$/.test(raw) ? Number(raw) : NaN);
 
@@ -368,11 +473,15 @@ export function parseS3Args(argv: string[], env: { DATA_DIR?: string }): S3Args 
   const formal = seen.has('formal');
   const immediateRuns = int(argOf(argv, 'immediate-runs'), formal ? S3_FORMAL_IMMEDIATE_RUNS : 0);
   if (!Number.isInteger(immediateRuns) || immediateRuns < 0) throw new UsageError('--immediate-runs must be a non-negative integer');
-  if (formal && (url.protocol !== 'https:' || isLocalTarget(target))) throw new UsageError('--formal needs an https production target (the baseline is never a local run)');
+  const label = argOf(argv, 'target-label');
+  if (label !== undefined && label !== 'staging' && label !== 'production') throw new UsageError('--target-label must be staging or production');
+  const targetLabel: TargetLabel | null = label ?? null;
+  if (formal && (url.protocol !== 'https:' || isLocalTarget(target))) throw new UsageError('--formal needs an https, non-local target (the baseline is never a local run)');
+  if (formal && targetLabel === null) throw new UsageError('--formal needs --target-label=staging or --target-label=production (the runner cannot tell them apart)');
   if (formal && (runs < S3_RUNS || cold < S3_MIN_COLD)) throw new UsageError(GATE_RUN);
   if (formal && immediateRuns < S3_FORMAL_IMMEDIATE_RUNS) throw new UsageError(`--formal also reports at least ${S3_FORMAL_IMMEDIATE_RUNS} --submit=immediate runs`);
   const dataDir = argOf(argv, 'data-dir') || env.DATA_DIR || './data';
-  return { target, runs, cold, weakRuns, immediateRuns, submit, dataDir, formal };
+  return { target, targetLabel, runs, cold, weakRuns, immediateRuns, submit, dataDir, formal };
 }
 
 /**
@@ -422,7 +531,11 @@ export type Series = 'reference' | 'weak' | 'immediate';
 
 export type S3Run = {
   run: number;
+  /** Order among every run of every series, from 1 (the provider probes count in it). */
+  seq: number;
   profile: Series;
+  /** Between two all-ok provider probes (formal: probed every PROBE_EVERY runs; otherwise only before and after all runs). */
+  providersOk: boolean;
   world: number;
   plotId: string;
   /** The cache this run was planned for, and what the target's cache table held just before Send. */
@@ -524,13 +637,18 @@ async function signIn(page: Page, target: string, email: string, password: strin
  * then rests on its status plus the app's `udgam:verdict-in` mark (judgeOutcome). Read after t1: untimed.
  */
 async function bodyText(r: Response): Promise<string | null> {
-  return Promise.race([r.text().catch(() => null), new Promise<null>((done) => setTimeout(() => done(null), 5_000))]);
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([r.text().catch(() => null), new Promise<null>((done) => (timer = setTimeout(() => done(null), 5_000)))]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 const isCapture = (url: string, method: string) => method === 'POST' && new URL(url).pathname === '/api/capture';
 
 /** One picking, measured. */
-async function measure(world: World, o: { target: string; net: Network; submit: SubmitMode; dataDir: string; timeoutMs: number }): Promise<Omit<S3Run, 'run' | 'profile' | 'intended'>> {
+async function measure(world: World, o: { target: string; net: Network; submit: SubmitMode; dataDir: string; timeoutMs: number }): Promise<Omit<S3Run, 'run' | 'seq' | 'profile' | 'providersOk' | 'intended'>> {
   const page = await world.context.newPage();
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
@@ -671,9 +789,15 @@ export type S3Result = {
   gate: 'S3';
   case: 'EVAL-070';
   target: string;
-  targetKind: 'local' | 'production';
-  /** /api/health's provider block before and after the runs: `fixture` is not the live providers §4.3 asks for. */
-  providers: { before: Providers; after: Providers };
+  /** Where the target is; whether a remote one is staging or production is only the operator's label (EXE53). */
+  targetKind: 'local' | 'remote';
+  targetHost: string;
+  targetLabel: TargetLabel | null;
+  /**
+   * /api/health's provider block before and after the runs, and every probe (formal runs probe every
+   * PROBE_EVERY runs): `fixture` is not the live providers §4.3 asks for.
+   */
+  providers: { before: Providers; after: Providers; probes: ProbeRecord[] };
   assumptions: string[];
   profile: {
     viewport: { width: number; height: number };
@@ -692,11 +816,17 @@ export type S3Result = {
   /** --submit=immediate runs on the EV9 profile (formal: at least 5): the photos go inside t0→t1. */
   immediate: Ungated;
   pass: boolean;
-  /** Why the result is not a pass: the gate's reasons, and for a formal run the providers after. */
+  /** Why the result is not a pass: the gate's reasons, and for a formal run the provider probes. */
   reasons: string[];
 };
 
-export type RunS3Options = Omit<S3Args, 'formal'> & { formal?: boolean; providersBefore?: Providers; timeoutMs?: number; log?: (line: string) => void };
+export type RunS3Options = Omit<S3Args, 'formal' | 'targetLabel'> & {
+  formal?: boolean;
+  targetLabel?: TargetLabel | null;
+  providersBefore?: Providers;
+  timeoutMs?: number;
+  log?: (line: string) => void;
+};
 
 export async function providerHealth(target: string): Promise<Providers> {
   try {
@@ -709,12 +839,20 @@ export async function providerHealth(target: string): Promise<Providers> {
 }
 
 const toScored = (r: S3Run): ScoredRun => ({ ms: r.exactMs, outcome: r.outcome, cache: r.cache, phases: r.phases, uploadVerifyMs: r.detail.uploadVerifyMs });
-const ungated = (runs: S3Run[]): Ungated => ({ gated: false, runs, summary: latencyStats(runs.filter((r) => r.outcome === 'verdict' && r.exactMs !== null).map((r) => r.exactMs!)) });
+const ungated = (runs: S3Run[]): Ungated => ({
+  gated: false,
+  runs,
+  summary: latencyStats(runs.filter((r) => r.outcome === 'verdict' && r.exactMs !== null && validMs(r.exactMs)).map((r) => r.exactMs!)),
+});
 
 export async function runS3(o: RunS3Options): Promise<S3Result> {
   const log = o.log ?? (() => undefined);
   const timeoutMs = o.timeoutMs ?? 120_000;
+  const formal = o.formal ?? false;
   const providersBefore = o.providersBefore ?? (await providerHealth(o.target));
+  // Formal runs probe the providers between runs; a local run only before and after all of them.
+  const probes = providerProbes(() => providerHealth(o.target), { every: formal ? PROBE_EVERY : Number.POSITIVE_INFINITY, initial: providersBefore });
+  let seq = 0;
   const { chromium } = await import('@playwright/test');
   const { injectDevice } = await import('../../e2e/helpers/capture');
   const browser = await chromium.launch(chromiumLaunchOptions());
@@ -746,8 +884,11 @@ export async function runS3(o: RunS3Options): Promise<S3Result> {
       const cached = (await cachedPlots(o.dataDir, worlds.map((w) => w.plotId))) ?? new Set<string>();
       const world = chooseWorld(intended, worlds, cached) ?? worlds.reduce((a, b) => (b.runs < a.runs ? b : a));
       world.runs++;
+      seq++;
+      await probes.before(seq);
       const m = await measure(world, { target: o.target, net, submit, dataDir: o.dataDir, timeoutMs: profile === 'weak' ? timeoutMs * 2 : timeoutMs });
-      const r: S3Run = { run: i + 1, profile, intended, ...m };
+      // providersOk is settled once the probe after this run is known (below).
+      const r: S3Run = { run: i + 1, seq, profile, providersOk: false, intended, ...m };
       log(`  ${profile} run ${r.run}/${plan.length} (${r.cache}): ${r.ms === null ? `${r.outcome}${r.errors.length > 0 ? ` (${r.errors.at(-1)})` : ''}` : `${r.ms} ms, ${r.verdict}`}`);
       out.push(r);
     }
@@ -775,28 +916,38 @@ export async function runS3(o: RunS3Options): Promise<S3Result> {
     }
     const weakRuns = await extra('weak', o.weakRuns, WEAK_NETWORK, o.submit);
     const immediateRuns = await extra('immediate', o.immediateRuns, EV9_NETWORK, 'immediate');
-    const providersAfter = await providerHealth(o.target);
+    const providersAfter = await probes.end(seq + 1);
+    const all = [...runs, ...weakRuns, ...immediateRuns];
+    for (const r of all) r.providersOk = probes.okAround(r.seq);
 
     const summary = scoreS3(runs.map(toScored));
-    const verdict = finalVerdict(summary, { formal: o.formal ?? false, providersAfter });
-    const ok = runs.filter((r) => r.outcome === 'verdict');
-    const phaseKeys: (keyof Phases)[] = ['gpsMs', 'hashSignMs', 'resendMs', 'uploadMs', 'verifyMs', 'responseMs'];
-    const phases = Object.fromEntries(phaseKeys.map((k) => [k, latencyStats(ok.map((r) => r.phases[k]).filter((x): x is number => x !== null))])) as S3Result['phases'];
-    const local = isLocalTarget(o.target);
-    const live = liveProviders(providersBefore) && liveProviders(providersAfter);
+    const unprobedRuns = all.filter((r) => !r.providersOk).map((r) => `${r.profile} ${r.run}`);
+    const verdict = finalVerdict(summary, { formal, providersAfter, unprobedRuns });
+    const phases = phaseStats(
+      runs.filter((r) => r.outcome === 'verdict'),
+      (w) => log(`  warning: ${w}`),
+    );
+    const where = targetOf(o.target, o.targetLabel ?? null);
+    const live = probes.log.every((p) => liveProviders(p.providers));
     return {
       gate: 'S3',
       case: 'EVAL-070',
       target: o.target,
-      targetKind: local ? 'local' : 'production',
-      providers: { before: providersBefore, after: providersAfter },
+      targetKind: where.kind,
+      targetHost: where.host,
+      targetLabel: where.label,
+      providers: { before: providersBefore, after: providersAfter, probes: probes.log },
       assumptions: [
         'HR3 waived (TP29): the 10/5 Mbit/s, 80 ms network profile is the EV9 placeholder, not a field measurement.',
         'HR3 waived (TP29): photos are AI-generated demo photos padded to the 4 MB placeholder size, not the demo phone’s real size.',
         'Chromium CDP network emulation on this host, not a phone on a rural link; no CPU throttling.',
         'Weak profile: §4.3 names only upload and RTT; download kept at EV9’s 10 Mbit/s.',
         ...(live ? [] : ['Remote sensing is not the live providers (see `providers`): the provider wait is not representative of §4.3.']),
-        ...(local ? ['Local production build on this host, not the production (Oracle A1) host.'] : []),
+        where.kind === 'local'
+          ? 'Local production build on this host, not the production (Oracle A1) host.'
+          : where.label
+            ? `Remote target ${where.host}, labelled "${where.label}" by the operator (--target-label): the runner does not check what the host is.`
+            : `Remote target ${where.host}, unlabelled (no --target-label): neither staging nor production is claimed.`,
         o.submit === 'after-staging'
           ? 'Send is tapped once the three photos are staged (TSK-30.5): their upload is outside t0→t1 and reported as detail.stagingMs.'
           : 'Send is tapped right after typing the weight: staging still running is aborted and the photos go with the picking.',
@@ -829,7 +980,7 @@ export async function runS3(o: RunS3Options): Promise<S3Result> {
 
 /** Run the S3 suite from the command line; returns the exit code (0 = the gate passed). */
 export async function s3Cli(argv: string[], env: { DATA_DIR?: string } = { DATA_DIR: process.env.DATA_DIR }): Promise<number> {
-  const usage = '\nusage: pnpm eval:perf --suite=s3 --target=<url> [--runs=20] [--cold=5] [--weak-runs=3] [--immediate-runs=0] [--submit=after-staging|immediate] [--data-dir=<dir>] [--formal]';
+  const usage = '\nusage: pnpm eval:perf --suite=s3 --target=<url> [--runs=20] [--cold=5] [--weak-runs=3] [--immediate-runs=0] [--submit=after-staging|immediate] [--data-dir=<dir>] [--target-label=staging|production] [--formal]';
   let args: S3Args;
   try {
     args = parseS3Args(argv, env);
@@ -860,13 +1011,13 @@ export async function s3Cli(argv: string[], env: { DATA_DIR?: string } = { DATA_
   const fmt = (x: number | null) => (x === null ? '—' : `${Math.round(x)}`);
   const extraLine = (name: string, u: Ungated) => (u.runs.length > 0 ? `\n  ${name} (no gate): ${u.summary.n} verdicts of ${u.runs.length}, p50 ${fmt(u.summary.p50)} ms, max ${fmt(u.summary.max)} ms` : '');
   console.log(
-    `S3 ${result.pass ? 'PASS' : 'FAIL'} (${result.targetKind}${args.formal ? ', formal' : ', not the baseline'}): ${s.n} runs, ${s.verdicts} verdicts, ${s.coldRuns} cold / ${s.warmRuns} warm / ${s.unknownCacheRuns} unknown; ` +
+    `S3 ${result.pass ? 'PASS' : 'FAIL'} (${result.targetKind} ${result.targetHost}${result.targetLabel ? `, labelled ${result.targetLabel}` : ''}${args.formal ? ', formal' : ', not the baseline'}): ${s.n} runs, ${s.verdicts} verdicts, ${s.coldRuns} cold / ${s.warmRuns} warm / ${s.unknownCacheRuns} unknown; ` +
       `p50 ${fmt(s.p50)} ms, p95 ${fmt(s.p95)} ms, max ${fmt(s.max)} ms (every run ≤ ${s.thresholdMs} ms with its split: ${s.allWithinThreshold ? 'yes' : 'no'})` +
       (result.reasons.length > 0 ? `\n  not a pass: ${result.reasons.join('; ')}` : '') +
       `\n  phases p50 (ms): GPS ${fmt(p.gpsMs.p50)}, hash+sign ${fmt(p.hashSignMs.p50)}, upload ${fmt(p.uploadMs.p50)}, verify ${fmt(p.verifyMs.p50)}, response ${fmt(p.responseMs.p50)}` +
       extraLine('weak network', result.weak) +
       extraLine('submit immediately', result.immediate) +
-      `\n  providers before: ${describeProviders(result.providers.before)}; after: ${describeProviders(result.providers.after)}` +
+      `\n  providers before: ${describeProviders(result.providers.before)}; after: ${describeProviders(result.providers.after)} (${result.providers.probes.length} probes)` +
       `\nwrote ${file}`,
   );
   return result.pass ? 0 : 1;
