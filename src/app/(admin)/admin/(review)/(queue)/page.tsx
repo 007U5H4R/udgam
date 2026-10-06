@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { getDbReady } from '../../../../../lib/db/client';
-import { log } from '../../../../../lib/log';
-import { errFields } from '../../../../_log/err-fields';
+import { errFields, log } from '../../../../../lib/log';
 import { listReviewQueue, reviewHeader, type ReviewQueue } from '../../../../../lib/review/queue';
 import { requireSession } from '../../../../_auth/require';
 import { forcedState, PickAnItem, ReviewScreen } from '../ReviewScreen';

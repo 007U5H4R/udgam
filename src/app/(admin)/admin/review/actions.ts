@@ -3,8 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { env } from '../../../../lib/config/env';
 import { getDbReady } from '../../../../lib/db/client';
-import { log } from '../../../../lib/log';
-import { errFields } from '../../../_log/err-fields';
+import { errFields, log } from '../../../../lib/log';
 import { appRemoteSensing } from '../../../../lib/remote-sensing';
 import { REVIEW_STATUS, ReviewError, type ReviewErrorCode } from '../../../../lib/review/errors';
 import { OVERRIDE_VERDICTS, overrideRun as overrideService } from '../../../../lib/review/override';

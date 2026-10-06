@@ -6,8 +6,7 @@ import { getDbReady } from '../../../lib/db/client';
 import { getFieldHome, type FieldHome } from '../../../lib/db/queries/field-home';
 import { getHelpInfo, type HelpInfo } from '../../../lib/db/queries/field-help';
 import { t, type Lang } from '../../../lib/i18n';
-import { log } from '../../../lib/log';
-import { errFields } from '../../_log/err-fields';
+import { errFields, log } from '../../../lib/log';
 import type { Guarded } from '../../_auth/require';
 import { forcedState, langFromCookies, throwIfForced } from './route-state';
 

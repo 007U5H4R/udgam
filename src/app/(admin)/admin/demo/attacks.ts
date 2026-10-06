@@ -6,8 +6,7 @@ import type { Env } from '../../../../lib/config/env';
 import type { Db } from '../../../../lib/db/client';
 import { isAttackId, type AttackId, type AttackManifest } from '../../../../lib/demo/manifest';
 import { farmers, harvestEvents, plots, user, verificationRuns } from '../../../../lib/db/schema';
-import { log } from '../../../../lib/log';
-import { errFields } from '../../../_log/err-fields';
+import { errFields, log } from '../../../../lib/log';
 import type { CheckResult, Verdict } from '../../../../lib/verification/types';
 import { POST as capturePost } from '../../../api/capture/route';
 

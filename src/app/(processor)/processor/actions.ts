@@ -2,8 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getDbReady } from '../../../lib/db/client';
-import { log } from '../../../lib/log';
-import { errFields } from '../../_log/err-fields';
+import { errFields, log } from '../../../lib/log';
 import { handOnBatch, ProcessingError, recordProcessingStep, type ProcessingErrorCode } from '../../../lib/processing/actions';
 import { checkStepFields, FIELD_MESSAGES, type StepFieldErrors } from '../../../lib/processing/validate';
 import { requireSession } from '../../_auth/require';

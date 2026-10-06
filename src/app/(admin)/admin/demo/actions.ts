@@ -4,8 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { env } from '../../../../lib/config/env';
 import { getDbReady } from '../../../../lib/db/client';
-import { log } from '../../../../lib/log';
-import { errFields } from '../../../_log/err-fields';
+import { errFields, log } from '../../../../lib/log';
 import { requireSession } from '../../../_auth/require';
 import { demoEnabled, isAttackId, submitStaged, type SubmitResult } from './attacks';
 

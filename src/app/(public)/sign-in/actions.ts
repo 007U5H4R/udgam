@@ -8,8 +8,7 @@ import { refusalInfo, signInFailure, type SignInFailure } from '../../../lib/aut
 import { refundSignIn, reserveSignIn, type SignInReservation } from '../../../lib/auth/sign-in-limit';
 import { clientIp } from '../../../lib/client-ip';
 import { getDbReady } from '../../../lib/db/client';
-import { log } from '../../../lib/log';
-import { errFields } from '../../_log/err-fields';
+import { errFields, log } from '../../../lib/log';
 import { appAuth } from '../../_auth/auth';
 
 // Sign-in and sign-out Server Actions (TKT-04). Public by nature: they create or end a session and

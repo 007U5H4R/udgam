@@ -12,7 +12,10 @@ vi.mock('next/headers', () => ({
   headers: async () => new Headers({ 'x-forwarded-for': '203.0.113.5', ...(h.js ? { 'next-action': '7f00c0ffee' } : {}) }),
 }));
 vi.mock('../../_auth/auth', () => ({ appAuth: () => ({ api: { signInEmail: h.signInEmail } }) }));
-vi.mock('../../../lib/log', () => ({ log: { error: h.error, warn: h.warn } }));
+vi.mock('../../../lib/log', async (importOriginal) => ({
+  errFields: (await importOriginal<typeof import('../../../lib/log')>()).errFields,
+  log: { error: h.error, warn: h.warn },
+}));
 vi.mock('../../../lib/db/client', () => ({ getDbReady: async () => 'db' }));
 vi.mock('../../../lib/auth/sign-in-limit', () => ({ reserveSignIn: h.reserve, refundSignIn: h.refund }));
 

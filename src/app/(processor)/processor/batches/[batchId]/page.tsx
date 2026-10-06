@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getDbReady } from '../../../../../lib/db/client';
-import { log } from '../../../../../lib/log';
-import { errFields } from '../../../../_log/err-fields';
+import { errFields, log } from '../../../../../lib/log';
 import { getProcessorBatch, listBuyers, listProcessorBatches, processorHeader, type ProcessorBatch } from '../../../../../lib/processing/read';
 import { requireSession } from '../../../../_auth/require';
 import { BatchDetail } from '../../BatchDetail';

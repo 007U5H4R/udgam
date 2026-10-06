@@ -4,8 +4,7 @@ import { forcedState as pickState, throwIfForced } from '../../../../lib/config/
 import { getDbReady } from '../../../../lib/db/client';
 import { formatIst, listPhones, userName, type PhonesView, type PlotOption } from '../../../../lib/enrolment/phones';
 import { t } from '../../../../lib/i18n';
-import { log } from '../../../../lib/log';
-import { errFields } from '../../../_log/err-fields';
+import { errFields, log } from '../../../../lib/log';
 import { requireSession } from '../../../_auth/require';
 import { PhonesClient, type AgentView, type Option } from './PhonesClient';
 import { PhonesEmpty, PhonesError, PhonesSkeleton } from './states';

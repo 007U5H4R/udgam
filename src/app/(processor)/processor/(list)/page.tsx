@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { getDbReady } from '../../../../lib/db/client';
-import { log } from '../../../../lib/log';
-import { errFields } from '../../../_log/err-fields';
+import { errFields, log } from '../../../../lib/log';
 import { COPY } from '../../../../lib/processing/copy';
 import { listProcessorBatches, processorHeader, type ProcessorBatch } from '../../../../lib/processing/read';
 import { requireSession } from '../../../_auth/require';
