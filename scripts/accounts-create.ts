@@ -38,7 +38,7 @@ export async function main(argv: string[]): Promise<number> {
     try {
       const db = await getDbReady();
       await runMigrations(db); // idempotent; the app also migrates at boot
-      const r = await createAccount(db, org !== undefined ? { name, email, role, orgId: org } : { name, email, role, newOrgName: newOrg! }, chosen.password, { generated: chosen.generated });
+      const r = await createAccount(db, org !== undefined ? { name, email, role, orgId: org } : { name, email, role, newOrgName: newOrg! }, chosen.password, { generated: chosen.generated, onCommitted: chosen.committed });
       chosen.deliver();
       console.log(JSON.stringify({ created: 'account', userId: r.userId, email: r.email, role, orgId: r.orgId, password: describeDelivery(chosen.delivery) }));
     } catch (err) {

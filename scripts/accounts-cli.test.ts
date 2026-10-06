@@ -28,6 +28,15 @@ describe('parseCliArgs', () => {
     }
   });
 
+  it('refuses -p/-P only as an option: a value that starts with -p (a name such as -Priya) is accepted', () => {
+    expect(parseCliArgs(['--name', '-Priya', '--email', 'p@b.example'], ['name', 'email'])).toEqual({ name: '-Priya', email: 'p@b.example' });
+    expect(parseCliArgs(['--name', '-pat'], ['name'])).toEqual({ name: '-pat' });
+    const word = ['made', 'up'].join('');
+    for (const a of [[`-p${word}`], [`-P${word}`], ['--name', 'Asha', `-p${word}`], ['--name', '-Priya', '-P', word], ['--name=-Priya', '-p', word], ['--password-stdin', `-p${word}`]]) {
+      expect(() => parseCliArgs(a, ['name']), a.join(' ')).toThrow(/never on the command line/);
+    }
+  });
+
   it('never echoes an argument it does not know: an unknown --option by name only, anything else not at all', () => {
     const secret = 'hunter2-positional-secret';
     for (const argv of [[secret], ['--email', 'a@b.example', secret], [`-x${secret}`], [`--colour=${secret}`]]) {
@@ -163,6 +172,19 @@ describe('choosePassword', () => {
       o.signals.emit(signal);
       expect(readdirSync(o.outDir)).toEqual([]);
       expect(o.exit).toHaveBeenCalledWith(code);
+    }
+  });
+
+  it('once the write has committed (committed), a signal or a later failure no longer removes the file', async () => {
+    for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+      const o = base();
+      const c = await choosePassword(o);
+      c.committed();
+      expect(o.signals.listenerCount('SIGINT') + o.signals.listenerCount('SIGTERM')).toBe(0);
+      o.signals.emit(signal);
+      expect(o.exit).not.toHaveBeenCalled();
+      c.abandon(); // e.g. printing the summary failed after the commit: the account exists, so keep its password
+      expect(readdirSync(o.outDir)).toHaveLength(1);
     }
   });
 

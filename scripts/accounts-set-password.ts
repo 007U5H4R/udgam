@@ -27,7 +27,7 @@ export async function main(argv: string[]): Promise<number> {
     const { setAccountPassword } = await import('../src/lib/auth/accounts');
     const chosen = await choosePassword({ fromStdin: a['password-stdin'] === true, stdin: process.stdin, stdout: process.stdout, outDir: typeof a.out === 'string' ? a.out : undefined, dataDir: env.DATA_DIR, label: email });
     try {
-      const r = await setAccountPassword(await getDbReady(), email, chosen.password, { generated: chosen.generated });
+      const r = await setAccountPassword(await getDbReady(), email, chosen.password, { generated: chosen.generated, onCommitted: chosen.committed });
       chosen.deliver();
       console.log(JSON.stringify({ passwordSet: true, userId: r.userId, email: r.email, sessionsEnded: r.sessionsEnded, password: describeDelivery(chosen.delivery) }));
     } catch (err) {

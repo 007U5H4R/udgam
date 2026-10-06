@@ -10,8 +10,9 @@
 //                        (DATA_DIR is backed up and readable by the app). The password is written to a
 //                        new file there, mode 0600, named `udgam-password-<random>.txt` (never the email),
 //                        and only its path is printed. Use a tmpfs such as /run; read the file, hand the
-//                        password over, delete it. Until the account is written, SIGINT/SIGTERM or a
-//                        failed write removes the file.
+//                        password over, delete it. Until the account's write transaction commits,
+//                        SIGINT/SIGTERM or a failed write removes the file; from the commit on, the
+//                        file is kept whatever happens (the database already holds that password).
 import { randomBytes } from 'node:crypto';
 import { chmodSync, closeSync, openSync, realpathSync, rmSync, statSync, writeSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
@@ -35,11 +36,27 @@ export class UsageError extends Error {}
 const isPasswordFlag = (a: string) => a !== '--password-stdin' && (/^-p/i.test(a) || /^--(pw|pass)/i.test(a));
 
 /**
+ * The tokens in option position: every token except the value that follows a `--key` (as parseCliArgs
+ * reads it). `--name -Priya` is a name, not a `-P` option.
+ */
+function optionTokens(argv: readonly string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]!;
+    out.push(a);
+    const next = argv[i + 1];
+    if (/^--[a-z][a-z-]*$/.test(a) && a !== '--password-stdin' && !isPasswordFlag(a) && next !== undefined && !next.startsWith('--')) i++;
+  }
+  return out;
+}
+
+/**
  * `--key value` / `--key=value` for the `known` keys, plus the `--password-stdin` flag. Any spelling of a
- * password option is refused outright, before anything else is read.
+ * password option is refused outright, before anything else is read; a VALUE that happens to start with
+ * -p or -P (a name) is not an option.
  */
 export function parseCliArgs(argv: readonly string[], known: readonly string[]): Record<string, string | true> {
-  if (argv.some(isPasswordFlag)) {
+  if (optionTokens(argv).some(isPasswordFlag)) {
     throw new UsageError('a password goes on stdin (--password-stdin) or is generated: never on the command line');
   }
   const out: Record<string, string | true> = {};
@@ -70,9 +87,14 @@ export type ChosenPassword = {
   /** Made by generatePassword (192 random bits): no other account can share it, so no scan is needed. */
   generated: boolean;
   delivery: Delivery;
+  /**
+   * The account's write transaction has committed (accounts.ts `onCommitted`, called synchronously right
+   * after it): from now on the file is never removed, by a signal or by abandon(). Idempotent.
+   */
+  committed(): void;
   /** After the account is written: print a terminal password (a file already holds its copy). */
   deliver(): void;
-  /** The account write failed: remove the reserved file, so no password for a non-account lingers. */
+  /** The account write failed: remove the reserved file, so no password for a non-account lingers. No-op once committed. */
   abandon(): void;
 };
 
@@ -120,7 +142,7 @@ export async function choosePassword(o: {
   const noop = () => undefined;
   if (o.fromStdin) {
     if (o.stdin.isTTY) throw new UsageError('--password-stdin needs a pipe (printf %s "$PW" | …); on a terminal leave it out and a password is generated');
-    return { password: await readStdinLine(o.stdin), generated: false, delivery: { kind: 'stdin' }, deliver: noop, abandon: noop };
+    return { password: await readStdinLine(o.stdin), generated: false, delivery: { kind: 'stdin' }, committed: noop, deliver: noop, abandon: noop };
   }
   if (o.stdin.isTTY && o.stdout.isTTY) {
     const password = generatePassword();
@@ -128,6 +150,7 @@ export async function choosePassword(o: {
       password,
       generated: true,
       delivery: { kind: 'tty' },
+      committed: noop,
       deliver: () => o.stdout.write(`\nPassword for ${o.label} (shown once, not stored anywhere): ${password}\n\n`),
       abandon: noop,
     };
@@ -156,20 +179,26 @@ export async function choosePassword(o: {
   }
   chmodSync(path, 0o600); // whatever the umask
 
-  // Until the account is written, an interrupted run must not leave a password for no account behind.
+  // Until the account's write commits, an interrupted run must not leave a password for no account
+  // behind. From the commit on, the database holds this password and the file is its only copy: keep it.
   const signals = o.signals ?? process;
   const exit = o.exit ?? ((code: number) => process.exit(code));
+  let kept = false;
+  const removeUnlessKept = () => {
+    if (!kept) rmSync(path, { force: true });
+  };
   const onInt = () => {
-    rmSync(path, { force: true });
+    removeUnlessKept();
     exit(130);
   };
   const onTerm = () => {
-    rmSync(path, { force: true });
+    removeUnlessKept();
     exit(143);
   };
   signals.once('SIGINT', onInt);
   signals.once('SIGTERM', onTerm);
-  const release = () => {
+  const keep = () => {
+    kept = true;
     signals.off('SIGINT', onInt);
     signals.off('SIGTERM', onTerm);
   };
@@ -177,10 +206,12 @@ export async function choosePassword(o: {
     password,
     generated: true,
     delivery: { kind: 'file', path },
-    deliver: release,
+    committed: keep,
+    deliver: keep,
     abandon: () => {
-      release();
-      rmSync(path, { force: true });
+      signals.off('SIGINT', onInt);
+      signals.off('SIGTERM', onTerm);
+      removeUnlessKept();
     },
   };
 }

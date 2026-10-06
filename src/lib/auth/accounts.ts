@@ -58,8 +58,13 @@ async function assertNotInUse(db: Db, password: string, exceptUserId?: string): 
   }
 }
 
-/** `generated`: the password came from generatePassword (192 random bits), so no other account can have it. */
-export type PasswordOptions = { generated?: boolean; now?: Date };
+/**
+ * `generated`: the password came from generatePassword (192 random bits), so no other account can have it.
+ * `onCommitted`: called once, synchronously, as soon as the write transaction has committed (and never
+ * when nothing was written). The accounts CLI disarms its password-file cleanup there, so a signal that
+ * lands after the commit never deletes the only copy of a password the database already holds.
+ */
+export type PasswordOptions = { generated?: boolean; now?: Date; onCommitted?: () => void };
 
 export type NewAccount = { name: string; email: string; role: Role } & ({ orgId: string; newOrgName?: undefined } | { orgId?: undefined; newOrgName: string });
 
@@ -98,6 +103,7 @@ export async function createAccount(db: Db, a: NewAccount, password: string, o: 
     await tx.insert(user).values({ id: userId, name, email, emailVerified: true, role: a.role, orgId, createdAt: now, updatedAt: now });
     await tx.insert(account).values({ id: `${userId}-credential`, accountId: userId, providerId: 'credential', userId, password: hash, createdAt: now, updatedAt: now });
   });
+  o.onCommitted?.();
   return { userId, orgId, email };
 }
 
@@ -124,5 +130,6 @@ export async function setAccountPassword(db: Db, emailIn: string, password: stri
     await clearSignInThrottles(tx, [email]);
     return ended.length;
   });
+  o.onCommitted?.();
   return { userId: u.id, email, sessionsEnded };
 }
