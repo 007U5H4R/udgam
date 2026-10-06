@@ -19,13 +19,17 @@ import type { CheckResult, Verdict } from '../verification/types';
 // verdict), again at the start of the write transaction (the duplicate-resend race), and on a unique
 // violation there (defence in depth: the loser re-reads the winner).
 
-/** The accepted event for a payload hash with its latest verification run: what a replay answers with. */
+/**
+ * The accepted event for a payload hash with its latest verification run: what a replay answers with. The
+ * verdict is the event's final verdict (an admin override's, CR-005), as the Pickings tab shows it; the
+ * score and checks are the latest run's, which the override does not change.
+ */
 export type AcceptedOutcome = { kind: 'accepted'; eventId: string; verdict: Verdict; score: number; checks: CheckResult[] };
 
 /** The accepted outcome for this hash, if there is one (the only kind that short-circuits). */
 export async function findAcceptedOutcome(handle: Db | Tx, payloadHash: string): Promise<AcceptedOutcome | null> {
   const [accepted] = await handle
-    .select({ id: harvestEvents.id })
+    .select({ id: harvestEvents.id, finalVerdict: harvestEvents.finalVerdict })
     .from(harvestEvents)
     .where(and(eq(harvestEvents.payloadHash, payloadHash), eq(harvestEvents.boundaryStatus, 'accepted')));
   if (!accepted) return null;
@@ -37,7 +41,7 @@ export async function findAcceptedOutcome(handle: Db | Tx, payloadHash: string):
     .limit(1);
   // An accepted event always commits with its first run (one transaction, N7).
   if (!run) throw new Error(`accepted event ${accepted.id} has no verification run`);
-  return { kind: 'accepted', eventId: accepted.id, verdict: run.verdict, score: run.score, checks: JSON.parse(run.checks) as CheckResult[] };
+  return { kind: 'accepted', eventId: accepted.id, verdict: accepted.finalVerdict ?? run.verdict, score: run.score, checks: JSON.parse(run.checks) as CheckResult[] };
 }
 
 /**
