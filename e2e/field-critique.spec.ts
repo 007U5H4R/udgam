@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { signIn } from './helpers/auth';
-import { openField, seedCaptureWorld } from './helpers/capture';
+import { choosePhoto, openField, seedCaptureWorld } from './helpers/capture';
 import { ownClientAddress } from './helpers/enrolment';
 import { typePicking } from './helpers/field';
 
@@ -47,6 +47,73 @@ test('DES-019: a refused key says the half-kilo rule; a weight far from the own 
   await expect(hint).toHaveText('Your last pickings: 38–51 kg');
   await expect(page.locator('#send-btn')).toHaveText('Send 49.5 kg');
 });
+
+for (const vp of [
+  { width: 375, height: 812 },
+  { width: 360, height: 740 },
+  { width: 320, height: 568 },
+]) {
+  test(`DES-028 at ${vp.width}×${vp.height}: a refused key on an unlikely weight keeps the reason for "Yes, send" on screen; a refused key alone keeps "Send"`, async ({ page, context }) => {
+    await page.setViewportSize(vp);
+    const seed = seedCaptureWorld({ events: ['38.5:Verified', '44:Verified', '51:Needs Review'] });
+    await openField(page, context, seed);
+    await typePicking(page, seed, { photos: 1, kg: '4' });
+    const hint = page.locator('.kg-hint');
+    const send = page.locator('#send-btn');
+    await expect(hint).toHaveText('4 kg is far from your last pickings (38–51 kg). Check the number before you send.');
+    await expect(send).toHaveText('Yes, send 4 kg');
+
+    await tap(page, '.', '3'); // refused: only .0 or .5
+    await expect(page.locator('output.kg-num')).toHaveText('4.');
+    await expect(hint.locator('.kg-line')).toHaveText(['Kilos in halves (.0 or .5), up to 500 kg.', '4 kg is far from your last pickings (38–51 kg). Check the number before you send.']);
+    await expect(hint).toHaveClass(/warn/);
+    await expect(send).toHaveText('Yes, send 4 kg');
+    // both lines and the pill stay on the screen
+    const h = (await hint.boundingBox())!;
+    const b = (await send.boundingBox())!;
+    expect(h.y + h.height).toBeLessThanOrEqual(b.y);
+    expect(b.y + b.height).toBeLessThanOrEqual(vp.height);
+
+    await tap(page, '⌫', '⌫', '4', '9', '.', '3'); // 49. is a likely weight: the rule alone, the normal label
+    await expect(hint.locator('.kg-line')).toHaveText(['Kilos in halves (.0 or .5), up to 500 kg.']);
+    await expect(send).toHaveText('Send 49 kg');
+  });
+}
+
+for (const vp of [
+  { width: 375, height: 812 },
+  { width: 360, height: 740 },
+  { width: 320, height: 568 },
+]) {
+  test(`DES-026 at ${vp.width}×${vp.height}: the unreadable-photo error sits in view, above the pinned pills, never under them`, async ({ page, context }) => {
+    await page.setViewportSize(vp);
+    const seed = seedCaptureWorld();
+    await openField(page, context, seed);
+    await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
+    const png = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010806000000', 'hex');
+    await choosePhoto(page.getByLabel('The branch'), { name: 'branch.png', mimeType: 'image/png', buffer: png });
+    await page.getByRole('button', { name: 'Use this photo' }).click();
+    const err = page.getByTestId('photo-error');
+    await expect(err).toBeVisible();
+    const e = (await err.boundingBox())!;
+    expect(e.y, 'error top in view').toBeGreaterThanOrEqual(0);
+    expect(e.y + e.height, 'error bottom in view').toBeLessThanOrEqual(vp.height);
+    for (const name of ['Use this photo', 'Take again']) {
+      const p = (await page.getByRole('button', { name }).boundingBox())!;
+      const overlaps = e.x < p.x + p.width && p.x < e.x + e.width && e.y < p.y + p.height && p.y < e.y + e.height;
+      expect(overlaps, `error box clear of "${name}"`).toBe(false);
+      expect(e.y + e.height, `error above "${name}"`).toBeLessThanOrEqual(p.y);
+    }
+    // the topmost element at the error's centre is the error itself, not a pill or the fade
+    const top = await err.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !!hit && el.contains(hit);
+    });
+    expect(top).toBe(true);
+    expect(await axeIds(page)).toEqual([]);
+  });
+}
 
 test('DES-006: Try again while still offline shows "Trying…", then "Still no network. Nothing is lost."', async ({ page, context }) => {
   const seed = seedCaptureWorld();
@@ -302,6 +369,32 @@ test('DES-016: "What can I do?" and "See all checks" carry a chevron that turns 
   await expect(page.getByTestId('all-checks').locator('summary svg.chev')).toHaveCount(1);
 });
 
+test('DES-027: the picking detail\'s "See all checks" card opens with its summary (no empty section, no divider) and sits 16 px under the card above', async ({ page, context }) => {
+  const seed = seedCaptureWorld({ events: ['29:Rejected:outside'] });
+  await openField(page, context, seed);
+  await page.goto(`/field/pickings/${seed.events[0]!.eventId}`);
+  const card = page.getByTestId('all-checks-card');
+  const m = await card.evaluate((el) => {
+    const prev = el.previousElementSibling!.getBoundingClientRect();
+    const box = el.getBoundingClientRect();
+    const summary = el.querySelector('summary')!.getBoundingClientRect();
+    const why = getComputedStyle(el.querySelector('.r-why')!);
+    return {
+      gap: Math.round(box.top - prev.bottom),
+      lead: Math.round(summary.top - box.top),
+      tail: Math.round(box.bottom - summary.bottom),
+      border: why.borderTopStyle,
+      padTop: why.paddingTop,
+    };
+  });
+  expect(m.gap).toBe(16);
+  expect(m.border).toBe('none');
+  expect(m.padTop).toBe('0px');
+  // closed, the summary sits centred in the card: as much space above it as below, no empty band on top
+  expect(m.lead).toBeLessThanOrEqual(16);
+  expect(Math.abs(m.lead - m.tail)).toBeLessThanOrEqual(1);
+});
+
 /** Every axe rule that fails on the page (any impact). */
 const axeIds = async (page: Page) => (await new AxeBuilder({ page }).analyze()).violations.map((v) => v.id);
 
@@ -327,14 +420,21 @@ test('DES-017, DES-020: a thumbnail that does not load is a "Photo not available
   }
 });
 
-test('DES-025 (1): the sign-in and set-up pills sit in the bottom thumb zone, and so does "Go to Home"', async ({ page }) => {
+test('DES-025 (1), DES-029: the sign-in and set-up pills sit in the bottom thumb zone, and so does "Go to Home"', async ({ page }) => {
   const low = async (name: string) => {
     const b = (await page.getByRole('button', { name }).boundingBox())!;
     expect(b.y + b.height, name).toBeGreaterThan(812 - 60);
     expect(b.y + b.height, name).toBeLessThanOrEqual(812);
   };
   await page.goto('/sign-in');
-  await low('Sign in');
+  // DES-029: the certificate hint (DES-220) sits under the sign-in pill, so the pill ends higher than the
+  // other pills; it stays in the bottom thumb zone (its last 100 px), and the hint follows it inside the screen.
+  const pill = (await page.getByRole('button', { name: 'Sign in' }).boundingBox())!;
+  const hint = (await page.getByTestId('certificate-hint').boundingBox())!;
+  expect(pill.y + pill.height, 'Sign in').toBeGreaterThan(812 - 100);
+  expect(hint.y, 'hint below the pill').toBeGreaterThanOrEqual(pill.y + pill.height);
+  expect(hint.y - (pill.y + pill.height), 'hint right under the pill').toBeLessThanOrEqual(32);
+  expect(hint.y + hint.height, 'hint inside the screen').toBeLessThanOrEqual(812);
 
   await ownClientAddress(page); // the enrol route limits attempts per client address
   const seed = seedCaptureWorld({ code: true });

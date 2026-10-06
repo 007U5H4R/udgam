@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { VerdictView } from '../../client/capture-client';
 import { MAX_PHOTO_BYTES } from '../../lib/capture/limits';
-import { initialFlow, kgOutOfRange, photoProblem, reduce, usedPhotos, type FlowAction, type FlowState, type Slot } from './record-flow';
+import { initialFlow, kgOutOfRange, kgPrompt, photoProblem, reduce, usedPhotos, type FlowAction, type FlowState, type Slot } from './record-flow';
 
 // TSK-10.6: the record flow (photos → review → weight → checking → verdict | saved) as a pure reducer.
 
@@ -204,6 +204,39 @@ describe('DES-019: a refused key or an unlikely weight is never silent', () => {
     expect(kgOutOfRange(18.5, range)).toBe(true);
     expect(kgOutOfRange(499, null)).toBe(false);
     expect(kgOutOfRange(null, range)).toBe(false);
+  });
+});
+
+describe('DES-028: the "Yes, send" label only shows with its reason', () => {
+  const range = { min: 38.5, max: 51 };
+
+  it('reducer: "4", ".", "3" keeps "4." and marks the refused key', () => {
+    const s = keys(atWeight(), '4', '.', '3');
+    expect(s.kg).toBe('4.');
+    expect(s.kgRefused).toBe(true);
+  });
+
+  it('a refused key on a likely weight: the rule alone, and the normal Send label', () => {
+    expect(kgPrompt('49.', true, range)).toEqual({ lines: ['rule'], warn: true, pill: 'send' });
+  });
+
+  it('a refused key on an unlikely weight: the rule and the check line together, so "Yes, send" keeps its reason', () => {
+    expect(kgPrompt('4.', true, range)).toEqual({ lines: ['rule', 'check'], warn: true, pill: 'sendCheck' });
+  });
+
+  it('an unlikely weight with no refused key: the check line and "Yes, send"', () => {
+    expect(kgPrompt('4', false, range)).toEqual({ lines: ['check'], warn: true, pill: 'sendCheck' });
+  });
+
+  it('a likely weight: the own range and the normal Send label; nothing typed: "Type the weight"', () => {
+    expect(kgPrompt('42.5', false, range)).toEqual({ lines: ['hint'], warn: false, pill: 'send' });
+    expect(kgPrompt('', false, range)).toEqual({ lines: ['hint'], warn: false, pill: 'type' });
+    expect(kgPrompt('', true, range)).toEqual({ lines: ['rule'], warn: true, pill: 'type' });
+  });
+
+  it('no range yet: never "Yes, send"; only the rule after a refused key', () => {
+    expect(kgPrompt('4', false, null)).toEqual({ lines: [], warn: false, pill: 'send' });
+    expect(kgPrompt('4.', true, null)).toEqual({ lines: ['rule'], warn: true, pill: 'send' });
   });
 });
 

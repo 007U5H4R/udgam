@@ -95,7 +95,7 @@ export default async function PickingDetailPage({
       {d.lines.length > 0 ? <EvidenceList tone={TONE[d.verdict]} label={tr(LABEL[d.verdict])} lines={d.lines} /> : null}
 
       {d.checks.length > 0 ? (
-        <GlassCard as="div" card={false} className="row tall">
+        <GlassCard as="div" card={false} className="row tall all-checks" data-testid="all-checks-card">
           <div className="r-why">
             <details data-testid="all-checks">
               <summary>

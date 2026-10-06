@@ -764,14 +764,19 @@ html[lang='kn'] body {
   margin-top: 18px;
   font-weight: 700;
 }
-/* DES-018: a photo that cannot be sent: the inline error style of /enrol (--bad-ink, word first, an icon). */
+/* DES-018: a photo that cannot be sent: the inline error style of /enrol (--bad-ink, word first, an icon).
+   DES-026: it is the first line of the pinned action block, above the pills, so it is always in view; the
+   block's fade turns solid just above it, so nothing scrolling behind shows through the words. */
 .photo-error {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 0;
   color: var(--bad-ink);
   font-weight: 600;
+}
+.actions.has-error {
+  background: linear-gradient(to top, var(--bg) calc(100% - 12px), rgba(10, 14, 12, 0));
 }
 .photo-error .ic {
   width: 22px;
@@ -819,6 +824,10 @@ html[lang='kn'] body {
 .kg-hint.warn {
   color: var(--check-ink);
   font-weight: 600;
+}
+/* DES-028: a refused key on an unlikely weight shows the rule and the check line, one under the other. */
+.kg-line {
+  display: block;
 }
 .keypad {
   display: grid;
@@ -1085,6 +1094,12 @@ html[lang='kn'] body {
     margin-bottom: 10px;
     font-size: 16px;
   }
+  /* DES-028: the rule and the check line together stay compact, so the Send pill stays on a 568 px screen. */
+  .kg-hint:has(.kg-line + .kg-line) {
+    margin-bottom: 4px;
+    font-size: 15px;
+    line-height: 1.3;
+  }
   /* Keys keep the 56 px primary-target minimum here too (Design.md §17; the mockup had 50 px). */
   .key {
     height: 56px;
@@ -1316,6 +1331,21 @@ html[lang='kn'] body {
 }
 .row .r-why details p {
   padding-bottom: 4px;
+}
+
+/* DES-027: on the picking detail the "See all checks" card stands alone: 16 px under the card above, and no
+   divider or empty band above its summary (the divider belongs to the Pickings row, where a verdict sits
+   above it). */
+.row.all-checks {
+  margin-top: 16px;
+}
+.row.all-checks .r-why {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.row.all-checks .r-why details {
+  margin-top: 0;
 }
 
 /* The date and kg open the picking's detail: a link that keeps the row's type (TSK-11.4). */

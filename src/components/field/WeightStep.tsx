@@ -4,14 +4,15 @@ import { Keypad } from '../ui/Keypad';
 import { Pill } from '../ui/Pill';
 import { GpsLine } from './GpsLine';
 import { Ic } from './icons';
-import { kgOutOfRange, kgValue } from './record-flow';
+import { kgPrompt, kgValue, type KgLine } from './record-flow';
 
 // Weight (final/index.html #s3-kg): "How many kilos?", the lit number with its unit, the farmer's own
 // recent range as a hint (never the yield threshold, D6), the keypad and the value in the Send pill.
 // DES-019: a refused key says the half-kilo rule, and a weight far from the farmer's own range turns the
 // hint amber and the pill into "Yes, send …" (no dialog, Design.md §21): a mistyped 425 is never sent
-// without comment. The S3 timing starts at the Send tap (EV9, EVAL-070): `udgam:t0-submit` is marked in the click
-// handler before any async work.
+// without comment. DES-028: the "Yes, send" label never shows without its reason: a refused key on an
+// unlikely weight shows the rule and the check line together (kgPrompt). The S3 timing starts at the
+// Send tap (EV9, EVAL-070): `udgam:t0-submit` is marked in the click handler before any async work.
 
 export const T0_MARK = 'udgam:t0-submit';
 
@@ -41,9 +42,13 @@ export function WeightStep({
 }) {
   const tr = (k: MessageKey, v: Record<string, string | number> = {}) => t(k, v, lang);
   const value = kgValue(kg);
-  const unlikely = kgOutOfRange(value, range);
-  const span = range ? { min: Math.floor(range.min), max: Math.ceil(range.max) } : null;
-  const hint = refused ? tr('rec.kg.rule') : unlikely && span ? tr('rec.kg.check', { kg: value!, ...span }) : span ? tr('rec.kg.hint', span) : null;
+  const prompt = kgPrompt(kg, refused, range);
+  const span = range ? { min: Math.floor(range.min), max: Math.ceil(range.max) } : { min: 0, max: 0 };
+  const LINE: Record<KgLine, () => string> = {
+    rule: () => tr('rec.kg.rule'),
+    check: () => tr('rec.kg.check', { kg: value!, ...span }),
+    hint: () => tr('rec.kg.hint', span),
+  };
   return (
     <main className="screen kg-screen" aria-labelledby="kg-h">
       <header className="top">
@@ -62,9 +67,13 @@ export function WeightStep({
         </output>
         <span className="kg-unit">{tr('rec.kg.unit')}</span>
       </p>
-      {hint ? (
-        <p className={refused || unlikely ? 'kg-hint warn' : 'kg-hint'} role="status">
-          {hint}
+      {prompt.lines.length > 0 ? (
+        <p className={prompt.warn ? 'kg-hint warn' : 'kg-hint'} role="status">
+          {prompt.lines.map((l) => (
+            <span className="kg-line" key={l}>
+              {LINE[l]()}
+            </span>
+          ))}
         </p>
       ) : null}
       <GpsLine state={gps} lang={lang} />
@@ -79,7 +88,7 @@ export function WeightStep({
             onSend();
           }}
         >
-          {value === null ? tr('rec.kg.type') : tr(unlikely ? 'rec.kg.sendCheck' : 'rec.kg.send', { kg: value })}
+          {value === null ? tr('rec.kg.type') : tr(prompt.pill === 'sendCheck' ? 'rec.kg.sendCheck' : 'rec.kg.send', { kg: value })}
         </Pill>
       </div>
     </main>

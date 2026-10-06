@@ -91,6 +91,27 @@ export function kgOutOfRange(kg: number | null, range: { min: number; max: numbe
   return kg > range.max * 2 || kg < range.min / 2;
 }
 
+export type KgLine = 'rule' | 'check' | 'hint';
+
+/**
+ * What the weight screen says under the number, and the Send pill's label. DES-019: a refused key says the
+ * half-kilo rule; a weight far from the farmer's range says so and the pill asks "Yes, send …". DES-028: the
+ * "Yes, send" label never shows without its reason, so a refused key on an unlikely weight shows both lines.
+ */
+export function kgPrompt(
+  kg: string,
+  refused: boolean,
+  range: { min: number; max: number } | null,
+): { lines: KgLine[]; warn: boolean; pill: 'type' | 'send' | 'sendCheck' } {
+  const value = kgValue(kg);
+  const unlikely = kgOutOfRange(value, range);
+  const lines: KgLine[] = [];
+  if (refused) lines.push('rule');
+  if (unlikely) lines.push('check');
+  else if (!refused && range) lines.push('hint');
+  return { lines, warn: refused || unlikely, pill: value === null ? 'type' : unlikely ? 'sendCheck' : 'send' };
+}
+
 /** The weight keypad: digits, '.', '⌫'; one decimal that is .0 or .5 (cherryKg is a multiple of 0.5), at most 500. */
 function typeKey(kg: string, k: string): string {
   if (k === '⌫') return kg.slice(0, -1);
