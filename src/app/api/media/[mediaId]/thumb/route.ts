@@ -1,7 +1,7 @@
 import { AuthError, authErrorResponse } from '../../../../../lib/auth/guards';
 import { env } from '../../../../../lib/config/env';
 import { getDbReady } from '../../../../../lib/db/client';
-import { log } from '../../../../../lib/log';
+import { errFields, log } from '../../../../../lib/log';
 import { canReadMedia } from '../../../../../lib/media/access';
 import { thumbnail } from '../../../../../lib/media/thumbs';
 import { requireSession, type Guarded } from '../../../../_auth/require';
@@ -35,7 +35,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ mediaId: string
       headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff' },
     });
   } catch (err) {
-    log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'media.thumb_failed');
+    log.error(errFields(err), 'media.thumb_failed');
     return FAILED();
   }
 }

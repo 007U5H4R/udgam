@@ -157,7 +157,7 @@ async function accept(req: Request, agent: Guarded, db: Db, release: () => void,
     try {
       await refund(db, ip.key, IP_LIMIT.windowSec, ip.at);
     } catch (err) {
-      log.warn({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'capture.refund_failed');
+      log.warn(errFields(err), 'capture.refund_failed');
     }
   }
   const status = f?.t === 'rejected' ? f.status : f?.t === 'error' ? 503 : 200;

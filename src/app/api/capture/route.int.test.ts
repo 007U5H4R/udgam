@@ -157,7 +157,7 @@ describe('client disconnect', () => {
     const error = vi.fn();
     const warn = vi.fn();
     const logger = { error, warn, info: vi.fn() };
-    vi.doMock('../../../lib/log', () => ({ log: logger, withRequestId: () => logger }));
+    vi.doMock('../../../lib/log', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../../lib/log')>()), log: logger, withRequestId: () => logger }));
     const unhandled: unknown[] = [];
     const onUnhandled = (reason: unknown) => unhandled.push(reason);
     process.on('unhandledRejection', onUnhandled);

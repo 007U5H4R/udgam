@@ -1,6 +1,6 @@
 import { getDbReady } from '../../../../lib/db/client';
 import { resolveFeed } from '../../../../lib/ledger/feed';
-import { log } from '../../../../lib/log';
+import { errFields, log } from '../../../../lib/log';
 import { JSON_HEADERS, notFound, unavailable } from './responses';
 
 // GET /api/verify/[batchId]?h= — the batch's proof feed v1 (technical-plan §8.3, docs/proof-feed.md).
@@ -17,7 +17,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ batchId: string
     if (!feed) return notFound();
     return new Response(JSON.stringify(feed), { status: 200, headers: JSON_HEADERS });
   } catch (err) {
-    log.error({ errClass: err instanceof Error ? err.constructor.name : 'unknown' }, 'proof_feed.failed');
+    log.error(errFields(err), 'proof_feed.failed');
     return unavailable();
   }
 }

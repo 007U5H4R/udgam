@@ -60,7 +60,7 @@ describe('GET /api/health (TC-001)', () => {
 
   it('answers 503 with config:error (not db:error) and a log line when the environment is invalid (QA-P1-1)', async () => {
     const error = vi.fn();
-    vi.doMock('../../../lib/log', () => ({ log: { error } }));
+    vi.doMock('../../../lib/log', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../../lib/log')>()), log: { error } }));
     vi.stubEnv('REMOTE_SENSING_PROVIDER', 'not-a-provider');
     const { GET } = await import('./route');
     const res = await GET();
@@ -75,7 +75,7 @@ describe('GET /api/health (TC-001)', () => {
   it('answers 503 with keyMismatch:true and logs ledger.key_mismatch when checkpoints were signed by a kid that is not published (quality #4)', async () => {
     const error = vi.fn();
     const quiet = vi.fn();
-    vi.doMock('../../../lib/log', () => ({ log: { error, warn: quiet, info: quiet, debug: quiet } }));
+    vi.doMock('../../../lib/log', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../../lib/log')>()), log: { error, warn: quiet, info: quiet, debug: quiet } }));
     const { writeTx } = await import('../../../lib/db/client');
     const { append } = await import('../../../lib/ledger/hashchain');
     const { checkpointIfNeeded } = await import('../../../lib/ledger/checkpoint');

@@ -1,7 +1,7 @@
 import { getDbReady } from '../../../../../lib/db/client';
 import { buildEudrGeoJson, serializeEudrGeoJson } from '../../../../../lib/eudr/geojson';
 import { resolveFeed } from '../../../../../lib/ledger/feed';
-import { log } from '../../../../../lib/log';
+import { errFields, log } from '../../../../../lib/log';
 import { notFound, unavailable } from '../responses';
 
 // GET /api/verify/[batchId]/geojson?h= — the batch's EUDR map file (TSK-17.2, technical-plan §12, TP24;
@@ -29,7 +29,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ batchId: string
       },
     });
   } catch (err) {
-    log.error({ errClass: err instanceof Error ? err.constructor.name : 'unknown' }, 'eudr_geojson.failed');
+    log.error(errFields(err), 'eudr_geojson.failed');
     return unavailable();
   }
 }

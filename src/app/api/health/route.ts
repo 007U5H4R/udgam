@@ -4,13 +4,12 @@ import { env } from '../../../lib/config/env';
 import { getDbReady } from '../../../lib/db/client';
 import { health, type HealthBody, type LedgerHealth } from '../../../lib/health';
 import { ledgerHealth, ledgerKeyPresent } from '../../../lib/ledger/health';
-import { log } from '../../../lib/log';
+import { errFields, log } from '../../../lib/log';
 import { providerHealth } from '../../../lib/remote-sensing';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const errClass = (err: unknown) => (err instanceof Error ? err.constructor.name : 'unknown');
 
 export async function GET(): Promise<Response> {
   // Configuration is read inside the try block: an invalid environment answers 503 with
@@ -22,7 +21,7 @@ export async function GET(): Promise<Response> {
     providers = await providerHealth(env);
   } catch (err) {
     config = 'error';
-    log.error({ errClass: errClass(err) }, 'health.config_invalid');
+    log.error(errFields(err), 'health.config_invalid');
   }
 
   let ledger: LedgerHealth | undefined;
@@ -31,7 +30,7 @@ export async function GET(): Promise<Response> {
       ledger = await ledgerHealth(await getDbReady());
     } catch (err) {
       // The database is down: the ping below reports it. Key presence does not need the database.
-      log.error({ errClass: errClass(err) }, 'health.ledger_failed');
+      log.error(errFields(err), 'health.ledger_failed');
       ledger = { lastSeq: null, lastCheckpointAgeSec: null, keyPresent: await ledgerKeyPresent(), keyMismatch: false };
     }
     if (!ledger.keyPresent) log.error('health.ledger_key_missing');
@@ -43,7 +42,7 @@ export async function GET(): Promise<Response> {
       try {
         await (await getDbReady()).run(sql`SELECT 1`);
       } catch (err) {
-        log.error({ errClass: errClass(err) }, 'health.db_ping_failed');
+        log.error(errFields(err), 'health.db_ping_failed');
         throw err;
       }
     },

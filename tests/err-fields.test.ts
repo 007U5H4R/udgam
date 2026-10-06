@@ -51,10 +51,8 @@ describe('one error-code helper (CR-106 / CR-007)', () => {
     expect(importers.map((f) => relative(APP, f))).toEqual([]);
   });
 
-  it('no log.* call under src/app (outside the API routes) builds errClass by hand', () => {
-    const offenders = files(APP)
-      .filter((f) => !/[\\/](api|\.well-known)[\\/]/.test(relative(APP, f).replace(/^/, sep)))
-      .flatMap((f) =>
+  it('no log.* call under src/app (pages, actions, API routes and .well-known; CR-008) builds errClass by hand', () => {
+    const offenders = files(APP).flatMap((f) =>
         readFileSync(f, 'utf8')
           .split('\n')
           .map((l, i) => [l, i + 1] as const)

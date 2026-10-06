@@ -16,7 +16,7 @@ import {
 import { clientIp } from '../../../../lib/client-ip';
 import { env } from '../../../../lib/config/env';
 import { getDbReady, type Db } from '../../../../lib/db/client';
-import { log } from '../../../../lib/log';
+import { errFields, log } from '../../../../lib/log';
 import { requireSession, type Guarded } from '../../../_auth/require';
 
 export const runtime = 'nodejs';
@@ -34,7 +34,6 @@ function refuse(status: number, error: string, retryAfterSec?: number): Response
   return Response.json({ error }, { status, headers });
 }
 
-const errClass = (err: unknown) => (err instanceof Error ? err.constructor.name : typeof err);
 
 /**
  * POST /api/capture/stage (technical-plan §3.2, §22 TSK-30.2, TP28): one photo uploaded when the farmer
@@ -75,7 +74,7 @@ export async function POST(req: Request): Promise<Response> {
     const device = await stagingDevice(db, agent.userId, deviceId);
     if (device !== 'ok') return refuse(403, device);
   } catch (err) {
-    log.error({ errClass: errClass(err) }, 'stage.route_failed');
+    log.error(errFields(err), 'stage.route_failed');
     return refuse(503, 'unavailable');
   }
 
@@ -96,7 +95,7 @@ export async function POST(req: Request): Promise<Response> {
     log.info({ size: bytes.length }, 'stage.stored');
     return Response.json(r, { status: 201, headers: NO_STORE });
   } catch (err) {
-    log.error({ errClass: errClass(err) }, 'stage.route_failed');
+    log.error(errFields(err), 'stage.route_failed');
     return refuse(503, 'unavailable');
   } finally {
     slot.release();
