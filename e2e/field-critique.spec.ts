@@ -327,14 +327,21 @@ test('DES-017, DES-020: a thumbnail that does not load is a "Photo not available
   }
 });
 
-test('DES-025 (1): the sign-in and set-up pills sit in the bottom thumb zone, and so does "Go to Home"', async ({ page }) => {
+test('DES-025 (1), DES-029: the sign-in and set-up pills sit in the bottom thumb zone, and so does "Go to Home"', async ({ page }) => {
   const low = async (name: string) => {
     const b = (await page.getByRole('button', { name }).boundingBox())!;
     expect(b.y + b.height, name).toBeGreaterThan(812 - 60);
     expect(b.y + b.height, name).toBeLessThanOrEqual(812);
   };
   await page.goto('/sign-in');
-  await low('Sign in');
+  // DES-029: the certificate hint (DES-220) sits under the sign-in pill, so the pill ends higher than the
+  // other pills; it stays in the bottom thumb zone (its last 100 px), and the hint follows it inside the screen.
+  const pill = (await page.getByRole('button', { name: 'Sign in' }).boundingBox())!;
+  const hint = (await page.getByTestId('certificate-hint').boundingBox())!;
+  expect(pill.y + pill.height, 'Sign in').toBeGreaterThan(812 - 100);
+  expect(hint.y, 'hint below the pill').toBeGreaterThanOrEqual(pill.y + pill.height);
+  expect(hint.y - (pill.y + pill.height), 'hint right under the pill').toBeLessThanOrEqual(32);
+  expect(hint.y + hint.height, 'hint inside the screen').toBeLessThanOrEqual(812);
 
   await ownClientAddress(page); // the enrol route limits attempts per client address
   const seed = seedCaptureWorld({ code: true });
