@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeJpeg } from '../../../tests/helpers/capture';
 import { tempDb, type TempDb } from '../../../tests/helpers/db';
 import { sha256Hex } from '../crypto';
+import { writeTx } from '../db/client';
 import { seenMediaHashes } from './context';
 import { MAX_PHOTO_BYTES } from './limits';
 import { claimStaged, localStagingStore, MAX_STAGED_PER_AGENT, readStaged, stagePhoto, STAGE_TTL_MS, sweepExpired, sweepStaging, takeStaged, type StagingStore } from './staging';
@@ -236,6 +237,43 @@ describe('TKT-30 review follow-ups (staging store)', () => {
     expect(existsSync(files.oldOrphan)).toBe(false);
     expect(existsSync(files.youngTmp)).toBe(true);
     expect(existsSync(files.youngOrphan)).toBe(true);
+  });
+
+  it('CR-003: the orphan scan (the folder walk) runs outside the write lock', async () => {
+    await stage(fakeJpeg('held'));
+    const walkedUnderLock: boolean[] = [];
+    const watched: StagingStore = {
+      ...store,
+      async list() {
+        // A writeTx refuses to nest at once, so this tells whether the walk holds the write lock.
+        walkedUnderLock.push(await writeTx(t.db, async () => false).catch((e: Error) => /nested writeTx/.test(e.message)));
+        return store.list();
+      },
+    };
+    await sweepStaging(t.db, watched, later(STAGE_TTL_MS + 1000));
+    expect(walkedUnderLock).toEqual([false]);
+  });
+
+  it('CR-003: a file that looked orphaned during the walk but was staged before the delete is kept', async () => {
+    const bytes = fakeJpeg('restaged');
+    const sha = await sha256Hex(bytes);
+    const sweepAt = later(STAGE_TTL_MS + 1000);
+    const abs = join(t.dir, store.pathOf(A, sha));
+    await mkdir(join(t.dir, 'staging', A), { recursive: true });
+    await writeFile(abs, bytes);
+    const old = (NOW.getTime() - 1000) / 1000;
+    await utimes(abs, old, old); // an old file with no row: an orphan when the walk sees it
+    const racing: StagingStore = {
+      ...store,
+      async list() {
+        const seen = await store.list();
+        await stage(bytes, { now: sweepAt }); // the phone stages the same photo while the sweep is walking
+        return seen;
+      },
+    };
+    expect(await sweepStaging(t.db, racing, sweepAt)).toEqual({ expired: 0, orphans: 0 });
+    expect(existsSync(abs)).toBe(true);
+    expect((await rows()).map((r) => r.sha256)).toEqual([sha]);
   });
 
   it('sweepStaging with no staging folder yet does nothing', async () => {
