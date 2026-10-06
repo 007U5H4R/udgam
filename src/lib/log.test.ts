@@ -1,7 +1,7 @@
 import { Writable } from 'node:stream';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SECRET_ENV_NAMES } from './config/secret-names';
-import { createLogger } from './log';
+import { createLogger, errFields } from './log';
 
 function capture() {
   const lines: string[] = [];
@@ -99,5 +99,25 @@ describe('log proxy', () => {
     vi.stubEnv('LOG_LEVEL', 'not-a-level');
     const { log } = await import('./log');
     expect(log.level).toBe('info');
+  });
+});
+
+describe('errFields (CR-007)', () => {
+  it('names the class and the driver code, never the message', () => {
+    const busy = Object.assign(new Error('SQLITE_BUSY: database is locked at /srv/udgam/udgam.db'), { code: 'SQLITE_BUSY', rawCode: 5 });
+    expect(errFields(busy)).toEqual({ errClass: 'Error', code: 'SQLITE_BUSY', rawCode: 5 });
+    expect(JSON.stringify(errFields(busy))).not.toContain('/srv');
+  });
+
+  it('finds the code on a wrapped cause (drizzle wraps the driver error)', () => {
+    class DrizzleQueryError extends Error {}
+    const inner = Object.assign(new Error('SQLITE_FULL: database or disk is full'), { code: 'SQLITE_FULL', rawCode: 13 });
+    expect(errFields(new DrizzleQueryError('Failed query: insert into …', { cause: inner }))).toEqual({ errClass: 'DrizzleQueryError', code: 'SQLITE_FULL', rawCode: 13 });
+  });
+
+  it('a plain error is its class only; a code that is not a constant-style name is left out', () => {
+    expect(errFields(new Error('boom'))).toEqual({ errClass: 'Error' });
+    expect(errFields(Object.assign(new Error('x'), { code: 'see /etc/passwd' }))).toEqual({ errClass: 'Error' });
+    expect(errFields('nope')).toEqual({ errClass: 'string' });
   });
 });

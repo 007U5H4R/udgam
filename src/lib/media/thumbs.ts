@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative } from 'node:path';
 import sharp from 'sharp';
+import { runtimePath } from '../config/runtime-path';
 import { log as defaultLog } from '../log';
 
 // Photo thumbnails (TSK-10.13, review focus 8). A thumbnail is a separate file, never the original:
@@ -13,7 +14,8 @@ import { log as defaultLog } from '../log';
 // ~780 MB and 6 s); concurrent requests for one thumbnail share one decode; and at most
 // MAX_THUMB_DECODES decodes run at once in the process, the rest wait their turn. A photo that is over
 // the limit or that sharp cannot decode (some HEIC builds) gets a plain placeholder, which is cached
-// like any thumbnail so it is not decoded again on every request.
+// like any thumbnail so it is not decoded again on every request. A failure that may be transient is
+// served the placeholder uncached (CR-006).
 
 // sharp's operation cache is off (TKT-12): with it on, repeated large thumbnails for the admin review
 // plateau at ~1.26 GB resident; thumbnails are cached on disk below instead.
@@ -50,7 +52,7 @@ function sharpThumb(input: Buffer): Promise<Buffer> {
 }
 
 function inside(root: string, rel: string): string {
-  const abs = resolve(root, rel);
+  const abs = runtimePath(root, rel);
   const r = relative(root, abs);
   if (r.startsWith('..') || isAbsolute(r)) throw new Error('media path is outside the data directory');
   return abs;
@@ -100,26 +102,39 @@ async function writeCache(abs: string, bytes: Buffer, log: Log): Promise<void> {
   }
 }
 
+/**
+ * Why a decode failed. `pixel_limit` and `undecodable` are properties of the bytes (over the limit, not an
+ * image, a corrupt or unsupported file): decoding again gives the same answer, so the placeholder is
+ * cached. Anything else (a system error such as EMFILE, memory pressure, an unknown failure) may pass, so
+ * the placeholder is served but not cached and the next request decodes again (CR-006).
+ */
+function failureReason(err: unknown): 'pixel_limit' | 'undecodable' | 'decode_failed' {
+  const message = err instanceof Error ? err.message : '';
+  if (/pixel limit/i.test(message)) return 'pixel_limit';
+  if (errCode(err) !== undefined || /memory|alloc|resource|too many open files/i.test(message)) return 'decode_failed';
+  return /unsupported image format|corrupt header|premature end|datastream contains no image|heif:/i.test(message) ? 'undecodable' : 'decode_failed';
+}
+
 async function make(abs: string, original: string, deps: ThumbDeps, log: Log): Promise<Buffer> {
   const decode = deps.decode ?? sharpThumb;
-  const bytes = await withDecodeSlot(async () => {
+  const { bytes, cache } = await withDecodeSlot(async () => {
     const input = await readFile(original); // a missing original is an error, not a placeholder
     try {
-      return await decode(input);
+      return { bytes: await decode(input), cache: true };
     } catch (err) {
-      const reason = err instanceof Error && /pixel limit/i.test(err.message) ? 'pixel_limit' : 'undecodable';
+      const reason = failureReason(err);
       log.warn({ reason }, 'media.thumb_placeholder');
-      return placeholderJpeg();
+      return { bytes: await placeholderJpeg(), cache: reason !== 'decode_failed' };
     }
   });
-  await writeCache(abs, bytes, log);
+  if (cache) await writeCache(abs, bytes, log);
   return bytes;
 }
 
 /** The thumbnail bytes for a stored photo (made and cached on first use). */
 export async function thumbnail(dataDir: string, m: { path: string; sha256: string; thumbPath: string | null }, deps: ThumbDeps = {}): Promise<Buffer> {
   const log: Log = deps.log ?? defaultLog;
-  const root = resolve(dataDir);
+  const root = runtimePath(dataDir); // a run-time location: never traced (EXE39)
   const abs = inside(root, m.thumbPath ?? join('thumbs', m.sha256.slice(0, 2), `${m.sha256}.jpg`));
   const original = inside(root, m.path);
   const cached = await readCached(abs);

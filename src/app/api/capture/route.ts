@@ -10,7 +10,7 @@ import { localStagingStore } from '../../../lib/capture/staging';
 import { clientIp } from '../../../lib/client-ip';
 import { env } from '../../../lib/config/env';
 import { getDbReady, type Db } from '../../../lib/db/client';
-import { log, withRequestId } from '../../../lib/log';
+import { errFields, log, withRequestId } from '../../../lib/log';
 import { localMediaStore } from '../../../lib/media/store';
 import { requestIdFrom } from '../../../lib/request-id';
 import { requireSession, type Guarded } from '../../_auth/require';
@@ -63,7 +63,7 @@ export async function POST(req: Request): Promise<Response> {
     db = await getDbReady();
     perIp = await consume(db, ip.key, IP_LIMIT.limit, IP_LIMIT.windowSec, ip.at);
   } catch (err) {
-    log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'capture.route_failed');
+    log.error(errFields(err), 'capture.route_failed');
     return new Response(line({ t: 'error', retryable: true }), { status: 503, headers: HEADERS });
   }
   if (!perIp.ok) return refusal({ t: 'rejected', reason: 'rate_limited', status: 429, retryAfterSec: perIp.retryAfterSec });
@@ -142,7 +142,7 @@ async function accept(req: Request, agent: Guarded, db: Db, release: () => void,
       await runCapture(form, deps, emit);
     } catch (err) {
       // runCapture never rejects; this is the media store's configuration failing.
-      log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'capture.route_failed');
+      log.error(errFields(err), 'capture.route_failed');
       emit({ t: 'error', retryable: true });
     } finally {
       release();

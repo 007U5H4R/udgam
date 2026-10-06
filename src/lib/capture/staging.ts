@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, open, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { and, count, eq, gt, inArray, lte, ne } from 'drizzle-orm';
+import { runtimePath } from '../config/runtime-path';
 import { sha256Hex } from '../crypto';
 import { writeTx, type Db } from '../db/client';
 import { devices, stagedMedia } from '../db/schema';
@@ -108,9 +109,9 @@ async function unlinkIfPresent(abs: string): Promise<void> {
 }
 
 export function localStagingStore(dataDir: string): StagingStore {
-  const root = resolve(dataDir);
+  const root = runtimePath(dataDir); // a run-time location: never traced (EXE39)
   const inside = (rel: string) => {
-    const abs = resolve(root, rel);
+    const abs = runtimePath(root, rel);
     const r = relative(root, abs);
     const [top, ...rest] = r.split(sep);
     if (r === '' || isAbsolute(r) || top !== 'staging' || rest.length === 0) throw new Error('staged path is outside the staging area');
@@ -165,7 +166,7 @@ export function localStagingStore(dataDir: string): StagingStore {
       const out: { path: string; mtimeMs: number }[] = [];
       let agents: string[];
       try {
-        agents = await readdir(join(root, 'staging'));
+        agents = await readdir(runtimePath(root, 'staging'));
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code === 'ENOENT') return out;
         throw err;
@@ -173,7 +174,7 @@ export function localStagingStore(dataDir: string): StagingStore {
       for (const agent of agents) {
         let names: string[];
         try {
-          names = await readdir(join(root, 'staging', agent));
+          names = await readdir(runtimePath(root, 'staging', agent));
         } catch {
           continue; // not a folder, or gone meanwhile
         }
@@ -338,23 +339,31 @@ export async function consumeStaged(db: Db, store: StagingStore, q: { agentId: s
 }
 
 /**
- * The whole sweep (TKT-30 review #3): expired rows and their files, then, under the same write lock,
- * temp files and files with no row that are older than STAGE_TTL_MS (left by a crash between writing and
- * renaming, or by a transaction that failed after the rename). Younger files are left alone: a stage may
- * be writing them. Runs on every stage call, after every capture and at startup.
+ * The whole sweep (TKT-30 review #3): expired rows and their files, then temp files and files with no row
+ * that are older than STAGE_TTL_MS (left by a crash between writing and renaming, or by a transaction that
+ * failed after the rename). Younger files are left alone: a stage may be writing them. Runs on every stage
+ * call, after every capture and at startup.
+ *
+ * The folder walk (a readdir per agent and a stat per file) runs OUTSIDE the write lock (CR-003), so it
+ * never holds up the process's other writers. Only the expired-row delete and, when the walk found old
+ * row-less files, the final "still no row?" check and their removal take the lock. That check is enough:
+ * a stage renames its file into place and inserts its row in one locked transaction, so a path with no
+ * row under the lock is not a staged photo, and a temp file's random name is never reused.
  */
 export async function sweepStaging(db: Db, store: StagingStore, now: Date): Promise<{ expired: number; orphans: number }> {
-  return writeTx(db, async (tx) => {
-    const gone = await tx.delete(stagedMedia).where(lte(stagedMedia.expiresAt, now.toISOString())).returning({ path: stagedMedia.path });
-    for (const { path } of gone) await store.remove(path);
+  const expired = await sweepExpired(db, store, now);
+  const cutoff = now.getTime() - STAGE_TTL_MS;
+  const old = (await store.list()).filter((f) => f.mtimeMs <= cutoff).map((f) => f.path);
+  if (old.length === 0) return { expired, orphans: 0 };
+  const orphans = await writeTx(db, async (tx) => {
     const owned = new Set((await tx.select({ path: stagedMedia.path }).from(stagedMedia)).map((r) => r.path));
-    const cutoff = now.getTime() - STAGE_TTL_MS;
-    let orphans = 0;
-    for (const f of await store.list()) {
-      if (owned.has(f.path) || f.mtimeMs > cutoff) continue;
-      await store.remove(f.path);
-      orphans++;
+    let n = 0;
+    for (const path of old) {
+      if (owned.has(path)) continue;
+      await store.remove(path);
+      n++;
     }
-    return { expired: gone.length, orphans };
+    return n;
   });
+  return { expired, orphans };
 }

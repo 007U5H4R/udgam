@@ -74,3 +74,22 @@ export const log: pino.Logger = new Proxy({} as pino.Logger, {
 export function withRequestId(id?: string): pino.Logger {
   return build().child({ requestId: id && id.length > 0 ? id : randomUUID() });
 }
+
+/**
+ * What an error log line may say about an error (CR-007): its class, and the driver's code when it has one
+ * (SQLITE_BUSY, SQLITE_FULL, ENOSPC; for a LibsqlError also its numeric rawCode), looked up through the
+ * cause chain since drizzle wraps driver errors. Never the message, which may hold paths or values. A code
+ * that is not a constant-style name is left out.
+ */
+export function errFields(err: unknown): { errClass: string; code?: string; rawCode?: number } {
+  const out: { errClass: string; code?: string; rawCode?: number } = { errClass: err instanceof Error ? err.constructor.name : typeof err };
+  for (let e: unknown = err, depth = 0; e instanceof Error && depth < 5; e = e.cause, depth++) {
+    const { code, rawCode } = e as { code?: unknown; rawCode?: unknown };
+    if (typeof code === 'string' && /^[A-Z][A-Z0-9_]{1,63}$/.test(code)) {
+      out.code = code;
+      if (typeof rawCode === 'number' && Number.isInteger(rawCode)) out.rawCode = rawCode;
+      break;
+    }
+  }
+  return out;
+}

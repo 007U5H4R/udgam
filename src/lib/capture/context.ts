@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, inArray, isNull, lt, ne, or, sum, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, isNull, lt, ne, or, sum, type SQL } from 'drizzle-orm';
 import { env } from '../config/env';
 import type { Db, Tx } from '../db/client';
 import { devices, harvestEvents, media, plots } from '../db/schema';
@@ -220,7 +220,9 @@ export async function buildContextAsOf(
       .select({ seq: harvestEvents.seq, payloadHash: harvestEvents.payloadHash })
       .from(harvestEvents)
       .where(and(eq(harvestEvents.deviceId, event.deviceId), eq(harvestEvents.boundaryStatus, 'accepted'), before(asOf)))
-      .orderBy(desc(harvestEvents.seq))
+      // Two accepted events at one seq (a same-seq fork): the head is the FIRST commit at the highest seq,
+      // the one persistAccepted moved devices.last_event_hash to, so the re-run sees what the capture saw.
+      .orderBy(desc(harvestEvents.seq), asc(harvestEvents.anchorSeq))
       .limit(1),
   ]);
   if (!d || !plot) return null;

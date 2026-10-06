@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, rename, stat, unlink, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative } from 'node:path';
+import { runtimePath } from '../config/runtime-path';
 
 // Content-addressed media store (technical-plan §3.1 step 4). Files live at
 // DATA_DIR/media/<sha[0:2]>/<sha>.<ext>; the stored path is relative to DATA_DIR. An organic certificate
@@ -63,9 +64,9 @@ async function unlinkIfPresent(abs: string): Promise<void> {
 }
 
 export function localMediaStore(dataDir: string): MediaStore {
-  const root = resolve(dataDir);
+  const root = runtimePath(dataDir); // a run-time location: never traced (EXE39)
   const inside = (rel: string) => {
-    const abs = resolve(root, rel);
+    const abs = runtimePath(root, rel);
     const r = relative(root, abs);
     if (r.startsWith('..') || isAbsolute(r)) throw new Error('media path is outside the store');
     return abs;

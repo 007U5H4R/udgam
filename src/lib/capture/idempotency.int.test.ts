@@ -42,7 +42,7 @@ type Signed = { fd: FormData; signed: string; photos: Uint8Array<ArrayBuffer>[] 
 
 /** A capture signed by the phone; `photos` default to one fresh photo per call label. */
 async function signedCapture(
-  o: { label?: string; photos?: Uint8Array<ArrayBuffer>[]; capturedAt?: string; seq?: number; prevEventHash?: string; key?: TestDevice; deviceId?: string } = {},
+  o: { label?: string; photos?: Uint8Array<ArrayBuffer>[]; capturedAt?: string; seq?: number; prevEventHash?: string; key?: TestDevice; deviceId?: string; gps?: { lat: number; lng: number } } = {},
 ): Promise<Signed> {
   const photos = o.photos ?? [fakeJpeg(`${o.label ?? 'p'}-1`), fakeJpeg(`${o.label ?? 'p'}-2`)];
   const payload: CapturePayloadV1 = {
@@ -52,7 +52,7 @@ async function signedCapture(
     seq: o.seq ?? 1,
     prevEventHash: o.prevEventHash ?? 'genesis',
     capturedAt: o.capturedAt ?? '2026-10-14T04:12:33.120Z',
-    gps: { ...P01_INSIDE, accuracyM: 8 },
+    gps: { ...(o.gps ?? P01_INSIDE), accuracyM: 8 },
     cherryKg: 42.5,
     media: await Promise.all(photos.map(async (b) => ({ sha256: await sha256Hex(b), size: b.length, mime: 'image/jpeg' }))),
   };
@@ -113,6 +113,21 @@ describe('TC-040 · EVAL-068 an identical signed payload is idempotent', () => {
     expect(l.info).toHaveBeenCalledWith({ eventId: original.eventId }, 'capture.idempotent_replay');
     expect(await seasonCherryKgBefore(t.db, world.plotId, coffeeSeasonOf(RECEIVED.toISOString()))).toBe(42.5);
     expect(await verifyChain(t.db)).toEqual({ ok: true });
+  });
+
+  it('CR-005: a replay after an admin override answers with the decided verdict, as the Pickings tab shows it', async () => {
+    // Just outside the plot edge: geofence fails (not a hard fail), so the capture is Needs Review.
+    const first = await signedCapture({ gps: { lat: Math.round((P01_INSIDE.lat + 0.004) * 1e7) / 1e7, lng: P01_INSIDE.lng } });
+    const original = verdictOf(await run(first.fd));
+    expect(original.verdict).toBe('Needs Review');
+    const run1 = (await t.client.execute({ sql: 'SELECT id FROM verification_runs WHERE event_id = ?', args: [original.eventId] })).rows[0]!.id as string;
+    // A raw override row (the service's signing is not under test): the trigger sets final_verdict.
+    await t.client.execute({
+      sql: `INSERT INTO admin_overrides (id, run_id, admin_id, new_verdict, reason, signature, key_id, created_at, anchor_seq) VALUES ('AO-CR5', ?, ?, 'Rejected', 'Photos are of another farm', 'sig', 'kid', ?, 1)`,
+      args: [run1, world.agentId, RECEIVED.toISOString()],
+    });
+    const again = verdictOf(await run(resend(first)));
+    expect(again).toMatchObject({ eventId: original.eventId, verdict: 'Rejected', score: original.score, checks: original.checks, idempotent: true });
   });
 
   it('the same photos under a new capturedAt (a different payload hash) are processed normally and hard-fail photo_uniqueness', async () => {

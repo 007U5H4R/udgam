@@ -120,6 +120,34 @@ describe('thumbnail limits', () => {
     expect(decode).not.toHaveBeenCalled();
   });
 
+  it('CR-006: a transient decode failure serves the placeholder without caching it; the next request decodes again', async () => {
+    const m = store('flaky.jpg', PHOTO);
+    const transient = vi.fn(async () => {
+      throw Object.assign(new Error('EMFILE: too many open files'), { code: 'EMFILE' });
+    });
+    expect((await thumbnail(dir, m, { log, decode: transient })).equals(await placeholderJpeg())).toBe(true);
+    expect(logs).toEqual([{ level: 'warn', obj: { reason: 'decode_failed' }, msg: 'media.thumb_placeholder' }]);
+    const ok = vi.fn(async () => Buffer.from('real-thumb'));
+    expect((await thumbnail(dir, m, { log, decode: ok })).toString()).toBe('real-thumb');
+    expect(ok).toHaveBeenCalledTimes(1);
+  });
+
+  it('CR-006: an out-of-memory failure from the decoder is not cached either', async () => {
+    const m = store('oom.jpg', PHOTO);
+    await thumbnail(dir, m, { log, decode: async () => Promise.reject(new Error('VipsJpeg: Insufficient memory (case 4)')) });
+    const ok = vi.fn(async () => Buffer.from('real-thumb'));
+    expect((await thumbnail(dir, m, { log, decode: ok })).toString()).toBe('real-thumb');
+  });
+
+  it('CR-006: bytes that are not an image at all get the placeholder, cached', async () => {
+    const m = store('text.jpg', Buffer.from('hello world'));
+    expect((await thumbnail(dir, m, { log })).equals(await placeholderJpeg())).toBe(true);
+    expect(logs[0]).toEqual({ level: 'warn', obj: { reason: 'undecodable' }, msg: 'media.thumb_placeholder' });
+    const decode = vi.fn();
+    await thumbnail(dir, m, { log, decode });
+    expect(decode).not.toHaveBeenCalled();
+  });
+
   it('a real photo becomes a JPEG of at most 320 px, never the original', async () => {
     const m = store('branch.jpg', PHOTO);
     const bytes = await thumbnail(dir, m, { log });

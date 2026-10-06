@@ -120,6 +120,20 @@ describe('photo_uniqueness', () => {
     expect(res.checks.find((c) => c.id === 'photo_uniqueness')).toMatchObject({ status: 'ok', evidence: '3 of 3 photos are new' });
   });
 
+  it('CR-001: one photo filling all three slots counts as one photo ("1 of 1 photos are new"), verdict unchanged', async () => {
+    const d = await makeDevice();
+    const same = photoHash(1);
+    const res = await verify(await makeSubmission({ device: d, mediaHashes: [same, same, same] }), makeContext(d));
+    expect(res.checks.find((c) => c.id === 'photo_uniqueness')).toMatchObject({ status: 'ok', hardFail: false, evidence: '1 of 1 photos are new' });
+  });
+
+  it('CR-001: a repeated photo is counted once when it was seen before ("1 of 2 photos seen before")', async () => {
+    const d = await makeDevice();
+    const sub = await makeSubmission({ device: d, mediaHashes: [photoHash(1), photoHash(1), photoHash(2)] });
+    const res = await verify(sub, makeContext(d, { seenMediaHashes: new Set([photoHash(1)]) }));
+    expect(res.checks.find((c) => c.id === 'photo_uniqueness')).toMatchObject({ status: 'fail', hardFail: true, evidence: '1 of 2 photos seen before' });
+  });
+
   it('hard fail naming "1 of 3" when one photo was seen before (EVAL-032 shape)', async () => {
     const d = await makeDevice();
     const sub = await makeSubmission({ device: d, mediaHashes: [photoHash(1), photoHash(2), photoHash(3)] });
