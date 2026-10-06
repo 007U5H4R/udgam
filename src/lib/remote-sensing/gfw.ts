@@ -9,6 +9,9 @@ import { ProviderError, type CallOptions, type ForestLoss, type PlotGeom } from 
 // followed and the version it resolved to is recorded with the answer. Every failure is a
 // ProviderError (timeout / http / malformed) — the check turns it into `unavailable`, never a
 // rejection (S6). The API key goes only into the request header: never into a log line or an error.
+// Redirects are followed by hand (SEC-100): fetch keeps a custom header such as `x-api-key` across a
+// cross-origin hop (only `authorization` is dropped), so a hop is taken only when its Location is on
+// the base URL's own origin, at most MAX_REDIRECTS times; any other 3xx is a ProviderError(status).
 
 export const GFW_BASE_URL = 'https://data-api.globalforestwatch.org';
 /** UMD tree-cover loss v1.13 runs through 2025 (§7). */
@@ -38,6 +41,10 @@ export function gfwSql(lossFromYear: number, canopyDensityPct: number): string {
 
 type GfwRow = { umd_tree_cover_loss__year: unknown; area__ha: unknown };
 
+/** Same-origin hops followed before giving up (`latest` → pinned version needs one). */
+const MAX_REDIRECTS = 3;
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
 const isAbort = (err: unknown) => err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError');
 const errClass = (err: unknown) => (err instanceof Error ? err.constructor.name : typeof err);
 
@@ -49,21 +56,58 @@ export function createGfwProvider(o: GfwOptions) {
   const lossFromYear = o.lossFromYear ?? CONFIG.deforestation.lossFromYear;
   const sql = gfwSql(lossFromYear, o.canopyDensityPct ?? CONFIG.deforestation.canopyDensityPct);
 
-  async function send(url: string, init: RequestInit): Promise<Response> {
-    let res: Response;
+  const baseOrigin = new URL(baseUrl).origin;
+  const release = (res: Response) => res.body?.cancel().catch(() => undefined); // free the connection now, not at garbage collection
+
+  async function fetchOnce(url: string, init: RequestInit): Promise<Response> {
     try {
-      res = await doFetch(url, { ...init, redirect: 'follow' });
+      return await doFetch(url, { ...init, redirect: 'manual' });
     } catch (err) {
       if (isAbort(err) || init.signal?.aborted) throw new ProviderError('gfw', 'timeout');
       log.warn({ provider: 'gfw', errClass: errClass(err) }, 'remote_sensing.request_failed');
       throw new ProviderError('gfw', 0); // no response at all (DNS, TLS, reset)
     }
-    if (!res.ok) {
-      log.warn({ provider: 'gfw', status: res.status }, 'remote_sensing.http_error');
-      await res.body?.cancel().catch(() => undefined); // release the connection now, not at garbage collection
-      throw new ProviderError('gfw', res.status);
+  }
+
+  /** The next hop of a 3xx, or null when it must not be taken (no usable Location, or off-origin). */
+  function nextHop(res: Response, from: string): URL | null {
+    const location = res.headers.get('location');
+    if (!location) return null;
+    let next: URL;
+    try {
+      next = new URL(location, from);
+    } catch {
+      return null;
     }
-    return res;
+    return next.origin === baseOrigin ? next : null;
+  }
+
+  async function send(url: string, init: RequestInit): Promise<Response> {
+    let current = url;
+    let req = init;
+    for (let hop = 0; ; hop++) {
+      const res = await fetchOnce(current, req);
+      if (!REDIRECT_STATUSES.has(res.status)) {
+        if (!res.ok) {
+          log.warn({ provider: 'gfw', status: res.status }, 'remote_sensing.http_error');
+          await release(res);
+          throw new ProviderError('gfw', res.status);
+        }
+        return res;
+      }
+      await release(res);
+      const next = hop < MAX_REDIRECTS ? nextHop(res, current) : null;
+      if (!next) {
+        // Never the Location itself: its query string may carry anything (SEC-100).
+        log.warn({ provider: 'gfw', status: res.status, hop }, 'remote_sensing.redirect_refused');
+        throw new ProviderError('gfw', res.status);
+      }
+      // Fetch's method rewrite: 303 (and 301/302 after a POST) continue as a GET without a body.
+      if (res.status === 303 || ((res.status === 301 || res.status === 302) && req.method === 'POST')) {
+        req = { ...req, method: 'GET', body: undefined };
+      }
+      current = next.href;
+    }
   }
 
   const headers = () => ({ 'x-api-key': o.apiKey, 'content-type': 'application/json', origin: o.origin });
