@@ -30,7 +30,7 @@ describe('health (TC-001 core)', () => {
     const r = await health({
       ...base,
       ping: async () => {},
-      ledger: { lastSeq: 3, lastCheckpointAgeSec: 10, keyPresent: false, keyMismatch: false },
+      ledger: { lastSeq: 3, lastCheckpointAgeSec: 10, oldestUnsealedAgeSec: 0, keyPresent: false, keyMismatch: false },
     });
     expect(r.status).toBe(503);
     expect(r.body.ledger?.keyPresent).toBe(false);
@@ -40,11 +40,11 @@ describe('health (TC-001 core)', () => {
     const r = await health({
       ...base,
       ping: async () => {},
-      ledger: { lastSeq: 3, lastCheckpointAgeSec: 10, keyPresent: true, keyMismatch: true },
+      ledger: { lastSeq: 3, lastCheckpointAgeSec: 10, oldestUnsealedAgeSec: 0, keyPresent: true, keyMismatch: true },
     });
     expect(r.status).toBe(503);
     expect(r.body.ledger?.keyMismatch).toBe(true);
-    const ok = await health({ ...base, ping: async () => {}, ledger: { lastSeq: 3, lastCheckpointAgeSec: 10, keyPresent: true, keyMismatch: false } });
+    const ok = await health({ ...base, ping: async () => {}, ledger: { lastSeq: 3, lastCheckpointAgeSec: 10, oldestUnsealedAgeSec: 0, keyPresent: true, keyMismatch: false } });
     expect(ok.status).toBe(200);
   });
 
@@ -82,5 +82,22 @@ describe('health (TC-001 core)', () => {
     } finally {
       delete process.env.UDGAM_HEALTH_CANARY;
     }
+  });
+});
+
+describe('disk (SEC-003)', () => {
+  it('reports the disk check as a degraded component: low free space is in the body but keeps 200', async () => {
+    const ok = await health({ ...base, ping: async () => {}, disk: 'ok' });
+    expect(ok.status).toBe(200);
+    expect(ok.body.disk).toBe('ok');
+    const low = await health({ ...base, ping: async () => {}, disk: 'low' });
+    expect(low.status).toBe(200); // the app still works; the uptime probe alerts on disk != "ok" (TKT-28)
+    expect(low.body.disk).toBe('low');
+    const unknown = await health({ ...base, ping: async () => {}, disk: 'unknown' });
+    expect(unknown.body.disk).toBe('unknown');
+  });
+
+  it('leaves disk out when the route does not report it', async () => {
+    expect('disk' in (await health({ ...base, ping: async () => {} })).body).toBe(false);
   });
 });

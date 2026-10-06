@@ -16,7 +16,7 @@ const ORIGINAL = { ...process.env };
 /** Fresh modules under `vars` (env.ts reads process.env once per module instance). */
 async function load(vars: Record<string, string | undefined>) {
   vi.resetModules();
-  for (const k of ['NODE_ENV', 'E2E', 'DATABASE_URL', 'LEDGER_KEY_PATH', 'BETTER_AUTH_SECRET', 'REMOTE_SENSING_PROVIDER', 'GFW_API_KEY', 'CDSE_CLIENT_ID', 'CDSE_CLIENT_SECRET']) delete process.env[k];
+  for (const k of ['NODE_ENV', 'E2E', 'DATABASE_URL', 'LEDGER_KEY_PATH', 'BETTER_AUTH_SECRET', 'REMOTE_SENSING_PROVIDER', 'GFW_API_KEY', 'CDSE_CLIENT_ID', 'CDSE_CLIENT_SECRET', 'PUBLIC_BASE_URL', 'BETTER_AUTH_URL']) delete process.env[k];
   process.env.DATA_DIR = DATA_DIR;
   process.env.LOG_LEVEL = 'silent';
   process.env.REMOTE_SENSING_PROVIDER = 'fixture';
@@ -90,6 +90,8 @@ describe('the demo seed refuses outside development, test or E2E (review finding
       GFW_API_KEY: 'placeholder',
       CDSE_CLIENT_ID: 'placeholder',
       CDSE_CLIENT_SECRET: 'placeholder',
+      PUBLIC_BASE_URL: 'https://udgam.example', // https in production (DES-219)
+      BETTER_AUTH_URL: 'https://udgam.example',
     });
     const r = await runMain(run, ['--reset']);
     expect(r.code).toBe(1);

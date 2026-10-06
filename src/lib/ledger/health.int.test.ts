@@ -22,16 +22,53 @@ afterEach(async () => {
 
 describe('ledgerHealth (TC-001 ledger part)', () => {
   it('reports an empty ledger with no checkpoint, and generates the key on first boot', async () => {
-    expect(await ledgerHealth(t.db, { keyPath })).toEqual({ lastSeq: 0, lastCheckpointAgeSec: null, keyPresent: true, keyMismatch: false });
+    expect(await ledgerHealth(t.db, { keyPath })).toEqual({ lastSeq: 0, lastCheckpointAgeSec: null, oldestUnsealedAgeSec: 0, keyPresent: true, keyMismatch: false });
   });
 
   it('reports the last seq and the whole seconds since the last checkpoint', async () => {
     const key = await loadLedgerKey(keyPath);
     for (let i = 0; i < 3; i++) await writeTx(t.db, (tx) => append(tx, 'harvest_event', { i }));
     await writeTx(t.db, (tx) => checkpointIfNeeded(tx, { key, now: () => new Date('2026-10-01T00:00:00.000Z') }));
-    await writeTx(t.db, (tx) => append(tx, 'harvest_event', { i: 3 }));
+    await writeTx(t.db, (tx) => append(tx, 'harvest_event', { i: 3 }, () => new Date('2026-10-01T00:00:30.000Z')));
     const h = await ledgerHealth(t.db, { keyPath, now: () => new Date('2026-10-01T00:01:30.900Z') });
-    expect(h).toEqual({ lastSeq: 4, lastCheckpointAgeSec: 90, keyPresent: true, keyMismatch: false });
+    expect(h).toEqual({ lastSeq: 4, lastCheckpointAgeSec: 90, oldestUnsealedAgeSec: 60, keyPresent: true, keyMismatch: false });
+  });
+
+  describe('oldestUnsealedAgeSec (EXE55): the age of the oldest entry after the last checkpoint', () => {
+    const at = (iso: string) => () => new Date(iso);
+
+    it('is the age of the first unsealed entry, not the newest; with no checkpoint yet, of entry 1', async () => {
+      await writeTx(t.db, (tx) => append(tx, 'harvest_event', { i: 0 }, at('2026-10-01T00:00:00.000Z')));
+      await writeTx(t.db, (tx) => append(tx, 'harvest_event', { i: 1 }, at('2026-10-02T00:00:00.000Z')));
+      const h = await ledgerHealth(t.db, { keyPath, now: at('2026-10-02T01:00:00.000Z') });
+      expect(h).toMatchObject({ lastSeq: 2, lastCheckpointAgeSec: null, oldestUnsealedAgeSec: 25 * 3600 });
+    });
+
+    it('is 0 when everything is sealed, however old the checkpoint (a quiet day)', async () => {
+      const key = await loadLedgerKey(keyPath);
+      await writeTx(t.db, (tx) => append(tx, 'harvest_event', { i: 0 }, at('2026-10-01T00:00:00.000Z')));
+      await writeTx(t.db, (tx) => checkpointIfNeeded(tx, { key, now: at('2026-10-01T00:10:00.000Z') }));
+      const h = await ledgerHealth(t.db, { keyPath, now: at('2026-10-05T00:00:00.000Z') });
+      expect(h).toMatchObject({ lastSeq: 1, oldestUnsealedAgeSec: 0 });
+      expect(h.lastCheckpointAgeSec).toBeGreaterThan(86400);
+    });
+
+    it('after a checkpoint, counts only the entries after it', async () => {
+      const key = await loadLedgerKey(keyPath);
+      await writeTx(t.db, (tx) => append(tx, 'harvest_event', { i: 0 }, at('2026-10-01T00:00:00.000Z')));
+      await writeTx(t.db, (tx) => checkpointIfNeeded(tx, { key, now: at('2026-10-01T00:10:00.000Z') }));
+      await writeTx(t.db, (tx) => append(tx, 'harvest_event', { i: 1 }, at('2026-10-04T23:00:00.000Z')));
+      const h = await ledgerHealth(t.db, { keyPath, now: at('2026-10-05T00:00:00.000Z') });
+      expect(h.oldestUnsealedAgeSec).toBe(3600);
+    });
+
+    it('reads one entry by primary key: a SEARCH on ledger_entries, never a SCAN', async () => {
+      const { oldestUnsealedQuery } = await import('./health');
+      const q = oldestUnsealedQuery(t.db, 5).toSQL();
+      const plan = (await t.client.execute({ sql: `EXPLAIN QUERY PLAN ${q.sql}`, args: q.params as never })).rows.map((r) => String(r.detail)).join('\n');
+      expect(plan).toMatch(/SEARCH ledger_entries USING INTEGER PRIMARY KEY \(rowid>\?\)/);
+      expect(plan).not.toMatch(/SCAN ledger_entries/);
+    });
   });
 
   it('reports keyMismatch when a checkpoint was signed by a kid that is not published (lost key, quality #4)', async () => {

@@ -3,11 +3,11 @@
 // per FPO and `buyer@` per buyer; and (M-002, TKT-26) one processor organisation with `processor@`. Idempotent: re-running keeps IDs, resets the passwords and clears
 // the accounts' sign-in failure counts (TKT-19), as a password reset would.
 //
-// Passwords come from SEED_PASSWORD. Only when NODE_ENV is explicitly `development` or `test` does a
-// demo default stand in; otherwise a missing SEED_PASSWORD stops the seed. The password is never printed.
+// Every account gets the one password SEED_PASSWORD, or the demo default; the password is never printed.
+// It runs only when NODE_ENV is explicitly `development` or `test`, or on the Playwright server (E2E=1):
+// never in production, where `pnpm accounts:create` provisions each account with its own password (SEC-001).
 //
-// Usage: NODE_ENV=development [DATA_DIR=.e2e-data] pnpm exec tsx scripts/seed-accounts.ts
-//        SEED_PASSWORD=… pnpm exec tsx scripts/seed-accounts.ts
+// Usage: NODE_ENV=development [DATA_DIR=.e2e-data] [SEED_PASSWORD=…] pnpm exec tsx scripts/seed-accounts.ts
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { hashPassword } from 'better-auth/crypto';
@@ -46,16 +46,29 @@ export const DEMO_ACCOUNTS = {
   processorA: { id: 'USR-4QK7ZP2M', email: 'processor@processor-c03.udgam.test', name: 'Ravi P.', role: 'processor', orgId: DEMO_ORGS.processorA.id },
 } as const satisfies Record<string, DemoAccount>;
 
+/** Why `seedPassword` refuses outside development, test and the Playwright server (SEC-001). */
+export const SEED_ACCOUNTS_REFUSED =
+  'seed-accounts: the demo accounts are seeded only with NODE_ENV=development or NODE_ENV=test, or on the Playwright server (E2E=1); production accounts come from pnpm accounts:create';
+
 /**
- * SEED_PASSWORD, or the demo default when NODE_ENV is explicitly `development` or `test`. env.ts
- * defaults an unset NODE_ENV to `development`, so the raw variable is checked too: a shell on the
- * production host without NODE_ENV must not seed real accounts with the committed default.
+ * May the demo accounts be seeded here? The rule of `pnpm seed` (EXE35, scripts/seed/run.ts seedAllowed):
+ * the RAW NODE_ENV is explicitly `development` or `test`, or E2E=1. env.ts defaults an unset NODE_ENV to
+ * `development`, so the raw variable is checked: a shell on the production host has no NODE_ENV.
+ */
+function seedAccountsAllowed(): boolean {
+  if (env.E2E === '1') return true;
+  const explicit = process.env.NODE_ENV; // not a secret; only whether it was set, and to what
+  return (explicit === 'development' || explicit === 'test') && env.NODE_ENV === explicit;
+}
+
+/**
+ * SEED_PASSWORD, or the demo default. Refused (SEC-001) unless the seed may run here at all: every demo
+ * account shares this one password, so it must never provision a production account, with or without
+ * SEED_PASSWORD. Production accounts are created one by one with `pnpm accounts:create`.
  */
 export function seedPassword(): string {
-  if (env.SEED_PASSWORD) return env.SEED_PASSWORD;
-  const explicit = process.env.NODE_ENV; // not a secret; only whether it was set at all
-  if ((explicit === 'development' || explicit === 'test') && env.NODE_ENV === explicit) return DEV_SEED_PASSWORD;
-  throw new Error('SEED_PASSWORD is required unless NODE_ENV is explicitly development or test');
+  if (!seedAccountsAllowed()) throw new Error(SEED_ACCOUNTS_REFUSED);
+  return env.SEED_PASSWORD ?? DEV_SEED_PASSWORD;
 }
 
 /** Write the demo organisations and accounts. Safe to re-run (and to run concurrently). */
@@ -85,7 +98,7 @@ export async function seedAccounts(db: Db, password: string, now = new Date()): 
 async function main(): Promise<void> {
   const { closeDb, getDbReady } = await import('../src/lib/db/client');
   const { runMigrations } = await import('../src/lib/db/migrate');
-  const password = seedPassword();
+  const password = seedPassword(); // refuses outside development, test and E2E before the database is opened
   const db = await getDbReady();
   try {
     await runMigrations(db);

@@ -57,7 +57,7 @@ describe('one rule (CR-104)', () => {
     });
 
   it('no file under src re-implements the production-and-not-E2E gate', () => {
-    const self = join(__dirname, 'test-surfaces.ts');
+    const self = join(__dirname, 'deployment.ts'); // the one copy; test-surfaces.ts and env.ts call it (DES-219)
     const gate = /NODE_ENV\s*(===|!==)\s*'production'\s*(&&|\|\|)\s*\w*\.?E2E\s*(!==|===)\s*'1'/;
     const copies = files(SRC)
       .filter((f) => f !== self && gate.test(readFileSync(f, 'utf8')))

@@ -1,3 +1,4 @@
+import { realDeployment, type DeploymentGate } from './deployment';
 import { env } from './env';
 
 // The test-only surfaces (technical-plan §1 and §11): `?state=…` forced view states and `?state=throw`,
@@ -6,11 +7,11 @@ import { env } from './env';
 // Playwright server (E2E=1, a production build; never set in a real deployment, EXE12/EXE33). SERVER-ONLY
 // (reads env). Each screen keeps its own whitelist of states and calls `forcedState` with it.
 
-type Gate = { NODE_ENV: string; E2E?: string | undefined };
+type Gate = DeploymentGate;
 
 /** Whether the test-only surfaces are on: outside production, or with E2E=1. */
 export function testSurfacesOn(e: Gate = env): boolean {
-  return e.NODE_ENV !== 'production' || e.E2E === '1';
+  return !realDeployment(e);
 }
 
 /** `v` when it is one of `allowed` and the test surfaces are on; otherwise null. */

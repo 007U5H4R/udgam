@@ -1,5 +1,5 @@
 import { access } from 'node:fs/promises';
-import { desc } from 'drizzle-orm';
+import { asc, desc, gt } from 'drizzle-orm';
 import { env } from '../config/env';
 import type { Db } from '../db/client';
 import { ledgerCheckpoints, ledgerEntries } from '../db/schema';
@@ -11,6 +11,12 @@ import { loadLedgerKey, publishedKeys } from './keys';
 export type LedgerHealthReport = {
   lastSeq: number;
   lastCheckpointAgeSec: number | null;
+  /**
+   * Whole seconds since the oldest entry after the last checkpoint was appended; 0 when everything is
+   * sealed or the ledger is empty (EXE55). The uptime probe alerts when it passes 24 h: entries are not
+   * being sealed. A quiet day with everything sealed stays 0, however old the last checkpoint is.
+   */
+  oldestUnsealedAgeSec: number;
   keyPresent: boolean;
   /**
    * A checkpoint was signed by a kid that is not among the published keys: the key that sealed it was
@@ -53,8 +59,16 @@ async function unpublishedCheckpointKids(db: Db, keyPath: string): Promise<strin
   return unknown;
 }
 
+/** The oldest entry after `sealedTo` (the last checkpoint's toSeq, 0 if none): one primary-key range read. */
+export function oldestUnsealedQuery(db: Db, sealedTo: number) {
+  return db.select({ ts: ledgerEntries.ts }).from(ledgerEntries).where(gt(ledgerEntries.seq, sealedTo)).orderBy(asc(ledgerEntries.seq)).limit(1);
+}
+
+const ageSec = (now: Date, iso: string) => Math.max(0, Math.floor((now.getTime() - Date.parse(iso)) / 1000));
+
 /**
- * Last ledger seq (0 when empty), whole seconds since the last checkpoint (null if none), key presence,
+ * Last ledger seq (0 when empty), whole seconds since the last checkpoint (null if none), the age of the
+ * oldest unsealed entry (0 if none, EXE55), key presence,
  * and whether any checkpoint carries a kid that is not published (keyMismatch).
  */
 export async function ledgerHealth(db: Db, opts: LedgerHealthOptions = {}): Promise<LedgerHealthReport> {
@@ -62,11 +76,13 @@ export async function ledgerHealth(db: Db, opts: LedgerHealthOptions = {}): Prom
   const keyPresent = await ledgerKeyPresent(keyPath);
   const keyMismatch = (await unpublishedCheckpointKids(db, keyPath)).length > 0;
   const [head] = await db.select({ seq: ledgerEntries.seq }).from(ledgerEntries).orderBy(desc(ledgerEntries.seq)).limit(1);
-  const [cp] = await db.select({ ts: ledgerCheckpoints.ts }).from(ledgerCheckpoints).orderBy(desc(ledgerCheckpoints.id)).limit(1);
+  const [cp] = await db.select({ ts: ledgerCheckpoints.ts, toSeq: ledgerCheckpoints.toSeq }).from(ledgerCheckpoints).orderBy(desc(ledgerCheckpoints.id)).limit(1);
+  const [unsealed] = await oldestUnsealedQuery(db, cp?.toSeq ?? 0);
   const now = (opts.now ?? (() => new Date()))();
   return {
     lastSeq: head?.seq ?? 0,
-    lastCheckpointAgeSec: cp ? Math.max(0, Math.floor((now.getTime() - Date.parse(cp.ts)) / 1000)) : null,
+    lastCheckpointAgeSec: cp ? ageSec(now, cp.ts) : null,
+    oldestUnsealedAgeSec: unsealed ? ageSec(now, unsealed.ts) : 0,
     keyPresent,
     keyMismatch,
   };

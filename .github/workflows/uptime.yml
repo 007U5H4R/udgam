@@ -1,0 +1,93 @@
+# Production uptime probe (TSK-28.3, TC-090) with the disk alert (SEC-003). Every 15 minutes, and on
+# demand, it GETs https://<UDGAM_DOMAIN>/api/health and fails when:
+#   - the request fails or answers non-2xx after two retries (down, 503 config/db/ledger key, TLS);
+#   - db or config is not "ok";
+#   - disk is not "ok" (free space on DATA_DIR below HEALTH_MIN_FREE_DISK_BYTES, or unreadable);
+#   - the oldest unsealed ledger entry is over 24 h old, or that field is missing (EXE55: entries are
+#     not being sealed; a quiet day with everything sealed stays green).
+# A failed run emails the owner through GitHub's notifications for failed workflow runs (scheduled runs
+# notify the user who last changed the schedule). docs/ops/monitoring.md has the alert drill.
+#
+# The domain is the repository VARIABLE UDGAM_DOMAIN (Settings > Secrets and variables > Actions >
+# Variables), a bare host name. While it is unset (before the production domain exists) every run is
+# skipped with a notice, not a failure, so nothing emails every 15 minutes. GitHub runs schedules from
+# the default branch only.
+#
+# Least privilege: no checkout, no actions, no token scopes. The domain reaches the script as an
+# environment variable, never interpolated into the script text. Nothing the server sends is echoed raw
+# (a line starting with "::" would be a workflow command): a JSON body is re-encoded on one line by jq,
+# and values in messages are reduced to plain characters.
+
+name: Uptime
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: probe /api/health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe /api/health
+        shell: bash
+        env:
+          UDGAM_DOMAIN: ${{ vars.UDGAM_DOMAIN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${UDGAM_DOMAIN:-}" ]; then
+            echo "::notice title=Uptime probe skipped::The repository variable UDGAM_DOMAIN is not set yet, so there is no production to probe."
+            exit 0
+          fi
+          if ! printf '%s' "$UDGAM_DOMAIN" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$'; then
+            echo "::error title=Uptime probe misconfigured::UDGAM_DOMAIN must be a bare host name (no scheme, path or port)."
+            exit 1
+          fi
+          url="https://${UDGAM_DOMAIN}/api/health"
+          body="${RUNNER_TEMP:-/tmp}/udgam-health.json"
+          rm -f "$body"
+          code=0
+          curl --fail-with-body --silent --show-error --max-time 20 \
+            --retry 2 --retry-delay 15 --retry-all-errors \
+            --output "$body" "$url" || code=$?
+          if [ "$code" -ne 0 ]; then
+            echo "::error title=Production health check failed::GET $url failed (curl exit $code)."
+            # Never echo the raw body: a line in it could start with "::" and act as a workflow command.
+            # A JSON body is shown re-encoded on one line (it starts with "{"); anything else is not shown.
+            if [ -s "$body" ]; then
+              echo "Response body: $(jq -c . "$body" 2>/dev/null || echo "(not JSON, $(wc -c < "$body") bytes, not shown)")"
+            fi
+            exit 1
+          fi
+          problems=$(jq -r -f /dev/stdin "$body" <<'JQ'
+          # A server value in a message: one line, plain characters only (no newline can start a "::" command).
+          def safe: tostring | gsub("[^A-Za-z0-9 _.:-]"; "?");
+          [
+            (if .db != "ok" then "db is \(.db | safe)" else empty end),
+            (if has("config") and .config != "ok" then "config is \(.config | safe)" else empty end),
+            (if .disk != "ok" then "disk is \(.disk // "not reported" | safe): free space on DATA_DIR is below HEALTH_MIN_FREE_DISK_BYTES or unreadable" else empty end),
+            (if (.ledger.oldestUnsealedAgeSec | type) != "number"
+             then "ledger.oldestUnsealedAgeSec is missing from /api/health, so sealing cannot be checked"
+             elif .ledger.oldestUnsealedAgeSec > 86400
+             then "ledger: the oldest unsealed entry is \(.ledger.oldestUnsealedAgeSec | safe) s old (over 24 h): entries are not being sealed"
+             else empty end)
+          ] | .[]
+          JQ
+          ) || { echo "::error title=Production health check failed::$url did not answer JSON."; exit 1; }
+          if [ -n "$problems" ]; then
+            while IFS= read -r p; do echo "::error title=Production degraded::$p"; done <<< "$problems"
+            exit 1
+          fi
+          # A provider outage (GFW, CDSE) is external and not actionable at 3 AM: a warning on the run,
+          # not an alert. Captures still verify, with the provider marked unavailable.
+          providers=$(jq -r 'def safe: tostring | gsub("[^A-Za-z0-9 _.:-]"; "?"); select(.providers.gfw != "ok" or .providers.sentinelHub != "ok") | "gfw=\(.providers.gfw | safe) sentinelHub=\(.providers.sentinelHub | safe)"' "$body")
+          if [ -n "$providers" ]; then echo "::warning title=Remote-sensing provider check::$providers"; fi
+          echo "Healthy: $(jq -c '{db, disk, lastSeq: .ledger.lastSeq, oldestUnsealedAgeSec: .ledger.oldestUnsealedAgeSec, lastCheckpointAgeSec: .ledger.lastCheckpointAgeSec, version, commit}' "$body")"

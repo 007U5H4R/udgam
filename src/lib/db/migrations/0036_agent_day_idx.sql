@@ -1,0 +1,1 @@
+CREATE INDEX `harvest_events_agent_day_idx` ON `harvest_events` (`agent_id`,`boundary_status`,`server_received_at`);

@@ -240,10 +240,12 @@ describe('the user rebuild for the processor role', () => {
         // The intended changes, and nothing else.
         // admin_overrides_before_insert and verification_runs_after_hard_fail come from 0033 (P5 follow-up, TKT-12/13).
         // media gains its `source` column in 0035 (TKT-20).
+        // 0036 adds harvest_events_agent_day_idx for the per-agent daily capture budget (SEC-003, TKT-28).
         const CHANGED = new Set(['user', 'custody_transfers_before_insert', 'quality_attestations_delivered_batch', 'admin_overrides_before_insert', 'media']);
         const DROPPED = new Set(['custody_transfers_one_hop_to_buyer']);
         const ADDED = [
           'custody_transfers_processor_step_required',
+          'harvest_events_agent_day_idx',
           'processing_steps',
           'processing_steps_batch_org_uq',
           'processing_steps_before_insert',

@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { DEFAULT_CAPTURE_BUDGET } from '../capture/budget-defaults';
+import { realDeployment } from './deployment';
 
 // Secrets and configuration are read only through this module (technical-plan §1, N6/S11).
 // It must never be bundled for the browser, and src/lib may not import `server-only` (no Next
@@ -29,6 +31,16 @@ const base = z.object({
   EVM_OPERATOR_KEY_PATH: z.string().min(1).optional(),
   LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
   DEMO_MODE: z.enum(['0', '1']).default('0'),
+  // SEC-003 (TKT-28): each agent's daily budget of accepted captures and of their photo bytes
+  // (src/lib/capture/budget.ts). Defaults sized from EV9's 3 × 4 MB placeholder: 100 captures, 1.2 GiB.
+  CAPTURE_DAILY_MAX_CAPTURES: z.coerce.number().int().positive().default(DEFAULT_CAPTURE_BUDGET.maxCaptures),
+  CAPTURE_DAILY_MAX_BYTES: z.coerce.number().int().positive().default(DEFAULT_CAPTURE_BUDGET.maxBytes),
+  // SEC-003: /api/health reports disk:"low" below this many free bytes on DATA_DIR's filesystem (10 GiB:
+  // over a day of every pilot agent at the full budget). 0 turns the check's threshold off.
+  HEALTH_MIN_FREE_DISK_BYTES: z.coerce.number().int().nonnegative().default(10 * 1024 ** 3),
+  // EXE54 (TKT-28): in a real deployment a background timer seals unsealed ledger entries this often
+  // (src/lib/ledger/checkpoint-timer.ts), so a quiet day never leaves entries unsealed.
+  LEDGER_CHECKPOINT_INTERVAL_SEC: z.coerce.number().int().positive().default(3600),
   // Test-only surfaces (/__test__/*) exist only when E2E=1 (technical-plan §1). Set by the Playwright
   // webServer; never set in production, so it is not listed in .env.example.
   E2E: z.enum(['0', '1']).default('0'),
@@ -41,7 +53,20 @@ const base = z.object({
   SEED_PASSWORD: z.string().min(8).optional(),
 });
 
-const VARIABLE_NAMES = Object.keys(base.shape);
+/** Every variable the schema reads (deploy/app.env.example accounts for each, TSK-28.1). */
+export const ENV_VARIABLE_NAMES: readonly string[] = Object.keys(base.shape);
+const VARIABLE_NAMES = ENV_VARIABLE_NAMES;
+
+/** An absolute https:// URL with a host and no user or password in it (DES-219). */
+function absoluteHttps(v: string | undefined): boolean {
+  if (v === undefined) return false;
+  try {
+    const u = new URL(v);
+    return u.protocol === 'https:' && u.hostname !== '' && u.username === '' && u.password === '';
+  } catch {
+    return false;
+  }
+}
 
 const schema = base
   .superRefine((v, ctx) => {
@@ -66,12 +91,24 @@ const schema = base
     // EXE12 (CF-11): fixture satellite answers must never reach a real deployment. The one exception is
     // E2E=1 — the Playwright server (`next build && next start`, so NODE_ENV=production), which also
     // exposes the test-only routes and so is never set in a real deployment. DEMO_MODE is no exception.
-    if (v.NODE_ENV === 'production' && v.REMOTE_SENSING_PROVIDER === 'fixture' && v.E2E !== '1') {
+    if (realDeployment(v) && v.REMOTE_SENSING_PROVIDER === 'fixture') {
       ctx.addIssue({
         code: 'custom',
         path: ['REMOTE_SENSING_PROVIDER'],
         message: 'must be live when NODE_ENV=production (fixture only with E2E=1)',
       });
+    }
+    // DES-219 (QA-P6-8-3): QR codes, link previews, canonical URLs, GeoJSON certificate links and Better
+    // Auth's origin check are built from these. In a real deployment both are required and https: no
+    // silent http://localhost:3000 fallback. Same exception as the test surfaces and HSTS (SEC-007):
+    // the Playwright production build (E2E=1) runs on http://localhost.
+    if (realDeployment(v)) {
+      for (const name of ['PUBLIC_BASE_URL', 'BETTER_AUTH_URL'] as const) {
+        // An unset PUBLIC_BASE_URL has its http://localhost default here, which fails the rule too.
+        if (!absoluteHttps(v[name])) {
+          ctx.addIssue({ code: 'custom', path: [name], message: 'must be an absolute https:// URL when NODE_ENV=production (http only with E2E=1)' });
+        }
+      }
     }
   })
   .transform((v) => ({

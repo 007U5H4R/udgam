@@ -30,6 +30,8 @@
     "db:migrate": "tsx src/lib/db/migrate.ts",
     "db:backup": "node deploy/db/backup.mjs",
     "seed": "tsx scripts/seed.ts",
+    "accounts:create": "tsx scripts/accounts-create.ts",
+    "accounts:set-password": "tsx scripts/accounts-set-password.ts",
     "og:render": "tsx scripts/og/render.ts",
     "test:evm": "vitest run --project evm",
     "contracts:build": "cd contracts && \"$HOME/.foundry/bin/forge\" build",
