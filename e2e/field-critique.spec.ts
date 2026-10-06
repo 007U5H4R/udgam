@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { signIn } from './helpers/auth';
-import { openField, seedCaptureWorld } from './helpers/capture';
+import { choosePhoto, openField, seedCaptureWorld } from './helpers/capture';
 import { ownClientAddress } from './helpers/enrolment';
 import { typePicking } from './helpers/field';
 
@@ -47,6 +47,41 @@ test('DES-019: a refused key says the half-kilo rule; a weight far from the own 
   await expect(hint).toHaveText('Your last pickings: 38–51 kg');
   await expect(page.locator('#send-btn')).toHaveText('Send 49.5 kg');
 });
+
+for (const vp of [
+  { width: 375, height: 812 },
+  { width: 360, height: 740 },
+  { width: 320, height: 568 },
+]) {
+  test(`DES-026 at ${vp.width}×${vp.height}: the unreadable-photo error sits in view, above the pinned pills, never under them`, async ({ page, context }) => {
+    await page.setViewportSize(vp);
+    const seed = seedCaptureWorld();
+    await openField(page, context, seed);
+    await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
+    const png = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010806000000', 'hex');
+    await choosePhoto(page.getByLabel('The branch'), { name: 'branch.png', mimeType: 'image/png', buffer: png });
+    await page.getByRole('button', { name: 'Use this photo' }).click();
+    const err = page.getByTestId('photo-error');
+    await expect(err).toBeVisible();
+    const e = (await err.boundingBox())!;
+    expect(e.y, 'error top in view').toBeGreaterThanOrEqual(0);
+    expect(e.y + e.height, 'error bottom in view').toBeLessThanOrEqual(vp.height);
+    for (const name of ['Use this photo', 'Take again']) {
+      const p = (await page.getByRole('button', { name }).boundingBox())!;
+      const overlaps = e.x < p.x + p.width && p.x < e.x + e.width && e.y < p.y + p.height && p.y < e.y + e.height;
+      expect(overlaps, `error box clear of "${name}"`).toBe(false);
+      expect(e.y + e.height, `error above "${name}"`).toBeLessThanOrEqual(p.y);
+    }
+    // the topmost element at the error's centre is the error itself, not a pill or the fade
+    const top = await err.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !!hit && el.contains(hit);
+    });
+    expect(top).toBe(true);
+    expect(await axeIds(page)).toEqual([]);
+  });
+}
 
 test('DES-006: Try again while still offline shows "Trying…", then "Still no network. Nothing is lost."', async ({ page, context }) => {
   const seed = seedCaptureWorld();

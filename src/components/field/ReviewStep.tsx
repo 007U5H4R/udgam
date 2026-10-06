@@ -8,7 +8,8 @@ import type { PhotoProblem, Slot } from './record-flow';
 
 // Review a photo (final/index.html #s3) after the phone's camera: the photo itself, "Is the photo
 // clear?" with the three things to check, then "Use this photo" (hashes it) or "Take again". A photo that
-// cannot be sent says why in the inline error style (--bad-ink + icon, DES-018).
+// cannot be sent says why in the inline error style (--bad-ink + icon, DES-018), at the top of the pinned
+// action block, so it is never under the pills on a small phone (DES-026).
 
 const CHECKS: MessageKey[] = ['rec.review.focus', 'rec.review.seen', 'rec.review.dark'];
 /** Why this photo cannot be used, in the farmer's words (TASK-11 fix round 1). */
@@ -63,13 +64,13 @@ export function ReviewStep({
           </GlassCard>
         ))}
       </ul>
-      {error ? (
-        <p className="photo-error" role="alert" data-testid="photo-error">
-          <Ic name="alert" />
-          {tr(PROBLEM[error])}
-        </p>
-      ) : null}
-      <div className="actions">
+      <div className={error ? 'actions has-error' : 'actions'}>
+        {error ? (
+          <p className="photo-error" role="alert" data-testid="photo-error">
+            <Ic name="alert" />
+            {tr(PROBLEM[error])}
+          </p>
+        ) : null}
         <Pill icon={<Ic name="check" />} onClick={onUse} disabled={busy || error !== undefined}>
           {tr('rec.review.use')}
         </Pill>

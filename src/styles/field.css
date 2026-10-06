@@ -764,14 +764,19 @@ html[lang='kn'] body {
   margin-top: 18px;
   font-weight: 700;
 }
-/* DES-018: a photo that cannot be sent: the inline error style of /enrol (--bad-ink, word first, an icon). */
+/* DES-018: a photo that cannot be sent: the inline error style of /enrol (--bad-ink, word first, an icon).
+   DES-026: it is the first line of the pinned action block, above the pills, so it is always in view; the
+   block's fade turns solid just above it, so nothing scrolling behind shows through the words. */
 .photo-error {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 0;
   color: var(--bad-ink);
   font-weight: 600;
+}
+.actions.has-error {
+  background: linear-gradient(to top, var(--bg) calc(100% - 12px), rgba(10, 14, 12, 0));
 }
 .photo-error .ic {
   width: 22px;

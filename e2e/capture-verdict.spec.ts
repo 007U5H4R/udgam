@@ -193,9 +193,14 @@ test('a picture the office cannot read (PNG) is refused on "Use this photo", bef
   await choosePhoto(page.getByLabel('The branch'), { name: 'branch.png', mimeType: 'image/png', buffer: png });
   await page.getByRole('button', { name: 'Use this photo' }).click();
   await expect(page.getByTestId('photo-error')).toHaveText('This photo is not a camera picture the office can read. Take it again with Open camera.');
-  // DES-018: the inline error style (--bad-ink #FF8C7E, an icon, set 12 px off the checklist)
-  const style = await page.getByTestId('photo-error').evaluate((el) => ({ color: getComputedStyle(el).color, top: getComputedStyle(el).marginTop, icon: !!el.querySelector('svg.ic') }));
-  expect(style).toEqual({ color: 'rgb(255, 140, 126)', top: '12px', icon: true });
+  // DES-018: the inline error style (--bad-ink #FF8C7E, an icon); DES-026: the first line of the pinned
+  // action block, above "Use this photo", so it is never under the pills
+  const style = await page.getByTestId('photo-error').evaluate((el) => ({
+    color: getComputedStyle(el).color,
+    icon: !!el.querySelector('svg.ic'),
+    pinned: el.parentElement?.classList.contains('actions') === true && el.parentElement.firstElementChild === el,
+  }));
+  expect(style).toEqual({ color: 'rgb(255, 140, 126)', icon: true, pinned: true });
   await expect(page.getByRole('button', { name: 'Use this photo' })).toBeDisabled();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Is the photo clear?');
   expect(await outboxCount(page)).toBe(0);
