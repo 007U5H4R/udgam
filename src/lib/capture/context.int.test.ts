@@ -7,7 +7,8 @@ import { writeTx } from '../db/client';
 import { devices, harvestEvents, media, plots, verificationRuns } from '../db/schema';
 import { seedYieldReference } from '../db/seed/yield-reference';
 import { append } from '../ledger/hashchain';
-import { buildContext } from './context';
+import { buildContext, buildContextAsOf } from './context';
+import type { RemoteSensingProvider } from '../remote-sensing/types';
 import type { BoundaryDevice } from './boundary';
 
 let t: TempDb;
@@ -150,5 +151,44 @@ describe('buildContext', () => {
     const ctx = await buildContext(t.db, { payload, device: boundaryDevice, plot: await plotRow(), serverReceivedAt: '2026-10-14T04:12:34.000Z' });
     expect(ctx.agentPriorAcceptedEvents).toBe(2);
     expect(ctx.device.lastSeq).toBe(0); // this phone's own chain head is untouched
+  });
+});
+
+describe('buildContextAsOf', () => {
+  it('CR-002: two accepted events at one seq → the re-run sees the head the live capture saw (the first commit at that seq)', async () => {
+    // HE-F1 committed first at seq 1 (the lower anchor: persistAccepted moved the head to it); HE-F22 is the
+    // fork committed later at the same seq (the head stayed). The rows are written in the other order, so
+    // nothing but an explicit tie-break on the anchor picks HE-F1.
+    await writeTx(t.db, async (tx) => {
+      const a1 = await append(tx, 'harvest_event', { eventId: 'HE-F1' });
+      const a2 = await append(tx, 'harvest_event', { eventId: 'HE-F22' });
+      for (const [id, a] of [['HE-F22', a2.seq], ['HE-F1', a1.seq]] as const) {
+        await tx.insert(harvestEvents).values({
+          id,
+          plotId: world.plotId,
+          deviceId: world.deviceId,
+          agentId: world.agentId,
+          seq: 1,
+          clientCapturedAt: '2026-10-14T04:12:33.120Z',
+          serverReceivedAt: '2026-10-14T04:12:34.000Z',
+          lat: 12.4211,
+          lng: 75.7392,
+          accuracyM: 8,
+          cherryKg: 42.5,
+          prevEventHash: 'genesis',
+          payload: `{"id":"${id}"}`,
+          payloadHash: photoHash(id.length + 100),
+          signature: 'sig',
+          boundaryStatus: 'accepted',
+          anchorSeq: a,
+        });
+      }
+    });
+    await insertEvent('HE-T', 'accepted', [], { seq: 2 });
+    const payload = await makePayload({ device: { ...dev, id: world.deviceId }, plotId: world.plotId, seq: 2 });
+    await writeTx(t.db, (tx) => tx.update(harvestEvents).set({ payload: JSON.stringify(payload) }).where(eq(harvestEvents.id, 'HE-T')));
+    const [first] = await t.db.select({ payloadHash: harvestEvents.payloadHash }).from(harvestEvents).where(eq(harvestEvents.id, 'HE-F1'));
+    const rebuilt = await buildContextAsOf(t.db, 'HE-T', { remoteSensing: {} as RemoteSensingProvider });
+    expect(rebuilt?.ctx.device).toMatchObject({ lastSeq: 1, lastEventHash: first!.payloadHash });
   });
 });
