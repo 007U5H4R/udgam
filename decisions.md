@@ -1189,3 +1189,25 @@ Then HANDOFF.md is rewritten and Stage 10 (`bw-security-review`) starts in the s
 - **Decision 1.** The OG render pins its own rasteriser: `scripts/og/fonts.conf` (grayscale, no hinting, no LCD, no autohinter, no bitmaps; host configs not read), plus Chromium `--font-render-hinting=none --disable-font-subpixel-positioning --disable-lcd-text`, through `launchOgBrowser()`, which both the script and the spec use. `public/og/*.png` are regenerated with `pnpm og:render`. The artwork, words and layouts are unchanged, so this is not a Design Freeze change (EXE43/EXE45 words stand). The comparison limits (mean < 1, far pixels < 0.5 %) are unchanged, and EVAL-090 is untouched.
 - **Decision 2.** Every e2e axe run goes through `e2e/helpers/axe.ts` `axeOn(page)`, which waits for a non-empty `document.title` first; a page with no title still fails. An ESLint rule allows `@axe-core/playwright` only in that helper. The app was not missing a title, so no app change.
 - **Commits.** bdf8469 (TASK-18), 97a08a4 (TASK-26).
+
+## EXE49 · Stage 10 security triage (orchestrator, under the owner's delegation, 2026-10-06)
+- **Review.** Three Fable reviewers covered dd7b0c1 (`docs/exec/stage10/`): 0 Critical, 0 High, 2 Medium, 9 Low, 4 Info (SEC-001–007, SEC-100–102, SEC-200–204).
+- **Fixed in Stage 10:**
+  - SEC-002 (multipart part-count DoS)
+  - SEC-004 (capture and stage slot fair share)
+  - SEC-005 (Server Action body limit), if the plot upload moves to a contained route handler; otherwise parked below
+  - SEC-007 and SEC-102 (HSTS in production, no `X-Powered-By`)
+  - SEC-100 (GFW: no cross-origin redirects with the key)
+  - SEC-200 (EVM nonce serialisation)
+  - SEC-201 (`*.jwk`, `data-ci/` and `keys/` ignored, plus a gitleaks JWK rule)
+  - SEC-202 (actions and pnpm pinned by hash)
+- **Parked to M-003, as acceptance items on the owning ticket:**
+  - **SEC-001 → TKT-28.** Production accounts are provisioned per account, with no shared password and a set-password path. The seed is dev/test only (EXE35).
+  - **SEC-003 → TKT-29.** A per-agent daily byte and capture budget, plus a disk alert. At pilot scale the phones are enrolled, known and revocable.
+  - **SEC-006 → TSK-27.3.** The Caddyfile sets X-Forwarded-For, with the forged-header test. Until that lands, direct exposure of `next start` is not a supported deployment (EXE14).
+  - **SEC-203 → TKT-27.** The Anvil/EVM RPC stays unpublished, and an amount-free event or terms hash comes before any public chain (EXE29).
+- **Accepted:**
+  - **SEC-101.** The public proof feed carries each picking's signed phone GPS fix (up to 7 dp) and opaque agent, admin, device and org IDs. This contains no farmer name, identifier or phone (EV16 holds). The plot geometry is already public at 6 dp under EUDR, and the fix lies on the plot. Rounding or dropping fields would change the signed payload format and the frozen `docs/proof-feed.vectors.json`.
+    - Recorded as public by design in `docs/proof-feed.md`.
+    - **Owner item:** confirm, or ask for a payload v2 (rounded fix, no `agentId`), before the first production data is anchored.
+  - **SEC-204.** GHSA-67mh-4wv8-2f99 (esbuild dev server, moderate) reaches us only through `drizzle-kit` and is unreachable at runtime. It sits below CI's high gate.

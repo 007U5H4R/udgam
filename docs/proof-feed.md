@@ -420,6 +420,19 @@ the key or verifying. `kid` and `signature` MUST be strings, or the step fails. 
 attest which admin account made the decision; they are not published at a well-known URL, and their
 integrity comes from the ledger (the payload is under a signed checkpoint).
 
+### 9.2a What a public feed reveals (EXE49, SEC-101)
+
+The feed is public and its payloads are served verbatim, because the signatures and hashes cover their
+exact bytes. A reader therefore sees:
+- each picking's signed phone GPS fix, at up to 7 decimal places, with its time, device and sequence
+  number;
+- the opaque IDs of the agent, admin, device and organisation on each entry.
+
+The feed carries no farmer name, farmer identifier or phone number (EV16). The fix lies on the plot,
+whose geometry is already public at 6 decimal places in the EUDR GeoJSON. These IDs and fixes are
+public by design for `udgam-proof-feed/1`. If they must change (a rounded fix, or no `agentId`), that
+change is a new payload version, decided before the first production data is anchored.
+
 ### 9.3 Completeness
 
 Let `b` be the batch's `batch_created` entry. The feed is complete when:
