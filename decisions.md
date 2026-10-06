@@ -1229,3 +1229,15 @@ Then HANDOFF.md is rewritten and Stage 10 (`bw-security-review`) starts in the s
   - Peak capture-body memory stays under 1 GB on the 12 GB A1 host.
   - This changes capacity only; no eval threshold or case is involved.
 - **SEC-005 is parked to TSK-27.3.** The 3 MB Server Action body cap stays for now. Three plot actions need up to 2 MB, and moving them to a route handler would also drop Next's Server Action Origin check. Instead, the Caddy `request_body` limit and an admin-path size cap become TSK-27.3 acceptance items.
+
+## EXE51 · Stage 10 close: the re-run, the M-003 carry-ins and one correction (orchestrator, under the owner's delegation, 2026-10-06)
+- **The re-run.** The fresh reviewer at b13dfaf returned SEC RE-RUN: CLEAN (`docs/exec/stage10/stage10-sec-rerun.md`). Every fix is VERIFIED-FIXED, and no new SEC finding was raised.
+- **The carry-ins.** The parked Stage 10 items are now acceptance items on their M-003 tickets in `tickets.md`:
+  - TKT-27: SEC-005, SEC-006, SEC-203, Caddy HSTS, `pnpm db:migrate` and the trace check;
+  - TKT-28: SEC-001, SEC-003, DES-219 and the SEC-101 confirmation.
+
+  This adds scope to M-003, as these decisions require; it neither weakens nor removes anything.
+- **Correction to EXE49.** SEC-003 (the storage budget and disk alert) belongs to TKT-28, the monitoring ticket, not TKT-29.
+- **Observations kept without an ID**, because the reviewer could not show them reachable:
+  1. `sender.ts` treats "already known" as a nonce collision. That would double-send only if a transport retried a broadcast, and both transports use `retryCount: 0`.
+  2. `tests/helpers/db.ts` registers a Vitest `afterAll` at import time, and its one non-test importer runs only under Vitest.
