@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { request as httpRequest } from 'node:http';
@@ -27,6 +27,9 @@ import { TELEMETRY_IP_LIMIT } from '../../src/lib/certificate/telemetry';
 const BASE = process.env.UDGAM_STACK_URL;
 const CA = process.env.UDGAM_STACK_CA;
 const APP_CONTAINER = process.env.UDGAM_STACK_APP_CONTAINER ?? 'udgam-local-app-1';
+// The database check reads the app container through `docker exec`; without a reachable Docker (the
+// container-based run in docs/ops/deploy.md) it is skipped and the throttle checks still run.
+const canExec = spawnSync('docker', ['inspect', APP_CONTAINER], { stdio: 'ignore' }).status === 0;
 
 type Res = { status: number; body: string };
 
@@ -120,7 +123,7 @@ describe.skipIf(!BASE)('behind Caddy, forged X-Forwarded-For / X-Real-IP share o
     expect(statuses.at(-1), seen).toBe(429);
   }, 120_000);
 
-  it('no throttle row is keyed by a forged address', () => {
+  it.skipIf(!canExec)('no throttle row is keyed by a forged address', () => {
     expect(forgedKeys()).toEqual([]);
   });
 });
