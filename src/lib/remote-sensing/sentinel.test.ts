@@ -328,3 +328,108 @@ describe('abort and secrecy', () => {
     expect(all).not.toContain(TOKEN);
   });
 });
+
+/**
+ * A fetch over a routing table with undici's redirect behaviour: `redirect: 'follow'` (the default)
+ * follows 3xx itself, keeps the method and body on 307/308, and drops only `authorization` on a
+ * cross-origin hop; `redirect: 'manual'` hands the 3xx back. Every request that arrives is recorded.
+ */
+function router(routes: Record<string, () => Response>) {
+  const hits: { url: string; method: string; headers: Record<string, string>; body: string }[] = [];
+  const fetch = (async (input: string | URL | Request, init: RequestInit = {}) => {
+    let url = String(input);
+    let method = init.method ?? 'GET';
+    let headers = { ...(init.headers as Record<string, string>) };
+    let body = typeof init.body === 'string' ? init.body : '';
+    for (let hop = 0; hop <= 20; hop++) {
+      hits.push({ url, method, headers, body });
+      const route = routes[url];
+      const res = route ? route() : new Response('not found', { status: 404 });
+      const location = res.headers.get('location');
+      if (res.status < 300 || res.status > 399 || !location || init.redirect === 'manual') return res;
+      const next = new URL(location, url);
+      if (next.origin !== new URL(url).origin) headers = Object.fromEntries(Object.entries(headers).filter(([k]) => k.toLowerCase() !== 'authorization'));
+      if (res.status === 303 || ((res.status === 301 || res.status === 302) && method === 'POST')) {
+        method = 'GET';
+        body = '';
+      }
+      url = next.href;
+    }
+    throw new TypeError('fetch failed');
+  }) as typeof globalThis.fetch;
+  return { fetch, hits };
+}
+
+const redirectTo = (status: number, location: string) => () => new Response(null, { status, headers: { location } });
+const TOKEN_URL = 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token';
+const STATS_URL = 'https://sh.dataspace.copernicus.eu/statistics/v1';
+const tokenOk = () => json(200, { access_token: TOKEN, expires_in: 600, token_type: 'Bearer' });
+const statsOk = () => json(200, recorded('sentinel-P01-history.json'));
+const offOrigin = (hits: { url: string }[]) => hits.filter((h) => ![new URL(TOKEN_URL).origin, new URL(STATS_URL).origin].includes(new URL(h.url).origin));
+
+describe('redirects: the client secret and the token stay put (SEC-103)', () => {
+  it.each([307, 308])('a cross-origin %s on the token POST is refused with ProviderError http, and the secret never reaches the other origin', async (status) => {
+    const evil = 'https://collector.example/token?k=1';
+    const { fetch, hits } = router({ [TOKEN_URL]: redirectTo(status, evil), [evil]: tokenOk, [STATS_URL]: statsOk });
+    const lines: string[] = [];
+    const log = createLogger('debug', new Writable({ write: (c: Buffer, _e, cb) => (lines.push(c.toString()), cb()) }));
+    const s = createSentinelProvider({ clientId: CLIENT_ID, clientSecret: SECRET, fetch, log });
+    await expect(s.probe()).rejects.toEqual(new ProviderError('sentinel-hub', status));
+    expect(offOrigin(hits)).toEqual([]);
+    expect(hits.map((h) => h.url)).toEqual([TOKEN_URL]);
+    const all = lines.join('');
+    expect(all).toContain('remote_sensing.redirect_refused');
+    expect(all).not.toContain(SECRET);
+    expect(all).not.toContain('collector.example');
+    expect(all).not.toContain('k=1');
+  });
+
+  it('a cross-origin 307 on the statistics call is refused, and nothing is sent to the other origin', async () => {
+    const evil = 'https://collector.example/statistics/v1';
+    const { fetch, hits } = router({ [TOKEN_URL]: tokenOk, [STATS_URL]: redirectTo(307, evil), [evil]: statsOk });
+    await expect(createSentinelProvider({ clientId: CLIENT_ID, clientSecret: SECRET, fetch }).ndviHistory(PLOT, '2026-12')).rejects.toEqual(new ProviderError('sentinel-hub', 307));
+    expect(offOrigin(hits)).toEqual([]);
+  });
+
+  it('a redirect from the token host to the statistics host is cross-origin too, and refused', async () => {
+    const { fetch, hits } = router({ [TOKEN_URL]: redirectTo(307, STATS_URL), [STATS_URL]: tokenOk });
+    await expect(createSentinelProvider({ clientId: CLIENT_ID, clientSecret: SECRET, fetch }).probe()).rejects.toMatchObject({ kind: 'http', status: 307 });
+    expect(hits.map((h) => h.url)).toEqual([TOKEN_URL]);
+  });
+
+  it('a same-origin 307 on the token POST is followed with the same method and body', async () => {
+    const moved = 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token2';
+    const { fetch, hits } = router({ [TOKEN_URL]: redirectTo(307, '/auth/realms/CDSE/protocol/openid-connect/token2'), [moved]: tokenOk, [STATS_URL]: statsOk });
+    const s = createSentinelProvider({ clientId: CLIENT_ID, clientSecret: SECRET, fetch });
+    expect((await s.ndviHistory(PLOT, '2026-12')).months).toHaveLength(12);
+    const tokenHits = hits.filter((h) => h.url.includes('/token'));
+    expect(tokenHits.map((h) => [h.url, h.method, new URLSearchParams(h.body).get('client_secret')])).toEqual([
+      [TOKEN_URL, 'POST', SECRET],
+      [moved, 'POST', SECRET],
+    ]);
+  });
+
+  it('a same-origin 308 on the statistics call is followed with the bearer', async () => {
+    const moved = 'https://sh.dataspace.copernicus.eu/statistics/v1/';
+    const { fetch, hits } = router({ [TOKEN_URL]: tokenOk, [STATS_URL]: redirectTo(308, moved), [moved]: statsOk });
+    expect((await createSentinelProvider({ clientId: CLIENT_ID, clientSecret: SECRET, fetch }).ndviHistory(PLOT, '2026-12')).months).toHaveLength(12);
+    expect(hits.filter((h) => h.url.startsWith(STATS_URL)).map((h) => [h.url, h.headers.authorization])).toEqual([
+      [STATS_URL, `Bearer ${TOKEN}`],
+      [moved, `Bearer ${TOKEN}`],
+    ]);
+  });
+
+  it('a same-origin redirect loop stops after a few hops with ProviderError', async () => {
+    const other = `${TOKEN_URL}2`;
+    const { fetch, hits } = router({ [TOKEN_URL]: redirectTo(307, other), [other]: redirectTo(307, TOKEN_URL) });
+    await expect(createSentinelProvider({ clientId: CLIENT_ID, clientSecret: SECRET, fetch }).probe()).rejects.toMatchObject({ provider: 'sentinel-hub', kind: 'http', status: 307 });
+    expect(hits.length).toBeLessThanOrEqual(4);
+  });
+
+  it('ordinary 200s are unchanged, and every request is sent with redirect "manual"', async () => {
+    const cdse = fakeCdse(() => json(200, recorded('sentinel-P01-history.json')));
+    expect((await createSentinelProvider({ clientId: CLIENT_ID, clientSecret: SECRET, fetch: cdse.fetch }).ndviHistory(PLOT, '2026-12')).months).toHaveLength(12);
+    expect(cdse.calls).toHaveLength(2);
+    expect(cdse.calls.map((c) => c.init.redirect)).toEqual(['manual', 'manual']);
+  });
+});

@@ -72,7 +72,7 @@ describe('GFW request (TC-030)', () => {
     const { url, init } = calls[0]!;
     expect(url).toBe('https://data-api.globalforestwatch.org/dataset/umd_tree_cover_loss/v1.13/query/json');
     expect(init.method).toBe('POST');
-    expect(init.redirect).toBe('follow');
+    expect(init.redirect).toBe('manual');
     expect(init.headers).toEqual({ 'x-api-key': KEY, 'content-type': 'application/json', origin: ORIGIN });
     expect(JSON.parse(init.body as string)).toEqual({
       sql:
@@ -162,6 +162,116 @@ describe('the key stays out of logs and errors (TC-030)', () => {
     expect(lines.length).toBeGreaterThan(0);
     const all = lines.join('') + errors.map((e) => `${String(e)} ${JSON.stringify(e)}`).join('');
     expect(all).not.toContain(KEY);
+  });
+});
+
+/**
+ * A fetch over a small routing table, with undici's redirect behaviour: `redirect: 'follow'` (the default)
+ * follows 3xx itself and, like undici, drops only `authorization` on a cross-origin hop, so a custom
+ * `x-api-key` travels on; `redirect: 'manual'` hands the 3xx back. Every request that reaches a route is
+ * recorded with the headers it carried.
+ */
+function router(routes: Record<string, () => Response>) {
+  const hits: { url: string; method: string; headers: Record<string, string> }[] = [];
+  const fetch = (async (input: string | URL | Request, init: RequestInit = {}) => {
+    let url = String(input);
+    let method = init.method ?? 'GET';
+    let headers = { ...(init.headers as Record<string, string>) };
+    for (let hop = 0; hop <= 20; hop++) {
+      hits.push({ url, method, headers });
+      const route = routes[url];
+      const res = route ? route() : new Response('not found', { status: 404 });
+      Object.defineProperty(res, 'url', { value: url });
+      const location = res.headers.get('location');
+      if (res.status < 300 || res.status > 399 || !location || init.redirect === 'manual') return res;
+      if (init.redirect === 'error') throw new TypeError('fetch failed');
+      const next = new URL(location, url);
+      if (next.origin !== new URL(url).origin) headers = Object.fromEntries(Object.entries(headers).filter(([k]) => k.toLowerCase() !== 'authorization'));
+      if (res.status === 303 || ((res.status === 301 || res.status === 302) && method === 'POST')) method = 'GET';
+      url = next.href;
+    }
+    throw new TypeError('fetch failed');
+  }) as typeof globalThis.fetch;
+  return { fetch, hits };
+}
+
+const redirect = (status: number, location: string) => () => new Response(null, { status, headers: { location } });
+const GFW = 'https://data-api.globalforestwatch.org';
+const QUERY = `${GFW}/dataset/umd_tree_cover_loss/v1.13/query/json`;
+const OK_BODY = { status: 'success', data: [{ umd_tree_cover_loss__year: 2022, area__ha: 0.5 }] };
+const ok = () => new Response(JSON.stringify(OK_BODY), { status: 200, headers: { 'content-type': 'application/json' } });
+
+describe('redirects: the key stays with GFW (SEC-100)', () => {
+  it('a cross-origin 307 is refused with ProviderError{kind:"http", status:307}, and the key never reaches the other origin', async () => {
+    const evil = 'https://collector.example/steal?k=1';
+    const { fetch, hits } = router({ [QUERY]: redirect(307, evil), [evil]: ok });
+    const { log, lines } = captureLog();
+    await expect(createGfwProvider({ apiKey: KEY, origin: ORIGIN, fetch, log }).forestLoss(PLOT)).rejects.toEqual(new ProviderError('gfw', 307));
+    expect(hits.filter((h) => new URL(h.url).origin !== GFW)).toEqual([]);
+    expect(hits.map((h) => h.url)).toEqual([QUERY]);
+    // the refusal is logged, but never with the key or the Location's query string
+    const all = lines.join('');
+    expect(all).toContain('remote_sensing.redirect_refused');
+    expect(all).not.toContain(KEY);
+    expect(all).not.toContain('steal?k=1');
+    expect(all).not.toContain('k=1');
+  });
+
+  it.each([301, 302, 303, 308])('a cross-origin %s is refused the same way', async (status) => {
+    const evil = 'https://collector.example/x';
+    const { fetch, hits } = router({ [QUERY]: redirect(status, evil), [evil]: ok });
+    await expect(createGfwProvider({ apiKey: KEY, origin: ORIGIN, fetch }).forestLoss(PLOT)).rejects.toMatchObject({ provider: 'gfw', kind: 'http', status });
+    expect(hits.some((h) => h.url.startsWith('https://collector.example'))).toBe(false);
+  });
+
+  it('a redirect to the same host on another scheme or port is cross-origin and refused', async () => {
+    const http = 'http://data-api.globalforestwatch.org/dataset/umd_tree_cover_loss/v1.13/query/json';
+    const port = 'https://data-api.globalforestwatch.org:8443/dataset/umd_tree_cover_loss/v1.13/query/json';
+    for (const target of [http, port]) {
+      const { fetch, hits } = router({ [QUERY]: redirect(307, target), [target]: ok });
+      await expect(createGfwProvider({ apiKey: KEY, origin: ORIGIN, fetch }).forestLoss(PLOT)).rejects.toMatchObject({ kind: 'http', status: 307 });
+      expect(hits).toHaveLength(1);
+    }
+  });
+
+  it('a same-origin 307 (`latest` → pinned version) is followed: same method, body and key, and the resolved version is pinned', async () => {
+    const latest = `${GFW}/dataset/umd_tree_cover_loss/latest/query/json`;
+    const { fetch, hits } = router({ [latest]: redirect(307, '/dataset/umd_tree_cover_loss/v1.13/query/json'), [QUERY]: ok });
+    const r = await createGfwProvider({ apiKey: KEY, origin: ORIGIN, fetch, datasetVersion: 'latest' }).forestLoss(PLOT);
+    expect(r).toMatchObject({ lossHa: 0.5, lossPct: 25, datasetVersion: 'v1.13', source: 'live' });
+    expect(hits.map((h) => [h.url, h.method, h.headers['x-api-key']])).toEqual([
+      [latest, 'POST', KEY],
+      [QUERY, 'POST', KEY],
+    ]);
+  });
+
+  it('a same-origin redirect on the health probe is followed', async () => {
+    const meta = `${GFW}/dataset/umd_tree_cover_loss`;
+    const { fetch, hits } = router({ [meta]: redirect(301, `${GFW}/dataset/umd_tree_cover_loss/`), [`${meta}/`]: ok });
+    await createGfwProvider({ apiKey: KEY, origin: ORIGIN, fetch }).probe();
+    expect(hits.map((h) => h.url)).toEqual([meta, `${meta}/`]);
+  });
+
+  it('a same-origin redirect loop stops after a few hops with ProviderError', async () => {
+    const a = `${GFW}/dataset/umd_tree_cover_loss/v1.13/query/json`;
+    const b = `${GFW}/dataset/umd_tree_cover_loss/v1.13/query/json2`;
+    const { fetch, hits } = router({ [a]: redirect(307, b), [b]: redirect(307, a) });
+    await expect(createGfwProvider({ apiKey: KEY, origin: ORIGIN, fetch }).forestLoss(PLOT)).rejects.toMatchObject({ provider: 'gfw', kind: 'http', status: 307 });
+    expect(hits.length).toBeLessThanOrEqual(4);
+  });
+
+  it('a 3xx without a usable Location → ProviderError, nothing more is sent', async () => {
+    const { fetch, hits } = router({ [QUERY]: () => new Response(null, { status: 307 }) });
+    await expect(createGfwProvider({ apiKey: KEY, origin: ORIGIN, fetch }).forestLoss(PLOT)).rejects.toMatchObject({ kind: 'http', status: 307 });
+    expect(hits).toHaveLength(1);
+  });
+
+  it('an ordinary 200 is unchanged: one request, sent with redirect "manual"', async () => {
+    const { fetch, calls } = spy(ok);
+    const r = await createGfwProvider({ apiKey: KEY, origin: ORIGIN, fetch }).forestLoss(PLOT);
+    expect(r).toEqual({ lossHa: 0.5, lossPct: 25, yearsFrom: 2021, dataYear: 2025, datasetVersion: 'v1.13', source: 'live' });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.init.redirect).toBe('manual');
   });
 });
 
