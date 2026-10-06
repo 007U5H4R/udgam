@@ -17,7 +17,9 @@ import { mockGeolocation } from './helpers/stubs';
 // The demo photos (assets/demo-photos) carry no EXIF time, so the photo line reads "2 new photos".
 // On the verdict, the evidence text itself (each `.ev-t` and its text-bearing descendants) is inside the
 // viewport width, not cut off or clipped, at ≥ 13 px (Design.md §12 "minimum 13 px anywhere"), so it
-// reads without pinch-zoom.
+// reads without pinch-zoom. "≥ 13 px" is checked both as the computed font-size and as the height each
+// line is DRAWN at, so text shrunk by `transform: scale()` or `zoom` (which leave font-size alone) fails
+// too (Stage 9, EVAL-086 N7).
 
 test.describe.configure({ timeout: 180_000 });
 
@@ -134,8 +136,9 @@ async function expectInViewAndUnclipped(page: Page, action: Locator, name: strin
  * The verdict evidence text itself (EvidenceList's `.ev-t` and every descendant that holds text, e.g. its
  * `small`), not the `li` around it: each visible (not display:none, visibility:hidden or opacity 0), at
  * ≥ 13 px, not cut off (`scrollWidth ≤ clientWidth` on block boxes), its box inside the viewport width, no
- * clip-path on it or an ancestor, and every non-empty text node drawing at least one line, each line inside
- * the viewport width and inside every ancestor that clips it. Clipping ancestors: overflow-x other than
+ * clip-path on it or an ancestor, and every non-empty text node drawing at least one line, each line at
+ * least 13 px high as drawn (a transform or zoom that shrinks it fails, N7), inside the viewport width and
+ * inside every ancestor that clips it. Clipping ancestors: overflow-x other than
  * visible clips sideways; overflow-y clips vertically only when hidden or clip (a scroll container's content
  * below its fold is reachable); `contain: paint` clips on all sides. Returns the problems (none when readable).
  */
@@ -170,6 +173,9 @@ async function evidenceText(span: Locator): Promise<{ texts: number; problems: s
         const drawn = Array.from(range.getClientRects()).filter((t) => t.width > 0 && t.height > 0);
         if (drawn.length === 0) problems.push(`${tag(el)}: text "${n.textContent!.trim().slice(0, 30)}" draws no line`);
         for (const t of drawn) {
+          // A line's drawn box is at least its font's content height (about 1.1-1.2 em), so a 13 px font
+          // draws ≥ 13 px; scale(.5) or zoom: .5 halves it while the computed font-size stays the same.
+          if (t.height < minPx - 0.5) problems.push(`${tag(el)}: text line drawn ${Math.round(t.height * 10) / 10}px high < ${minPx}px (scaled or zoomed)`);
           if (t.left < -0.5 || t.right > vw + 0.5) problems.push(`${tag(el)}: text line ${Math.round(t.left)}–${Math.round(t.right)} outside 0–${vw}`);
           const clipped = clips.some(
             ({ r: c, x, y }) => (x && (t.left < c.left - 0.5 || t.right > c.right + 0.5)) || (y && (t.top < c.top - 0.5 || t.bottom > c.bottom + 0.5)),
