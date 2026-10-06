@@ -1255,3 +1255,17 @@ Then HANDOFF.md is rewritten and Stage 10 (`bw-security-review`) starts in the s
 
   The ledger marks each of these BLOCKED (owner precondition), never passed.
 - **Never without an explicit owner instruction:** merging to `main`, and any externally visible deploy.
+
+## EXE53 · S3 measurement mode and where the formal S3 run happens (orchestrator, under the owner's delegation, 2026-10-06)
+- **Gate mode: after-staging.** The S3 gate measures from the Submit tap after the three photos are staged (`--submit=after-staging`, the default). This follows:
+  - evaluation-plan §4.3 ("t0 = the agent taps Submit … any **remaining** wait for … upload");
+  - EV9 and TP13/TP28 (staging takes the upload off the Submit-to-verdict path, "rather than weakening S3");
+  - technical-plan TSK-30.5.
+
+  The 30 s threshold, t0/t1, the 20 runs and the ≥ 5 cold runs are unchanged (EV13, CF-13).
+- **What else the formal file reports.** It also carries an ungated `--submit=immediate` series (the worst case, photos inline) and the weak-network series. The five manual demo-phone runs (TSK-29.2) remain the check on real agent timing.
+- **The open parameter.** The sources don't fix the agent's wait between the last "Use this photo" and Submit. After-staging assumes it covers staging, about 20 s at EV9, and the report states this assumption.
+- **Weak profile.** Download is kept at EV9's 10 Mbit/s, because §4.3 names only upload and RTT.
+- **Where the formal S3 run happens.** It seeds test-only agents, phones and plots into the target's DATA_DIR. So it runs on the **EXE33 staging deployment** on the same A1 host: the same image, live providers, its own DATA_DIR. It never runs on the production data. The runner runs on that host so it can read that DB, and the TKT-29 runbook must say so.
+- **Formal-run guards.** A formal run refuses unless every provider is `ok` before and after, the target is https and non-local, and the run is not in CI.
+- **CLI.** `--suite` is an alias of `--only` in `evals/perf/run.ts`; S4 stays the default.
