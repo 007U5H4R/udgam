@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 import type { NextConfig } from "next";
-import { STATIC_SECURITY_HEADERS } from "./src/lib/security/headers";
+import { staticSecurityHeaders } from "./src/lib/security/headers";
 
 // Build metadata for /api/health. Never a secret: a short git SHA, or "unknown" outside a checkout.
 function gitCommit(): string {
@@ -59,9 +59,10 @@ const nextConfig: NextConfig = {
       'evals/scorers/**',
     ],
   },
-  // technical-plan §16 (TSK-19.5): on every response. The per-request CSP is set by src/proxy.ts.
+  // technical-plan §16 (TSK-19.5): on every response. The per-request CSP is set by src/proxy.ts. HSTS
+  // only in a real deployment (SEC-007): read when the build runs, as `next build` bakes these in.
   async headers() {
-    return [{ source: "/:path*", headers: [...STATIC_SECURITY_HEADERS] }];
+    return [{ source: "/:path*", headers: staticSecurityHeaders({ NODE_ENV: process.env.NODE_ENV, E2E: process.env.E2E }) }];
   },
 };
 
