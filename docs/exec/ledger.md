@@ -337,3 +337,26 @@ Formal commit `d7124cb` records the run at gate commit `eb321a1`. The harness, p
   - QA-S9-002: axe `document-title` flake (TKT-25/26) → 97a08a4.
 - **CI:** the new `eval`, `test-tz` and `e2e` jobs (CR-200) run on every push; the owner still needs to make them required checks on main (EXE47).
 - **Next:** Stage 10 · Security Review, started directly (EXE46).
+
+## Stage 10 · Security Review + QA gate · READY WITH ACCEPTED RISKS · 2026-10-06
+- **Review** at dd7b0c1, by three Fable reviewers (`docs/exec/stage10/`): 0 Critical · 0 High · 2 Medium · 10 Low · 4 Info (SEC-001–007, SEC-100–103, SEC-200–204; SEC-103 was found during the fixes).
+- **Fixed, with the failing test first,** merged into b13dfaf:
+  - SEC-002 (140d4be), SEC-004 (5de3953), SEC-007 (44d25ba) and SEC-102 (1e27c6a), under TASK-20 and TASK-2;
+  - SEC-100 (24a1c96) and SEC-103 (1da9300), under TASK-8;
+  - SEC-200 (4cf943f), under TASK-26;
+  - SEC-201 (0b86098) and SEC-202 (7913817), under TASK-2;
+  - QA-S10-001, leaked test temp folders (f181a4a), under TASK-2.
+- **Parked to M-003 as ticket acceptance items** (EXE49–EXE51, `tickets.md`):
+  - TKT-27: SEC-005, SEC-006, SEC-203;
+  - TKT-28: SEC-001, SEC-003.
+- **Accepted:**
+  - SEC-101, for the owner to confirm before the first production anchor;
+  - SEC-204.
+- **Scope change:** the M-003 tickets gained those acceptance items. It adds scope only, and the owner reviews it with EXE51.
+- **Re-run:** SEC RE-RUN: CLEAN at b13dfaf.
+- **Eval** (local release at b13dfaf, `docs/exec/stage10/stage10-eval-run.md`): PASS.
+  - Gates: S1 97.7 %, S1-floor 91.7 %, S2 0 %, S6-lib 100 % (M2/EVM 8/8), S7 Yes, CF 0, S4 max 2317 ms, Cases 28/28, S7-release Yes.
+  - No regressions against baseline-v1.
+- **Tests and CI:** `pnpm test` passes on the merged tree (278 files, 2694 tests). CI e2e on b13dfaf: 952 passed.
+- **QA gate** (`QA-report.md`): READY WITH ACCEPTED RISKS.
+- **Next:** Stage 11 · Deployment (M-003: TKT-27..29), only with the owner's accounts in place and the carry-ins as acceptance criteria.

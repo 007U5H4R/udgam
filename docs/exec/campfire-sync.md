@@ -118,6 +118,16 @@ Gate P6–P8 PASS 2026-10-05 and Gate M-002 PASS 2026-10-05, both from independe
   - TASK-26 and TASK-27: QA-S9-002, 97a08a4.
 - Stage 10 is in progress; no card changes until its gate.
 
+## 3e · Stage 10 complete (2026-10-06): the QA gate is READY WITH ACCEPTED RISKS
+- Add a comment with the SEC ID and commit to each touched card. The full list is in the ledger's Stage 10 section.
+  - TASK-2: SEC-102, SEC-201, SEC-202, QA-S10-001.
+  - TASK-8: SEC-100, SEC-103.
+  - TASK-20: SEC-002, SEC-004, SEC-007.
+  - TASK-26: SEC-200.
+  - TASK-31: SEC-004, the stage slots.
+- Add the new acceptance items from `tickets.md` (EXE51) to TASK-28 (TKT-27) and TASK-29 (TKT-28).
+- M-003 waits for the owner's approval of the gate.
+
 ## 4 · Not touched
 - M-003 (TASK-28, 29, 30) stays To Do. It is out of scope for this Stage 7 run.
 - There are no BUG rows in the ledger, so there are no Campfire bugs to create.
