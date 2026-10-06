@@ -1211,3 +1211,21 @@ Then HANDOFF.md is rewritten and Stage 10 (`bw-security-review`) starts in the s
     - Recorded as public by design in `docs/proof-feed.md`.
     - **Owner item:** confirm, or ask for a payload v2 (rounded fix, no `agentId`), before the first production data is anchored.
   - **SEC-204.** GHSA-67mh-4wv8-2f99 (esbuild dev server, moderate) reaches us only through `drizzle-kit` and is unreachable at runtime. It sits below CI's high gate.
+
+## EXE50 · Stage 10 fix outcomes (orchestrator, under the owner's delegation, 2026-10-06)
+- **Fixed, with the failing test first:**
+  - SEC-002 (140d4be): the multipart body is bounded before parsing; a 360k-part body now costs 27–31 ms instead of 3.6 s.
+  - SEC-004 (5de3953).
+  - SEC-007 (44d25ba): HSTS only in a real deployment, by the same rule as `testSurfacesOn`.
+  - SEC-102 (1e27c6a).
+  - SEC-100 (24a1c96).
+  - SEC-103 (1da9300). This is new: the Sentinel Hub token request re-sent `client_secret` on a cross-origin 307 or 308. It is fixed by the same same-origin redirect rule.
+  - SEC-200 (4cf943f): a per-account send queue plus viem's `nonceManager`, with one retry on a nonce collision.
+  - SEC-201 (0b86098).
+  - SEC-202 (7913817).
+  - QA-S10-001 (f181a4a): tests leaked temp folders in /tmp.
+- **SEC-004 amends EXE17 and TKT-30's "4 in flight".** The capture and stage pools go from 4 to 8, and the per-agent cap stays 2, so one agent holds at most a quarter of each pool.
+  - A cap of 1 per agent broke the outbox's back-to-back sends (TSK-11.3), so the cap stays at 2.
+  - Peak capture-body memory stays under 1 GB on the 12 GB A1 host.
+  - This changes capacity only; no eval threshold or case is involved.
+- **SEC-005 is parked to TSK-27.3.** The 3 MB Server Action body cap stays for now. Three plot actions need up to 2 MB, and moving them to a route handler would also drop Next's Server Action Origin check. Instead, the Caddy `request_body` limit and an admin-path size cap become TSK-27.3 acceptance items.
