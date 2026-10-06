@@ -1301,3 +1301,14 @@ Then HANDOFF.md is rewritten and Stage 10 (`bw-security-review`) starts in the s
 - **Target label.** Formal runs label the target `staging` or `production` explicitly (EXE53: staging).
 - **Provider probes.** Providers are probed before, between and after the runs.
 - **Scope note.** The ungated `--immediate-runs` series (≥ 5 in a formal run) is a deliberate addition (EXE53), not a gate.
+
+## EXE55 · The uptime probe's ledger rule, and invalid config in the container (orchestrator, under the owner's delegation, 2026-10-06; amends EXE54)
+- **Probe rule.** EXE54 kept §15/TSK-28.3's "`lastSeq > 0` and `lastCheckpointAgeSec > 86400`" rule and added an hourly checkpoint timer. That still alerts after any 24 h with no new entries, because a checkpoint only seals new entries.
+  - The probe now fails when `ledger.oldestUnsealedAgeSec > 86400`, a new `/api/health` field: the age of the oldest entry after the last checkpoint, 0 when everything is sealed. It also fails closed when the field is missing.
+  - This keeps the rule's intent (entries are not being sealed) and stops false alarms on quiet days.
+  - The hourly timer keeps the field under about one interval while healthy.
+  - `lastSeq` and `lastCheckpointAgeSec` stay in the body for information.
+- **Invalid config.** EXE54's TKT-28 ruling ("stays up but unhealthy") holds for a plain `next start`. In the TKT-27 container, the entrypoint's migration step runs first and exits non-zero on an invalid env.
+  - That behaviour is kept. The deploy gate fails at once on a `restarting` container and auto-rolls back, Caddy answers 502, and the uptime probe alerts.
+  - The entrypoint prints one `config.invalid` line naming the variables, never their values.
+  - EXE54's "an invalid env stops the container at the migration step" and its "stays up" ruling therefore apply to different run modes, and both are documented in `docs/ops/`.
