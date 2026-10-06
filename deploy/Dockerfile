@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 # Udgam production image (TKT-27, TSK-27.1). Built ON the Oracle A1 instance, so it is native linux/arm64
 # there with no QEMU; nothing below is architecture-specific: `pnpm install` resolves the native packages
 # (@img/sharp-linux-*, @libsql/linux-*-gnu) for the platform it runs on.
@@ -6,9 +6,11 @@
 #   docker build -f deploy/Dockerfile -t udgam-app:$(git rev-parse --short HEAD) \
 #     --build-arg UDGAM_COMMIT=$(git rev-parse --short HEAD) .
 #
-# NODE_IMAGE exists only so a registry mirror can stand in for Docker Hub when it rate-limits a pull
-# (e.g. mirror.gcr.io/library/node:22-bookworm-slim). It must name the same official image.
-ARG NODE_IMAGE=node:22-bookworm-slim
+# Base image and frontend are pinned by digest (multi-arch index digests, so arm64 on the instance); a bump
+# is deliberate: docs/ops/deploy.md, "Bumping a pinned image". NODE_IMAGE exists only so a registry mirror
+# can stand in for Docker Hub when it rate-limits a pull; it must carry the same digest, e.g.
+# mirror.gcr.io/library/node:22-bookworm-slim@sha256:<the digest below>.
+ARG NODE_IMAGE=node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392
 
 FROM ${NODE_IMAGE} AS base
 ENV PNPM_HOME=/pnpm \

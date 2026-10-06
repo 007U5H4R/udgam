@@ -44,6 +44,7 @@ mkdir -p /opt/udgam/deploy/cron
 cp /src/bootstrap.sh /opt/udgam/deploy/bootstrap.sh
 cp /src/backup.env.example /opt/udgam/deploy/backup.env.example
 cp /src/crontab /opt/udgam/deploy/cron/crontab
+cp /src/oci-cli-requirements.txt /opt/udgam/deploy/oci-cli-requirements.txt
 mkdir -p /etc/cron.d
 printf 'BETTER_AUTH_SECRET=\nBETTER_AUTH_URL=\nUDGAM_DOMAIN=\n' >/opt/udgam/deploy/app.env.example
 

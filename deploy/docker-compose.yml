@@ -54,7 +54,8 @@ services:
     logging: *logging
 
   caddy:
-    image: caddy:2
+    # Caddy 2.11, pinned by digest (docs/ops/deploy.md, "Bumping a pinned image").
+    image: caddy:2.11@sha256:f2a1290d0463aad60660d4ec134943f183ee2a5f6c3eb7bf32dd984f2f020772
     restart: unless-stopped
     depends_on:
       - app

@@ -129,6 +129,31 @@ Caddy fails a request with 413 as soon as the app reads past the cap. A handler 
 | `/admin*` | 3 MiB | the 2 MiB plot Server Actions, under Next's 3 MiB Server Action cap (EXE50) |
 | everything else | 1 MB | |
 
+## Bumping a pinned image
+
+Everything the instance pulls is pinned by digest (`tests/deploy/pins.static.test.ts` enforces it):
+
+- `node:22-bookworm-slim` (`deploy/Dockerfile`);
+- `debian:bookworm-slim` (`deploy/anvil.Dockerfile`);
+- `caddy:2.11` (`deploy/docker-compose.yml`);
+- the `docker/dockerfile:1` frontend (both Dockerfiles);
+- the OCI CLI and its dependencies, by hash (`deploy/oci-cli-requirements.txt`).
+
+A bump is a deliberate commit, never a rebuild that happens to pull something new:
+
+1. Read the new multi-arch **index** digest (it covers both amd64 and arm64):
+   `docker buildx imagetools inspect node:22-bookworm-slim | sed -n 's/^Digest: *//p'`.
+   If Docker Hub answers 429, read the same tag through `mirror.gcr.io/library/<image>:<tag>`: it
+   serves Docker Hub's manifests, so the digest is the same. On 2026-10-06, node and the dockerfile
+   frontend matched between the two. The debian and caddy digests were read through the mirror while
+   Hub was rate-limited, and the caddy one also matched the image ID of a `caddy:2` pulled from Hub.
+2. Check that the digest lists `linux/arm64/v8`.
+3. Replace the digest (and, for Caddy, the minor in the tag), read the image's release notes, then
+   rebuild and run the local stack and the deploy tests.
+4. OCI CLI: regenerate with
+   `uv pip compile --python-version 3.12 --python-platform aarch64-unknown-linux-gnu --generate-hashes`
+   from `oci-cli==<version>`. Check that the x86_64 platform gives the same file.
+
 ## Verification record
 
 ### Done locally (x86_64 cloud VM, Docker 29, Caddy 2.11.7, 2026-10-06)
