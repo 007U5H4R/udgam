@@ -16,7 +16,12 @@ export function SignOutPill({ className }: { className?: string }) {
   );
 }
 
-/** The end of a buyer detail: shown only when the detail is the whole screen (< 1100 px), where the list column's Sign out is hidden. */
-export function DetailSignOut() {
-  return <SignOutPill className={styles.detailEnd} />;
+/**
+ * The end of a detail that is the whole screen. Buyer (no rail): shown below 1100 px, where the list
+ * column's Sign out is hidden. `rail` (the admin review and processor details, DES-117): shown only on
+ * phones (< 700 px), where the open detail hides the tab bar and RailShell's pill so its sticky bar sits at
+ * the bottom edge; from 700 px the rail foot carries Sign out.
+ */
+export function DetailSignOut({ rail = false }: { rail?: boolean }) {
+  return <SignOutPill className={rail ? styles.railDetailEnd : styles.detailEnd} />;
 }
