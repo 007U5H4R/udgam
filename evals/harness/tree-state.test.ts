@@ -39,6 +39,13 @@ describe('isFormalOutput', () => {
     ['evals/results/notes.json', false],
     ['evals/results/sub/eval-run-x.json', false],
     ['evals/reports/summary.md', false],
+    // TSK-29.1: the S3 baseline, one file per commit (pnpm eval:perf --suite=s3 --formal)
+    ['evals/results/baseline-perf-v1-s3-76d63c1.json', true],
+    ['evals/results/baseline-perf-v1-s3-76d63c1a2b3c4d5e6f708192a3b4c5d6e7f80910.json', true],
+    ['evals/results/baseline-perf-v1-s3-.json', false],
+    ['evals/results/baseline-perf-v1-s3-xyz.json', false],
+    ['evals/results/baseline-perf-v1-s3-76d63c1/x.json', false],
+    ['evals/results/local/baseline-perf-v1-s3-76d63c1.json', false],
     ['src/eval-run-x.json', false],
     ['evals/eval-dataset.json', false],
   ])('row %#: %s', (path, formal) => {

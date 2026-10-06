@@ -5,12 +5,16 @@ import { REPO_ROOT, type Provenance } from './provenance';
 // The sequence runs on one clean commit and writes its formal outputs as untracked files, committed together
 // at the end. So "clean" here means: nothing changed except untracked files that are formal outputs —
 // evals/results/{eval-run-*,baseline-v1,baseline-perf-v1}.json (eval-run-* includes the release file
-// eval-run-v1-release-*) and evals/reports/eval-report-*.md. Anything else (a modified tracked file,
+// eval-run-v1-release-*), the S3 baseline evals/results/baseline-perf-v1-s3-<sha>.json (TSK-29.1) and
+// evals/reports/eval-report-*.md. Anything else (a modified tracked file,
 // including a committed formal output, or any other untracked file) makes the tree dirty, and so does a
 // tracked file flagged skip-worktree or assume-unchanged, whose edits git status would not show.
 // Git-ignored files (evals/results/local/) never show. A git failure fails closed: commit `unknown`, dirty.
 
-const FORMAL_OUTPUTS = [/^evals\/results\/(?:eval-run-[^/]+|baseline-v1|baseline-perf-v1)\.json$/, /^evals\/reports\/eval-report-[^/]+\.md$/];
+const FORMAL_OUTPUTS = [
+  /^evals\/results\/(?:eval-run-[^/]+|baseline-v1|baseline-perf-v1|baseline-perf-v1-s3-[0-9a-f]{7,40})\.json$/,
+  /^evals\/reports\/eval-report-[^/]+\.md$/,
+];
 
 /** Whether a repo-relative path is one of the formal outputs the M-001 sequence writes. */
 export const isFormalOutput = (path: string): boolean => FORMAL_OUTPUTS.some((re) => re.test(path));
