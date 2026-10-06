@@ -1,4 +1,4 @@
-import { and, eq, exists, notExists, sql } from 'drizzle-orm';
+import { and, eq, exists, inArray, notExists, sql } from 'drizzle-orm';
 import type { Hex } from 'viem';
 import { getUserPublicKey, signAsUser } from '../auth/signing-keys';
 import { jcs } from '../crypto';
@@ -90,25 +90,36 @@ export async function fpoAgreement(db: Db | Tx, fpoOrg: string, id: string): Pro
  * Batches delivered under an agreement: the FPO's batches of the agreed crop that have been handed to
  * the agreement's buyer, and not already paid out under another agreement.
  */
-export async function deliveredBatchIds(db: Db | Tx, a: Pick<AgreementRow, 'id' | 'fpoOrg' | 'buyerOrg' | 'crop'>): Promise<string[]> {
+export async function deliveredBatchIds(db: Db | Tx, a: Pick<AgreementRow, 'id'>): Promise<string[]> {
+  return (await deliveredBatchIdsFor(db, [a])).get(a.id) ?? [];
+}
+
+/**
+ * deliveredBatchIds for several agreements in ONE statement (the list pages, Stage 9 CR-204): agreement
+ * id → its delivered batch ids, oldest batch first. Every requested id has an entry (empty when none).
+ */
+export async function deliveredBatchIdsFor(db: Db | Tx, as: readonly Pick<AgreementRow, 'id'>[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>(as.map((a) => [a.id, []]));
+  if (out.size === 0) return out;
   const rows = await db
-    .select({ id: batches.id })
-    .from(batches)
+    .select({ agreementId: agreements.id, id: batches.id })
+    .from(agreements)
+    .innerJoin(batches, and(eq(batches.orgId, agreements.fpoOrg), eq(batches.crop, agreements.crop)))
     .where(
       and(
-        eq(batches.orgId, a.fpoOrg),
-        eq(batches.crop, a.crop),
-        exists(db.select({ one: sql`1` }).from(custodyTransfers).where(and(eq(custodyTransfers.batchId, batches.id), eq(custodyTransfers.toOrg, a.buyerOrg)))),
+        inArray(agreements.id, [...out.keys()]),
+        exists(db.select({ one: sql`1` }).from(custodyTransfers).where(and(eq(custodyTransfers.batchId, batches.id), eq(custodyTransfers.toOrg, agreements.buyerOrg)))),
         notExists(
           db
             .select({ one: sql`1` })
             .from(settlements)
-            .where(and(eq(settlements.batchId, batches.id), eq(settlements.outcome, 'released'), sql`${settlements.agreementId} <> ${a.id}`)),
+            .where(and(eq(settlements.batchId, batches.id), eq(settlements.outcome, 'released'), sql`${settlements.agreementId} <> ${agreements.id}`)),
         ),
       ),
     )
     .orderBy(batches.createdAt);
-  return rows.map((r) => r.id);
+  for (const r of rows) out.get(r.agreementId)!.push(r.id);
+  return out;
 }
 
 // ── create ───────────────────────────────────────────────────────────────────────────────────────
