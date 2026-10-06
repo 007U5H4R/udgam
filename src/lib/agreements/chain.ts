@@ -17,6 +17,7 @@ import {
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import farmingAbi from './abi/ContractFarming.json';
 import tokenAbi from './abi/MockINR.json';
+import { blockWindows, LOG_RANGE_BLOCKS } from '../ledger/evm/log-range';
 import { orgAccount, type GradeDomain } from './attestor-keys';
 import type { EscrowDeployment } from './deployment';
 
@@ -106,7 +107,16 @@ export interface EscrowChain {
   settledTx(id: Hex, batchIdHash: Hex): Promise<SettledTx | null>;
 }
 
-export type EscrowChainOptions = { rpcUrl: string; deployment: EscrowDeployment; operatorKey: Hex; timeoutMs?: number };
+export type EscrowChainOptions = {
+  rpcUrl: string;
+  deployment: EscrowDeployment;
+  operatorKey: Hex;
+  timeoutMs?: number;
+  /** Blocks per eth_getLogs call in the recovery scan (default LOG_RANGE_BLOCKS, 5,000): hosted RPCs cap it. */
+  logRangeBlocks?: number;
+  /** Observe each JSON-RPC request (tests). */
+  onFetchRequest?: (request: Request) => void | Promise<void>;
+};
 
 type Log = TransactionReceipt['logs'][number];
 
@@ -131,8 +141,9 @@ export function createEscrowChain(o: EscrowChainOptions): EscrowChain {
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: { default: { http: [o.rpcUrl] } },
   });
-  const transport = http(o.rpcUrl, { retryCount: 0, timeout: o.timeoutMs ?? 10_000 });
+  const transport = http(o.rpcUrl, { retryCount: 0, timeout: o.timeoutMs ?? 10_000, onFetchRequest: o.onFetchRequest });
   const pub = createPublicClient({ chain, transport, pollingInterval: 250 }) as PublicClient;
+  const logRange = BigInt(Math.max(1, o.logRangeBlocks ?? LOG_RANGE_BLOCKS));
   const operator = privateKeyToAccount(o.operatorKey);
   if (operator.address.toLowerCase() !== d.operator.toLowerCase()) throw new Error('EVM operator key does not match the escrow deployment operator');
   const wallet = (account: PrivateKeyAccount) => createWalletClient({ account, chain, transport, pollingInterval: 250 });
@@ -164,12 +175,20 @@ export function createEscrowChain(o: EscrowChainOptions): EscrowChain {
     }
   }
 
-  /** The tx of an earlier event for `id` (recovers a call whose receipt was lost before it was recorded). */
+  /**
+   * The tx of the latest earlier event for `id` (recovers a call whose receipt was lost before it was
+   * recorded). Reads logs in windows of `logRangeBlocks`, newest first, back to the deployment block,
+   * because hosted RPCs cap the range of one eth_getLogs (as the registry client's anchoredLog does).
+   */
   async function earlier(eventName: string, id: Hex, batchIdHash?: Hex): Promise<ChainTx | null> {
     const args = batchIdHash === undefined ? { id } : { id, batchIdHash };
-    const logs = await pub.getContractEvents({ address: d.escrow, abi: FARMING_ABI, eventName, args, fromBlock: BigInt(d.deployedAtBlock), toBlock: 'latest' });
-    const log = logs.at(-1);
-    return log?.transactionHash && log.blockNumber !== null ? { txHash: log.transactionHash, blockNumber: Number(log.blockNumber) } : null;
+    const head = await pub.getBlockNumber({ cacheTime: 0 });
+    for (const [fromBlock, toBlock] of blockWindows(BigInt(d.deployedAtBlock), head, logRange, 'newest-first')) {
+      const logs = await pub.getContractEvents({ address: d.escrow, abi: FARMING_ABI, eventName, args, fromBlock, toBlock });
+      const log = logs.filter((l) => l.transactionHash && l.blockNumber !== null).at(-1);
+      if (log?.transactionHash && log.blockNumber !== null) return { txHash: log.transactionHash, blockNumber: Number(log.blockNumber) };
+    }
+    return null;
   }
 
   async function status(id: Hex): Promise<OnChainStatus> {
