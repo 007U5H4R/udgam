@@ -1,6 +1,7 @@
-import { readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { EventEmitter } from 'node:events';
+import { mkdirSync, readdirSync, readFileSync, statSync, symlinkSync } from 'node:fs';
+import { basename, join } from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
 import { tempDirs } from '../tests/helpers/tmp';
 import { choosePassword, parseCliArgs, UsageError } from './accounts-cli';
 
@@ -51,47 +52,107 @@ describe('parseCliArgs', () => {
 });
 
 describe('choosePassword', () => {
+  /** A DATA_DIR and a separate output directory, as on the instance (/data and /run). */
+  const dirs = () => {
+    const root = tempDir('udgam-cred-');
+    const dataDir = join(root, 'data');
+    const outDir = join(root, 'run');
+    mkdirSync(join(dataDir, 'credentials'), { recursive: true });
+    mkdirSync(outDir);
+    return { dataDir, outDir };
+  };
+  const base = (over: Partial<Omit<Parameters<typeof choosePassword>[0], 'signals' | 'exit'>> = {}) => ({
+    fromStdin: false,
+    stdin: pipe(''),
+    stdout: sink(false),
+    label: 'asha@fpo.example',
+    ...dirs(),
+    signals: new EventEmitter(),
+    exit: vi.fn(),
+    ...over,
+  });
+
   it('--password-stdin reads the piped line (one trailing newline dropped) and prints nothing', async () => {
     const out = sink(false);
-    const c = await choosePassword({ fromStdin: true, stdin: pipe('my piped password\n'), stdout: out, credentialsDir: tempDir('udgam-cred-'), label: 'a@b.example' });
+    const c = await choosePassword(base({ fromStdin: true, stdin: pipe('my piped password\n'), stdout: out, outDir: undefined }));
     expect(c.password).toBe('my piped password');
     expect(c.delivery).toEqual({ kind: 'stdin' });
     expect(out.text()).toBe('');
   });
 
   it('--password-stdin on a terminal is refused (it would echo the password)', async () => {
-    await expect(choosePassword({ fromStdin: true, stdin: tty, stdout: sink(true), credentialsDir: tempDir('udgam-cred-'), label: 'a@b.example' })).rejects.toThrow(/needs a pipe/);
+    await expect(choosePassword(base({ fromStdin: true, stdin: tty, stdout: sink(true) }))).rejects.toThrow(/needs a pipe/);
   });
 
   it('on a terminal (stdin and stdout): a generated password is shown once, on stdout, and no file is written', async () => {
     const out = sink(true);
-    const dir = join(tempDir('udgam-cred-'), 'credentials');
-    const c = await choosePassword({ fromStdin: false, stdin: tty, stdout: out, credentialsDir: dir, label: 'a@b.example' });
+    const o = base({ stdin: tty, stdout: out, outDir: undefined });
+    const c = await choosePassword(o);
     expect(c.password).toMatch(/^[A-Za-z0-9_-]{32}$/);
     expect(c.delivery).toEqual({ kind: 'tty' });
     c.deliver();
     expect(out.text().split(c.password).length - 1).toBe(1);
-    expect(() => statSync(dir)).toThrow();
   });
 
-  it('stdin a terminal but stdout redirected (a log file): writes the 0600 file instead of printing', async () => {
+  it('not interactive without --out: refused before anything is written (a password never lands by default)', async () => {
+    await expect(choosePassword(base({ outDir: undefined }))).rejects.toThrow(/--out <directory> is required/);
+    await expect(choosePassword(base({ stdin: tty, stdout: sink(false), outDir: undefined }))).rejects.toThrow(/--out <directory> is required/); // output redirected to a log
+  });
+
+  it('refuses an --out inside DATA_DIR (backed up and readable by the app), however it is spelled', async () => {
+    const o = base();
+    for (const out of [o.dataDir, join(o.dataDir, 'credentials'), join(o.outDir, '..', 'data', 'credentials')]) {
+      await expect(choosePassword({ ...o, outDir: out }), out).rejects.toThrow(/must not be inside DATA_DIR/);
+    }
+    symlinkSync(join(o.dataDir, 'credentials'), join(o.outDir, 'sneaky'));
+    await expect(choosePassword({ ...o, outDir: join(o.outDir, 'sneaky') })).rejects.toThrow(/must not be inside DATA_DIR/);
+  });
+
+  it('refuses an --out that is not an existing directory', async () => {
+    const o = base();
+    await expect(choosePassword({ ...o, outDir: join(o.outDir, 'missing') })).rejects.toThrow(/is not a directory/);
+  });
+
+  it('writes a new 0600 file in --out, named by a random token (never the email), printing nothing', async () => {
     const out = sink(false);
-    const dir = join(tempDir('udgam-cred-'), 'credentials');
-    const c = await choosePassword({ fromStdin: false, stdin: tty, stdout: out, credentialsDir: dir, label: 'a@b.example' });
+    const o = base({ stdout: out });
+    const c = await choosePassword(o);
     expect(c.delivery.kind).toBe('file');
-    c.deliver();
     const path = (c.delivery as { path: string }).path;
+    expect(path.startsWith(o.outDir)).toBe(true);
+    expect(basename(path)).toMatch(/^udgam-password-[0-9a-f]{16}\.txt$/);
+    expect(path).not.toContain('asha');
     expect(readFileSync(path, 'utf8')).toBe(`${c.password}\n`);
     expect(statSync(path).mode & 0o777).toBe(0o600);
-    expect(out.text()).not.toContain(c.password);
+    c.deliver();
+    expect(out.text()).toBe('');
+    expect(readdirSync(o.outDir)).toHaveLength(1);
   });
 
-  it('a file is never overwritten and is removed when the account write fails', async () => {
-    const dir = join(tempDir('udgam-cred-'), 'credentials');
-    const c = await choosePassword({ fromStdin: false, stdin: pipe(''), stdout: sink(false), credentialsDir: dir, label: 'a@b.example' });
-    const path = (c.delivery as { path: string }).path;
-    expect(statSync(path).mode & 0o777).toBe(0o600); // reserved (exclusively created) before the account is written
+  it('the file is removed when the account write fails (abandon)', async () => {
+    const o = base();
+    const c = await choosePassword(o);
     c.abandon();
-    expect(() => statSync(path)).toThrow();
+    expect(readdirSync(o.outDir)).toEqual([]);
+  });
+
+  it('SIGINT or SIGTERM before the account is written removes the file and exits 130 / 143', async () => {
+    for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143]] as const) {
+      const o = base();
+      await choosePassword(o);
+      expect(readdirSync(o.outDir)).toHaveLength(1);
+      o.signals.emit(signal);
+      expect(readdirSync(o.outDir)).toEqual([]);
+      expect(o.exit).toHaveBeenCalledWith(code);
+    }
+  });
+
+  it('once the account is written (deliver), a signal no longer removes the file', async () => {
+    const o = base();
+    const c = await choosePassword(o);
+    c.deliver();
+    expect(o.signals.listenerCount('SIGINT') + o.signals.listenerCount('SIGTERM')).toBe(0);
+    o.signals.emit('SIGTERM');
+    expect(readdirSync(o.outDir)).toHaveLength(1);
   });
 });

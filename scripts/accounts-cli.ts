@@ -6,10 +6,15 @@
 //   (default)          a fresh random password (24 bytes, base64url), delivered once:
 //                      - stdin AND stdout are a terminal: printed once on that terminal;
 //                      - otherwise (piped, `docker compose exec -T`, cron, output redirected to a log):
-//                        written to a new file, mode 0600, in a 0700 `DATA_DIR/credentials/` directory.
-//                        Only the file's path is printed. Read it, hand the password over, delete the file.
-import { chmodSync, closeSync, mkdirSync, openSync, rmSync, writeSync } from 'node:fs';
-import { join } from 'node:path';
+//                        only with `--out <directory>`, which must exist and must not be inside DATA_DIR
+//                        (DATA_DIR is backed up and readable by the app). The password is written to a
+//                        new file there, mode 0600, named `udgam-password-<random>.txt` (never the email),
+//                        and only its path is printed. Use a tmpfs such as /run; read the file, hand the
+//                        password over, delete it. Until the account is written, SIGINT/SIGTERM or a
+//                        failed write removes the file.
+import { randomBytes } from 'node:crypto';
+import { chmodSync, closeSync, openSync, realpathSync, rmSync, statSync, writeSync } from 'node:fs';
+import { join, resolve, sep } from 'node:path';
 import { AccountError, generatePassword } from '../src/lib/auth/accounts';
 
 /** A mistake in how the command was called (exit 2). Its message never contains a value. */
@@ -68,25 +73,41 @@ async function readStdinLine(stdin: In): Promise<string> {
   return line;
 }
 
-/** A file name from the account's email and the time: no path characters, never reused. */
-function fileName(label: string, now: Date): string {
-  const safe = label.toLowerCase().replace(/[^a-z0-9@._-]/g, '_').slice(0, 80);
-  return `${safe}-${now.toISOString().replace(/[:.]/g, '')}.password`;
+/** The real path of `p` (symlinks resolved) when it exists, else its absolute spelling. */
+function realOrResolved(p: string): string {
+  try {
+    return realpathSync(p);
+  } catch {
+    return resolve(p);
+  }
 }
+
+type Signals = { once(event: 'SIGINT' | 'SIGTERM', fn: () => void): unknown; off(event: 'SIGINT' | 'SIGTERM', fn: () => void): unknown };
 
 /**
  * Where the password comes from and where it goes (see the file header). A file is created
- * exclusively (never overwriting one) with mode 0600 now, before the account is written, so a failure to
- * write it stops the command before any account changes.
+ * exclusively (never overwriting one, never following a planted symlink) with mode 0600 now, before the
+ * account is written, so a failure to write it stops the command before any account changes.
  */
-export async function choosePassword(o: { fromStdin: boolean; stdin: In; stdout: Out; credentialsDir: string; label: string; now?: Date }): Promise<ChosenPassword> {
+export async function choosePassword(o: {
+  fromStdin: boolean;
+  stdin: In;
+  stdout: Out;
+  /** --out: the directory for a generated password when there is no terminal. */
+  outDir?: string | undefined;
+  /** DATA_DIR: --out may not be inside it. */
+  dataDir: string;
+  label: string;
+  signals?: Signals;
+  exit?: (code: number) => void;
+}): Promise<ChosenPassword> {
   const noop = () => undefined;
   if (o.fromStdin) {
     if (o.stdin.isTTY) throw new UsageError('--password-stdin needs a pipe (printf %s "$PW" | …); on a terminal leave it out and a password is generated');
     return { password: await readStdinLine(o.stdin), delivery: { kind: 'stdin' }, deliver: noop, abandon: noop };
   }
-  const password = generatePassword();
   if (o.stdin.isTTY && o.stdout.isTTY) {
+    const password = generatePassword();
     return {
       password,
       delivery: { kind: 'tty' },
@@ -94,9 +115,22 @@ export async function choosePassword(o: { fromStdin: boolean; stdin: In; stdout:
       abandon: noop,
     };
   }
-  mkdirSync(o.credentialsDir, { recursive: true, mode: 0o700 });
-  chmodSync(o.credentialsDir, 0o700);
-  const path = join(o.credentialsDir, fileName(o.label, o.now ?? new Date()));
+  if (o.outDir === undefined) {
+    throw new UsageError('no terminal: --out <directory> is required for a generated password (a tmpfs such as /run, outside DATA_DIR), or pipe one with --password-stdin');
+  }
+  const out = realOrResolved(o.outDir);
+  const data = realOrResolved(o.dataDir);
+  if (out === data || out.startsWith(data + sep)) throw new UsageError('--out must not be inside DATA_DIR (it is backed up and readable by the app)');
+  let isDir = false;
+  try {
+    isDir = statSync(out).isDirectory();
+  } catch {
+    // missing
+  }
+  if (!isDir) throw new UsageError('--out is not a directory (create it first, for example on a tmpfs)');
+
+  const password = generatePassword();
+  const path = join(out, `udgam-password-${randomBytes(8).toString('hex')}.txt`);
   const fd = openSync(path, 'wx', 0o600);
   try {
     writeSync(fd, `${password}\n`);
@@ -104,7 +138,33 @@ export async function choosePassword(o: { fromStdin: boolean; stdin: In; stdout:
     closeSync(fd);
   }
   chmodSync(path, 0o600); // whatever the umask
-  return { password, delivery: { kind: 'file', path }, deliver: noop, abandon: () => rmSync(path, { force: true }) };
+
+  // Until the account is written, an interrupted run must not leave a password for no account behind.
+  const signals = o.signals ?? process;
+  const exit = o.exit ?? ((code: number) => process.exit(code));
+  const onInt = () => {
+    rmSync(path, { force: true });
+    exit(130);
+  };
+  const onTerm = () => {
+    rmSync(path, { force: true });
+    exit(143);
+  };
+  signals.once('SIGINT', onInt);
+  signals.once('SIGTERM', onTerm);
+  const release = () => {
+    signals.off('SIGINT', onInt);
+    signals.off('SIGTERM', onTerm);
+  };
+  return {
+    password,
+    delivery: { kind: 'file', path },
+    deliver: release,
+    abandon: () => {
+      release();
+      rmSync(path, { force: true });
+    },
+  };
 }
 
 /** What the summary line says about the password: never the password itself. */

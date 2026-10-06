@@ -4,15 +4,16 @@
 //
 //   pnpm accounts:set-password --email asha@fpo.example
 //   printf %s "$PW" | pnpm accounts:set-password --email asha@fpo.example --password-stdin
+//   pnpm accounts:set-password --email asha@fpo.example --out /run/udgam   (no terminal)
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { choosePassword, describeDelivery, parseCliArgs, runCli, UsageError } from './accounts-cli';
 
-const USAGE = 'usage: pnpm accounts:set-password --email <email> [--password-stdin]';
+const USAGE = 'usage: pnpm accounts:set-password --email <email> [--password-stdin | --out <directory>]';
 
 export async function main(argv: string[]): Promise<number> {
   return runCli(USAGE, async () => {
-    const a = parseCliArgs(argv, ['email']);
+    const a = parseCliArgs(argv, ['email', 'out']);
     const email = typeof a.email === 'string' ? a.email : undefined;
     if (!email) throw new UsageError('--email is required');
 
@@ -20,7 +21,7 @@ export async function main(argv: string[]): Promise<number> {
     const { env } = await import('../src/lib/config/env');
     const { closeDb, getDbReady } = await import('../src/lib/db/client');
     const { setAccountPassword } = await import('../src/lib/auth/accounts');
-    const chosen = await choosePassword({ fromStdin: a['password-stdin'] === true, stdin: process.stdin, stdout: process.stdout, credentialsDir: resolve(env.DATA_DIR, 'credentials'), label: email });
+    const chosen = await choosePassword({ fromStdin: a['password-stdin'] === true, stdin: process.stdin, stdout: process.stdout, outDir: typeof a.out === 'string' ? a.out : undefined, dataDir: env.DATA_DIR, label: email });
     try {
       const r = await setAccountPassword(await getDbReady(), email, chosen.password);
       chosen.deliver();
