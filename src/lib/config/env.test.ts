@@ -4,6 +4,8 @@ import { loadEnv } from './env';
 
 /** Placeholder live-provider keys (not real values). */
 const LIVE_KEYS = { REMOTE_SENSING_PROVIDER: 'live', GFW_API_KEY: 'a', CDSE_CLIENT_ID: 'b', CDSE_CLIENT_SECRET: 'c' } as const;
+/** The deployment's public origin, https in production (DES-219). */
+const HTTPS_URLS = { PUBLIC_BASE_URL: 'https://udgam.example', BETTER_AUTH_URL: 'https://udgam.example' } as const;
 
 describe('loadEnv', () => {
   it('returns the documented defaults for an empty source', () => {
@@ -61,12 +63,12 @@ describe('loadEnv', () => {
 
   it('requires BETTER_AUTH_SECRET in production only', () => {
     expect(() => loadEnv({ NODE_ENV: 'production' })).toThrow(/BETTER_AUTH_SECRET/);
-    expect(loadEnv({ NODE_ENV: 'production', BETTER_AUTH_SECRET: 'x'.repeat(32), ...LIVE_KEYS }).NODE_ENV).toBe('production');
+    expect(loadEnv({ NODE_ENV: 'production', BETTER_AUTH_SECRET: 'x'.repeat(32), ...LIVE_KEYS, ...HTTPS_URLS }).NODE_ENV).toBe('production');
     expect(() => loadEnv({ NODE_ENV: 'development' })).not.toThrow();
   });
 
   describe('the fixture provider never runs in production (EXE12, CF-11)', () => {
-    const PROD = { NODE_ENV: 'production', BETTER_AUTH_SECRET: 'x'.repeat(32) } as const;
+    const PROD = { NODE_ENV: 'production', BETTER_AUTH_SECRET: 'x'.repeat(32), ...HTTPS_URLS } as const;
     const message = (src: Record<string, string>) => {
       try {
         loadEnv(src);
@@ -92,12 +94,55 @@ describe('loadEnv', () => {
     });
 
     it('production + live with its keys is allowed', () => {
-      expect(loadEnv({ ...PROD, ...LIVE_KEYS }).REMOTE_SENSING_PROVIDER).toBe('live');
+      expect(loadEnv({ ...PROD, ...LIVE_KEYS, ...HTTPS_URLS }).REMOTE_SENSING_PROVIDER).toBe('live');
     });
 
     it('development and test run the fixture provider', () => {
       expect(loadEnv({ NODE_ENV: 'development', REMOTE_SENSING_PROVIDER: 'fixture' }).REMOTE_SENSING_PROVIDER).toBe('fixture');
       expect(loadEnv({ NODE_ENV: 'test' }).REMOTE_SENSING_PROVIDER).toBe('fixture');
+    });
+  });
+
+  describe('the public URLs are absolute https in production (DES-219, QA-P6-8-3)', () => {
+    const PROD = { NODE_ENV: 'production', BETTER_AUTH_SECRET: 'x'.repeat(32), ...LIVE_KEYS } as const;
+    const message = (src: Record<string, string>) => {
+      try {
+        loadEnv(src);
+      } catch (e) {
+        return (e as Error).message;
+      }
+      return '';
+    };
+    const RULE = 'must be an absolute https:// URL when NODE_ENV=production (http only with E2E=1)';
+
+    it('production with both set to https URLs starts', () => {
+      const e = loadEnv({ ...PROD, ...HTTPS_URLS });
+      expect([e.PUBLIC_BASE_URL, e.BETTER_AUTH_URL]).toEqual(['https://udgam.example', 'https://udgam.example']);
+      expect(loadEnv({ ...PROD, PUBLIC_BASE_URL: 'https://udgam.example/', BETTER_AUTH_URL: 'https://udgam.example:8443' }).PUBLIC_BASE_URL).toBe('https://udgam.example/');
+    });
+
+    it('production refuses an unset PUBLIC_BASE_URL (no silent localhost fallback) and an unset BETTER_AUTH_URL', () => {
+      expect(message({ ...PROD, BETTER_AUTH_URL: 'https://udgam.example' })).toBe(`Invalid environment configuration. PUBLIC_BASE_URL: ${RULE}`);
+      expect(message({ ...PROD, PUBLIC_BASE_URL: 'https://udgam.example' })).toBe(`Invalid environment configuration. BETTER_AUTH_URL: ${RULE}`);
+    });
+
+    it('production refuses http, relative, schemeless, other-scheme and credentialed URLs, naming the variable only', () => {
+      for (const bad of ['http://udgam.example', 'udgam.example', '/verify', 'https://', 'ftp://udgam.example', 'https://user:pw@udgam.example', 'HTTP://localhost:3000']) {
+        const m = message({ ...PROD, PUBLIC_BASE_URL: bad, BETTER_AUTH_URL: bad });
+        expect(m, bad).toContain(`PUBLIC_BASE_URL: ${RULE}`);
+        expect(m, bad).toContain(`BETTER_AUTH_URL: ${RULE}`);
+        expect(m, bad).not.toMatch(/udgam\.example|localhost|user:pw|\/verify/); // names, never values
+      }
+    });
+
+    it('the Playwright production build (E2E=1) may use http://localhost, by the testSurfacesOn rule (SEC-007)', () => {
+      const e = loadEnv({ NODE_ENV: 'production', BETTER_AUTH_SECRET: 'x'.repeat(32), REMOTE_SENSING_PROVIDER: 'fixture', E2E: '1', BETTER_AUTH_URL: 'http://localhost:3100' });
+      expect(e.PUBLIC_BASE_URL).toBe('http://localhost:3000');
+    });
+
+    it('development and test keep the localhost default', () => {
+      expect(loadEnv({ NODE_ENV: 'development' }).PUBLIC_BASE_URL).toBe('http://localhost:3000');
+      expect(loadEnv({ NODE_ENV: 'test', PUBLIC_BASE_URL: 'http://127.0.0.1:4000' }).PUBLIC_BASE_URL).toBe('http://127.0.0.1:4000');
     });
   });
 

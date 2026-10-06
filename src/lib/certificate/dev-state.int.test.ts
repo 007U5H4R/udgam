@@ -20,6 +20,7 @@ async function envWith(vars: Record<string, string>) {
   vi.stubEnv('LOG_LEVEL', 'silent');
   // A production deployment runs the live provider; these placeholders only satisfy the schema (never sent).
   for (const name of ['GFW_API_KEY', 'CDSE_CLIENT_ID', 'CDSE_CLIENT_SECRET']) vi.stubEnv(name, 'test-placeholder');
+  for (const name of ['PUBLIC_BASE_URL', 'BETTER_AUTH_URL']) vi.stubEnv(name, 'https://udgam.example'); // https in production (DES-219)
   const { env } = await import('../config/env');
   return { NODE_ENV: env.NODE_ENV, E2E: env.E2E };
 }

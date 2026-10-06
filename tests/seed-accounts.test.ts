@@ -14,7 +14,7 @@ afterEach(() => {
 });
 
 /** A production environment: an auth secret and the live provider (EXE12), placeholder values only. */
-const PRODUCTION = { NODE_ENV: 'production' as const, BETTER_AUTH_SECRET: 'x'.repeat(32), REMOTE_SENSING_PROVIDER: 'live', GFW_API_KEY: 'k', CDSE_CLIENT_ID: 'i', CDSE_CLIENT_SECRET: 's' };
+const PRODUCTION = { NODE_ENV: 'production' as const, BETTER_AUTH_SECRET: 'x'.repeat(32), REMOTE_SENSING_PROVIDER: 'live', GFW_API_KEY: 'k', CDSE_CLIENT_ID: 'i', CDSE_CLIENT_SECRET: 's', PUBLIC_BASE_URL: 'https://udgam.example', BETTER_AUTH_URL: 'https://udgam.example' };
 
 // Heavy by design: each case re-imports the seed script, which loads Better Auth (and its password hashing) cold.
 const BUDGET = 60_000;

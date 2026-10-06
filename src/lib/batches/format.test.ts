@@ -48,6 +48,8 @@ describe('forcedViewState (?state=, technical-plan §11)', () => {
     vi.stubEnv('GFW_API_KEY', 'k');
     vi.stubEnv('CDSE_CLIENT_ID', 'i');
     vi.stubEnv('CDSE_CLIENT_SECRET', 's');
+    vi.stubEnv('PUBLIC_BASE_URL', 'https://udgam.example'); // https in production (DES-219)
+    vi.stubEnv('BETTER_AUTH_URL', 'https://udgam.example');
     expect((await import('./view-state')).forcedViewState('error')).toBeNull();
     vi.resetModules();
     vi.stubEnv('E2E', '1');

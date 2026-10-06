@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { realDeployment } from './deployment';
 
 // Secrets and configuration are read only through this module (technical-plan §1, N6/S11).
 // It must never be bundled for the browser, and src/lib may not import `server-only` (no Next
@@ -50,6 +51,17 @@ const base = z.object({
 
 const VARIABLE_NAMES = Object.keys(base.shape);
 
+/** An absolute https:// URL with a host and no user or password in it (DES-219). */
+function absoluteHttps(v: string | undefined): boolean {
+  if (v === undefined) return false;
+  try {
+    const u = new URL(v);
+    return u.protocol === 'https:' && u.hostname !== '' && u.username === '' && u.password === '';
+  } catch {
+    return false;
+  }
+}
+
 const schema = base
   .superRefine((v, ctx) => {
     if (v.REMOTE_SENSING_PROVIDER === 'live') {
@@ -79,6 +91,18 @@ const schema = base
         path: ['REMOTE_SENSING_PROVIDER'],
         message: 'must be live when NODE_ENV=production (fixture only with E2E=1)',
       });
+    }
+    // DES-219 (QA-P6-8-3): QR codes, link previews, canonical URLs, GeoJSON certificate links and Better
+    // Auth's origin check are built from these. In a real deployment both are required and https: no
+    // silent http://localhost:3000 fallback. Same exception as the test surfaces and HSTS (SEC-007):
+    // the Playwright production build (E2E=1) runs on http://localhost.
+    if (realDeployment(v)) {
+      for (const name of ['PUBLIC_BASE_URL', 'BETTER_AUTH_URL'] as const) {
+        // An unset PUBLIC_BASE_URL has its http://localhost default here, which fails the rule too.
+        if (!absoluteHttps(v[name])) {
+          ctx.addIssue({ code: 'custom', path: [name], message: 'must be an absolute https:// URL when NODE_ENV=production (http only with E2E=1)' });
+        }
+      }
     }
   })
   .transform((v) => ({
