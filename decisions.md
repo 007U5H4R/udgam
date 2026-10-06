@@ -1171,3 +1171,15 @@ baseline-v1 is frozen (EV13, EXE34).
 - the critical test and eval cases pass.
 
 Then HANDOFF.md is rewritten and Stage 10 (`bw-security-review`) starts in the same session without waiting for owner approval. The owner's open review items stay listed and are not treated as approved.
+
+## EXE47 · Stage 9 code-review fix decisions — accepted (orchestrator, under the owner's delegation, 2026-10-06)
+- **CR-001.** The `photo_uniqueness` evidence counts distinct photos. Three copies of one photo read "1 of 1 photos are new". There is no boundary refusal, because the phone can legitimately pick one file into two slots and a 400 would drop the farmer's picking (TP28). The phone now prevents the duplicate up front (CR-107). Verdicts and cfg-1 are unchanged; the harness matches baseline-v1 case for case.
+- **CR-003.** The staging folder walk runs outside the write lock; a short second lock removes only unowned files.
+- **CR-005.** A replay answers the event's final verdict, the override when there is one. The score and checks stay the run's.
+- **CR-006 / CR-007 / CR-106.** Thumbnail decode failures are cached only when the photo truly can't be decoded. Failure logs carry `errClass` plus a constant-style driver code, never the message, through one helper in `src/lib/log.ts`.
+- **CR-105.** Skipped: keeping Kannada out of the office bundles needs async dictionaries across about 20 components, and the office pages are within the 200 KB budget.
+- **CR-200.** CI now runs `eval:ready`, `pnpm eval` with a critical-regression check against the latest formal run, `pnpm test:tz` and the full `pnpm test:e2e`. The new job names are `eval (harness gates, CF, critical regressions)`, `test-tz (unit + integration in Los Angeles and Kolkata)` and `e2e (Playwright, Chromium, all projects)`. **Owner action:** add these three as required status checks on `main` once they have run green, keeping `audit` and `bundle-secrets`.
+- **CR-201.** `DEFAULT_MILESTONE` stays M1 (EXE23); only the stale comment changed.
+- **CR-203.** A `not_released` settlement on the same facts is recorded once; a concurrent duplicate is caught inside `writeTx`.
+- **CR-204.** There is no LIMIT on the agreement lists, because there is no paging UI; the reads are batched to a fixed 9 statements per page.
+- **CR-205 (EXE36 R-6 closed).** A config change is authorised only by a decision whose heading ends "— accepted".
