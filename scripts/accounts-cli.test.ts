@@ -80,6 +80,25 @@ describe('choosePassword', () => {
     expect(out.text()).toBe('');
   });
 
+  it('--password-stdin stops reading at the first newline: it never waits for the end of the stream or reads past the line', async () => {
+    let pulled = 0;
+    const endless = {
+      isTTY: false as const,
+      async *[Symbol.asyncIterator]() {
+        yield Buffer.from('first line pass');
+        pulled += 1;
+        yield Buffer.from('word\nsecond line, never read');
+        pulled += 1;
+        await new Promise(() => undefined); // the stream never ends (a pipe left open)
+      },
+    };
+    const c = await choosePassword(base({ fromStdin: true, stdin: endless }));
+    expect(c.password).toBe('first line password');
+    expect(pulled).toBe(1); // stopped as soon as the chunk with the newline arrived
+    const crlf = await choosePassword(base({ fromStdin: true, stdin: pipe('windows line\r\nrest') }));
+    expect(crlf.password).toBe('windows line');
+  });
+
   it('--password-stdin on a terminal is refused (it would echo the password)', async () => {
     await expect(choosePassword(base({ fromStdin: true, stdin: tty, stdout: sink(true) }))).rejects.toThrow(/needs a pipe/);
   });

@@ -65,14 +65,17 @@ export type ChosenPassword = {
   abandon(): void;
 };
 
+/**
+ * The first line on stdin, without its line ending. Reading stops at the first newline (or 4 KiB): it
+ * never waits for the end of the stream and never reads what follows the line.
+ */
 async function readStdinLine(stdin: In): Promise<string> {
   let text = '';
   for await (const chunk of stdin) {
     text += typeof chunk === 'string' ? chunk : chunk.toString('utf8');
-    if (text.length > 4096) break;
+    if (text.includes('\n') || text.length > 4096) break;
   }
-  const line = text.split(/\r?\n/)[0] ?? '';
-  return line;
+  return text.split(/\r?\n/)[0] ?? '';
 }
 
 /** The real path of `p` (symlinks resolved) when it exists, else its absolute spelling. */
