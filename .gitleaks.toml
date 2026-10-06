@@ -27,3 +27,13 @@ paths = ['''^evals/fixtures/crypto-vectors\.json$''']
 # An all-zero scalar is not a usable key: the proof-feed negative vector "public JWK carrying d".
 regexTarget = "match"
 regexes = ['''\\?"d\\?"\s*:\s*\\?"A{43}\\?"''']
+
+[[allowlists]]
+description = "A made-up string the accounts CLI test passes to prove the CLI never echoes it (TKT-28)"
+# Only this exact literal in this one test file, for the generic-api-key rule only. It is in history
+# (2c2076d), so the full-history scan needs the exemption; it is not, and never was, a credential.
+targetRules = ["generic-api-key"]
+paths = ['''^scripts/accounts-cli\.test\.ts$''']
+regexTarget = "line"
+regexes = ['''const secret = 'hunter2-positional-secret';''']
+condition = "AND"
