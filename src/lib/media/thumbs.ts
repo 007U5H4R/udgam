@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative } from 'node:path';
 import sharp from 'sharp';
+import { runtimePath } from '../config/runtime-path';
 import { log as defaultLog } from '../log';
 
 // Photo thumbnails (TSK-10.13, review focus 8). A thumbnail is a separate file, never the original:
@@ -50,7 +51,7 @@ function sharpThumb(input: Buffer): Promise<Buffer> {
 }
 
 function inside(root: string, rel: string): string {
-  const abs = resolve(root, rel);
+  const abs = runtimePath(root, rel);
   const r = relative(root, abs);
   if (r.startsWith('..') || isAbsolute(r)) throw new Error('media path is outside the data directory');
   return abs;
@@ -119,7 +120,7 @@ async function make(abs: string, original: string, deps: ThumbDeps, log: Log): P
 /** The thumbnail bytes for a stored photo (made and cached on first use). */
 export async function thumbnail(dataDir: string, m: { path: string; sha256: string; thumbPath: string | null }, deps: ThumbDeps = {}): Promise<Buffer> {
   const log: Log = deps.log ?? defaultLog;
-  const root = resolve(dataDir);
+  const root = runtimePath(dataDir); // a run-time location: never traced (EXE39)
   const abs = inside(root, m.thumbPath ?? join('thumbs', m.sha256.slice(0, 2), `${m.sha256}.jpg`));
   const original = inside(root, m.path);
   const cached = await readCached(abs);

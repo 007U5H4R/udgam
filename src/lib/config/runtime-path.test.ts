@@ -20,6 +20,16 @@ describe('runtimePath', () => {
   });
 });
 
+describe('every DATA_DIR root goes through runtimePath (EXE39, CR-004)', () => {
+  // The media store, the thumbnail cache and the staging area build their paths from DATA_DIR. A bare
+  // path.resolve/join there is one literal segment away from re-tracing ./data into a route artifact.
+  it.each(['src/lib/media/store.ts', 'src/lib/media/thumbs.ts', 'src/lib/capture/staging.ts'])('%s imports runtimePath and has no bare resolve()', (file) => {
+    const src = readFileSync(file, 'utf8');
+    expect(src).toMatch(/import \{ runtimePath \} from '\.\.\/config\/runtime-path';/);
+    expect(src).not.toMatch(/(?<![.\w])resolve\(/);
+  });
+});
+
 describe('DATA_DIR paths keep their documented defaults', () => {
   it('evmPaths: deployment.json and the operator key under DATA_DIR, or the override', () => {
     expect(evmPaths({ DATA_DIR: '/srv/udgam' })).toEqual({

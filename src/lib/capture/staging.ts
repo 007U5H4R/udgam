@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, open, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { and, count, eq, gt, inArray, lte, ne } from 'drizzle-orm';
+import { runtimePath } from '../config/runtime-path';
 import { sha256Hex } from '../crypto';
 import { writeTx, type Db } from '../db/client';
 import { devices, stagedMedia } from '../db/schema';
@@ -108,9 +109,9 @@ async function unlinkIfPresent(abs: string): Promise<void> {
 }
 
 export function localStagingStore(dataDir: string): StagingStore {
-  const root = resolve(dataDir);
+  const root = runtimePath(dataDir); // a run-time location: never traced (EXE39)
   const inside = (rel: string) => {
-    const abs = resolve(root, rel);
+    const abs = runtimePath(root, rel);
     const r = relative(root, abs);
     const [top, ...rest] = r.split(sep);
     if (r === '' || isAbsolute(r) || top !== 'staging' || rest.length === 0) throw new Error('staged path is outside the staging area');
@@ -165,7 +166,7 @@ export function localStagingStore(dataDir: string): StagingStore {
       const out: { path: string; mtimeMs: number }[] = [];
       let agents: string[];
       try {
-        agents = await readdir(join(root, 'staging'));
+        agents = await readdir(runtimePath(root, 'staging'));
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code === 'ENOENT') return out;
         throw err;
@@ -173,7 +174,7 @@ export function localStagingStore(dataDir: string): StagingStore {
       for (const agent of agents) {
         let names: string[];
         try {
-          names = await readdir(join(root, 'staging', agent));
+          names = await readdir(runtimePath(root, 'staging', agent));
         } catch {
           continue; // not a folder, or gone meanwhile
         }
