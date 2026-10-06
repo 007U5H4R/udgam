@@ -231,7 +231,7 @@ A bump is a deliberate commit, never a rebuild that happens to pull something ne
 
 ### Done locally (x86_64 cloud VM, Docker 29, Caddy 2.11.7, 2026-10-06)
 
-- **The image builds.** `check-trace` passes on 92 traces. `check-standalone` passes: 60.7 MB, no
+- **The image builds.** `check-trace` passes on 92 traces. `check-standalone` passes: 65.2 MB with the bundled tools, no
   whole-project trace (QA-M002-3).
 - **The image runs.** `require('sharp')` loads, the user is uid 10001, and the code is read-only.
   Migrations run and `/api/health` returns 200 within about 2 s.
@@ -246,7 +246,10 @@ A bump is a deliberate commit, never a rebuild that happens to pull something ne
 - **The bootstrap is idempotent** in a privileged `ubuntu:24.04` container with a loop-device volume.
   `systemctl` is a no-op there.
 - **The backup and restore drill passes.** A certificate's proof feed verifies 18/18 after the restore,
-  with the same kid, byte for byte.
+  with the same kid, byte for byte. Re-run at the M-003 gate on the integration image (QA-M003-001: the
+  drill had kept http:// URLs, which DES-219 now refuses): `tests/deploy/drill/restore-drill.sh <dir>`
+  needs `udgam-app:current` tagged (backup.sh snapshots with it); `UDGAM_DRILL_IMAGE` overrides the
+  image the drill serves.
 - **The deploy cycle works.** It was run as: deploy HEAD, deploy a broken build (auto-rollback),
   deploy HEAD~1, `--rollback`, then `--rollback --restore-db`.
 - **Script tests.** The failure paths of `backup.sh`, `restore.sh`, `deploy.sh` and `compose.sh` run

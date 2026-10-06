@@ -24,15 +24,16 @@ start_app() { # name port data-dir
   BETTER_AUTH_SECRET="$(openssl rand -hex 32)"
   export BETTER_AUTH_SECRET
   docker run -d --name "$1" -p "127.0.0.1:$2:3000" -v "$3:/data" -e BETTER_AUTH_SECRET \
-    -e BETTER_AUTH_URL="http://localhost:$2" -e PUBLIC_BASE_URL="http://localhost:$2" \
+    -e BETTER_AUTH_URL="https://localhost:$2" -e PUBLIC_BASE_URL="https://localhost:$2" \
     -e REMOTE_SENSING_PROVIDER=live -e GFW_API_KEY=local-placeholder -e CDSE_CLIENT_ID=local-placeholder \
-    -e CDSE_CLIENT_SECRET=local-placeholder udgam-app:current >/dev/null
+    -e CDSE_CLIENT_SECRET=local-placeholder "${UDGAM_DRILL_IMAGE:-udgam-app:current}" >/dev/null
   unset BETTER_AUTH_SECRET
   for _ in $(seq 1 60); do
     [ "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$2/api/health")" = 200 ] && return 0
     sleep 1
   done
-  echo "app $1 not healthy" >&2
+  echo "app $1 not healthy; its last log lines (names only, never values, EXE55):" >&2
+  docker logs --tail 40 "$1" >&2 || true
   return 1
 }
 
