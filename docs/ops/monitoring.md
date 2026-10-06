@@ -166,7 +166,7 @@ That advisory is GHSA-67mh-4wv8-2f99 (esbuild ≤ 0.24.2, its dev server), reach
 
 ## 7. Production configuration (TSK-28.1, TC-092)
 
-`deploy/app.env.example` lists every variable by name, with no values. The owner copies it to `/etc/udgam/app.env` (0600 root) on the instance and fills it in there. `BETTER_AUTH_SECRET` comes from `openssl rand -base64 32`, run on the instance. Production refuses to start without the following:
+`deploy/app.env.example` lists every variable by name, with no values. The owner copies it to `/etc/udgam/app.env` (0600 root) on the instance and fills it in there. `BETTER_AUTH_SECRET` comes from `openssl rand -base64 32`, run on the instance. Without any of the following, production does not serve: the server stays up, every page answers 500, `/api/health` answers 503 `config:"error"`, and the log's `config.invalid` names the variable (§1):
 - `BETTER_AUTH_SECRET`;
 - `REMOTE_SENSING_PROVIDER=live` and its three keys (EXE12);
 - absolute `https://` values for `PUBLIC_BASE_URL` and `BETTER_AUTH_URL` (DES-219).
