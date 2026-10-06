@@ -35,6 +35,17 @@ Every command below runs as root. Start a root shell once with `sudo -i`, as the
 - **Migrations run at boot, with the app's own runner (EXE29).** The entrypoint runs `migrate.mjs`, a
   bundle of `src/lib/db/migrate.ts`, before `node server.js`. It never runs `drizzle-kit migrate`.
   Migrations are forward-only: a failed migration stops the container from starting.
+- **An invalid configuration stops the container (EXE55).** Before migrating, the entrypoint runs
+  `config-check.mjs`. With an invalid `app.env` it prints one line, `config.invalid: <variable
+  names>` (never a value), and exits 1. `restart: unless-stopped` then restarts it in a loop: a
+  deploy's gate fails at once on `restarting` and rolls back, Caddy answers 502 meanwhile, and the
+  uptime probe alerts. Read the line with
+  `deploy/compose.sh logs --no-log-prefix app | grep '^config.invalid' | tail -1`. Outside the
+  container, a plain `next start` stays up and answers 503 `config:"error"` instead
+  (`docs/ops/monitoring.md` §1).
+- **The image's operator tools** are bundled `.mjs` files beside `server.js`
+  (`deploy/build-tools.mjs`): `migrate.mjs`, `config-check.mjs`, and the accounts CLI
+  `accounts-create.mjs` and `accounts-set-password.mjs` (`docs/ops/monitoring.md` §5).
 - **Secrets stay in `/etc/udgam/app.env`** (0600 root). The owner types them in on the instance. They
   are never echoed, committed or pasted into a session.
   - Validate the stack with **`deploy/compose.sh config --quiet` only**.
@@ -91,7 +102,7 @@ A deploy runs these steps:
    becomes the one `--restore-db` uses only at this point.
 6. It runs `up -d`. If that fails, the gate fails, and compose's error stays on the terminal.
 7. It waits up to 90 s for the app container to run exactly `:current`'s image and report healthy.
-   A crash loop fails at once.
+   A crash loop fails at once, including an invalid `app.env` (the `config.invalid` line, EXE55).
 8. If the gate fails, it puts both tags back as they were, brings the old image up through the same
    gate, and exits 1.
 

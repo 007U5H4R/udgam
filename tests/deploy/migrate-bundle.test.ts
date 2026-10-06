@@ -66,3 +66,27 @@ describe('the bundled migration runner', () => {
     expect(r.stderr).toContain('BETTER_AUTH_SECRET');
   });
 });
+
+// EXE55: the entrypoint runs config-check.mjs before migrate.mjs. An invalid environment stops the
+// container with one `config.invalid: <names>` line on stderr: never a value, never a stack trace.
+describe('the bundled configuration check', () => {
+  const check = (env: Record<string, string>) =>
+    spawnSync('node', [join(OUT_DIR, 'config-check.mjs')], { encoding: 'utf8', env: { NODE_ENV: 'test', PATH: process.env.PATH ?? '', ...env } });
+  /** Made-up values, built at run time, that must never be printed. */
+  const fake = (n: string) => ['fake', 'value', n].join('-');
+
+  it('exits 0 and prints nothing for a valid environment', () => {
+    const r = check({ NODE_ENV: 'test', DATA_DIR: dataDir });
+    expect(r.stdout + r.stderr).toBe('');
+    expect(r.status).toBe(0);
+  });
+
+  it('exits 1 with exactly one line naming the variables, and no value', () => {
+    const env = { NODE_ENV: 'production', REMOTE_SENSING_PROVIDER: 'live', GFW_API_KEY: fake('gfw'), CDSE_CLIENT_ID: fake('id'), PUBLIC_BASE_URL: `http://${fake('host')}.example` };
+    const r = check(env);
+    expect(r.status).toBe(1);
+    expect(r.stdout).toBe('');
+    expect(r.stderr).toBe('config.invalid: BETTER_AUTH_SECRET, BETTER_AUTH_URL, PUBLIC_BASE_URL, CDSE_CLIENT_SECRET\n');
+    expect(r.stderr).not.toContain('fake-value');
+  });
+});

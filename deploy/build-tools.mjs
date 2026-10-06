@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Bundle the operator tools that run inside the production image (TSK-27.1, EXE29, SEC-001).
+// Bundle the operator tools that run inside the production image (TSK-27.1, EXE29, SEC-001, EXE55).
 //
 // Usage: node deploy/build-tools.mjs [outdir]   (default .next/standalone)
 //
@@ -7,6 +7,8 @@
 // bundled into one self-contained .mjs next to server.js (/app in the image):
 //   migrate.mjs                the entrypoint's migration runner (`pnpm db:migrate`, src/lib/db/migrate.ts;
 //                              every committed migration, then the yield reference), never drizzle-kit;
+//   config-check.mjs           the entrypoint's configuration check: exit 0, or one `config.invalid: <names>`
+//                              line and exit 1, never a value (EXE55);
 //   accounts-create.mjs        `pnpm accounts:create` (SEC-001), Better Auth's own password hashing bundled in;
 //   accounts-set-password.mjs  `pnpm accounts:set-password`.
 // Their pure-JS imports (drizzle-orm, zod, better-auth/crypto, the schema) go into the file.
@@ -25,6 +27,7 @@ import { pathToFileURL } from 'node:url';
 /** Bundle name → its entry point. */
 export const TOOLS = {
   'migrate.mjs': 'src/lib/db/migrate.ts',
+  'config-check.mjs': 'src/lib/config/check.ts',
   'accounts-create.mjs': 'scripts/accounts-create.ts',
   'accounts-set-password.mjs': 'scripts/accounts-set-password.ts',
 };

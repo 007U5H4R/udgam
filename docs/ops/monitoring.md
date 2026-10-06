@@ -22,11 +22,21 @@ jl() { dc logs --no-log-prefix "$@" | grep '^{'; }   # bare JSON log lines, for 
 | `disk` | `ok`, `low`, `unknown` | **none** (a degraded component, SEC-003); the uptime probe alerts on anything but `ok` |
 | `version`, `commit` | the package version and the build's commit | none |
 
-- **Invalid configuration (QA-P5-4).** A missing secret, the fixture provider, or a non-https `PUBLIC_BASE_URL` or `BETTER_AUTH_URL` (DES-219) is caught at boot. The server logs `config.invalid` once and skips the migrations. It stays up, every page answers 500, and `/api/health` answers 503 `{"config":"error","db":"unchecked"}`. EXE12 makes the server refuse to run with such a configuration, but it does not require the process to exit. A crash loop would hide the cause, so the server stays up. The Compose healthcheck (it needs a 200) then marks the container `unhealthy`, and the uptime probe alerts. To see which variable is wrong (the log gives names, never values), run:
-  ```sh
-  jl app | jq -r 'select(.msg == "config.invalid") | .problem' | tail -1
-  ```
-  Before this fix, an invalid configuration made the hook throw, and every route answered a bare `500 Internal Server Error`. Local evidence from a production build at 43c5c22, with no auth secret, the fixture provider and no https URLs: `/api/health` answers 503 with `{"config":"error","db":"unchecked",…}`, the process stays alive, and the log shows `config.invalid` ×1.
+- **Invalid configuration (QA-P5-4, EXE55).** A missing secret, the fixture provider, or a non-https `PUBLIC_BASE_URL` or `BETTER_AUTH_URL` (DES-219) is caught before anything is served. What happens next depends on how the server runs:
+  - **In the production container** (`deploy/docker-compose.yml`), the entrypoint checks the configuration first (`/app/config-check.mjs`), before the migrations. It prints one line naming the variables, never their values, and the container exits 1:
+    ```
+    config.invalid: BETTER_AUTH_SECRET, PUBLIC_BASE_URL
+    ```
+    Under `restart: unless-stopped` the container then restarts and fails again. During a deploy, `scripts/deploy.sh`'s gate sees `restarting` at once and rolls back to the previous image. Outside a deploy (an `app.env` edit followed by `up -d`), the app stays down: Caddy answers 502, `deploy/compose.sh ps` shows the app `restarting`, and the uptime probe alerts. To see which variables are wrong, run:
+    ```sh
+    deploy/compose.sh logs --no-log-prefix app | grep '^config.invalid' | tail -1
+    ```
+    Fix them in `/etc/udgam/app.env`, then run `deploy/compose.sh up -d app`.
+  - **Outside the container** (a plain `next start`, for example the Playwright server or a development checkout), the server logs `config.invalid` once (a JSON line at fatal level, with names and rule codes in `.problem`) and skips the migrations. It stays up, every page answers 500, and `/api/health` answers 503 `{"config":"error","db":"unchecked"}` (EXE54). A crash loop would hide the cause there, because no deploy gate or restart policy watches it. To read the line, run:
+    ```sh
+    jl app | jq -r 'select(.msg == "config.invalid") | .problem' | tail -1
+    ```
+    Local evidence from a production build at 43c5c22, with no auth secret, the fixture provider and no https URLs: `/api/health` answers 503 with `{"config":"error","db":"unchecked",…}`, the process stays alive, and the log shows `config.invalid` ×1.
 - **Disk (SEC-003).** The check reads free bytes on `DATA_DIR`'s filesystem (`fs.statfs`: available blocks × block size) and compares them with `HEALTH_MIN_FREE_DISK_BYTES`, default 10 GiB. Below that, the check reports `disk:"low"` and logs `health.disk_low {freeBytes, thresholdBytes}`. When the filesystem cannot be read, it reports `disk:"unknown"` and logs `health.disk_unknown`. The public body never shows the numbers.
 
 ## 2. Uptime probe and alerting (TSK-28.3, TC-090)
@@ -100,7 +110,7 @@ dc logs --since 24h caddy                                          # the proxy's
 
 | Area | Events |
 |---|---|
-| Boot and config | `config.invalid` (fatal, QA-P5-4), `db.migrated`, `db.pragma_failed`, `auth.dev_secret` (never in production) |
+| Boot and config | `config.invalid` (in the container: the entrypoint's plain `config.invalid: <names>` line, EXE55; elsewhere: fatal, QA-P5-4), `db.migrated`, `db.pragma_failed`, `auth.dev_secret` (never in production) |
 | Health | `health.config_invalid`, `health.db_ping_failed`, `health.ledger_failed`, `health.ledger_key_missing`, `health.disk_low`, `health.disk_unknown`, `ledger.key_mismatch`, `ledger.key_unavailable` |
 | Verification | `verification.completed` (technical-plan §15) is **not emitted** yet: there is no per-run log line with verdict, score and check durations. Read verdicts from the database or the admin queue. The gap is recorded in the ledger. |
 | Capture | `capture.refused` (`reason`, `status`, `anchored`), `capture.budget_exhausted` (SEC-003), `capture.busy`, `capture.failed`, `capture.route_failed`, `capture.idempotent_replay`, `capture.idempotent_race`, `capture.refund_failed`, `capture.media_cleanup_failed`, `capture.staged_cleanup_failed`, `capture.emit_failed` |
@@ -189,7 +199,7 @@ That advisory is GHSA-67mh-4wv8-2f99 (esbuild ≤ 0.24.2, its dev server), reach
 
 ## 7. Production configuration (TSK-28.1, TC-092)
 
-`deploy/app.env.example` lists every variable by name, with no values. The owner copies it to `/etc/udgam/app.env` (0600 root) on the instance and fills it in there. `BETTER_AUTH_SECRET` comes from `openssl rand -base64 32`, run on the instance. Without any of the following, production does not serve: the server stays up, every page answers 500, `/api/health` answers 503 `config:"error"`, and the log's `config.invalid` names the variable (§1):
+`deploy/app.env.example` lists every variable by name, with no values. The owner copies it to `/etc/udgam/app.env` (0600 root) on the instance and fills it in there. `BETTER_AUTH_SECRET` comes from `openssl rand -base64 32`, run on the instance. Without any of the following, production does not serve: the app container stops at its entrypoint and restarts in a loop, and its log's `config.invalid: <names>` line names the variables (§1). A deploy with such a configuration rolls back:
 - `BETTER_AUTH_SECRET`;
 - `REMOTE_SENSING_PROVIDER=live` and its three keys (EXE12);
 - absolute `https://` values for `PUBLIC_BASE_URL` and `BETTER_AUTH_URL` (DES-219).

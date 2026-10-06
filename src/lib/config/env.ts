@@ -119,14 +119,30 @@ const schema = base
 
 export type Env = Readonly<z.output<typeof schema>>;
 
+function parseEnv(src: Record<string, string | undefined>) {
+  const cleaned: Record<string, string> = {};
+  for (const [k, v] of Object.entries(src)) if (v !== undefined && v !== '') cleaned[k] = v;
+  return schema.safeParse(cleaned);
+}
+
+/**
+ * The variables that fail validation, each once, in the schema's order (EXE55: the container's
+ * `config.invalid` line). Names only: no value, rule or message.
+ */
+export function invalidEnvNames(src: Record<string, string | undefined>): string[] {
+  const result = parseEnv(src);
+  if (result.success) return [];
+  const failing = new Set(result.error.issues.map((i) => (i.path.length > 0 ? String(i.path[0]) : '(env)')));
+  const rank = (n: string) => (VARIABLE_NAMES.includes(n) ? VARIABLE_NAMES.indexOf(n) : VARIABLE_NAMES.length);
+  return [...failing].sort((a, b) => rank(a) - rank(b));
+}
+
 /**
  * Validate a variable source. Empty strings count as unset (a copied `.env.example` has `NAME=`).
  * Errors name variables and rule codes only, never values.
  */
 export function loadEnv(src: Record<string, string | undefined>): Env {
-  const cleaned: Record<string, string> = {};
-  for (const [k, v] of Object.entries(src)) if (v !== undefined && v !== '') cleaned[k] = v;
-  const result = schema.safeParse(cleaned);
+  const result = parseEnv(src);
   if (result.success) return result.data;
   const problems = result.error.issues.map((i) => {
     const name = i.path.join('.') || '(env)';
