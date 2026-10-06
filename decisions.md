@@ -1151,3 +1151,6 @@ baseline-v1 is frozen (EV13, EXE34).
 - **HR1 (evidence-template snapshots), HR2 (known-limitations and pruning/clearing wording) and HR6 (number traceability)** in `docs/exec/m-001-gate.md` are accepted as written, after an independent check that every HR6 number matches its results file.
 - **D9/D10 (M-002 design addendum) and EXE24–EXE42** are confirmed as they stand. The Stage 8 critique exercised their screens (T1–T4 faithful to `contract.html`).
 - **Not delegable:** the Kannada native review (617 strings marked `REVIEW: native speaker`) needs a native speaker, and stays a pre-pilot human item.
+
+## EXE44 · Owner waiver: go straight from Stage 8 into Stage 9 — accepted (owner, 2026-10-06)
+**Decision (owner).** "Once Stage 8 is done, move to Stage 9. Don't wait for my approval." Stage 8 closes on a clean re-run, every DES resolved or parked with a reason. Then HANDOFF.md is rewritten and Stage 9 (`bw-code-review-test-eval`) starts in the same session. The owner's review items stay listed in HANDOFF and are not treated as approved, except where EXE43 decided them.
