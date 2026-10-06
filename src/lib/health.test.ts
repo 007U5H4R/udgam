@@ -84,3 +84,20 @@ describe('health (TC-001 core)', () => {
     }
   });
 });
+
+describe('disk (SEC-003)', () => {
+  it('reports the disk check as a degraded component: low free space is in the body but keeps 200', async () => {
+    const ok = await health({ ...base, ping: async () => {}, disk: 'ok' });
+    expect(ok.status).toBe(200);
+    expect(ok.body.disk).toBe('ok');
+    const low = await health({ ...base, ping: async () => {}, disk: 'low' });
+    expect(low.status).toBe(200); // the app still works; the uptime probe alerts on disk != "ok" (TKT-28)
+    expect(low.body.disk).toBe('low');
+    const unknown = await health({ ...base, ping: async () => {}, disk: 'unknown' });
+    expect(unknown.body.disk).toBe('unknown');
+  });
+
+  it('leaves disk out when the route does not report it', async () => {
+    expect('disk' in (await health({ ...base, ping: async () => {} })).body).toBe(false);
+  });
+});

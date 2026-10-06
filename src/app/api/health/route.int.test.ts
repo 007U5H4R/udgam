@@ -137,4 +137,24 @@ describe('GET /api/health (TC-001)', () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it('reports disk:"ok" above HEALTH_MIN_FREE_DISK_BYTES and disk:"low" below it, still 200, logging health.disk_low with the numbers (SEC-003)', async () => {
+    vi.stubEnv('HEALTH_MIN_FREE_DISK_BYTES', '1');
+    const ok = await (await import('./route')).GET();
+    expect(ok.status).toBe(200);
+    expect(((await ok.json()) as { disk: string }).disk).toBe('ok');
+
+    (await import('../../../lib/db/client')).closeDb();
+    const warn = vi.fn();
+    vi.doMock('../../../lib/log', async (importOriginal) => {
+      const real = await importOriginal<typeof import('../../../lib/log')>();
+      return { ...real, log: new Proxy(real.log, { get: (l, p) => (p === 'warn' ? warn : Reflect.get(l, p)) }) };
+    });
+    vi.stubEnv('HEALTH_MIN_FREE_DISK_BYTES', String(Number.MAX_SAFE_INTEGER));
+    vi.resetModules();
+    const low = await (await import('./route')).GET();
+    expect(low.status).toBe(200);
+    expect(((await low.json()) as { disk: string }).disk).toBe('low');
+    expect(warn).toHaveBeenCalledWith(expect.objectContaining({ thresholdBytes: Number.MAX_SAFE_INTEGER, freeBytes: expect.any(Number) }), 'health.disk_low');
+  });
 });

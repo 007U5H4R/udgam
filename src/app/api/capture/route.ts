@@ -1,4 +1,5 @@
 import { AuthError, authErrorResponse } from '../../../lib/auth/guards';
+import { agentUsageToday, budgetFromEnv, overBudget } from '../../../lib/capture/budget';
 import { acquireCaptureSlot } from '../../../lib/capture/in-flight';
 import { BODY_READ_DEADLINE_MS, BUSY_RETRY_AFTER_SEC } from '../../../lib/capture/limits';
 import { checkContentLength } from '../../../lib/capture/parse';
@@ -39,7 +40,7 @@ function refusal(e: Extract<CaptureEvent, { t: 'rejected' }>): Response {
  * the first line: a boundary refusal answers 4xx; a capture that reaches verification streams 200.
  * Needs an agent session (401/403 JSON otherwise) and a device enrolled to that agent (§10).
  * Before the body is read (TSK-19.2/19.3): 411 without Content-Length, 413 above the body cap, 429 (with
- * Retry-After) past the per-address limit, then 503 (with Retry-After) when this agent already has
+ * Retry-After) past the per-address limit or the agent's daily capture budget (SEC-003), then 503 (with Retry-After) when this agent already has
  * MAX_CAPTURES_PER_AGENT captures in flight or the process has MAX_CAPTURES_IN_FLIGHT (fix rounds 1-2).
  * The checks that cost no slot come first, so a refused request never holds one. The slot is held until
  * the capture's stream ends; a body that has not arrived within BODY_READ_DEADLINE_MS answers 408.
@@ -67,6 +68,21 @@ export async function POST(req: Request): Promise<Response> {
     return new Response(line({ t: 'error', retryable: true }), { status: 503, headers: HEADERS });
   }
   if (!perIp.ok) return refusal({ t: 'rejected', reason: 'rate_limited', status: 429, retryAfterSec: perIp.retryAfterSec });
+
+  // SEC-003: this agent's daily budget of accepted captures and photo bytes, from what is stored. Over it,
+  // the same retryable 429 as the per-address limit: the phone keeps the picking and sends it after
+  // the India midnight (it waits at most MAX_RETRY_WAIT_SEC between tries, refused unread each time).
+  let over: ReturnType<typeof overBudget>;
+  try {
+    const budget = budgetFromEnv(env);
+    const usage = await agentUsageToday(db, agent.userId, ip.at);
+    over = overBudget(usage, budget, ip.at);
+    if (over) log.warn({ budget: over.which, ...usage, ...budget }, 'capture.budget_exhausted');
+  } catch (err) {
+    log.error(errFields(err), 'capture.route_failed');
+    return new Response(line({ t: 'error', retryable: true }), { status: 503, headers: HEADERS });
+  }
+  if (over) return refusal({ t: 'rejected', reason: 'rate_limited', status: 429, retryAfterSec: over.retryAfterSec });
 
   const slot = acquireCaptureSlot(agent.userId);
   if (!slot.ok) {

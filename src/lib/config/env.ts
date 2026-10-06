@@ -29,6 +29,13 @@ const base = z.object({
   EVM_OPERATOR_KEY_PATH: z.string().min(1).optional(),
   LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
   DEMO_MODE: z.enum(['0', '1']).default('0'),
+  // SEC-003 (TKT-28): each agent's daily budget of accepted captures and of their photo bytes
+  // (src/lib/capture/budget.ts). Defaults sized from EV9's 3 × 4 MB placeholder: 100 captures, 1.2 GiB.
+  CAPTURE_DAILY_MAX_CAPTURES: z.coerce.number().int().positive().default(100),
+  CAPTURE_DAILY_MAX_BYTES: z.coerce.number().int().positive().default(100 * 3 * 4 * 1024 * 1024),
+  // SEC-003: /api/health reports disk:"low" below this many free bytes on DATA_DIR's filesystem (10 GiB:
+  // over a day of every pilot agent at the full budget). 0 turns the check's threshold off.
+  HEALTH_MIN_FREE_DISK_BYTES: z.coerce.number().int().nonnegative().default(10 * 1024 ** 3),
   // Test-only surfaces (/__test__/*) exist only when E2E=1 (technical-plan §1). Set by the Playwright
   // webServer; never set in production, so it is not listed in .env.example.
   E2E: z.enum(['0', '1']).default('0'),

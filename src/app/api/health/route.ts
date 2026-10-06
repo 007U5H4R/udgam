@@ -3,13 +3,13 @@ import pkg from '../../../../package.json';
 import { env } from '../../../lib/config/env';
 import { getDbReady } from '../../../lib/db/client';
 import { health, type HealthBody, type LedgerHealth } from '../../../lib/health';
+import { diskHealth, type DiskStatus } from '../../../lib/health-disk';
 import { ledgerHealth, ledgerKeyPresent } from '../../../lib/ledger/health';
 import { errFields, log } from '../../../lib/log';
 import { providerHealth } from '../../../lib/remote-sensing';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
 
 export async function GET(): Promise<Response> {
   // Configuration is read inside the try block: an invalid environment answers 503 with
@@ -36,6 +36,16 @@ export async function GET(): Promise<Response> {
     if (!ledger.keyPresent) log.error('health.ledger_key_missing');
   }
 
+  // SEC-003: free space on DATA_DIR. The numbers are logged, the public body says only ok/low/unknown.
+  let disk: DiskStatus | undefined;
+  if (config === 'ok') {
+    const thresholdBytes = env.HEALTH_MIN_FREE_DISK_BYTES;
+    const d = await diskHealth(env.DATA_DIR, thresholdBytes);
+    disk = d.status;
+    if (d.status === 'low') log.warn({ freeBytes: d.freeBytes, thresholdBytes }, 'health.disk_low');
+    else if (d.status === 'unknown') log.warn('health.disk_unknown');
+  }
+
   const { status, body } = await health({
     config,
     ping: async () => {
@@ -52,6 +62,7 @@ export async function GET(): Promise<Response> {
     commit: process.env.UDGAM_COMMIT ?? 'unknown',
     providers,
     ledger,
+    disk,
   });
   return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
 }

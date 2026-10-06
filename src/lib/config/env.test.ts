@@ -109,6 +109,24 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ E2E_FIXTURE_DELAY_MS: '1.5' })).toThrow(/E2E_FIXTURE_DELAY_MS/);
   });
 
+  it('capture budget and disk threshold (SEC-003): conservative defaults, positive whole numbers when set', () => {
+    const d = loadEnv({});
+    expect(d.CAPTURE_DAILY_MAX_CAPTURES).toBe(100);
+    expect(d.CAPTURE_DAILY_MAX_BYTES).toBe(100 * 3 * 4 * 1024 * 1024); // EV9: 3 photos × 4 MB placeholder
+    expect(d.HEALTH_MIN_FREE_DISK_BYTES).toBe(10 * 1024 ** 3);
+    const set = loadEnv({ CAPTURE_DAILY_MAX_CAPTURES: '40', CAPTURE_DAILY_MAX_BYTES: '500000000', HEALTH_MIN_FREE_DISK_BYTES: '0' });
+    expect([set.CAPTURE_DAILY_MAX_CAPTURES, set.CAPTURE_DAILY_MAX_BYTES, set.HEALTH_MIN_FREE_DISK_BYTES]).toEqual([40, 500000000, 0]);
+    for (const [name, bad] of [
+      ['CAPTURE_DAILY_MAX_CAPTURES', '0'],
+      ['CAPTURE_DAILY_MAX_CAPTURES', '1.5'],
+      ['CAPTURE_DAILY_MAX_BYTES', '-1'],
+      ['CAPTURE_DAILY_MAX_BYTES', 'lots'],
+      ['HEALTH_MIN_FREE_DISK_BYTES', '-5'],
+    ] as const) {
+      expect(() => loadEnv({ [name]: bad }), `${name}=${bad}`).toThrow(new RegExp(name));
+    }
+  });
+
   it('never puts values in error messages', () => {
     const secret = 'canary-'.repeat(6); // low-entropy on purpose: not scan bait
     for (const src of [
