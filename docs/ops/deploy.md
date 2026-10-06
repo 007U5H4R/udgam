@@ -309,9 +309,10 @@ docker run -d --name udgam-drill --network none --read-only --tmpfs /tmp --tmpfs
   -e LEDGER_ADAPTER=hashchain -v "$drill:/data" udgam-app:current
 # --network none and no -p: never published, and it can never reach production's Anvil or the
 # providers. Its provider status reads "error", which doesn't affect /api/health's 200.
-# Wait at most 3 minutes for healthy; if it never gets there, the last log lines say why.
+# Wait at most 3 minutes for healthy. If it never gets there, STOP: the last log lines say why. Record
+# the failure, then clean up with the last line of this block (docker rm -f …; rm -rf …).
 timeout 180 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" udgam-drill)" = healthy ]; do sleep 2; done' ||
-  { echo "drill app not healthy within 180 s"; docker logs --tail 50 udgam-drill; }
+  { echo "drill app not healthy within 180 s: STOP HERE"; docker logs --tail 50 udgam-drill; }
 docker exec udgam-drill node -e "fetch('http://127.0.0.1:3000/api/verify/<batchId>?h=<shortHash>').then(r=>r.text()).then(t=>require('fs').writeFileSync('/tmp/feed.json',t))"
 docker exec udgam-drill node -e "fetch('http://127.0.0.1:3000/.well-known/udgam-ledger-key').then(r=>r.text()).then(t=>require('fs').writeFileSync('/tmp/keys.json',t))"
 # Copy both out BEFORE removing the container: its /tmp is a tmpfs and goes with it.

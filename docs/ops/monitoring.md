@@ -32,9 +32,9 @@ jl() { dc logs --no-log-prefix "$@" | grep '^{'; }   # bare JSON log lines, for 
     deploy/compose.sh logs --no-log-prefix app | grep '^config.invalid' | tail -1
     ```
     Fix them in `/etc/udgam/app.env`, then run `deploy/compose.sh up -d app`.
-  - **Outside the container** (a plain `next start`, for example the Playwright server or a development checkout), the server logs `config.invalid` once (a JSON line at fatal level, with names and rule codes in `.problem`) and skips the migrations. It stays up, every page answers 500, and `/api/health` answers 503 `{"config":"error","db":"unchecked"}` (EXE54). A crash loop would hide the cause there, because no deploy gate or restart policy watches it. To read the line, run:
+  - **Outside the container** (a plain `next start`, for example the Playwright server or a development checkout), the server logs `config.invalid` once (a JSON line at fatal level, with names and rule codes in `.problem`) and skips the migrations. It stays up, every page answers 500, and `/api/health` answers 503 `{"config":"error","db":"unchecked"}` (EXE54). A crash loop would hide the cause there, because no deploy gate or restart policy watches it. The line goes to that process's stdout. If it was started as `next start >server.log 2>&1`, for example, read it with:
     ```sh
-    jl app | jq -r 'select(.msg == "config.invalid") | .problem' | tail -1
+    grep '^{' server.log | jq -r 'select(.msg == "config.invalid") | .problem' | tail -1
     ```
     Local evidence from a production build at 43c5c22, with no auth secret, the fixture provider and no https URLs: `/api/health` answers 503 with `{"config":"error","db":"unchecked",…}`, the process stays alive, and the log shows `config.invalid` ×1.
 - **Disk (SEC-003).** The check reads free bytes on `DATA_DIR`'s filesystem (`fs.statfs`: available blocks × block size) and compares them with `HEALTH_MIN_FREE_DISK_BYTES`, default 10 GiB. Below that, the check reports `disk:"low"` and logs `health.disk_low {freeBytes, thresholdBytes}`. When the filesystem cannot be read, it reports `disk:"unknown"` and logs `health.disk_unknown`. The public body never shows the numbers.
@@ -174,7 +174,7 @@ deploy/compose.sh exec -T app cat /run/udgam/udgam-password-<random>.txt    # th
 deploy/compose.sh exec -T app rm /run/udgam/udgam-password-<random>.txt
 ```
 
-- The container's root filesystem is read-only and has no capabilities, so `--out` has exactly two places to write: `/run/udgam`, a tmpfs that `deploy/docker-compose.yml` mounts for this, and `/tmp`. Use `/run/udgam`. `/data` is refused, because it is backed up and readable by the app. The tmpfs is emptied whenever the container restarts.
+- Use `--out /run/udgam`: a tmpfs that `deploy/docker-compose.yml` mounts for this (memory only, 0700, the app user), emptied whenever the container restarts. The container's root filesystem is read-only, so most other paths fail to write. The CLI itself refuses only a directory inside `/data` (`DATA_DIR`), because it is backed up and readable by the app.
 - The password is never an argument. Any `--password…` option, or a `-p…`/`-P…` option, is refused, while a value such as `--name -Priya` is accepted. It never appears in a log or in the JSON summary line.
 - `--password-stdin` reads the first line and is refused on a terminal, because the password would echo. Without it and without a terminal, the command refuses to run unless `--out` is given. The password file is named `udgam-password-<random>.txt` (never the email), mode 0600, and only its path is printed. If the run is interrupted (Ctrl-C, SIGTERM) or the account write fails, the file is removed. Once the account is written, it is kept.
 - No two accounts may share a password (`password_in_use`). Roles fit their organisation: agent and admin belong to an FPO, buyer to a buyer, processor to a processor. Field agents then enrol their phone as usual, with an admin-issued code (TKT-05).
