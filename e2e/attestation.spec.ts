@@ -73,6 +73,7 @@ test.describe('TKT-13 organic certificate as an attestation', () => {
     // the download link returns the exact file to a signed-in admin, and never to a signed-out visitor
     const link = card.getByRole('link', { name: 'Download certificate (PDF)' });
     await expect(link).toHaveCSS('text-decoration-line', 'underline'); // reads as a link without colour
+    expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(48); // DES-116: Design.md §17 target
     const href = await link.getAttribute('href');
     expect(href).toMatch(new RegExp(`^/admin/plots/${plotId}/attestation/AT-[0-9A-Z]{8}$`));
     const file = await page.request.get(href!);
