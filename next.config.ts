@@ -14,6 +14,8 @@ function gitCommit(): string {
 }
 
 const nextConfig: NextConfig = {
+  // No `X-Powered-By: Next.js` on responses (SEC-102): it names the framework for nothing.
+  poweredByHeader: false,
   // exifr probes for fs/zlib with a dynamic require that a bundle cannot satisfy ("Couldn't load fs");
   // loaded natively on the server it finds them (TKT-08, media/exif.ts).
   serverExternalPackages: ["exifr"],

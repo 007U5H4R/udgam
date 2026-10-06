@@ -107,6 +107,10 @@ describe('static security headers (TC-076)', () => {
     );
   });
 
+  it('no X-Powered-By: Next.js on any response (SEC-102)', () => {
+    expect(nextConfig.poweredByHeader).toBe(false);
+  });
+
   // SEC-007 (Stage 10): HSTS from the app as well as the proxy, in a real deployment only. Never in dev,
   // tests or on the Playwright server (E2E=1, a production build served on http://localhost).
   const HSTS = { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' };
