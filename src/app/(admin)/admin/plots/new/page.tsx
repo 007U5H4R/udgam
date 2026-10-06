@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { throwIfForced } from '../../../../../lib/config/test-surfaces';
 import { getDbReady } from '../../../../../lib/db/client';
 import { userName } from '../../../../../lib/enrolment/phones';
 import { tileLayerConfig } from '../../../../../lib/geo/tiles';
@@ -17,8 +18,10 @@ export const metadata: Metadata = { title: 'Add a plot · Udgam' };
 
 export default async function NewPlotPage({ searchParams }: { searchParams: Promise<{ state?: string | string[] }> }) {
   const { orgId, userId } = await requireSession('admin');
+  const { state } = await searchParams;
+  throwIfForced(state); // dev and e2e only: shows the /admin error boundary (CR-100)
   const db = await getDbReady();
-  const list = await loadList(forcedState((await searchParams).state), () => listPlots(db, orgId));
+  const list = await loadList(forcedState(state), () => listPlots(db, orgId));
   const me = await adminName(() => userName(db, userId));
   const farmers = await listFarmers(db, orgId);
   return (

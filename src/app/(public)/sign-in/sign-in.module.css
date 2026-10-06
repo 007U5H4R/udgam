@@ -100,6 +100,13 @@
   font-size: var(--fs-small);
   color: var(--ink);
 }
+/* CR-100: the error boundary's Try again sits at the bottom of the column, like enrol's "Go to Home". */
+.retry {
+  flex: 1 1 auto;
+  display: grid;
+  align-content: end;
+  margin-top: 22px;
+}
 /* DES-220: a certificate visitor who lands here is pointed back to the link or QR code */
 .hint {
   margin: 22px 0 0;

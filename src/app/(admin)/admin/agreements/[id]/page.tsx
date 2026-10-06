@@ -7,6 +7,7 @@ import { RailShell } from '../../../../../components/ui/Rail';
 import { formatInr, istDayLong, istDateTime12 } from '../../../../../lib/agreements/format';
 import { adminStatus, getAgreementView, listFpoAgreements, readyBatch } from '../../../../../lib/agreements/read';
 import { forcedAgreementState } from '../../../../../lib/agreements/view-state';
+import { throwIfForced } from '../../../../../lib/config/test-surfaces';
 import { orgNames } from '../../../../../lib/batches/read';
 import { getDbReady } from '../../../../../lib/db/client';
 import { userName } from '../../../../../lib/enrolment/phones';
@@ -32,7 +33,9 @@ type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<str
 export default async function AdminAgreementPage({ params, searchParams }: Props) {
   const me = await requireSession('admin');
   const { id } = await params;
-  const forced = forcedAgreementState((await searchParams).state);
+  const param = (await searchParams).state;
+  throwIfForced(param); // dev and e2e only: shows the /admin error boundary (CR-100)
+  const forced = forcedAgreementState(param);
   const db = await getDbReady();
   const v = await getAgreementView(db, 'fpo', me.orgId, id);
   if (!v) notFound();

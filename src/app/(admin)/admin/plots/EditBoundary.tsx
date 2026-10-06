@@ -5,7 +5,7 @@ import { PlotEditor } from '../../../../components/admin/PlotEditor';
 import type { TileLayerConfig } from '../../../../lib/geo/tiles';
 import type { PlotPolygon } from '../../../../lib/geo/types';
 import { updatePlotGeometryAction } from './actions';
-import { REASON_TEXT } from './copy';
+import { FAILED_TEXT, REASON_TEXT } from './copy';
 
 // The plot detail's boundary editor: saving anchors plot_edited and marks the registration checks
 // stale (TC-028 edit half); the page then re-renders with the server's area and status.
@@ -21,7 +21,12 @@ export function EditBoundary({ plotId, geometry, tiles }: { plotId: string; geom
       save={{
         label: 'Save boundary',
         run: async (g) => {
-          const r = await updatePlotGeometryAction(plotId, JSON.stringify(g));
+          let r: Awaited<ReturnType<typeof updatePlotGeometryAction>>;
+          try {
+            r = await updatePlotGeometryAction(plotId, JSON.stringify(g));
+          } catch {
+            return FAILED_TEXT; // CR-100: the editor shows it; nothing was saved
+          }
           if (!r.ok) return REASON_TEXT[r.reason];
           router.refresh();
           return null;

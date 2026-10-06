@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { GlassCard } from '../../../../../components/ui/GlassCard';
 import { PlotSvg } from '../../../../../components/ui/PlotSvg';
+import { throwIfForced } from '../../../../../lib/config/test-surfaces';
 import { getDbReady } from '../../../../../lib/db/client';
 import { listAttestations } from '../../../../../lib/attestations/attach';
 import { userName } from '../../../../../lib/enrolment/phones';
@@ -38,9 +39,11 @@ export default async function PlotPage({
 }) {
   const { orgId, userId } = await requireSession('admin');
   const { plotId } = await params;
+  const { state } = await searchParams;
+  throwIfForced(state); // dev and e2e only: shows the /admin error boundary (CR-100)
   const db = await getDbReady();
   const plot = scopedById(await getPlot(db, orgId, plotId));
-  const list = await loadList(forcedState((await searchParams).state), () => listPlots(db, orgId));
+  const list = await loadList(forcedState(state), () => listPlots(db, orgId));
   const me = await adminName(() => userName(db, userId));
   const area = formatHa(plot.areaHa);
   const certificates = await listAttestations(db, orgId, plot.id);

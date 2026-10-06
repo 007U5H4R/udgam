@@ -4,6 +4,7 @@ import { DetailSkeleton, PickHint } from '../../../../components/agreements/part
 import { RailShell } from '../../../../components/ui/Rail';
 import { listFpoAgreements } from '../../../../lib/agreements/read';
 import { forcedAgreementState } from '../../../../lib/agreements/view-state';
+import { throwIfForced } from '../../../../lib/config/test-surfaces';
 import { orgNames } from '../../../../lib/batches/read';
 import { getDbReady } from '../../../../lib/db/client';
 import { userName } from '../../../../lib/enrolment/phones';
@@ -20,7 +21,9 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 
 export default async function AdminAgreementsPage({ searchParams }: Props) {
   const me = await requireSession('admin');
-  const forced = forcedAgreementState((await searchParams).state);
+  const param = (await searchParams).state;
+  throwIfForced(param); // dev and e2e only: shows the /admin error boundary (CR-100)
+  const forced = forcedAgreementState(param);
   const state = forced === 'working' || forced === 'turned-away' ? null : forced;
   const db = await getDbReady();
   const [items, names, name] = await Promise.all([state ? [] : listFpoAgreements(db, me.orgId), orgNames(db, [me.orgId]), userName(db, me.userId)]);

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { HOME } from '../../../lib/auth/session';
+import { throwIfForced } from '../../../lib/config/test-surfaces';
 import { isLang, LANG_COOKIE, t, type Lang } from '../../../lib/i18n';
 import { currentUser } from '../../_auth/require';
 import { SignInForm } from './SignInForm';
@@ -25,7 +26,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: `${t('signIn.submit', {}, lang)} · ${t('app.name', {}, lang)}` };
 }
 
-export default async function SignInPage() {
+export default async function SignInPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  throwIfForced((await searchParams).state); // dev and e2e only: shows /sign-in's error boundary (CR-100)
   const user = await currentUser();
   if (user) redirect(HOME[user.role]);
   const lang = await pageLang();

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { RailShell } from '../../../../components/ui/Rail';
-import { forcedState as pickState } from '../../../../lib/config/test-surfaces';
+import { forcedState as pickState, throwIfForced } from '../../../../lib/config/test-surfaces';
 import { getDbReady } from '../../../../lib/db/client';
 import { formatIst, listPhones, userName, type PhonesView, type PlotOption } from '../../../../lib/enrolment/phones';
 import { t } from '../../../../lib/i18n';
@@ -47,7 +47,9 @@ function toView(v: PhonesView): AgentView[] {
 
 export default async function PhonesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const admin = await requireSession('admin');
-  const forced = forcedState((await searchParams).state);
+  const { state: param } = await searchParams;
+  throwIfForced(param); // dev and e2e only: shows the /admin error boundary (CR-100)
+  const forced = forcedState(param);
 
   let name: string | null = null;
   let agents: AgentView[] | null = null; // null: failed to load

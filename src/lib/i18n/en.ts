@@ -14,6 +14,10 @@ export const en = {
   'signIn.unavailable': "Couldn't sign in right now. Try again.",
   'signIn.errorHelp': 'If you have forgotten it, ask the office that set up your account.',
   'signIn.certificateHint': 'Looking for a coffee certificate? Open the link or QR code you were given.',
+  // Sign-in's error boundary (CR-100, EVAL-088): what happened, nothing changed, Try again
+  'signIn.crash.title': 'Couldn’t open sign-in.',
+  'signIn.crash.body': 'Nothing was changed. Check the connection and try again.',
+  'signIn.crash.retry': 'Try again',
   'signOut': 'Sign out',
 
   // The not-found card (DES-104, DES-011): the root, admin, buyer, processor and field route groups
@@ -415,6 +419,10 @@ export const en = {
   'enrol.error.other': 'This phone could not be set up. Ask the office for a new code.',
   'enrol.error.unsupported': 'This browser cannot keep a secure key. Open Udgam in Chrome or Safari.',
   'enrol.error.saveFailed': 'Phone enrolled on the server but not saved here — ask the office for a new code.',
+  // /enrol's error boundary (CR-100, EVAL-088)
+  'enrol.crash.title': 'Couldn’t open phone set-up.',
+  'enrol.crash.body': 'Nothing was changed. Check the signal and try again.',
+  'enrol.crash.retry': 'Try again',
   'enrol.done.title': 'This phone is {word}',
   'enrol.done.titleWord': 'ready',
   'enrol.done.lede': 'Pickings you record here are signed by this phone’s own key.',

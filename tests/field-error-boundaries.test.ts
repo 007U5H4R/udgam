@@ -60,3 +60,50 @@ describe('/field error boundaries (EVAL-088, TC-051)', () => {
     expect(chain(detail).filter((d) => existsSync(join(d, 'loading.tsx'))).map((d) => relative(FIELD, d))).toEqual([]);
   });
 });
+
+// CR-100 (EVAL-088): the same safety net for every other signed-in surface and sign-in. Each route
+// group's root has its own error.tsx (the designed error card with a working Try again), so a database
+// or transport failure never reaches Next's bare "Application error" page. Exempt: the public
+// certificate (its own byte-identical 404 contract, TP8), the redirect-only `/` and the test-only route.
+const APP = join(__dirname, '..', 'src', 'app');
+const EXEMPT = ['(public)/verify/[batchId]', '.', '%5F_test__/crypto'];
+const ROOTS = ['(admin)/admin', '(buyer)/buyer', '(processor)/processor', '(agent)/enrol', '(agent)/field', '(public)/sign-in'];
+
+const appRoute = (page: string) => relative(APP, dirname(page)).split(sep).join('/') || '.';
+
+/** The folders from the page's own up to (not including) src/app. */
+function appChain(page: string): string[] {
+  const dirs: string[] = [];
+  for (let d = dirname(page); d !== APP; d = dirname(d)) dirs.push(d);
+  return dirs;
+}
+
+describe('error boundaries on every signed-in surface and sign-in (CR-100, EVAL-088)', () => {
+  it('each route-group root has its own error.tsx', () => {
+    expect(ROOTS.filter((r) => !existsSync(join(APP, ...r.split('/'), 'error.tsx')))).toEqual([]);
+  });
+
+  it('every page under src/app, except the exempt ones, sits under an error.tsx', () => {
+    const all = pages(APP);
+    expect(all.length).toBeGreaterThanOrEqual(28);
+    const uncovered = all
+      .filter((p) => !EXEMPT.includes(appRoute(p)))
+      .filter((p) => !appChain(p).some((d) => existsSync(join(d, 'error.tsx'))))
+      .map(appRoute);
+    expect(uncovered).toEqual([]);
+  });
+
+  it('the exempt pages still exist (the list does not go stale)', () => {
+    expect(EXEMPT.filter((r) => !existsSync(join(APP, ...(r === '.' ? [] : r.split('/')), 'page.tsx')))).toEqual([]);
+  });
+
+  it('no error boundary shows the error itself (no message or digest on screen)', () => {
+    const boundaries = (dir: string): string[] =>
+      readdirSync(dir).flatMap((name) => {
+        const p = join(dir, name);
+        return statSync(p).isDirectory() ? boundaries(p) : name === 'error.tsx' ? [p] : [];
+      });
+    const leaky = boundaries(APP).filter((f) => /error\.(message|digest|stack)/.test(readFileSync(f, 'utf8')));
+    expect(leaky.map((f) => relative(APP, f))).toEqual([]);
+  });
+});

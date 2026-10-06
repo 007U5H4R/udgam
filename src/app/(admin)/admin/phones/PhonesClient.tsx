@@ -18,6 +18,23 @@ export type AgentView = { id: string; name: string; email: string; phones: Phone
 
 const IDLE: ActionState = { status: 'idle' };
 
+// CR-100: useActionState rethrows a rejected action to the nearest error boundary. An action that never
+// answered (the network dropped, the server failed) shows this page's own "That did not work … Nothing
+// was changed." line instead, and the control stays usable.
+const failed = <S,>(action: (prev: S, form: FormData) => Promise<S>, onFail: (form: FormData) => S) =>
+  async (prev: S, form: FormData): Promise<S> => {
+    try {
+      return await action(prev, form);
+    } catch {
+      return onFail(form);
+    }
+  };
+const ERROR: ActionState = { status: 'error' };
+const safeIssue = failed<IssueState>(issueCodeAction, (form) => ({ status: 'error', agentId: String(form.get('agentId') ?? '') }));
+const safeRevoke = failed<ActionState>(revokeAction, () => ERROR);
+const safeAssign = failed<ActionState>(assignAction, () => ERROR);
+const safeUnassign = failed<ActionState>(unassignAction, () => ERROR);
+
 function ActionError({ state }: { state: ActionState }) {
   return (
     <p className={s.error} role="alert">
@@ -27,7 +44,7 @@ function ActionError({ state }: { state: ActionState }) {
 }
 
 function IssueCode({ agent }: { agent: AgentView }) {
-  const [state, action, pending] = useActionState<IssueState, FormData>(issueCodeAction, { status: 'idle' });
+  const [state, action, pending] = useActionState<IssueState, FormData>(safeIssue, { status: 'idle' });
   const mine = state.status !== 'idle' && state.agentId === agent.id;
   return (
     <div className={s.issue}>
@@ -58,7 +75,7 @@ function IssueCode({ agent }: { agent: AgentView }) {
 }
 
 function RevokeSheet({ phone, onClose }: { phone: PhoneView; onClose: () => void }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(revokeAction, IDLE);
+  const [state, action, pending] = useActionState<ActionState, FormData>(safeRevoke, IDLE);
   useEffect(() => {
     if (state.status === 'done') onClose();
   }, [state, onClose]);
@@ -122,8 +139,8 @@ function Phones({ agent }: { agent: AgentView }) {
 }
 
 function Plots({ agent }: { agent: AgentView }) {
-  const [assignState, assign, assigning] = useActionState<ActionState, FormData>(assignAction, IDLE);
-  const [removeState, remove, removing] = useActionState<ActionState, FormData>(unassignAction, IDLE);
+  const [assignState, assign, assigning] = useActionState<ActionState, FormData>(safeAssign, IDLE);
+  const [removeState, remove, removing] = useActionState<ActionState, FormData>(safeUnassign, IDLE);
   const selectId = `add-plot-${agent.id}`;
   return (
     <section aria-labelledby={`agent-h-${agent.id} plots-h-${agent.id}`}>
