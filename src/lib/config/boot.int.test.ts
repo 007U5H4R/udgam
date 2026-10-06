@@ -66,13 +66,40 @@ describe('boot with an invalid environment (QA-P5-4)', () => {
   });
 });
 
+const TIMER = Symbol.for('udgam.ledger.checkpoint-timer');
+const timer = () => (globalThis as Record<symbol, ReturnType<typeof setInterval> | undefined>)[TIMER];
+
 describe('boot with a valid environment', () => {
-  it('migrates as before', async () => {
+  it('in a real deployment, starts the periodic checkpoint timer (EXE54)', async () => {
+    for (const [k, v] of Object.entries({
+      NODE_ENV: 'production',
+      BETTER_AUTH_SECRET: 'x'.repeat(32),
+      REMOTE_SENSING_PROVIDER: 'live',
+      GFW_API_KEY: 'k',
+      CDSE_CLIENT_ID: 'i',
+      CDSE_CLIENT_SECRET: 's',
+      PUBLIC_BASE_URL: 'https://udgam.example',
+      BETTER_AUTH_URL: 'https://udgam.example',
+    }))
+      vi.stubEnv(k, v);
+    expect(timer()).toBeUndefined();
+    const { register } = await import('../../instrumentation');
+    await register();
+    try {
+      expect(timer()).toBeDefined();
+    } finally {
+      clearInterval(timer());
+      delete (globalThis as Record<symbol, unknown>)[TIMER];
+    }
+  });
+
+  it('migrates as before, and under tests starts no checkpoint timer', async () => {
     vi.stubEnv('NODE_ENV', 'test');
     vi.stubEnv('REMOTE_SENSING_PROVIDER', 'fixture');
     const { register } = await import('../../instrumentation');
     await register();
     expect(existsSync(join(dir, 'udgam.db'))).toBe(true);
+    expect(timer()).toBeUndefined();
     const res = await (await import('../../app/api/health/route')).GET();
     expect(res.status).toBe(200);
   });

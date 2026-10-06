@@ -37,6 +37,9 @@ const base = z.object({
   // SEC-003: /api/health reports disk:"low" below this many free bytes on DATA_DIR's filesystem (10 GiB:
   // over a day of every pilot agent at the full budget). 0 turns the check's threshold off.
   HEALTH_MIN_FREE_DISK_BYTES: z.coerce.number().int().nonnegative().default(10 * 1024 ** 3),
+  // EXE54 (TKT-28): in a real deployment a background timer seals unsealed ledger entries this often
+  // (src/lib/ledger/checkpoint-timer.ts), so a quiet day never leaves entries unsealed.
+  LEDGER_CHECKPOINT_INTERVAL_SEC: z.coerce.number().int().positive().default(3600),
   // Test-only surfaces (/__test__/*) exist only when E2E=1 (technical-plan §1). Set by the Playwright
   // webServer; never set in production, so it is not listed in .env.example.
   E2E: z.enum(['0', '1']).default('0'),

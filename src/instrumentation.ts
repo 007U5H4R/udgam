@@ -14,5 +14,8 @@ export async function register(): Promise<void> {
     // LEDGER_ADAPTER=evm: anchor pending entries now and in the background (TSK-24.6); no-op otherwise.
     const { startLedger } = await import('./lib/ledger');
     startLedger();
+    // EXE54: seal unsealed ledger entries every LEDGER_CHECKPOINT_INTERVAL_SEC; real deployments only.
+    const { startCheckpointsAtBoot } = await import('./lib/ledger/checkpoint-timer');
+    startCheckpointsAtBoot();
   }
 }

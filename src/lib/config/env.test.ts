@@ -172,6 +172,12 @@ describe('loadEnv', () => {
     }
   });
 
+  it('LEDGER_CHECKPOINT_INTERVAL_SEC (EXE54): 1 h by default, a positive whole number of seconds when set', () => {
+    expect(loadEnv({}).LEDGER_CHECKPOINT_INTERVAL_SEC).toBe(3600);
+    expect(loadEnv({ LEDGER_CHECKPOINT_INTERVAL_SEC: '900' }).LEDGER_CHECKPOINT_INTERVAL_SEC).toBe(900);
+    for (const bad of ['0', '-1', '1.5', 'hourly']) expect(() => loadEnv({ LEDGER_CHECKPOINT_INTERVAL_SEC: bad }), bad).toThrow(/LEDGER_CHECKPOINT_INTERVAL_SEC/);
+  });
+
   it('never puts values in error messages', () => {
     const secret = 'canary-'.repeat(6); // low-entropy on purpose: not scan bait
     for (const src of [

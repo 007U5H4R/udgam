@@ -38,6 +38,8 @@ jl() { dc logs --no-log-prefix "$@" | grep '^{'; }   # bare JSON log lines, for 
 - `disk` is not `ok`;
 - the ledger has entries (`lastSeq > 0`) and the last checkpoint is over 24 h old (`lastCheckpointAgeSec > 86400`).
 
+Checkpoints are made on demand (a certificate's proof feed), every 100th entry, and by a background timer that seals any unsealed entries every `LEDGER_CHECKPOINT_INTERVAL_SEC` (default 3600 s; real deployments only, EXE54; logs `ledger.checkpoint_sealed`). So while captures arrive, the last checkpoint is never much more than an hour behind the last entry. A checkpoint only seals new entries, so after 24 h with **no new entries at all** the age still passes 86400 s and the rule fires; that is an open item for the owner (see §8).
+
 A provider outage (`gfw`/`sentinelHub` not `ok`) adds a warning to the run, but it is not an alert. It is external, captures still verify with the provider marked unavailable, and nothing can be done about it at 3 AM.
 
 The workflow checks nothing out, uses no actions, and has `permissions: {}`. The domain reaches the script only through `env`.
@@ -180,4 +182,5 @@ That advisory is GHSA-67mh-4wv8-2f99 (esbuild ≤ 0.24.2, its dev server), reach
 | TC-091 link unfurl (TSK-28.2, EVAL-090) | the domain, one production certificate |
 | TC-092 live providers, image inspection and the audit of the deployed lockfile | provider keys in `/etc/udgam/app.env`, the deployed image |
 | SEC-101 confirmation before the first production anchor | the owner (`docs/proof-feed.md` §9.2a) |
+| The 24 h checkpoint rule on a day with no captures | an owner decision: keep it, or alert only while unsealed entries are older than 24 h (needs a health field) |
 | First production accounts | the instance; `pnpm accounts:create` in the image (TKT-27) |
