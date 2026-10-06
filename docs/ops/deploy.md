@@ -110,9 +110,14 @@ A deploy runs these steps:
 The failed image keeps its `<sha>` tag for inspection. `--rollback` swaps the images only, and the
 checkout stays where it is. It refuses when both tags name the same image. `--restore-db` checks
 that a pre-deploy snapshot is recorded before anything moves, and it loses every write made since
-that deploy. The replaced files are kept in `/mnt/udgam-data/pre-restore-<time>/`. If `restore.sh`
-fails, both tags go back to where they were, the image that was running is brought up again through
-the gate, and the command exits 1. `restore.sh`'s own lines say what happened to the files.
+that deploy. The replaced files are kept in `/mnt/udgam-data/pre-restore-<time>/`. If the older image
+is not healthy on the snapshot, `restore.sh` stops it and puts the live files back (`--undo-if-unhealthy`),
+so the snapshot is never served and no write is lost. Then both tags go back to where they were, the
+image that was running is brought up again on the live files through the gate, and the command exits
+1. If some live file cannot be put back, the app is left **stopped** and the log names the
+`pre-restore-<time>/` folder that holds them; move them back by hand before `deploy/compose.sh up -d
+app`. A restore run by hand (a recovery) leaves an unhealthy app on the restored files and names the
+folder, as before.
 
 During the health gate, Caddy serves the new version as it is. A version that boots but answers 503
 is visible to users until the rollback. Measured locally: about 94 s. That is the price of one

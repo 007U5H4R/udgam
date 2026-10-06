@@ -14,6 +14,15 @@
 #   --offline               do not stop or start the app (a fresh directory for a drill, or the app
 #                           already down). A drill is ALWAYS --offline into a fresh directory.
 #   --health-timeout <s>    how long the restarted app has to report healthy (default 90)
+#   --undo-if-unhealthy     online only: if the app does not report healthy on the restored files, stop it,
+#                           put the previous files back (the restored database's own -wal/-shm are
+#                           dropped), start it again and exit 1. scripts/deploy.sh --rollback
+#                           --restore-db passes it, so a failed rollback never serves the snapshot. Without
+#                           it (a recovery by hand), an unhealthy app is left on the restored files.
+#
+# Exit status: 0 restored; 1 failed with the data directory as it was before (or, without
+# --undo-if-unhealthy, restored but unhealthy, as the message says); 3 the previous files could not all
+# be put back: the data directory is MIXED, the app is stopped, and the message names the aside folder.
 #
 # How (Q3): everything is decrypted, checked and staged on the same volume first, owned by uid 10001
 # with the app's modes, while the app still runs. Then, with the app stopped, a short run of renames moves
@@ -30,7 +39,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=deploy/lib.sh
 . "$here/../lib.sh"
 
-archive="" identity="" snapshot="" offline=0 timeout=90
+archive="" identity="" snapshot="" offline=0 timeout=90 undo_unhealthy=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --archive) archive="$2"; shift 2 ;;
@@ -39,6 +48,7 @@ while [ $# -gt 0 ]; do
     --data-dir) DATA="$2"; shift 2 ;;
     --offline) offline=1; shift ;;
     --health-timeout) timeout="$2"; shift 2 ;;
+    --undo-if-unhealthy) undo_unhealthy=1; shift ;;
     *) die "unknown argument $1 (see the header of $0)" ;;
   esac
 done
@@ -121,27 +131,41 @@ fi
 aside="$DATA/pre-restore-$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -m 0700 "$aside"
 moved=() placed=()
+started=0 # the app has been started on the restored files
 
+# Put every previous file back and exit: 1 when all of them are back, 3 when the directory is mixed.
+# Runs on a failed or interrupted swap, and (--undo-if-unhealthy) when the app is not healthy on the
+# restored files. Each step's failure is counted, never fatal, so the undo always runs to the end.
 undo_swap() {
   trap - ERR INT TERM
-  local i f
-  log "restore: the swap failed; putting the previous files back" >&2
+  set +e
+  local i f failed=0
+  log "restore: ${1:-the swap failed}; putting the previous files back" >&2
+  if [ "$started" = 1 ]; then
+    if ! compose stop app >/dev/null; then
+      log "restore: could not stop the app; nothing moved back. The restored files are in place and the previous ones in $aside" >&2
+      exit 3
+    fi
+    # The restored database's own -wal/-shm, written once the app opened it: never pair them with the live database.
+    rm -f "$DATA/udgam.db-wal" "$DATA/udgam.db-shm"
+  fi
   for ((i = ${#placed[@]} - 1; i >= 0; i--)); do
     f="${placed[$i]}"
-    rm -rf "${DATA:?}/$f"
+    rm -rf "${DATA:?}/$f" || failed=1
   done
   for f in "${moved[@]}"; do
-    [ -e "$DATA/$f" ] || mv "$aside/$f" "$DATA/$f"
+    if [ ! -e "$DATA/$f" ]; then mv "$aside/$f" "$DATA/$f" || failed=1; else failed=1; fi
   done
-  if rmdir "$aside" 2>/dev/null; then
+  if [ "$failed" = 0 ] && { [ ! -d "$aside" ] || rmdir "$aside" 2>/dev/null; }; then
     log "restore: every previous file was moved back; nothing changed" >&2
-  else
-    log "restore: some previous files could not be moved back; they are in $aside" >&2
+    if [ "$offline" = 0 ]; then
+      compose up -d app >/dev/null || log "restore: could not start the app again (deploy/compose.sh up -d app)" >&2
+    fi
+    exit 1
   fi
-  if [ "$offline" = 0 ]; then
-    compose up -d app >/dev/null || log "restore: could not start the app again (deploy/compose.sh up -d app)" >&2
-  fi
-  exit 1
+  log "restore: some previous files could not be moved back; they are in $aside. The data directory is mixed: the app is left stopped" >&2
+  [ "$offline" = 1 ] || compose stop app >/dev/null 2>&1
+  exit 3
 }
 trap undo_swap ERR INT TERM
 for f in udgam.db-wal udgam.db-shm "${items[@]}"; do
@@ -168,8 +192,17 @@ own "$APP_UID:$APP_UID" "$DATA"
 
 if [ "$offline" = 0 ]; then
   t3="$(date +%s)"
-  compose up -d app >/dev/null || die "could not start the app (the previous files are in $aside)"
-  wait_healthy "$timeout" || die "the app did not report healthy within ${timeout}s after the restore (the previous files are in $aside)"
+  if [ "$undo_unhealthy" = 1 ]; then
+    # Until the app is healthy on the restored files, the swap stays undoable (also on an interruption).
+    started=1
+    trap 'undo_swap "interrupted"' INT TERM
+    compose up -d app >/dev/null || undo_swap "could not start the app on the restored files"
+    wait_healthy "$timeout" || undo_swap "the app did not report healthy within ${timeout}s on the restored files"
+    trap - INT TERM
+  else
+    compose up -d app >/dev/null || die "could not start the app (the previous files are in $aside)"
+    wait_healthy "$timeout" || die "the app did not report healthy within ${timeout}s after the restore (the previous files are in $aside)"
+  fi
   log "restore: app healthy in $(($(date +%s) - t3))s"
 fi
 log "restore: done in $(($(date +%s) - t0))s"

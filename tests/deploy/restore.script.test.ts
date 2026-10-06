@@ -121,6 +121,34 @@ describe('restore.sh', () => {
     expect(sb.calls().some((c) => c.startsWith('compose'))).toBe(false);
   });
 
+  it('--undo-if-unhealthy (deploy.sh --rollback --restore-db): an app not healthy on the restored files gets the live files back, and exits 1', () => {
+    const r = restore(['--archive', fullArchive(), '--identity', join(sb.root, 'identity.txt'), '--undo-if-unhealthy'], { STUB_UNHEALTHY: 'c0ffee' });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/moved back/);
+    expect(read('udgam.db')).toBe('live-db');
+    expect(read('udgam.db-wal')).toBe('live-wal');
+    expect(read('keys/ledger.jwk')).toBe('live-key');
+    expect(read('attestations/a.pdf')).toBe('live-attestation');
+    expect(asides()).toEqual([]);
+    const compose = sb.calls().filter((c) => c.startsWith('compose stop') || c.startsWith('compose up'));
+    expect(compose).toEqual(['compose stop app', 'compose up -d app', 'compose stop app', 'compose up -d app']);
+  });
+
+  it('--undo-if-unhealthy: the restored database\'s own -wal/-shm (written once the app ran on it) never shadow the live ones', () => {
+    // The stub app "runs" on the restored database: compose up leaves a -wal there.
+    const r = restore(['--archive', fullArchive(), '--identity', join(sb.root, 'identity.txt'), '--undo-if-unhealthy'], { STUB_UNHEALTHY: 'c0ffee', STUB_UP_WRITES_WAL: join(sb.data, 'udgam.db-wal') });
+    expect(r.status).toBe(1);
+    expect(read('udgam.db-wal')).toBe('live-wal');
+  });
+
+  it('--undo-if-unhealthy: a live file that cannot be moved back exits 3 (a mixed data directory), naming the aside folder', () => {
+    const r = restore(['--archive', fullArchive(), '--identity', join(sb.root, 'identity.txt'), '--undo-if-unhealthy'], { STUB_UNHEALTHY: 'c0ffee', STUB_MV_FAIL: '*/pre-restore-*/keys' });
+    expect(r.status).toBe(3);
+    expect(r.stderr).toMatch(/pre-restore-\d{8}T\d{6}Z/);
+    expect(read('udgam.db')).toBe('live-db');
+    expect(sb.container()).toMatch(/ exited /); // not started on a mixed directory
+  });
+
   it('fails, naming where the previous files are, when the app is not healthy after the restore', () => {
     const r = restore(['--archive', fullArchive(), '--identity', join(sb.root, 'identity.txt')], { STUB_UNHEALTHY: 'c0ffee' });
     expect(r.status).not.toBe(0);

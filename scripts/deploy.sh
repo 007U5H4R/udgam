@@ -160,14 +160,23 @@ rollback() {
 
   if [ -n "$restore" ]; then
     log "deploy.sh: restoring $(basename "$snap"); writes since that deploy are lost"
-    if ! "$RESTORE" --snapshot "$snap" --data-dir "$DATA" --health-timeout "$timeout"; then
-      # restore.sh has said what it did to the files. The tags go back to the image that was running,
-      # so :current names it again and a later --rollback starts from where this one did.
+    # --undo-if-unhealthy: if the older image is not healthy on the snapshot, restore.sh puts the live
+    # files back (exit 1), so the snapshot is never served once this rollback has failed.
+    local rc=0
+    "$RESTORE" --snapshot "$snap" --data-dir "$DATA" --health-timeout "$timeout" --undo-if-unhealthy || rc=$?
+    if [ "$rc" != 0 ]; then
+      # The tags go back to the image that was running, so :current names it again and a later
+      # --rollback starts from where this one did.
       docker tag "$cur" udgam-app:current
       docker tag "$prev" udgam-app:previous
-      log "deploy.sh: the restore failed; udgam-app:current is the image that was running again" >&2
+      if [ "$rc" = 3 ]; then
+        # The data directory is mixed (restore.sh named the aside folder): never start an app on it.
+        log "deploy.sh: the restore could not put every live file back; the app is left stopped. Put the files in $DATA/pre-restore-* back by hand, then deploy/compose.sh up -d app" >&2
+        die "rollback with --restore-db failed"
+      fi
+      log "deploy.sh: the restore failed and put the live files back; udgam-app:current is the image that was running again" >&2
       if up_and_wait "$timeout"; then
-        log "deploy.sh: that image is healthy ${UP_SECS}s after up" >&2
+        log "deploy.sh: that image is healthy ${UP_SECS}s after up, on the live files" >&2
       else
         log "deploy.sh: that image is not healthy either (deploy/compose.sh logs app)" >&2
       fi

@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { sandbox, type Sandbox } from './helpers/script-sandbox';
@@ -188,15 +188,30 @@ describe('deploy.sh --rollback', () => {
     writeFileSync(join(sb.data, 'backups', 'last-predeploy'), `${snap}\n`);
   };
 
-  it('--restore-db: a restore that fails after the swap puts both tags back and brings the running image up again', () => {
+  const asides = () => readdirSync(sb.data).filter((n) => n.startsWith('pre-restore-'));
+
+  it('--restore-db: an older image that is not healthy on the snapshot puts the LIVE files back, both tags back, and the running image up on them', () => {
     recordSnapshot();
     const r = deploy(['--rollback', '--restore-db'], { STUB_UNHEALTHY: '0ld3r' }); // the older image never gets healthy
     expect(r.status).not.toBe(0);
-    expect(r.stderr).toContain('the restore failed; udgam-app:current is the image that was running again');
+    expect(readFileSync(join(sb.data, 'udgam.db'), 'utf8')).toBe('live'); // never the snapshot: no write since the deploy is lost
+    expect(asides()).toEqual([]);
+    expect(r.stderr).toContain('the restore failed and put the live files back');
     expect(r.stderr).toContain('rollback with --restore-db failed');
     expect(sb.tag('udgam-app:current')).toBe(OLD);
     expect(sb.tag('udgam-app:previous')).toBe(OLDER);
     expect(sb.container()).toBe(`${OLD} running healthy`);
+  });
+
+  it('--restore-db: when the live files cannot all be put back, the app is left STOPPED and the log says where they are', () => {
+    recordSnapshot();
+    const r = deploy(['--rollback', '--restore-db'], { STUB_UNHEALTHY: '0ld3r', STUB_MV_FAIL: '*/pre-restore-*/udgam.db' });
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toMatch(/left stopped/);
+    expect(r.stderr).toMatch(/pre-restore-\d{8}T\d{6}Z/);
+    expect(sb.container()).toMatch(/ exited /);
+    expect(readFileSync(join(sb.data, asides()[0]!, 'udgam.db'), 'utf8')).toBe('live'); // still safe aside
+    expect(sb.calls().filter((c) => c.startsWith('compose up')).length).toBe(1); // only restore.sh's own start on the snapshot
   });
 
   it('--restore-db: a restore that fails before any file moves leaves the database and puts both tags back', () => {
