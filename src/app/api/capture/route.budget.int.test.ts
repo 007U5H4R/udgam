@@ -125,6 +125,32 @@ describe('POST /api/capture daily budget (SEC-003)', () => {
     expect(await ipTokens()).toBe(before);
   });
 
+  it('when the budget query fails: 503 {t:"error", retryable:true}, body unread, no slot held, logged (review item 7)', async () => {
+    vi.doMock('../../../lib/capture/budget', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('../../../lib/capture/budget')>()),
+      agentUsageToday: vi.fn().mockRejectedValue(Object.assign(new Error('database is locked'), { code: 'SQLITE_BUSY' })),
+    }));
+    const error = vi.fn();
+    vi.doMock('../../../lib/log', async (importOriginal) => {
+      const real = await importOriginal<typeof import('../../../lib/log')>();
+      return { ...real, log: new Proxy(real.log, { get: (l, p) => (p === 'error' ? error : Reflect.get(l, p)) }) };
+    });
+    try {
+      const { POST } = await routeWith({});
+      const req = await capture('during-outage');
+      const res = await POST(req);
+      expect(res.status).toBe(503);
+      expect(await lastLine(res)).toEqual({ t: 'error', retryable: true });
+      expect(req.bodyUsed).toBe(false);
+      const { capturesInFlight } = await import('../../../lib/capture/in-flight');
+      expect(capturesInFlight().total).toBe(0);
+      expect(error).toHaveBeenCalledWith(expect.objectContaining({ errClass: 'Error' }), 'capture.route_failed');
+      expect(JSON.stringify(error.mock.calls)).not.toContain('database is locked');
+    } finally {
+      vi.doUnmock('../../../lib/capture/budget');
+    }
+  });
+
   it('under the defaults, captures go through', async () => {
     const { POST } = await import('./route');
     for (const l of ['a', 'b', 'c']) {
