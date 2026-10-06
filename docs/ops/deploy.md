@@ -110,14 +110,25 @@ A deploy runs these steps:
 The failed image keeps its `<sha>` tag for inspection. `--rollback` swaps the images only, and the
 checkout stays where it is. It refuses when both tags name the same image. `--restore-db` checks
 that a pre-deploy snapshot is recorded before anything moves, and it loses every write made since
-that deploy. The replaced files are kept in `/mnt/udgam-data/pre-restore-<time>/`. If the older image
-is not healthy on the snapshot, `restore.sh` stops it and puts the live files back (`--undo-if-unhealthy`),
-so the snapshot is never served and no write is lost. Then both tags go back to where they were, the
-image that was running is brought up again on the live files through the gate, and the command exits
-1. If some live file cannot be put back, the app is left **stopped** and the log names the
-`pre-restore-<time>/` folder that holds them; move them back by hand before `deploy/compose.sh up -d
-app`. A restore run by hand (a recovery) leaves an unhealthy app on the restored files and names the
-folder, as before.
+that deploy. The replaced files are kept in `/mnt/udgam-data/pre-restore-<time>/`.
+
+`--restore-db` runs `restore.sh --undo-if-unhealthy`. From the swap until the older image is healthy on
+the snapshot, any failure or signal makes `restore.sh` undo: it stops the app (or kills it if it will
+not stop), drops the snapshot's own `-wal`/`-shm`, and puts every live file back. Signals are ignored
+while the undo runs, so it always finishes. If the rollback fails, both tags go back to where they
+were. What happens next depends on `restore.sh`'s status:
+
+| Status | Meaning | What `deploy.sh` does |
+|---|---|---|
+| 0 | restored, healthy on the snapshot | the rollback is done |
+| 1 | failed; the live files are in place (nothing moved yet, or the undo put them all back) | brings the image that was running up again on the live files, through the gate; exits 1 |
+| 3 | some live files could not be put back: the data directory is mixed, the app is stopped | starts nothing; the log names `pre-restore-<time>/`. Move the files back by hand, then `deploy/compose.sh up -d app` |
+| 4 | the app could be neither stopped nor killed: it may still run on the snapshot; nothing was moved back | starts nothing; stop the app, move `pre-restore-<time>/`'s files back, then `up -d app` |
+| 130, 143, other | interrupted (SIGINT/SIGTERM) or an unexpected failure. After a signal during the swap or the undo, the live files are back and the app is stopped; before the swap, nothing changed | starts nothing; the data state is reported as unknown. Check `restore.sh`'s lines and `/mnt/udgam-data` before `up -d app` |
+
+The snapshot is never served once the rollback has failed, and no write is lost. A restore run by hand
+(a recovery, without `--undo-if-unhealthy`) leaves an unhealthy app on the restored files and names
+the folder, as before.
 
 During the health gate, Caddy serves the new version as it is. A version that boots but answers 503
 is visible to users until the rollback. Measured locally: about 94 s. That is the price of one

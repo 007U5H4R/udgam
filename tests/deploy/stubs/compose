@@ -2,7 +2,8 @@
 # Test stub for the stack's compose command (UDGAM_COMPOSE). `up` runs the app on udgam-app:current.
 # Knobs: STUB_UP_FAIL=1 (up exits 1 with a message on stderr), STUB_UP_NOOP=1 (up exits 0 but leaves the
 # old container), STUB_UNHEALTHY=<substring of an image id> (that image never gets healthy),
-# STUB_RESTARTING=<substring> (that image crash-loops), STUB_UP_WRITES_WAL=<path> (up writes a -wal there unless one exists).
+# STUB_RESTARTING=<substring> (that image crash-loops), STUB_UP_WRITES_WAL=<path> (up writes a -wal there unless one exists),
+# STUB_STOP_FAIL_FROM=<n> (the n-th and later `stop` fail).
 set -euo pipefail
 S="${STUB_STATE:?STUB_STATE not set}"
 echo "compose $*" >>"$S/calls.log"
@@ -22,6 +23,11 @@ case "$1" in
     if [ -n "${STUB_UP_WRITES_WAL:-}" ] && [ ! -e "$STUB_UP_WRITES_WAL" ]; then echo "wal of $img" >"$STUB_UP_WRITES_WAL"; fi
     ;;
   stop)
+    # STUB_STOP_FAIL_FROM=<n>: the n-th `stop` (counting this one) and every later one fail.
+    if [ -n "${STUB_STOP_FAIL_FROM:-}" ] && [ "$(grep -c '^compose stop' "$S/calls.log")" -ge "$STUB_STOP_FAIL_FROM" ]; then
+      echo "stub compose: stop failed" >&2
+      exit 1
+    fi
     [ -f "$S/container" ] && read -r img _ _ <"$S/container" && echo "$img exited none" >"$S/container"
     ;;
   *)

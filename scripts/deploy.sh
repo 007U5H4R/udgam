@@ -161,7 +161,8 @@ rollback() {
   if [ -n "$restore" ]; then
     log "deploy.sh: restoring $(basename "$snap"); writes since that deploy are lost"
     # --undo-if-unhealthy: if the older image is not healthy on the snapshot, restore.sh puts the live
-    # files back (exit 1), so the snapshot is never served once this rollback has failed.
+    # files back, so the snapshot is never served once this rollback has failed. Only its status 1
+    # means "the live files are in place": any other failure leaves the data state unknown or mixed.
     local rc=0
     "$RESTORE" --snapshot "$snap" --data-dir "$DATA" --health-timeout "$timeout" --undo-if-unhealthy || rc=$?
     if [ "$rc" != 0 ]; then
@@ -169,9 +170,14 @@ rollback() {
       # --rollback starts from where this one did.
       docker tag "$cur" udgam-app:current
       docker tag "$prev" udgam-app:previous
-      if [ "$rc" = 3 ]; then
-        # The data directory is mixed (restore.sh named the aside folder): never start an app on it.
-        log "deploy.sh: the restore could not put every live file back; the app is left stopped. Put the files in $DATA/pre-restore-* back by hand, then deploy/compose.sh up -d app" >&2
+      if [ "$rc" != 1 ]; then
+        local state
+        case "$rc" in
+          3) state="the data directory is mixed; the app is left stopped" ;;
+          4) state="the app could not be stopped and may still be running on the restored snapshot" ;;
+          *) state="interrupted or failed unexpectedly; the data state is unknown" ;;
+        esac
+        log "deploy.sh: the restore ended with status $rc: $state. No app was started. The live files are in $DATA/pre-restore-* if restore.sh did not put them back (its lines above say); check $DATA before deploy/compose.sh up -d app" >&2
         die "rollback with --restore-db failed"
       fi
       log "deploy.sh: the restore failed and put the live files back; udgam-app:current is the image that was running again" >&2

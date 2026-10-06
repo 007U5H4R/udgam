@@ -14,15 +14,25 @@
 #   --offline               do not stop or start the app (a fresh directory for a drill, or the app
 #                           already down). A drill is ALWAYS --offline into a fresh directory.
 #   --health-timeout <s>    how long the restarted app has to report healthy (default 90)
-#   --undo-if-unhealthy     online only: if the app does not report healthy on the restored files, stop it,
-#                           put the previous files back (the restored database's own -wal/-shm are
-#                           dropped), start it again and exit 1. scripts/deploy.sh --rollback
+#   --undo-if-unhealthy     online only: from the swap until the app is healthy on the restored files, any
+#                           failure or signal undoes: stop (or kill) the app, put the previous files back
+#                           (the restored database's own -wal/-shm are dropped), then start it again and
+#                           exit 1, or after a signal leave it stopped. scripts/deploy.sh --rollback
 #                           --restore-db passes it, so a failed rollback never serves the snapshot. Without
 #                           it (a recovery by hand), an unhealthy app is left on the restored files.
 #
-# Exit status: 0 restored; 1 failed with the data directory as it was before (or, without
-# --undo-if-unhealthy, restored but unhealthy, as the message says); 3 the previous files could not all
-# be put back: the data directory is MIXED, the app is stopped, and the message names the aside folder.
+# Exit status:
+#   0    restored (and, online, healthy).
+#   1    failed, and the previous files are in place: before the swap nothing moved, or the undo put
+#        every one back. (Without --undo-if-unhealthy, also: restored but not healthy, as the message
+#        says.) The only status after which scripts/deploy.sh starts an app.
+#   3    the previous files could not all be put back: the data directory is MIXED, the app is stopped,
+#        and the message names the aside folder.
+#   4    the app could not be stopped (nor killed) to undo: it may still run on the restored files, the
+#        previous ones are in the aside folder.
+#   130/143  interrupted (SIGINT/SIGTERM). A signal during the swap or the undo never stops the undo half
+#        way: the previous files are put back first, the app is left stopped, and the message says so.
+#        Before the swap, nothing has changed.
 #
 # How (Q3): everything is decrypted, checked and staged on the same volume first, owned by uid 10001
 # with the app's modes, while the app still runs. Then, with the app stopped, a short run of renames moves
@@ -131,20 +141,32 @@ fi
 aside="$DATA/pre-restore-$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -m 0700 "$aside"
 moved=() placed=()
-started=0 # the app has been started on the restored files
+started=0     # the app may have been started on the restored files
+interrupted=0 # 130 or 143 once SIGINT or SIGTERM arrived during the swap or the undo
 
-# Put every previous file back and exit: 1 when all of them are back, 3 when the directory is mixed.
-# Runs on a failed or interrupted swap, and (--undo-if-unhealthy) when the app is not healthy on the
-# restored files. Each step's failure is counted, never fatal, so the undo always runs to the end.
+# Put every previous file back. Runs on a failed or interrupted swap, and (--undo-if-unhealthy) on any
+# failure or signal until the app is healthy on the restored files. Signals are ignored from its first
+# line (only noted), and no step's failure is fatal, so it always reaches one of its exits:
+#   1   every previous file is back and the app was started again on them;
+#   130/143  the same, but interrupted: the app is left stopped;
+#   3   some previous files could not be put back (mixed directory), the app is left stopped;
+#   4   the app could not be stopped or killed: nothing was moved back.
 undo_swap() {
-  trap - ERR INT TERM
+  trap 'interrupted=130' INT
+  trap 'interrupted=143' TERM
+  trap - ERR
   set +e
-  local i f failed=0
+  local i f failed=0 id
   log "restore: ${1:-the swap failed}; putting the previous files back" >&2
   if [ "$started" = 1 ]; then
     if ! compose stop app >/dev/null; then
-      log "restore: could not stop the app; nothing moved back. The restored files are in place and the previous ones in $aside" >&2
-      exit 3
+      id="$(app_container)"
+      if [ -n "$id" ] && docker kill "$id" >/dev/null 2>&1; then
+        log "restore: the app did not stop; killed it" >&2
+      else
+        log "restore: could not stop or kill the app: it may still be running on the restored files. Nothing was moved back; the previous files are in $aside" >&2
+        exit 4
+      fi
     fi
     # The restored database's own -wal/-shm, written once the app opened it: never pair them with the live database.
     rm -f "$DATA/udgam.db-wal" "$DATA/udgam.db-shm"
@@ -157,6 +179,10 @@ undo_swap() {
     if [ ! -e "$DATA/$f" ]; then mv "$aside/$f" "$DATA/$f" || failed=1; else failed=1; fi
   done
   if [ "$failed" = 0 ] && { [ ! -d "$aside" ] || rmdir "$aside" 2>/dev/null; }; then
+    if [ "$interrupted" != 0 ]; then
+      log "restore: interrupted; every previous file is back (from $aside), and the app is left stopped (deploy/compose.sh up -d app)" >&2
+      exit "$interrupted"
+    fi
     log "restore: every previous file was moved back; nothing changed" >&2
     if [ "$offline" = 0 ]; then
       compose up -d app >/dev/null || log "restore: could not start the app again (deploy/compose.sh up -d app)" >&2
@@ -167,7 +193,20 @@ undo_swap() {
   [ "$offline" = 1 ] || compose stop app >/dev/null 2>&1
   exit 3
 }
-trap undo_swap ERR INT TERM
+
+# What follows the renames: the photo merge and the ownership. A failure returns 1, never exits.
+finish_placing() {
+  if [ -n "$archive" ] && [ -d "$work/x/media" ]; then
+    mkdir -p "$DATA/media" || return 1
+    tar -C "$work/x/media" -cf - . | tar -C "$DATA/media" --skip-old-files -xf - || return 1
+    own -R "$APP_UID:$APP_UID" "$DATA/media" || return 1
+  fi
+  own "$APP_UID:$APP_UID" "$DATA" || return 1
+}
+
+trap undo_swap ERR
+trap 'interrupted=130; undo_swap "interrupted"' INT
+trap 'interrupted=143; undo_swap "interrupted"' TERM
 for f in udgam.db-wal udgam.db-shm "${items[@]}"; do
   if [ -e "$DATA/$f" ]; then
     mv "$DATA/$f" "$aside/$f"
@@ -178,31 +217,29 @@ for f in "${items[@]}"; do
   mv "$stage/$f" "$DATA/$f"
   placed+=("$f")
 done
-trap - ERR INT TERM
-[ "${#moved[@]}" -gt 0 ] || rmdir "$aside"
-log "restore: $(basename "$db") is now $DATA/udgam.db; in place: ${items[*]}$([ "${#moved[@]}" -gt 0 ] && echo "; previous files in $aside")"
 
-# 3. Photos are merged (content-addressed: an existing file is never replaced).
-if [ -n "$archive" ] && [ -d "$work/x/media" ]; then
-  mkdir -p "$DATA/media"
-  tar -C "$work/x/media" -cf - . | tar -C "$DATA/media" --skip-old-files -xf -
-  own -R "$APP_UID:$APP_UID" "$DATA/media"
-fi
-own "$APP_UID:$APP_UID" "$DATA"
-
-if [ "$offline" = 0 ]; then
-  t3="$(date +%s)"
-  if [ "$undo_unhealthy" = 1 ]; then
-    # Until the app is healthy on the restored files, the swap stays undoable (also on an interruption).
-    started=1
-    trap 'undo_swap "interrupted"' INT TERM
-    compose up -d app >/dev/null || undo_swap "could not start the app on the restored files"
-    wait_healthy "$timeout" || undo_swap "the app did not report healthy within ${timeout}s on the restored files"
-    trap - INT TERM
-  else
+if [ "$undo_unhealthy" = 1 ] && [ "$offline" = 0 ]; then
+  # From the swap until the app is healthy on the restored files, every failure and every signal runs
+  # the undo: the traps stay armed, and each step below is guarded.
+  log "restore: $(basename "$db") is now $DATA/udgam.db; in place: ${items[*]}; previous files in $aside" || true
+  finish_placing || undo_swap "placing the restored files failed"
+  t3="$(date +%s)" || undo_swap "the clock failed"
+  started=1
+  compose up -d app >/dev/null || undo_swap "could not start the app on the restored files"
+  wait_healthy "$timeout" || undo_swap "the app did not report healthy within ${timeout}s on the restored files"
+  trap - ERR INT TERM
+  [ "${#moved[@]}" -gt 0 ] || rmdir "$aside" || true
+  log "restore: app healthy in $(($(date +%s) - t3))s"
+else
+  trap - ERR INT TERM
+  [ "${#moved[@]}" -gt 0 ] || rmdir "$aside"
+  log "restore: $(basename "$db") is now $DATA/udgam.db; in place: ${items[*]}$([ "${#moved[@]}" -gt 0 ] && echo "; previous files in $aside")"
+  finish_placing || die "placing the restored files failed (the previous files are in $aside)"
+  if [ "$offline" = 0 ]; then
+    t3="$(date +%s)"
     compose up -d app >/dev/null || die "could not start the app (the previous files are in $aside)"
     wait_healthy "$timeout" || die "the app did not report healthy within ${timeout}s after the restore (the previous files are in $aside)"
+    log "restore: app healthy in $(($(date +%s) - t3))s"
   fi
-  log "restore: app healthy in $(($(date +%s) - t3))s"
 fi
 log "restore: done in $(($(date +%s) - t0))s"

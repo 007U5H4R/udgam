@@ -149,6 +149,23 @@ describe('restore.sh', () => {
     expect(sb.container()).toMatch(/ exited /); // not started on a mixed directory
   });
 
+  it('--undo-if-unhealthy: an app that will not stop is killed, then the undo completes (exit 1)', () => {
+    const r = restore(['--archive', fullArchive(), '--identity', join(sb.root, 'identity.txt'), '--undo-if-unhealthy'], { STUB_UNHEALTHY: 'c0ffee', STUB_STOP_FAIL_FROM: '2' });
+    expect(r.status).toBe(1);
+    expect(sb.calls()).toContain('docker kill appcid');
+    expect(read('udgam.db')).toBe('live-db');
+    expect(asides()).toEqual([]);
+  });
+
+  it('--undo-if-unhealthy: an app that can be neither stopped nor killed exits 4, says it may still run on the restored files, and moves nothing', () => {
+    const r = restore(['--archive', fullArchive(), '--identity', join(sb.root, 'identity.txt'), '--undo-if-unhealthy'], { STUB_UNHEALTHY: 'c0ffee', STUB_STOP_FAIL_FROM: '2', STUB_KILL_FAIL: '1' });
+    expect(r.status).toBe(4);
+    expect(r.stderr).toContain('may still be running on the restored files');
+    expect(r.stderr).toMatch(/pre-restore-\d{8}T\d{6}Z/);
+    expect(read('udgam.db')).toBe('restored-db');
+    expect(asides()).toHaveLength(1);
+  });
+
   it('fails, naming where the previous files are, when the app is not healthy after the restore', () => {
     const r = restore(['--archive', fullArchive(), '--identity', join(sb.root, 'identity.txt')], { STUB_UNHEALTHY: 'c0ffee' });
     expect(r.status).not.toBe(0);

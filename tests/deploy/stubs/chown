@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Test stub for `chown`: fails when its last argument is exactly STUB_CHOWN_FAIL (a failure after the
+# restore's renames); otherwise runs the real chown.
+if [ -n "${STUB_CHOWN_FAIL:-}" ] && [ "${!#}" = "$STUB_CHOWN_FAIL" ]; then
+  echo "chown: injected failure on ${!#}" >&2
+  exit 1
+fi
+for d in /usr/bin /bin; do
+  [ -x "$d/chown" ] && exec "$d/chown" "$@"
+done
+exit 127
