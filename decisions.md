@@ -1143,3 +1143,11 @@ baseline-v1 is frozen (EV13, EXE34).
 - **DES-112 (demo verdicts):** the Demo tools chips use the D5 farmer words ("Not accepted", "Needs a check"), while `data-verdict` keeps the system verdict. The EVAL-074 case and its expected verdicts are unchanged; only the e2e text assertion moved.
 - **DES-114 (settle label):** the sticky Settle label shortens to "Settle · ₹X", and the hint names the FPO. This deviates from the mockup's longer label, which wrapped at 375.
 - **Not-found pages:** one styled card (`NotFound`) serves the root and every signed-in route group. The public `/verify` 404 is unchanged (TP8). A not-found inside a route keeps that route's title.
+
+## EXE43 · Owner items decided under the owner's delegation — accepted (orchestrator, 2026-10-06)
+**Context.** The owner said "take decisions on my behalf" for the items open at the end of Stage 8: DES-202, HR1/HR2/HR6, D9/D10 and EXE24–EXE42, and the Kannada review.
+**Decisions.**
+- **DES-202 (the OG image, a Design Freeze item; changed at the owner's explicit instruction).** The approved artwork stays exactly as it is: layout, mark, typography and colours. Only its words become true per batch. The image text follows the certificate title, "<District> <crop>, verified at origin", from the same proof-feed view model. It is rendered deterministically from the frozen design, never by a diffusion model (og-image-guidelines). A batch whose district or crop is unknown gets the neutral variant "Coffee, verified at origin". `og:image:alt` matches the words. The 1200×630 size and the < 500 KB budget hold. The pilot spans Kodagu and Chikkamagaluru, so a fixed "Kodagu Arabica" image would make a false public claim.
+- **HR1 (evidence-template snapshots), HR2 (known-limitations and pruning/clearing wording) and HR6 (number traceability)** in `docs/exec/m-001-gate.md` are accepted as written, after an independent check that every HR6 number matches its results file.
+- **D9/D10 (M-002 design addendum) and EXE24–EXE42** are confirmed as they stand. The Stage 8 critique exercised their screens (T1–T4 faithful to `contract.html`).
+- **Not delegable:** the Kannada native review (617 strings marked `REVIEW: native speaker`) needs a native speaker, and stays a pre-pilot human item.
