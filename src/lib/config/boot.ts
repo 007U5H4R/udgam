@@ -10,7 +10,7 @@ import { loadEnv } from './env';
 // So: validate once, log `config.invalid` at fatal level (variable names and rule codes only: loadEnv's
 // messages never carry values) and tell the caller to skip the boot steps. The server stays up and still
 // serves nothing that needs the configuration, while /api/health answers 503 `config:"error"`: the
-// Compose healthcheck (curl --fail) marks the container unhealthy and the uptime probe alerts.
+// Compose healthcheck (it needs a 200) marks the container unhealthy and the uptime probe alerts.
 
 /** True when the environment is valid; otherwise logs config.invalid (names only) and returns false. */
 export function configValidAtBoot(src: Record<string, string | undefined> = process.env): boolean {

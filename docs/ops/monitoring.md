@@ -22,7 +22,7 @@ jl() { dc logs --no-log-prefix "$@" | grep '^{'; }   # bare JSON log lines, for 
 | `disk` | `ok`, `low`, `unknown` | **none** (a degraded component, SEC-003); the uptime probe alerts on anything but `ok` |
 | `version`, `commit` | the package version and the build's commit | none |
 
-- **Invalid configuration (QA-P5-4).** A missing secret, the fixture provider, or a non-https `PUBLIC_BASE_URL` or `BETTER_AUTH_URL` (DES-219) is caught at boot. The server logs `config.invalid` once and skips the migrations. It stays up, every page answers 500, and `/api/health` answers 503 `{"config":"error","db":"unchecked"}`. EXE12 makes the server refuse to run with such a configuration, but it does not require the process to exit. A crash loop would hide the cause, so the server stays up. The Compose healthcheck (`curl --fail`) then marks the container `unhealthy`, and the uptime probe alerts. To see which variable is wrong (the log gives names, never values), run:
+- **Invalid configuration (QA-P5-4).** A missing secret, the fixture provider, or a non-https `PUBLIC_BASE_URL` or `BETTER_AUTH_URL` (DES-219) is caught at boot. The server logs `config.invalid` once and skips the migrations. It stays up, every page answers 500, and `/api/health` answers 503 `{"config":"error","db":"unchecked"}`. EXE12 makes the server refuse to run with such a configuration, but it does not require the process to exit. A crash loop would hide the cause, so the server stays up. The Compose healthcheck (it needs a 200) then marks the container `unhealthy`, and the uptime probe alerts. To see which variable is wrong (the log gives names, never values), run:
   ```sh
   jl app | jq -r 'select(.msg == "config.invalid") | .problem' | tail -1
   ```
@@ -50,6 +50,7 @@ The workflow checks nothing out, uses no actions, and has `permissions: {}`. The
 3. Turn on email for failed workflow runs: Settings (personal) → Notifications → Actions → "Notify me … only failed workflows". GitHub sends a scheduled run's failure to the user who last changed the workflow's `cron`. That user must be the owner, or the owner must edit the schedule once.
 4. Run it once by hand: Actions → Uptime → Run workflow. The run should end green, with a `Healthy: {…}` line.
 5. Know the limits. GitHub may start a scheduled run several minutes late at busy times. In a public repository it turns schedules off after 60 days without repository activity, and re-enabling is one click on the workflow page.
+6. **Deleting or emptying `UDGAM_DOMAIN` silently stops monitoring:** every run then ends green with the "skipped" notice, and no email is sent. Once a week, open Actions → Uptime and check that the latest runs show a `Healthy: {…}` line, not the skip notice, and that runs are still being scheduled.
 
 **The alert drill (TC-090, BLOCKED until production exists).** Record each time in the ledger, and the drill passes only if the email arrives within 30 minutes of the stop.
 
@@ -101,6 +102,7 @@ dc logs --since 24h caddy                                          # the proxy's
 |---|---|
 | Boot and config | `config.invalid` (fatal, QA-P5-4), `db.migrated`, `db.pragma_failed`, `auth.dev_secret` (never in production) |
 | Health | `health.config_invalid`, `health.db_ping_failed`, `health.ledger_failed`, `health.ledger_key_missing`, `health.disk_low`, `health.disk_unknown`, `ledger.key_mismatch`, `ledger.key_unavailable` |
+| Verification | `verification.completed` (technical-plan §15) is **not emitted** yet: there is no per-run log line with verdict, score and check durations. Read verdicts from the database or the admin queue. The gap is recorded in the ledger. |
 | Capture | `capture.refused` (`reason`, `status`, `anchored`), `capture.budget_exhausted` (SEC-003), `capture.busy`, `capture.failed`, `capture.route_failed`, `capture.idempotent_replay`, `capture.idempotent_race`, `capture.refund_failed`, `capture.media_cleanup_failed`, `capture.staged_cleanup_failed`, `capture.emit_failed` |
 | Staging | `stage.stored`, `stage.refused`, `stage.route_failed`, `stage.integrity_failed`, `stage.sweep_failed`, `stage.swept_at_boot` |
 | Sign-in and phones | `auth.sign_in_refused`, `auth.sign_in_throttled`, `auth.sign_in_refund_failed`, `enrol.code_redeemed`, `enrol.code_refused`, `enrol.device_enrolled`, `enrol.device_revoked` |
