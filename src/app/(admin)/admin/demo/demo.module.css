@@ -63,7 +63,12 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
+/* DES-116 (Design.md §17): a 48 px target as wide as its words, not the card's whole row */
 .link {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  min-height: 48px;
   color: var(--ink);
   font-weight: 600;
 }

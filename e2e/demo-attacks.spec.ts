@@ -56,7 +56,12 @@ test('@eval EVAL-074 the four demo attacks show the evidence that caught them', 
         for (const e of want.evidence) await expect(card.getByTestId('attack-evidence')).toContainText(e);
         await expect(card.getByTestId('attack-evidence')).toHaveAttribute('data-check', a.expected.check);
 
-        await card.getByRole('link', { name: 'Open its review' }).click();
+        // DES-116 (Design.md §17): a 48 px target, as wide as its words rather than the whole card
+        const open = card.getByRole('link', { name: 'Open its review' });
+        const box = (await open.boundingBox())!;
+        expect(box.height).toBeGreaterThanOrEqual(48);
+        expect(box.width).toBeLessThan(300);
+        await open.click();
         await expect(page).toHaveURL(/\/admin\/review\/VR-[0-9A-Z]{12}$/);
         const main = page.getByRole('main');
         for (const e of want.evidence) await expect(main.getByText(e, { exact: false }).first()).toBeVisible();
