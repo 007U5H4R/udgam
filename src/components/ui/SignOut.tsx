@@ -1,6 +1,7 @@
 import { signOut } from '../../app/(public)/sign-in/actions';
 import { t } from '../../lib/i18n';
 import { Pill } from './Pill';
+import styles from './SignOut.module.css';
 
 // Sign out (DES-105, EXE40): one control for every office screen. The rail foot carries it on tablet and
 // desktop (Rail.tsx); on phones, where the rail is a tab bar, RailShell puts this ghost pill at the end of
@@ -13,4 +14,9 @@ export function SignOutPill({ className }: { className?: string }) {
       </Pill>
     </form>
   );
+}
+
+/** The end of a buyer detail: shown only when the detail is the whole screen (< 1100 px), where the list column's Sign out is hidden. */
+export function DetailSignOut() {
+  return <SignOutPill className={styles.detailEnd} />;
 }

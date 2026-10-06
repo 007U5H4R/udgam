@@ -14,6 +14,7 @@ import { forcedAgreementState } from '../../../../../lib/agreements/view-state';
 import { orgNames } from '../../../../../lib/batches/read';
 import { getDbReady } from '../../../../../lib/db/client';
 import { t } from '../../../../../lib/i18n';
+import { DetailSignOut } from '../../../../../components/ui/SignOut';
 import { requireSession } from '../../../../_auth/require';
 import { fundAgreementAction, gradeBatchAction, refundAgreementAction } from '../actions';
 import { pageTitle } from '../../../../../lib/page-title';
@@ -207,6 +208,7 @@ export default async function BuyerAgreementPage({ params, searchParams }: Props
         <DetailColumn backHref="/buyer/agreements" backLabel={t('agreements.back')} listTitle={t('agreements.buyer.title')}>
           <DetailHead eyebrow={t('agreements.detailEyebrow', { other: v.fpoName })} title={a.id} chip={<StatusChip status={{ mark: status.mark, word: status.short }} />} meta={meta} />
           <Body v={v} balance={balance} forcedWorking={forced === 'working'} />
+          <DetailSignOut />
         </DetailColumn>
       )}
     </main>
