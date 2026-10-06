@@ -28,6 +28,7 @@
     "eval:release": "tsx evals/harness/release.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/lib/db/migrate.ts",
+    "db:backup": "node deploy/db/backup.mjs",
     "seed": "tsx scripts/seed.ts",
     "og:render": "tsx scripts/og/render.ts",
     "test:evm": "vitest run --project evm",

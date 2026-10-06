@@ -16,5 +16,7 @@ ca=()
 [ -n "${BOOTSTRAP_TEST_CA:-}" ] && ca=(-v "$BOOTSTRAP_TEST_CA:/test-ca.crt:ro")
 docker run --rm --privileged \
   -v "$repo/deploy/bootstrap.sh:/src/bootstrap.sh:ro" \
+  -v "$repo/deploy/backup.env.example:/src/backup.env.example:ro" \
+  -v "$repo/deploy/cron/crontab:/src/crontab:ro" \
   -v "$here/inner.sh:/src/inner.sh:ro" \
   "${ca[@]}" "$image" bash /src/inner.sh

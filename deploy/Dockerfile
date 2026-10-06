@@ -57,6 +57,8 @@ COPY --from=build --chown=root:root /src/.next/standalone ./
 COPY --from=build --chown=root:root /src/.next/static ./.next/static
 COPY --from=build --chown=root:root /src/public ./public
 COPY --chown=root:root --chmod=0755 deploy/entrypoint.sh /usr/local/bin/udgam-entrypoint
+# `pnpm db:backup` without pnpm: deploy/cron/backup.sh and scripts/deploy.sh run it in this image.
+COPY --chown=root:root deploy/db/backup.mjs ./deploy/db/backup.mjs
 # The code is root-owned and read-only to the app. Writable: /data (the volume) and Next's own cache.
 RUN mkdir -p /app/.next/cache && chown udgam:udgam /app/.next/cache
 USER udgam

@@ -40,8 +40,11 @@ EOF
 iptables-restore </etc/iptables/rules.v4
 
 # The repository as the instance has it, with a names-only env template (TKT-28 ships the real one).
-mkdir -p /opt/udgam/deploy
+mkdir -p /opt/udgam/deploy/cron
 cp /src/bootstrap.sh /opt/udgam/deploy/bootstrap.sh
+cp /src/backup.env.example /opt/udgam/deploy/backup.env.example
+cp /src/crontab /opt/udgam/deploy/cron/crontab
+mkdir -p /etc/cron.d
 printf 'BETTER_AUTH_SECRET=\nBETTER_AUTH_URL=\nUDGAM_DOMAIN=\n' >/opt/udgam/deploy/app.env.example
 
 # The block volume: an unformatted loop device.
@@ -50,7 +53,7 @@ dev="$(losetup -f --show /var/tmp/volume.img)"
 export UDGAM_VOLUME_DEVICE="$dev" UDGAM_FORMAT_VOLUME=1
 B=/opt/udgam/deploy/bootstrap.sh
 
-snapshot() { { cat /etc/fstab; iptables -S INPUT; cat /etc/iptables/rules.v4; ls -la /etc/udgam 2>&1; findmnt /mnt/udgam-data 2>&1 || true; } | sha256sum; }
+snapshot() { { cat /etc/fstab; iptables -S INPUT; cat /etc/iptables/rules.v4; ls -la /etc/udgam /etc/cron.d 2>&1; findmnt /mnt/udgam-data 2>&1 || true; } | sha256sum; }
 
 echo "== dry run on a fresh instance"
 before="$(snapshot)"
@@ -78,6 +81,8 @@ mountpoint -q /mnt/udgam-data || fail "volume not mounted"
 grep -E '^UUID=[0-9a-f-]+ /mnt/udgam-data ext4 defaults,_netdev,nofail 0 2$' /etc/fstab || fail "fstab line"
 [ "$(stat -c '%u:%g %a' /mnt/udgam-data)" = "10001:10001 700" ] || fail "volume owner/mode"
 [ "$(stat -c '%u:%g %a' /etc/udgam/app.env)" = "0:0 600" ] || fail "app.env owner/mode"
+[ "$(stat -c '%u:%g %a' /etc/udgam/backup.env)" = "0:0 600" ] || fail "backup.env owner/mode"
+cmp /etc/cron.d/udgam /src/crontab || fail "cron file"
 grep -n 'udgam-' /etc/iptables/rules.v4
 awk '/udgam-tcp-80/ { a = NR } /^-A INPUT -j REJECT/ { r = NR } END { exit !(a && r && a < r) }' /etc/iptables/rules.v4 || fail "rules.v4 order"
 iptables -S INPUT

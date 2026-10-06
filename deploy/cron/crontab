@@ -1,0 +1,6 @@
+# /etc/cron.d/udgam (TKT-27): installed by deploy/bootstrap.sh. The instance runs in UTC.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Nightly encrypted off-instance backup at 02:30 IST = 21:00 UTC (TSK-27.5).
+0 21 * * * root /opt/udgam/deploy/cron/backup.sh >>/var/log/udgam-backup.log 2>&1

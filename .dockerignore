@@ -16,6 +16,7 @@
 !deploy/check-standalone.mjs
 !deploy/build-migrate.mjs
 !deploy/entrypoint.sh
+!deploy/db/backup.mjs
 
 # Never, even inside an allowed folder.
 **/*.test.ts

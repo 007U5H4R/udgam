@@ -20,8 +20,11 @@
 #      freeze Docker's own chains). Docker publishes Caddy's ports itself (DNAT + its FORWARD rules);
 #   6. /etc/udgam/app.env (0600 root) from deploy/app.env.example, names only, never overwritten: the
 #      owner types the secrets in on the instance;
-#   7. the OCI CLI (pinned, in /opt/oci-cli) for instance-principal backup uploads.
+#   7. the OCI CLI (pinned, in /opt/oci-cli) for instance-principal backup uploads;
+#   8. /etc/udgam/backup.env (0600 root) from deploy/backup.env.example, never overwritten, and the
+#      nightly backup job: /etc/cron.d/udgam from deploy/cron/crontab (kept equal to it).
 #
+# The repository is expected at /opt/udgam (the crontab names that path).
 # Environment (paths are overridable for tests; the defaults are the instance's):
 #   UDGAM_VOLUME_DEVICE   the attached block volume (needed until it is mounted and in fstab)
 #   UDGAM_FORMAT_VOLUME=1 allow mkfs.ext4 on a device with no filesystem (never on one that has one)
@@ -207,5 +210,23 @@ else
   run ln -sf "$OCI_DIR/bin/oci" /usr/local/bin/oci
   did "installed oci-cli $OCI_VERSION in $OCI_DIR"
 fi
+
+# 8. Backup settings and the cron job --------------------------------------------------------------------
+backup_env="$ETC/backup.env"
+if [ -f "$backup_env" ]; then
+  ok "$backup_env"
+else
+  run install -d -m 0700 "$ETC"
+  run install -o 0 -g 0 -m 0600 "$REPO/deploy/backup.env.example" "$backup_env"
+  did "$backup_env created from deploy/backup.env.example (fill in AGE_RECIPIENT and OCI_BUCKET)"
+fi
+cron_file="${UDGAM_CRON_FILE:-/etc/cron.d/udgam}"
+if cmp -s "$REPO/deploy/cron/crontab" "$cron_file"; then
+  ok "$cron_file"
+else
+  run install -o 0 -g 0 -m 0644 "$REPO/deploy/cron/crontab" "$cron_file"
+  did "$cron_file installed (nightly backup 21:00 UTC = 02:30 IST)"
+fi
+[ "$REPO" = /opt/udgam ] || echo "warn: the repository is at $REPO; $cron_file runs /opt/udgam/deploy/cron/backup.sh" >&2
 
 echo "bootstrap: done$([ "$DRY" = 1 ] && echo ' (dry run, nothing changed)')"
