@@ -116,6 +116,22 @@ describe('checkReadiness (TSK-21.1)', () => {
     expect(byId(checkReadiness({ cases }, FULL, { ...opts, milestone: 'M2' }).checks, 'not-yet-implemented').detail).toContain('EVAL-201');
   });
 
+  // Stage 9 CR-202: an EVM-only proof case is runnable when the run will use the EVM ledger.
+  it('with ledger evm, an EVM-only harness-proof case is runnable; the hash-chain default still reports it', () => {
+    const cases = [...readyCases(), proof('EVAL-103', { milestone: 'M2' })];
+    const evm = checkReadiness({ cases }, FULL, { ...opts, milestone: 'M2', ledger: 'evm' });
+    expect(byId(evm.checks, 'not-yet-implemented')).toEqual({ id: 'not-yet-implemented', pass: true, detail: 'no active harness case would be not_yet_implemented' });
+    expect(evm.ready).toBe(true);
+    expect(evm.ledger).toBe('evm');
+    const chain = checkReadiness({ cases }, FULL, { ...opts, milestone: 'M2' });
+    expect(chain.ledger).toBe('hashchain');
+    expect(chain.ready).toBe(false);
+    expect(byId(chain.checks, 'not-yet-implemented').detail).toContain('EVAL-103 (runs only with --ledger=evm)');
+    // a proof case with no runner is still not runnable on the EVM ledger
+    const none = checkReadiness({ cases: [...cases, proof('EVAL-200', { milestone: 'M2' })] }, FULL, { ...opts, milestone: 'M2', ledger: 'evm' });
+    expect(byId(none.checks, 'not-yet-implemented').detail).toBe('1 active case(s) would be not_yet_implemented: EVAL-200 (no harness-proof runner)');
+  });
+
   it('a stretch case that would be not_yet_implemented does not block (only active cases are checked)', () => {
     const cases = [...readyCases(), kase({ scenario: 6, status: 'stretch', expected: { acceptable_verdicts: ['Rejected'], catching_checks: ['yield_plausibility'] } })];
     expect(checkReadiness({ cases }, FULL, opts).ready).toBe(true);
@@ -156,6 +172,22 @@ describe('eval:ready CLI (TSK-21.1)', () => {
     const b = io();
     expect(main(['--baseline=v1'], b.io)).toBe(2);
     expect(b.err[0]).toMatch(/unknown flag --baseline=v1/);
+  });
+
+  it('takes --ledger=hashchain|evm and refuses anything else (Stage 9 CR-202)', () => {
+    const a = io();
+    expect(main(['--ledger=solana'], a.io)).toBe(2);
+    expect(a.err[0]).toMatch(/--ledger must be hashchain, evm; got solana/);
+  });
+
+  it('the repository dataset is READY for M2 on the EVM ledger, and names the EVM ledger in its header (Stage 9 CR-202)', () => {
+    const a = io();
+    expect(main(['--milestone=M2', '--ledger=evm'], a.io)).toBe(0);
+    expect(a.out[0]).toBe('eval:ready (milestone M2, ledger evm) — READY');
+    const b = io();
+    expect(main(['--milestone=M2'], b.io)).toBe(1);
+    expect(b.out[0]).toBe('eval:ready (milestone M2) — NOT READY');
+    expect(b.out.join('\n')).toContain('EVAL-103 (runs only with --ledger=evm)');
   });
 
   it('prints a header and one line per check for the repository dataset', () => {

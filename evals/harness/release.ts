@@ -10,7 +10,7 @@ import { loadDataset, type Dataset, type EvalCase, type Suite } from './dataset'
 import { REPO_ROOT, type Provenance } from './provenance';
 import { checkReadiness, readinessLines, type Readiness } from './readiness';
 import { REPORTS_DIR, RESULTS_DIR, reportPathFor, writeReport, writeResults, type Out } from './results';
-import { configDriftOf, DEFAULT_MILESTONE, isolateDataDir, MILESTONES, regate, runHarness, type Gate, type Milestone, type ResultsFile } from './run';
+import { configDriftOf, DEFAULT_LEDGER, DEFAULT_MILESTONE, isolateDataDir, MILESTONES, regate, runHarness, type Gate, type LedgerMode, type Milestone, type ResultsFile } from './run';
 import { runSuite, sidecarPath, SUITE_REPORTS, type SuiteReport, type SuiteRunRecord } from './test-suites';
 import { treeState, type TreeState } from './tree-state';
 
@@ -626,6 +626,20 @@ export function formalHarnessProblems(r: Pick<ResultsFile, 'provenance' | 'scope
   return out;
 }
 
+/**
+ * The ledger the release's harness run used, so readiness judges that run (Stage 9 CR-202): `evm` when the
+ * --harness file records it; otherwise the default (a file without it, an unreadable one, which is refused
+ * or reported elsewhere, or no --harness, when the release runs the harness itself on the default ledger).
+ */
+export function harnessLedger(file: string | undefined): LedgerMode {
+  if (!file) return DEFAULT_LEDGER;
+  try {
+    return readJson<ResultsFile>(file).data.provenance?.ledger === 'evm' ? 'evm' : DEFAULT_LEDGER;
+  } catch {
+    return DEFAULT_LEDGER;
+  }
+}
+
 /** Why a formal input path is not a plain file, or null. */
 function notRegularFile(flag: string, path: string): string | null {
   try {
@@ -692,7 +706,7 @@ export type ReleaseDeps = {
   /** The environment the spawned suites get. */
   childEnv?: NodeJS.ProcessEnv;
   /** `pnpm eval:ready` for the dataset (default checkReadiness with the registry). */
-  readiness?: (dataset: Pick<Dataset, 'cases'>, milestone: Milestone) => Readiness;
+  readiness?: (dataset: Pick<Dataset, 'cases'>, milestone: Milestone, ledger: LedgerMode) => Readiness;
 };
 
 export async function main(argv: string[], io: Pick<Console, 'log' | 'error'> = console, deps: ReleaseDeps = {}): Promise<0 | 1 | 2> {
@@ -711,7 +725,7 @@ export async function main(argv: string[], io: Pick<Console, 'log' | 'error'> = 
   const suiteDir = join(resultsDir, 'local');
   const head = git();
   const dataset = deps.dataset ?? loadDataset();
-  const readiness = (deps.readiness ?? ((ds, m) => checkReadiness(ds, REGISTRY, { milestone: m })))(dataset, args.milestone);
+  const readiness = (deps.readiness ?? ((ds, m, ledger) => checkReadiness(ds, REGISTRY, { milestone: m, ledger })))(dataset, args.milestone, harnessLedger(args.harness));
   if (args.out === 'formal') {
     const refusals = formalRefusals(args, head, formalDir, readiness);
     if (refusals.length > 0) {

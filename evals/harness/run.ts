@@ -55,20 +55,28 @@ export type ConfigMode = 'full' | 'ledger-only';
  * only network the run may use is that chain's loopback RPC, counted in runtime.localChainRpcCalls;
  * anything else is still refused (EVAL-091). Default `hashchain`: EVAL-103 is reported, not run.
  */
-export type LedgerMode = 'hashchain' | 'evm';
+export const LEDGER_MODES = ['hashchain', 'evm'] as const;
+export type LedgerMode = (typeof LEDGER_MODES)[number];
+/** The ledger `pnpm eval` and `pnpm eval:ready` assume without --ledger. */
+export const DEFAULT_LEDGER: LedgerMode = 'hashchain';
 export type ProviderMode = 'fixture' | 'live';
 
 /**
- * Milestone scoping (EXE, carry-forward TKT-18): `--milestone=M1` scopes the gates to cases of
- * milestones up to and including M1. M1 is the default only until M-002 starts: when it does
- * (TSK-24.x), the default MUST move to M2 (DEFAULT_MILESTONE below). Cases of a later milestone are still
+ * Milestone scoping (EXE15, carry-forward TKT-18): `--milestone=M1` scopes the gates to cases of
+ * milestones up to and including M1. The default stays M1 with the hash-chain ledger (decisions.md EXE23,
+ * OD-9 → a, which overrides EXE15's "moves to M2 at M-002"): M-002 is gated by
+ * `pnpm eval --ledger=evm --milestone=M2` in contracts.yml, and `pnpm eval:ready --milestone=M2
+ * --ledger=evm` checks it (Stage 9 CR-201/202). Cases of a later milestone are still
  * built and run where possible and appear in `cases`, but are REPORTED in a separate "Out of milestone
  * scope" section, never pooled into that milestone's gates or critical conditions, and never dropped
  * (CF-12, EVAL-092).
  */
 export const MILESTONES = ['M1', 'M2', 'M3'] as const;
 export type Milestone = (typeof MILESTONES)[number];
-/** The default scope. Move to 'M2' when M-002 starts, or M2 cases stay out of every gate. */
+/**
+ * The default scope: M1, deliberately (EXE23, OD-9 → a). M2 cases are gated by the explicit
+ * `--ledger=evm --milestone=M2` run, never by the default one.
+ */
 export const DEFAULT_MILESTONE: Milestone = 'M1';
 /** Whether a case counts in the gates. Fails closed: an unknown or missing milestone is in scope. */
 export const inMilestone = (caseMilestone: string | undefined, scope: Milestone): boolean => {
@@ -633,7 +641,7 @@ export async function evaluate(opts: RunOptions = {}): Promise<ResultsFile> {
   const dataset = loadDataset(opts.datasetPath);
   const inputs = loadHarnessInputs(dataset);
   const keys = await generateDeviceKeys(dataset);
-  const ledger = opts.ledger ?? 'hashchain';
+  const ledger = opts.ledger ?? DEFAULT_LEDGER;
   const runProof = opts.proofSuite ?? runProofSuite;
   let proofRun: Promise<ProofCaseResult[]> | undefined;
   // --ledger=evm: the chain is started once, on first use by a harness-proof case, and stopped below.
@@ -855,7 +863,7 @@ export async function runHarness(opts: RunOptions = {}): Promise<HarnessRun> {
 export function parseArgs(
   argv: string[],
 ): Required<Pick<RunOptions, 'config' | 'provider' | 'suites' | 'out' | 'milestone' | 'ledger'>> & Pick<RunOptions, 'seed' | 'name' | 'reportName' | 'baseline'> & { record: boolean } {
-  const o = { config: 'full' as ConfigMode, provider: 'fixture' as ProviderMode, suites: [...HARNESS_SUITES] as Suite[], out: 'local' as Out, milestone: DEFAULT_MILESTONE, ledger: 'hashchain' as LedgerMode, record: false } as ReturnType<typeof parseArgs>;
+  const o = { config: 'full' as ConfigMode, provider: 'fixture' as ProviderMode, suites: [...HARNESS_SUITES] as Suite[], out: 'local' as Out, milestone: DEFAULT_MILESTONE, ledger: DEFAULT_LEDGER, record: false } as ReturnType<typeof parseArgs>;
   let outGiven = false;
   for (const arg of argv) {
     const m = /^--([a-z-]+)=(.*)$/.exec(arg);

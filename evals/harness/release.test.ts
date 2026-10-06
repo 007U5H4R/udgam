@@ -674,6 +674,27 @@ describe('eval:release CLI', () => {
   });
 });
 
+describe('eval:release readiness follows the harness run\'s ledger (Stage 9 CR-202)', () => {
+  it.each([
+    ['an EVM-ledger harness file', 'evm', 'evm'],
+    ['a hash-chain harness file', 'hashchain', 'hashchain'],
+    ['a harness file that records no ledger', undefined, 'hashchain'],
+  ])('%s: readiness is judged for ledger %s', async (_why, recorded, expected) => {
+    const dir = join(root, `ledger-${String(recorded)}`);
+    const local = join(dir, 'local');
+    mkdirSync(local, { recursive: true });
+    const h = worldHarness();
+    writeFileSync(join(dir, 'harness.json'), JSON.stringify({ ...h, provenance: { ...h.provenance, ledger: recorded } }));
+    const seen: unknown[][] = [];
+    const readiness = (...a: unknown[]) => {
+      seen.push(a.slice(1));
+      return { ...WORLD_READY, milestone: 'M2' as const, ledger: expected as 'evm' | 'hashchain' };
+    };
+    await main(['--milestone=M2', '--reuse', `--dir=${dir}`, `--harness=${join(dir, 'harness.json')}`], { log: () => {}, error: () => {} }, { git: () => HEAD, dataset: WORLD, readiness });
+    expect(seen).toEqual([['M2', expected]]);
+  });
+});
+
 describe('eval:integration and eval:e2e commands', () => {
   it('integration: Vitest unit + integration projects filtered to EVAL-titled tests, JSON report in the out dir; --evm adds the evm project', () => {
     const [c] = suiteCommands('integration', '/out');

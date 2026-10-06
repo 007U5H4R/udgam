@@ -77,6 +77,7 @@ export function caseResult(c: EvalCase, result: VerifyResult | null): CaseResult
 export const WORLD_READY: Readiness = {
   ready: true,
   milestone: 'M1',
+  ledger: 'hashchain',
   checks: [{ id: 'registry', pass: true, detail: '12/12 checks registered' }],
   warnings: ['WARNING: docs/exec/hr3-field-calibration.md is absent: HR3 field calibration was waived (decisions.md TP29), so S2 realism (the legitimate-set jitter) and the S3 reference condition are unvalidated assumptions. The gate report must print this line.'],
 };
