@@ -12,11 +12,11 @@ import { choosePassword, commandName, describeDelivery, parseCliArgs, runCli, Us
 const USAGE = `usage: ${commandName('set-password')} --email <email> [--password-stdin | --out <directory>]`;
 
 export async function main(argv: string[]): Promise<number> {
-  if (wantsHelp(argv)) {
-    process.stdout.write(`${USAGE}\n`);
-    return 0;
-  }
   return runCli(USAGE, async () => {
+    if (wantsHelp(argv)) {
+      process.stdout.write(`${USAGE}\n`);
+      return;
+    }
     const a = parseCliArgs(argv, ['email', 'out']);
     const email = typeof a.email === 'string' ? a.email : undefined;
     if (!email) throw new UsageError('--email is required');

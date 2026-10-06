@@ -26,11 +26,20 @@ export function commandName(script: 'create' | 'set-password', argv1: string | u
   return argv1?.endsWith('.mjs') ? `node ${argv1}` : `pnpm accounts:${script}`;
 }
 
-/** `--help` or `-h` anywhere: print the usage and do nothing else. */
-export const wantsHelp = (argv: readonly string[]) => argv.includes('--help') || argv.includes('-h');
+/**
+ * `--help` or `-h` in option position (a value such as `--name -h` is a name): print the usage and do
+ * nothing else. A password in argv is refused first (UsageError), help or not.
+ */
+export function wantsHelp(argv: readonly string[]): boolean {
+  const options = optionTokens(argv);
+  if (options.some(isPasswordFlag)) throw new UsageError(PASSWORD_IN_ARGV);
+  return options.includes('--help') || options.includes('-h');
+}
 
 /** A mistake in how the command was called (exit 2). Its message never contains a value. */
 export class UsageError extends Error {}
+
+const PASSWORD_IN_ARGV = 'a password goes on stdin (--password-stdin) or is generated: never on the command line';
 
 /** Any spelling of a password option: `-p`, `-p<value>`, `--pw…`, `--pass…`, `--password…` (not --password-stdin). */
 const isPasswordFlag = (a: string) => a !== '--password-stdin' && (/^-p/i.test(a) || /^--(pw|pass)/i.test(a));
@@ -56,9 +65,7 @@ function optionTokens(argv: readonly string[]): string[] {
  * -p or -P (a name) is not an option.
  */
 export function parseCliArgs(argv: readonly string[], known: readonly string[]): Record<string, string | true> {
-  if (optionTokens(argv).some(isPasswordFlag)) {
-    throw new UsageError('a password goes on stdin (--password-stdin) or is generated: never on the command line');
-  }
+  if (optionTokens(argv).some(isPasswordFlag)) throw new UsageError(PASSWORD_IN_ARGV);
   const out: Record<string, string | true> = {};
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;

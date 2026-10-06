@@ -99,10 +99,13 @@ describe('the bundled accounts CLI (SEC-001 in the image)', () => {
     BUDGET,
   );
 
-  it('refuses a password in argv, as the tsx commands do', () => {
-    const r = tool('accounts-set-password.mjs', ['--email', 'bundle@fpob.example', '--password=x']);
-    expect(r.code).toBe(2);
-    expect(r.err).toMatch(/never on the command line/);
+  it('refuses a password in argv, as the tsx commands do, even next to --help', () => {
+    for (const args of [['--email', 'bundle@fpob.example', '--password=x'], ['--password=x', '--help']]) {
+      const r = tool('accounts-set-password.mjs', args);
+      expect(r.code).toBe(2);
+      expect(r.err).toMatch(/never on the command line/);
+      expect(r.out).toBe('');
+    }
   });
 });
 

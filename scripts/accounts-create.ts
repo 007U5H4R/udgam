@@ -16,11 +16,11 @@ import { choosePassword, commandName, describeDelivery, parseCliArgs, runCli, Us
 const USAGE = `usage: ${commandName('create')} --name <name> --email <email> --role agent|admin|buyer|processor (--org <ORG-id> | --new-org <name>) [--password-stdin | --out <directory>]`;
 
 export async function main(argv: string[]): Promise<number> {
-  if (wantsHelp(argv)) {
-    process.stdout.write(`${USAGE}\n`);
-    return 0;
-  }
   return runCli(USAGE, async () => {
+    if (wantsHelp(argv)) {
+      process.stdout.write(`${USAGE}\n`);
+      return;
+    }
     const a = parseCliArgs(argv, ['name', 'email', 'role', 'org', 'new-org', 'out']);
     const str = (k: string) => (typeof a[k] === 'string' ? (a[k] as string) : undefined);
     const [name, email, role, org, newOrg] = [str('name'), str('email'), str('role'), str('org'), str('new-org')];

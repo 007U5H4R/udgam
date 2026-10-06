@@ -3,7 +3,7 @@ import { mkdirSync, readdirSync, readFileSync, statSync, symlinkSync } from 'nod
 import { basename, join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { tempDirs } from '../tests/helpers/tmp';
-import { choosePassword, parseCliArgs, UsageError } from './accounts-cli';
+import { choosePassword, parseCliArgs, UsageError, wantsHelp } from './accounts-cli';
 
 // SEC-001: where a password comes from and where a generated one goes (the terminal path cannot be
 // driven from a child process without a pty, so it is tested here with stand-in streams).
@@ -57,6 +57,24 @@ describe('parseCliArgs', () => {
   it('refuses unknown options and a missing value', () => {
     expect(() => parseCliArgs(['--colour', 'red'], ['email'])).toThrow(/unknown option --colour/);
     expect(() => parseCliArgs(['--email'], ['email'])).toThrow(/--email needs a value/);
+  });
+});
+
+describe('wantsHelp', () => {
+  it('sees --help or -h in option position only: a value such as --name -h is a name', () => {
+    expect(wantsHelp(['--help'])).toBe(true);
+    expect(wantsHelp(['-h'])).toBe(true);
+    expect(wantsHelp(['--name', 'Asha', '--help'])).toBe(true);
+    expect(wantsHelp(['--name', '-h'])).toBe(false);
+    expect(wantsHelp(['--name', '--help'])).toBe(true); // `--name` has no value here; --help is an option
+    expect(wantsHelp(['--email', 'a@b.example'])).toBe(false);
+  });
+
+  it('never answers help when a password is in argv: the refusal comes first', () => {
+    const word = ['made', 'up'].join('');
+    for (const a of [['--password', word, '--help'], [`-p${word}`, '-h'], ['--help', `--pass=${word}`]]) {
+      expect(() => wantsHelp(a), a.join(' ')).toThrow(/never on the command line/);
+    }
   });
 });
 
