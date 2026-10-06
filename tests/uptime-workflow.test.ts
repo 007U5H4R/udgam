@@ -152,4 +152,19 @@ describe('uptime.yml: the probe script', () => {
     expect(r.code).toBe(0);
     expect(r.out).toMatch(/^::warning title=Remote-sensing provider check::gfw=error sentinelHub=error/m);
   });
+
+  it('never lets the server write workflow commands: a raw body or a field value cannot start a "::" line (review item 14)', () => {
+    const ours = /^::(notice|error|warning) title=(Uptime probe skipped|Uptime probe misconfigured|Production health check failed|Production degraded|Remote-sensing provider check)::/;
+    const foreign = (out: string) => out.split('\n').filter((l) => l.startsWith('::') && !ours.test(l));
+    const raw = probe({ body: 'oops\n::add-mask::hidden\n::error::forged alert\n::stop-commands::x', curlExit: 22 });
+    expect(raw.code).toBe(1);
+    expect(foreign(raw.out)).toEqual([]);
+    expect(raw.out).not.toContain('forged alert');
+    const fields = probe({ body: JSON.stringify({ ...(BODIES.healthy as object), db: 'down\n::warning::injected', providers: { gfw: 'x\n::error::injected too', sentinelHub: 'ok' } }) });
+    expect(fields.code).toBe(1);
+    expect(foreign(fields.out)).toEqual([]);
+    const jsonBody = probe({ body: JSON.stringify({ config: 'error', db: 'unchecked', note: '\n::error::in json' }), curlExit: 22 });
+    expect(foreign(jsonBody.out)).toEqual([]);
+    expect(jsonBody.out).toContain('"config":"error"'); // a JSON body is still shown, on one line
+  });
 });
