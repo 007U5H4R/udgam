@@ -366,3 +366,13 @@ exports[`evidence templates (TC-011) > render every §6.5 row (snapshot) 1`] = `
 - **verdict** (3): `verdict.verified`, `verdict.needsReview`, `verdict.rejected`
 
 </details>
+
+## Owner review items: decided 2026-10-06 (EXE43, owner delegated)
+- **HR1** (evidence-template snapshots) and **HR2** (known-limitations and pruning/clearing-pair wording): **accepted as written.**
+- **HR6** (number traceability): **accepted.** An independent check (`docs/exec/hr6-check.md`, `HR CHECK: PASS`) found:
+  - every scorecard and gate-table number matches its results file, JSON path and report line;
+  - the HR2 block is byte-identical to `eval-report-0.1.0-eb321a1.md` lines 102–151;
+  - the HR1 block is byte-identical to `src/lib/verification/__snapshots__/evidence.test.ts.snap`.
+
+  Not traceable to a results file, as expected: the test-suite counts, the host load figures and the Kannada key counts.
+- **Kannada native review** (617 strings): **open.** It needs a native speaker and can't be delegated.
