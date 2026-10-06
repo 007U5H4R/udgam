@@ -1,4 +1,74 @@
-# Udgam reverse proxy (TKT-27). HTTPS on {$UDGAM_DOMAIN} with an automatic certificate.
+# Udgam reverse proxy (TKT-27, TSK-27.3). HTTPS on {$UDGAM_DOMAIN}: a Let's Encrypt certificate on the
+# instance (automatic HTTPS; HTTP redirects to HTTPS). For `localhost` Caddy uses its own internal CA,
+# which is how tests/deploy/stack/stack.sh runs this file unchanged.
+#
+# Client address (owner decision EXE14, SEC-006). The app keys its per-IP limits (sign-in, capture,
+# enrolment, telemetry) by the LAST X-Forwarded-For hop (src/lib/client-ip.ts). So Caddy overwrites the
+# whole header with the address it saw, and drops X-Real-IP: whatever a client sends in either header
+# never reaches the app. `trusted_proxies` stays unset (no proxy sits in front of Caddy), and the app
+# port is never published (deploy/docker-compose.yml). tests/deploy/forged-header.stack.test.ts proves it.
+#
+# Request bodies (SEC-005). Caddy refuses an oversized body with 413 before the app reads a byte; the
+# app keeps its own exact limits behind these.
+#   /api/capture*                  32MB  (3 x 10 MiB photos + the signed payload: MAX_BODY_BYTES 30.25 MiB)
+#   /admin/plots/<id>/attestation  11MiB (an organic certificate, 10 MiB + a 64 KiB form envelope)
+#   /admin*                        3MiB  (Server Actions: the plot upload actions take up to 2 MiB, under
+#                                         next.config.ts's 3 MiB Server Action cap, EXE50)
+#   everything else                1MB   (sign-in, buyer and processor actions, enrolment, beacons)
+
+(client_ip) {
+	header_up X-Forwarded-For {remote_host}
+	header_up -X-Real-IP
+}
+
 {$UDGAM_DOMAIN} {
-	reverse_proxy app:3000
+	# SEC-007: the app sends HSTS too; Caddy sets it on every response, error pages included.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	# Capture streams NDJSON check rows as they finish (TC-087): no response encoding, no buffering.
+	@capture path /api/capture /api/capture/*
+	handle @capture {
+		request_body {
+			max_size 32MB
+		}
+		reverse_proxy app:3000 {
+			import client_ip
+			flush_interval -1
+		}
+	}
+
+	@attestation path_regexp ^/admin/plots/[^/]+/attestation$
+	handle @attestation {
+		request_body {
+			max_size 11MiB
+		}
+		encode zstd gzip
+		reverse_proxy app:3000 {
+			import client_ip
+		}
+	}
+
+	@admin path /admin /admin/*
+	handle @admin {
+		request_body {
+			max_size 3MiB
+		}
+		encode zstd gzip
+		reverse_proxy app:3000 {
+			import client_ip
+		}
+	}
+
+	handle {
+		request_body {
+			max_size 1MB
+		}
+		encode zstd gzip
+		reverse_proxy app:3000 {
+			import client_ip
+		}
+	}
 }
