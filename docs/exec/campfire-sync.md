@@ -128,6 +128,11 @@ Gate P6–P8 PASS 2026-10-05 and Gate M-002 PASS 2026-10-05, both from independe
 - Add the new acceptance items from `tickets.md` (EXE51) to TASK-28 (TKT-27) and TASK-29 (TKT-28).
 - M-003 waits for the owner's approval of the gate.
 
+## 3f · Stage 11 cloud build (2026-10-06): M-003 built locally, on-instance work BLOCKED
+- **TASK-28 (TKT-27), TASK-29 (TKT-28) and TASK-30 (TKT-29, the TSK-29.1 part only):** move each to "built, on-instance BLOCKED". Add the ledger's Stage 11 table rows as comments, with the merge SHAs 85945ab, c4a434f, f0da2fe and 37efa1e.
+- **Note EXE52–EXE55** on those cards.
+- **On TASK-28,** list the BLOCKED tests TC-087, TC-088 and TC-089; **on TASK-29,** TC-090, TC-091 and TC-092; **on TASK-30,** TSK-29.2 to 29.4.
+
 ## 4 · Not touched
 - M-003 (TASK-28, 29, 30) stays To Do. It is out of scope for this Stage 7 run.
 - There are no BUG rows in the ledger, so there are no Campfire bugs to create.

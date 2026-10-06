@@ -54,6 +54,15 @@ This file was written at the Stage 11 cloud checkpoint. The live deployment (TKT
 - **Outcome.** The reviewers could check rulings against the record. Contradictions were caught and amended in later entries, such as EXE54 → EXE55.
 - **Future rule.** Record a delegated decision before acting on it. Never delegate irreversible or externally visible actions.
 
+## 9. Tests that pass as root can fail on CI's unprivileged runner
+- **Situation.** A new rollback test injected a `chown` failure. The script only runs `chown` as root, and the cloud VM runs tests as root, so the test passed here and failed on GitHub's non-root runner.
+- **Decision.** The test now declares the uid it needs through a stub. Its stubs are no-ops when they would only fail unprivileged. The CI failure was reproduced as uid 65534 before the fix.
+- **Future rule.** Before trusting a script test that touches ownership or permissions, run it once as a non-root user.
+
+## 10. Checks that need Docker drift if CI never runs them
+- **Situation.** The restore drill and the stack tests run only where Docker is available, which is not in `pnpm test` or CI. A later production-URL rule broke the drill, and nothing noticed until the independent QA gate (QA-M003-001).
+- **Future rule.** Every check that needs Docker gets one runner, either local or a CI job. Run it at every gate that touches deploy code.
+
 ## Reusable Rules for Future Projects
 1. Every operational script needs failure-path tests run against stubs: retention, partial swap, a gate checking the right image, rollback with nothing to roll back to.
 2. Two fresh reviewers per task (spec and quality/security), with a cap of two fix rounds.
@@ -62,6 +71,7 @@ This file was written at the Stage 11 cloud checkpoint. The live deployment (TKT
 5. Host-changing scripts refuse unknown arguments and the wrong host before any side effect.
 6. No secret-shaped literals in tests.
 7. With cancel-in-progress CI, batch pushes and let evidence runs finish.
+8. Script tests that touch permissions run once as a non-root user, and Docker-only checks get one runner used at every gate.
 
 ## Candidate Global CLAUDE.md Improvements
 These are recommendations only; the global file must not be edited automatically.

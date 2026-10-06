@@ -360,3 +360,42 @@ Formal commit `d7124cb` records the run at gate commit `eb321a1`. The harness, p
 - **Tests and CI:** `pnpm test` passes on the merged tree (278 files, 2694 tests). CI e2e on b13dfaf: 952 passed.
 - **QA gate** (`QA-report.md`): READY WITH ACCEPTED RISKS.
 - **Next:** Stage 11 · Deployment (M-003: TKT-27..29), only with the owner's accounts in place and the carry-ins as acceptance criteria.
+
+## Stage 11 · M-003 cloud build (TKT-27 · TASK-28, TKT-28 · TASK-29, TSK-29.1 · TASK-30) · LOCAL PASS, on-instance BLOCKED · 2026-10-06
+The owner approved the Stage 10 gate (EXE52). M-003 was built in the cloud under the Stage 7 rules: one implementer per ticket, a spec review and a quality review, at most 2 fix rounds, and an independent QA gate. Decisions: EXE52–EXE55.
+
+| Task | Merge | Reviews (spec / quality) | Fix rounds | Status |
+|---|---|---|---|---|
+| TSK-29.1 S3 perf runner (TASK-30) | 85945ab | PASS / PASS | 2 | DONE locally. The formal S3 baseline is BLOCKED: it runs on the EXE33 staging deployment with live providers (EXE53). |
+| TKT-27 deploy stack (TASK-28) | c4a434f | PASS / PASS | 1 | DONE locally on x86_64 (image, Compose, Caddy, bootstrap in a container, backup and restore drill, deploy and rollback). |
+| TKT-28 production config and monitoring (TASK-29) | f0da2fe | PASS / PASS | 2 | DONE locally. Includes SEC-001, SEC-003, DES-219 and QA-P5-4, the hourly checkpoint, the unsealed-age probe (EXE55) and migration 0036. |
+| M-003 integration (TASK-28, TASK-29) | 37efa1e | PASS / PASS | 2 | DONE: the accounts CLI bundled in the image, the entrypoint config check (EXE55), and a signal-safe rollback restore. |
+
+- **QA gate** (`docs/exec/stage11/m003-qa.md`, independent, at 37efa1e): PASS with BLOCKED items. Of 33 criteria, 14 PASS, 11 PASS locally with an on-instance part still to do, 8 BLOCKED, 0 FAIL. TC-087–092 are all BLOCKED (owner precondition).
+- **QA findings:**
+  - QA-M003-001 (Medium): the restore drill used http URLs that DES-219 refuses. Fixed in 4959e88 and re-run: 18/18, same kid.
+  - QA-M003-002 (Low): ledger and HANDOFF. This section and the HANDOFF rewrite close it.
+  - QA-M003-003 (Info): stale size in `deploy.md`. Fixed. The 32 MB and 11 MiB caps are checked only by `caddy adapt`, not by a live over-the-cap request; that check happens at TC-087.
+  - QA-M003-004 (Info): the Docker-dependent checks (stack, entrypoint, drill, bootstrap) don't run in CI. Follow-up: a CI job with Docker. Owner choice; it adds CI minutes.
+- **Open minor from the integration quality review (fix rounds used up):** with `--undo-if-unhealthy`, the undo restarts the app on `:current` (the older image) for a few seconds before `deploy.sh` retags. **Follow-up for TC-089:** skip the undo's start under that flag and leave the start to `deploy.sh`.
+- **CI incidents, both fixed:**
+  - gitleaks flagged a made-up test string (21f669c);
+  - a deploy test passed only as root and failed on GitHub's non-root runner (bf95942, reproduced as uid 65534).
+- **Sandbox incident (reverted):** a test run of `bootstrap.sh` installed packages on the cloud VM before refusing. The packages were purged, and scripts now refuse unknown arguments and non-arm64 hosts before any side effect.
+- **Gates at 37efa1e and later:**
+  - unit and integration: 2976 passed;
+  - `test:tz`: both zones;
+  - e2e: 952 passed (integration branch, all four projects);
+  - eval M1: S1 97.7 %, S1-floor 91.7 %, S2 0 %, S6-lib 100 %, S7 Yes, CF 0, unchanged;
+  - trace, bundle-secrets and gitleaks: clean;
+  - image builds; `check-standalone` 65.2 MB.
+- **BLOCKED (owner precondition, EXE52), with the commands in `docs/ops/deploy.md` and `monitoring.md`:**
+  - the arm64 build on the A1;
+  - TC-087 (HTTPS/Let's Encrypt, streaming, forged header on the instance);
+  - TC-088 (OCI backup and a fresh-volume restore);
+  - TC-089 (deploy and rollback on the instance);
+  - TC-090 (uptime alert drill; needs `uptime.yml` on `main`);
+  - TC-091 (link unfurl);
+  - TC-092 (live providers, image inspection, audit of the deployed lockfile);
+  - the formal S3 run on staging and TSK-29.2–29.4 (EVAL-070, EVAL-072);
+  - the owner's choices: PAYG or keep-busy, `BACKUP_MEDIA`, SEC-101.
