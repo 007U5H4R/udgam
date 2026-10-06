@@ -10,11 +10,18 @@ import { ProviderError, type CallOptions, type NdviHistory, type NdviWindow, typ
 // are masked by the evalscript. Fully masked intervals report noDataCount == sampleCount and a NaN mean
 // (a number or the string "NaN"), or are missing from `data[]`: both count as not clear. Every failure
 // is a ProviderError; the client secret and the token never reach a log line or an error message.
+// Redirects are followed by hand (SEC-103): a 307/308 makes fetch re-send the token POST's body, client
+// secret included, to whatever origin the Location names. A hop is taken only when its Location is on
+// the request's own origin (token and statistics hosts are each their own), at most MAX_REDIRECTS
+// times; any other 3xx is a ProviderError(status).
 
 export const CDSE_TOKEN_URL = 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token';
 export const CDSE_STATS_URL = 'https://sh.dataspace.copernicus.eu/statistics/v1';
 const CRS_4326 = 'http://www.opengis.net/def/crs/EPSG/0/4326';
 const TOKEN_MARGIN_MS = 60_000;
+/** Same-origin hops followed before giving up. */
+const MAX_REDIRECTS = 3;
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const DAY_MS = 86_400_000;
 
 export type SentinelOptions = {
@@ -89,13 +96,49 @@ export function createSentinelProvider(o: SentinelOptions) {
   let token: { value: string; expiresAt: number } | undefined;
   let pending: Promise<string> | undefined;
 
-  async function send(url: string, init: RequestInit, what: string): Promise<Response> {
+  async function fetchOnce(url: string, init: RequestInit, what: string): Promise<Response> {
     try {
-      return await doFetch(url, init);
+      return await doFetch(url, { ...init, redirect: 'manual' });
     } catch (err) {
       if (isAbort(err) || init.signal?.aborted) throw new ProviderError('sentinel-hub', 'timeout');
       log.warn({ provider: 'sentinel-hub', what, errClass: errClass(err) }, 'remote_sensing.request_failed');
       throw new ProviderError('sentinel-hub', 0);
+    }
+  }
+
+  /** The next hop of a 3xx, or null when it must not be taken (no usable Location, or off `origin`). */
+  function nextHop(res: Response, from: string, origin: string): URL | null {
+    const location = res.headers.get('location');
+    if (!location) return null;
+    let next: URL;
+    try {
+      next = new URL(location, from);
+    } catch {
+      return null;
+    }
+    return next.origin === origin ? next : null;
+  }
+
+  /** One request, following only same-origin redirects; any other response goes back to the caller as is. */
+  async function send(url: string, init: RequestInit, what: string): Promise<Response> {
+    const origin = new URL(url).origin;
+    let current = url;
+    let req = init;
+    for (let hop = 0; ; hop++) {
+      const res = await fetchOnce(current, req, what);
+      if (!REDIRECT_STATUSES.has(res.status)) return res;
+      await discard(res);
+      const next = hop < MAX_REDIRECTS ? nextHop(res, current, origin) : null;
+      if (!next) {
+        // Never the Location itself: its query string may carry anything (SEC-103).
+        log.warn({ provider: 'sentinel-hub', what, status: res.status, hop }, 'remote_sensing.redirect_refused');
+        throw new ProviderError('sentinel-hub', res.status);
+      }
+      // Fetch's method rewrite: 303 (and 301/302 after a POST) continue as a GET without a body.
+      if (res.status === 303 || ((res.status === 301 || res.status === 302) && req.method === 'POST')) {
+        req = { ...req, method: 'GET', body: undefined };
+      }
+      current = next.href;
     }
   }
 
