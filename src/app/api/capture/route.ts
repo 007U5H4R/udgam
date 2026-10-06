@@ -40,8 +40,8 @@ function refusal(e: Extract<CaptureEvent, { t: 'rejected' }>): Response {
  * the first line: a boundary refusal answers 4xx; a capture that reaches verification streams 200.
  * Needs an agent session (401/403 JSON otherwise) and a device enrolled to that agent (§10).
  * Before the body is read (TSK-19.2/19.3): 411 without Content-Length, 413 above the body cap, 429 (with
- * Retry-After) past the per-address limit or the agent's daily capture budget (SEC-003), then 503 (with Retry-After) when this agent already has
- * MAX_CAPTURES_PER_AGENT captures in flight or the process has MAX_CAPTURES_IN_FLIGHT (fix rounds 1-2).
+ * Retry-After) past the agent's daily capture budget (SEC-003) or the per-address limit, then 503 (with
+ * Retry-After) when this agent already has MAX_CAPTURES_PER_AGENT captures in flight or the process has MAX_CAPTURES_IN_FLIGHT (fix rounds 1-2).
  * The checks that cost no slot come first, so a refused request never holds one. The slot is held until
  * the capture's stream ends; a body that has not arrived within BODY_READ_DEADLINE_MS answers 408.
  */
@@ -57,32 +57,27 @@ export async function POST(req: Request): Promise<Response> {
   const tooBig = checkContentLength(req.headers);
   if (tooBig) return refusal({ t: 'rejected', reason: tooBig.reason, status: tooBig.status });
 
+  // SEC-003: this agent's daily budget of accepted captures and photo bytes, from what is stored. It is
+  // read before the per-address limit, so a budget refusal spends no address token (one indexed read, no
+  // write). Over it, the same retryable 429 as the per-address limit: the phone keeps the picking and
+  // sends it after the India midnight (it waits at most MAX_RETRY_WAIT_SEC between tries, refused unread).
   let db: Db;
-  let perIp: Awaited<ReturnType<typeof consume>>;
+  let over: ReturnType<typeof overBudget>;
+  let perIp: Awaited<ReturnType<typeof consume>> | undefined;
   const ip = { key: ipKey(clientIp(req.headers)), at: new Date() };
   try {
     db = await getDbReady();
-    perIp = await consume(db, ip.key, IP_LIMIT.limit, IP_LIMIT.windowSec, ip.at);
-  } catch (err) {
-    log.error(errFields(err), 'capture.route_failed');
-    return new Response(line({ t: 'error', retryable: true }), { status: 503, headers: HEADERS });
-  }
-  if (!perIp.ok) return refusal({ t: 'rejected', reason: 'rate_limited', status: 429, retryAfterSec: perIp.retryAfterSec });
-
-  // SEC-003: this agent's daily budget of accepted captures and photo bytes, from what is stored. Over it,
-  // the same retryable 429 as the per-address limit: the phone keeps the picking and sends it after
-  // the India midnight (it waits at most MAX_RETRY_WAIT_SEC between tries, refused unread each time).
-  let over: ReturnType<typeof overBudget>;
-  try {
     const budget = budgetFromEnv(env);
     const usage = await agentUsageToday(db, agent.userId, ip.at);
     over = overBudget(usage, budget, ip.at);
     if (over) log.warn({ budget: over.which, ...usage, ...budget }, 'capture.budget_exhausted');
+    else perIp = await consume(db, ip.key, IP_LIMIT.limit, IP_LIMIT.windowSec, ip.at);
   } catch (err) {
     log.error(errFields(err), 'capture.route_failed');
     return new Response(line({ t: 'error', retryable: true }), { status: 503, headers: HEADERS });
   }
   if (over) return refusal({ t: 'rejected', reason: 'rate_limited', status: 429, retryAfterSec: over.retryAfterSec });
+  if (perIp && !perIp.ok) return refusal({ t: 'rejected', reason: 'rate_limited', status: 429, retryAfterSec: perIp.retryAfterSec });
 
   const slot = acquireCaptureSlot(agent.userId);
   if (!slot.ok) {

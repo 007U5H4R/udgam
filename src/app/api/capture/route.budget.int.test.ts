@@ -114,6 +114,17 @@ describe('POST /api/capture daily budget (SEC-003)', () => {
     expect(await lastLine(refused)).toMatchObject({ reason: 'rate_limited' });
   });
 
+  it('a budget refusal spends no per-address token: the budget is checked before the address limit (review item 8)', async () => {
+    const { POST } = await routeWith({ CAPTURE_DAILY_MAX_CAPTURES: '1' });
+    const first = await POST(await capture('one'));
+    await lastLine(first);
+    const ipTokens = async () => Number((await t.client.execute("SELECT COALESCE(SUM(count), 0) AS n FROM rate_limits WHERE key LIKE 'capture:ip:%'")).rows[0]?.n);
+    const before = await ipTokens();
+    expect(before).toBe(1); // the accepted capture spent one
+    for (let i = 0; i < 3; i++) expect((await POST(await capture(`refused-${i}`))).status).toBe(429);
+    expect(await ipTokens()).toBe(before);
+  });
+
   it('under the defaults, captures go through', async () => {
     const { POST } = await import('./route');
     for (const l of ['a', 'b', 'c']) {
