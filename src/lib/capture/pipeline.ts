@@ -3,7 +3,7 @@ import { sha256Hex } from '../crypto';
 import { writeTx, type Db, type Tx } from '../db/client';
 import { devices, media, plots } from '../db/schema';
 import { isPlotAssigned } from '../enrolment/assign';
-import { log as defaultLog } from '../log';
+import { errFields, log as defaultLog } from '../log';
 import { extractExif } from '../media/exif';
 import type { MediaStore } from '../media/store';
 import { chainContinuity } from '../verification/checks/chain_continuity';
@@ -151,7 +151,7 @@ export async function runCapture(form: FormData, deps: CaptureDeps, emit: (line:
     terminal = await capture(form, deps, send, held, staged);
   } catch (err) {
     await dropStored(); // nothing was committed
-    log.error({ errClass: errClass(err) }, 'capture.failed');
+    log.error(errFields(err), 'capture.failed'); // class and driver code (CR-007), never the message
     send({ t: 'error', retryable: true });
     return;
   }

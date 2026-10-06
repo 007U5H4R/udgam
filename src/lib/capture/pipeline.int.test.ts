@@ -292,6 +292,18 @@ describe('delivery failures never change what was committed', () => {
     expect(warn).toHaveBeenCalledWith(expect.objectContaining({ errClass: 'TypeError' }), 'capture.emit_failed');
   });
 
+  it('CR-007: a failed capture logs the driver code (SQLITE_BUSY) with the class, never the message', async () => {
+    const error = vi.fn();
+    const busy: CaptureDeps['append'] = async () => {
+      throw Object.assign(new Error('SQLITE_BUSY: database is locked'), { code: 'SQLITE_BUSY', rawCode: 5 });
+    };
+    const { fd } = await form({ photos: [photo('busy')] });
+    const events = await run(fd, deps({ append: busy, log: { error, warn: vi.fn(), info: vi.fn() } }));
+    expect(events.at(-1)).toEqual({ t: 'error', retryable: true });
+    expect(error).toHaveBeenCalledWith({ errClass: 'Error', code: 'SQLITE_BUSY', rawCode: 5 }, 'capture.failed');
+    expect(JSON.stringify(error.mock.calls)).not.toContain('database is locked');
+  });
+
   it('logs, and does not swallow, a media cleanup that fails', async () => {
     const error = vi.fn();
     const real = localMediaStore(t.dir);
