@@ -232,7 +232,8 @@ describe('deploy.sh --rollback', () => {
 
   it('--restore-db: a failure after the renames, before the start (the old unguarded gap), runs the undo: exit 1, app on the live files', () => {
     recordSnapshot();
-    const r = deploy(['--rollback', '--restore-db'], { STUB_CHOWN_FAIL: sb.data });
+    // STUB_UID=0: own() chowns only as root, and a CI runner is not root; the injected failure must fire there too.
+    const r = deploy(['--rollback', '--restore-db'], { STUB_CHOWN_FAIL: sb.data, STUB_UID: '0' });
     expect(r.status).not.toBe(0);
     expect(readFileSync(join(sb.data, 'udgam.db'), 'utf8')).toBe('live');
     expect(asides()).toEqual([]);
