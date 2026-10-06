@@ -102,6 +102,11 @@ describe('photo_uniqueness across agents and plots (TC-042)', () => {
     expect(await captureA(mine)).toEqual({ verdict: 'Verified', uniqueness: { id: 'photo_uniqueness', status: 'ok', evidence: '3 of 3 photos are new', hardFail: false } });
   });
 
+  it('CR-001: one photo filling all three slots is accepted as before, but the anchored evidence counts it once ("1 of 1")', async () => {
+    const one = fakeJpeg('e-1');
+    expect(await captureA([one, one, one])).toEqual({ verdict: 'Verified', uniqueness: { id: 'photo_uniqueness', status: 'ok', evidence: '1 of 1 photos are new', hardFail: false } });
+  });
+
   it('a photo on an event Rejected by a check (still boundary-accepted) counts as seen: it was used', async () => {
     const mine = photos3('d');
     await agentBEvent([mine[0]!], { status: 'accepted', verdict: 'Rejected' });
