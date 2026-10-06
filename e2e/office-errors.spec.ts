@@ -56,7 +56,8 @@ test('EVAL-088: a thrown server error on Plots, Phones and Agreements shows the 
 
   // without the forced throw the same page renders as usual
   await page.goto('/admin/phones');
-  await expect(page.locator('main [role="alert"]')).toHaveCount(0);
+  await expect(page.locator('main[data-state="error"]')).toHaveCount(0);
+  await expect(page.getByText(ADMIN.title)).toHaveCount(0);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Phones');
 });
 
