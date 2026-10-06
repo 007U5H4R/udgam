@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { RailShell } from '../../../../components/ui/Rail';
-import { env } from '../../../../lib/config/env';
+import { forcedState as pickState } from '../../../../lib/config/test-surfaces';
 import { getDbReady } from '../../../../lib/db/client';
 import { formatIst, listPhones, userName, type PhonesView, type PlotOption } from '../../../../lib/enrolment/phones';
 import { t } from '../../../../lib/i18n';
@@ -20,8 +20,7 @@ export const metadata: Metadata = { title: 'Phones · Udgam' };
 type Forced = 'loading' | 'empty' | 'error' | null;
 
 function forcedState(v: unknown): Forced {
-  if (env.NODE_ENV === 'production' && env.E2E !== '1') return null;
-  return v === 'loading' || v === 'empty' || v === 'error' ? v : null;
+  return pickState(v, ['loading', 'empty', 'error']);
 }
 
 const plotLabel = (p: PlotOption) => t('phones.plotLabel', { plot: p.id, farmer: p.farmerName, crop: p.crop, area: p.areaHa.toFixed(2) });
