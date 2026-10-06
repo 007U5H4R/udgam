@@ -12,6 +12,9 @@
 #   UDGAM_STACK_HTTPS_PORT / UDGAM_STACK_HTTP_PORT   host ports (default 4711 / 4710)
 #   UDGAM_STACK_TAG        the udgam-app tag to run (default current)
 #   UDGAM_STACK_CADDYFILE  a Caddyfile to mount instead of deploy/Caddyfile (to show a test failing)
+#   UDGAM_STACK_APP_ENV    extra NON-SECRET app.env lines, newline-separated (e.g.
+#                          LEDGER_CHECKPOINT_INTERVAL_SEC=20 for a quick timer check); they come last, so
+#                          they win over the defaults above
 #
 # The app gets a throwaway environment: placeholder provider credentials (the live provider, so no
 # fixture data, as in production) and an auth secret generated here and passed to compose by name only.
@@ -54,6 +57,7 @@ GFW_API_KEY=local-placeholder
 CDSE_CLIENT_ID=local-placeholder
 CDSE_CLIENT_SECRET=local-placeholder
 EOF
+    if [ -n "${UDGAM_STACK_APP_ENV:-}" ]; then printf '%s\n' "$UDGAM_STACK_APP_ENV" >>"$dir/app.env"; fi
     chmod 0600 "$dir/app.env"
     BETTER_AUTH_SECRET="$(openssl rand -hex 32)"
     export BETTER_AUTH_SECRET
