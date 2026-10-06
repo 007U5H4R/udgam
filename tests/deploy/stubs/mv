@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
-# Test stub for `mv`: fails when the source path matches the glob in STUB_MV_FAIL (an interrupted swap),
+# Test stub for `mv SRC DST`: fails when SRC matches the glob in STUB_MV_FAIL (an interrupted swap),
 # otherwise runs the real mv.
-if [ -n "${STUB_MV_FAIL:-}" ]; then
-  for a in "$@"; do
-    # shellcheck disable=SC2053 # a glob match is the point
-    if [[ "$a" == $STUB_MV_FAIL ]]; then
-      echo "mv: injected failure on $a" >&2
-      exit 1
-    fi
-  done
+# shellcheck disable=SC2053 # a glob match is the point
+if [ -n "${STUB_MV_FAIL:-}" ] && [[ "$1" == $STUB_MV_FAIL ]]; then
+  echo "mv: injected failure on $1" >&2
+  exit 1
 fi
 for d in /usr/bin /bin; do
   [ -x "$d/mv" ] && exec "$d/mv" "$@"

@@ -160,7 +160,7 @@ rollback() {
 
   if [ -n "$restore" ]; then
     log "deploy.sh: restoring $(basename "$snap"); writes since that deploy are lost"
-    "$RESTORE" --snapshot "$snap" --data-dir "$DATA"
+    "$RESTORE" --snapshot "$snap" --data-dir "$DATA" --health-timeout "$timeout"
     log "deploy.sh: rolled back with the pre-deploy database"
     return 0
   fi

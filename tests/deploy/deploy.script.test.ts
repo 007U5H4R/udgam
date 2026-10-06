@@ -160,6 +160,19 @@ describe('deploy.sh --rollback', () => {
     expect(sb.calls().some((c) => c.startsWith('compose up'))).toBe(false);
   });
 
+  it('--restore-db swaps the images, then restores the recorded snapshot through restore.sh', () => {
+    mkdirSync(join(sb.data, 'backups'));
+    const snap = join(sb.data, 'backups', 'udgam-20261001T000000Z-predeploy.db');
+    writeFileSync(snap, 'before-the-deploy');
+    writeFileSync(join(sb.data, 'backups', 'last-predeploy'), `${snap}\n`);
+    const r = deploy(['--rollback', '--restore-db']);
+    expect(r.stderr).toBe('');
+    expect(r.status).toBe(0);
+    expect(readFileSync(join(sb.data, 'udgam.db'), 'utf8')).toBe('before-the-deploy');
+    expect(sb.tag('udgam-app:current')).toBe(OLDER);
+    expect(sb.container()).toBe(`${OLDER} running healthy`);
+  });
+
   it('Q6: --restore-db checks the recorded snapshot before swapping any tag', () => {
     const r = deploy(['--rollback', '--restore-db']);
     expect(r.status).not.toBe(0);

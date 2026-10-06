@@ -2,28 +2,35 @@
 # Restore the database (and keys) from a backup (TKT-27, TSK-27.5, TC-088).
 #
 #   restore.sh --archive <file.tar.gz.age | oci:<object-name>> --identity <age-identity-file> [options]
-#       an encrypted nightly archive (deploy/cron/backup.sh): the database snapshot and DATA_DIR/keys,
-#       plus media/ when it was archived. `oci:` fetches the object from the bucket first.
+#       an encrypted nightly archive (deploy/cron/backup.sh): the database snapshot, keys/,
+#       attestations/, evm/, and anvil/ and media/ when they were archived. `oci:` fetches the object.
 #   restore.sh --snapshot <file.db> [options]
 #       a local plain snapshot (`pnpm db:backup`, e.g. scripts/deploy.sh's pre-deploy one): the database
-#       only; the keys on the volume are kept.
+#       only; everything else on the volume is kept.
 #
 # Options:
-#   --data-dir <dir>  restore into this directory (default UDGAM_DATA_DIR, /mnt/udgam-data)
-#   --offline         do not stop or start the app (a fresh directory, a drill, or the app already down)
+#   --data-dir <dir>        restore into this directory (default UDGAM_DATA_DIR, /mnt/udgam-data); a
+#                           missing one is created 0700
+#   --offline               do not stop or start the app (a fresh directory for a drill, or the app
+#                           already down). A drill is ALWAYS --offline into a fresh directory.
+#   --health-timeout <s>    how long the restarted app has to report healthy (default 90)
 #
-# Online (the default) it stops the app, moves the current database files and keys aside to
-# <data-dir>/pre-restore-<UTC time>/ (never deleted), puts the backup in place owned by uid 10001, starts
-# the app and waits up to 90 s for it to report healthy; the app's boot migrates an older snapshot
-# forward. The identity file is the owner's age PRIVATE key: bring it for the restore and remove it after.
-# Settings for `oci:` come from /etc/udgam/backup.env, as for backup.sh (OCI_DRY_RUN=1 reads the local
-# stand-in directory instead). Logs each step's duration.
+# How (Q3): everything is decrypted, checked and staged on the same volume first, owned by uid 10001
+# with the app's modes, while the app still runs. Then, with the app stopped, a short run of renames moves
+# the current files aside to <data-dir>/pre-restore-<UTC time>/ (never deleted) and the staged ones in:
+# udgam.db (its -wal and -shm go aside), keys/, attestations/, evm/, anvil/. If any rename fails or the
+# script is interrupted there, the staged files are dropped, every file moved aside goes back, the app is
+# started again, and the script says so. media/ is merged afterwards, never replaced (photos are
+# content-addressed). Online, the app must then report healthy, else it fails naming the aside folder.
+# The app's boot migrates an older snapshot forward. The identity file is the owner's age PRIVATE key:
+# bring it for the restore and remove it after. `oci:` settings come from /etc/udgam/backup.env
+# (OCI_DRY_RUN=1 reads the local stand-in directory instead).
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=deploy/lib.sh
 . "$here/../lib.sh"
 
-archive="" identity="" snapshot="" offline=0
+archive="" identity="" snapshot="" offline=0 timeout=90
 while [ $# -gt 0 ]; do
   case "$1" in
     --archive) archive="$2"; shift 2 ;;
@@ -31,6 +38,7 @@ while [ $# -gt 0 ]; do
     --snapshot) snapshot="$2"; shift 2 ;;
     --data-dir) DATA="$2"; shift 2 ;;
     --offline) offline=1; shift ;;
+    --health-timeout) timeout="$2"; shift 2 ;;
     *) die "unknown argument $1 (see the header of $0)" ;;
   esac
 done
@@ -41,6 +49,7 @@ else
   [ -n "$snapshot" ] || die "nothing to restore: --archive or --snapshot"
   [ -r "$snapshot" ] || die "$snapshot not readable"
 fi
+require_root
 
 conf="${UDGAM_BACKUP_ENV:-/etc/udgam/backup.env}"
 if [ -r "$conf" ]; then
@@ -50,11 +59,17 @@ fi
 
 t0="$(date +%s)"
 log "restore: start into $DATA"
-mkdir -p "$DATA"
+if [ ! -d "$DATA" ]; then
+  install -d -m 0700 "$DATA"
+  own "$APP_UID:$APP_UID" "$DATA"
+fi
 work="$(mktemp -d "$DATA/.restore.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
+stage="$work/stage"
+mkdir "$stage"
 
-db="" keys=""
+# 1. Fetch, decrypt, check and stage. Nothing on the volume changes yet.
+db=""
 if [ -n "$archive" ]; then
   if [ "${archive#oci:}" != "$archive" ]; then
     object="${archive#oci:}"
@@ -77,48 +92,84 @@ if [ -n "$archive" ]; then
   [ "${#dbs[@]}" = 1 ] || die "the archive holds ${#dbs[@]} database snapshots, not 1"
   db="${dbs[0]}"
   [ -f "$work/x/keys/ledger.jwk" ] || die "the archive has no keys/ledger.jwk"
-  keys="$work/x/keys"
-  log "restore: decrypted $(basename "$db") with keys/ in $(($(date +%s) - t1))s"
+  log "restore: decrypted $(basename "$db") in $(($(date +%s) - t1))s"
 else
   db="$snapshot"
 fi
 
+install -m 0600 "$db" "$stage/udgam.db"
+own "$APP_UID:$APP_UID" "$stage/udgam.db"
+items=(udgam.db)
+if [ -n "$archive" ]; then
+  for d in keys attestations evm anvil; do
+    if [ -d "$work/x/$d" ]; then
+      mv "$work/x/$d" "$stage/$d"
+      own -R "$APP_UID:$APP_UID" "$stage/$d"
+      items+=("$d")
+    fi
+  done
+  chmod 0700 "$stage/keys"
+fi
+log "restore: staged ${items[*]}"
+
+# 2. The swap: the app stopped, renames only, undone on any failure or interruption.
 if [ "$offline" = 0 ]; then
   t2="$(date +%s)"
   compose stop app >/dev/null
   log "restore: app stopped in $(($(date +%s) - t2))s"
 fi
-
 aside="$DATA/pre-restore-$(date -u +%Y%m%dT%H%M%SZ)"
-moved=()
-for f in udgam.db udgam.db-wal udgam.db-shm; do
-  [ -e "$DATA/$f" ] && moved+=("$f")
-done
-[ -n "$keys" ] && [ -e "$DATA/keys" ] && moved+=(keys)
-if [ "${#moved[@]}" -gt 0 ]; then
-  mkdir -m 0700 "$aside"
-  for f in "${moved[@]}"; do mv "$DATA/$f" "$aside/$f"; done
-  log "restore: moved ${moved[*]} aside to $aside"
-fi
+mkdir -m 0700 "$aside"
+moved=() placed=()
 
-install -m 0600 -o "$APP_UID" -g "$APP_UID" "$db" "$DATA/udgam.db"
-if [ -n "$keys" ]; then
-  cp -a "$keys" "$DATA/keys"
-  chown -R "$APP_UID:$APP_UID" "$DATA/keys"
-  chmod 0700 "$DATA/keys"
-fi
+undo_swap() {
+  trap - ERR INT TERM
+  local i f
+  log "restore: the swap failed; putting the previous files back" >&2
+  for ((i = ${#placed[@]} - 1; i >= 0; i--)); do
+    f="${placed[$i]}"
+    rm -rf "${DATA:?}/$f"
+  done
+  for f in "${moved[@]}"; do
+    [ -e "$DATA/$f" ] || mv "$aside/$f" "$DATA/$f"
+  done
+  if rmdir "$aside" 2>/dev/null; then
+    log "restore: every previous file was moved back; nothing changed" >&2
+  else
+    log "restore: some previous files could not be moved back; they are in $aside" >&2
+  fi
+  if [ "$offline" = 0 ]; then
+    compose up -d app >/dev/null || log "restore: could not start the app again (deploy/compose.sh up -d app)" >&2
+  fi
+  exit 1
+}
+trap undo_swap ERR INT TERM
+for f in udgam.db-wal udgam.db-shm "${items[@]}"; do
+  if [ -e "$DATA/$f" ]; then
+    mv "$DATA/$f" "$aside/$f"
+    moved+=("$f")
+  fi
+done
+for f in "${items[@]}"; do
+  mv "$stage/$f" "$DATA/$f"
+  placed+=("$f")
+done
+trap - ERR INT TERM
+[ "${#moved[@]}" -gt 0 ] || rmdir "$aside"
+log "restore: $(basename "$db") is now $DATA/udgam.db; in place: ${items[*]}$([ "${#moved[@]}" -gt 0 ] && echo "; previous files in $aside")"
+
+# 3. Photos are merged (content-addressed: an existing file is never replaced).
 if [ -n "$archive" ] && [ -d "$work/x/media" ]; then
   mkdir -p "$DATA/media"
-  cp -an "$work/x/media/." "$DATA/media/"
-  chown -R "$APP_UID:$APP_UID" "$DATA/media"
+  tar -C "$work/x/media" -cf - . | tar -C "$DATA/media" --skip-old-files -xf -
+  own -R "$APP_UID:$APP_UID" "$DATA/media"
 fi
-chown "$APP_UID:$APP_UID" "$DATA"
-log "restore: $(basename "$db") is now $DATA/udgam.db$([ -n "$keys" ] && echo ', keys restored')"
+own "$APP_UID:$APP_UID" "$DATA"
 
 if [ "$offline" = 0 ]; then
   t3="$(date +%s)"
-  compose up -d app >/dev/null
-  wait_healthy 90 || die "the app did not report healthy within 90 s after the restore (the previous files are in $aside)"
+  compose up -d app >/dev/null || die "could not start the app (the previous files are in $aside)"
+  wait_healthy "$timeout" || die "the app did not report healthy within ${timeout}s after the restore (the previous files are in $aside)"
   log "restore: app healthy in $(($(date +%s) - t3))s"
 fi
 log "restore: done in $(($(date +%s) - t0))s"
