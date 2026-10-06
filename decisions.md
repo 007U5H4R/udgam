@@ -1269,3 +1269,35 @@ Then HANDOFF.md is rewritten and Stage 10 (`bw-security-review`) starts in the s
 - **Where the formal S3 run happens.** It seeds test-only agents, phones and plots into the target's DATA_DIR. So it runs on the **EXE33 staging deployment** on the same A1 host: the same image, live providers, its own DATA_DIR. It never runs on the production data. The runner runs on that host so it can read that DB, and the TKT-29 runbook must say so.
 - **Formal-run guards.** A formal run refuses unless every provider is `ok` before and after, the target is https and non-local, and the run is not in CI.
 - **CLI.** `--suite` is an alias of `--only` in `evals/perf/run.ts`; S4 stays the default.
+
+## EXE54 · M-003 review rulings (orchestrator, under the owner's delegation, 2026-10-06)
+**TKT-28 (production configuration):**
+- **Invalid config.** Production stays up but unhealthy, rather than exiting. `/api/health` answers 503 `config:"error"`, every other route answers 500, the Compose healthcheck fails, and the uptime probe alerts. This meets EXE12 ("refuses to start") in spirit: nothing is served. It also avoids a restart loop that would hide the cause (QA-P5-4). The existing `config:"error"` value is kept (QA-P1-1).
+- **SEC-003 budget.** The daily budget reuses the retryable `429 rate_limited`. No new code or copy is needed, because the phone keeps the picking in its outbox.
+  - Defaults: 100 accepted captures and 1,258,291,200 bytes per agent per IST day (EV9: 100 × 3 × 4 MiB). Pilot volume is about 25 captures a day for the whole FPO.
+  - A budget refusal refunds the per-address token, so agents sharing a NAT aren't throttled.
+  - TKT-29's formal S3 run must stay under 100 captures per agent per day.
+- **Uptime probe.**
+  - It skips with a notice while `vars.UDGAM_DOMAIN` is empty (before production exists); deleting that variable silently stops monitoring, as the ops docs say.
+  - Provider outages only warn, because §15's alert rule covers only non-200 responses and a stale checkpoint.
+- **Periodic checkpoint (new scope, needed by §15/TSK-28.3).** Checkpoints are sealed only every 100 entries or on a feed request, so on a quiet pilot day the probe's `lastCheckpointAgeSec > 86400` rule would email every 15 minutes. A server-side hourly timer therefore seals unsealed hashchain entries:
+  - it runs through `writeTx`, never overlaps itself, and its interval is env-configurable;
+  - the probe's 86400 s rule is unchanged.
+- **Account CLI passwords.** A generated password is never written into the backed-up `DATA_DIR`. A non-interactive run needs `--out <path>` outside it (tmpfs recommended), or `--password-stdin`.
+
+**TKT-27 (deployment):**
+- **Accepted deviations:**
+  - `UDGAM_COMMIT` read in `next.config.ts` (the image has no `.git`);
+  - `NODE_IMAGE`/`BASE_IMAGE` build args and an optional `build_ca` BuildKit secret (the defaults are the official images);
+  - admin body caps: 11 MiB on the attestation upload and 3 MiB on the rest of `/admin*`;
+  - a forged-header test that fails against a pass-through proxy (Caddy 2.11 already ignores an untrusted X-Forwarded-For);
+  - `db:backup` as a node `.mjs` run in a one-off container;
+  - an invalid env stops the container at the migration step.
+- **Backup scope.** The nightly archive always includes the snapshot, `keys/`, `attestations/` and `evm/`, plus `anvil/` under the evm profile. Photos (`media/`) are included only with `BACKUP_MEDIA=1`: **owner choice**, defaulting to off for bucket size.
+- **Idle reclamation.** The recommendation is Pay-As-You-Go with a budget alert. The keep-busy job ships disabled. **Owner choice**, to be recorded when made.
+
+**TSK-29.1 (S3 runner):**
+- **Strict latency split.** A run whose upload and verify phases can't be separated fails ("latency split missing"), per EVAL-070's failure condition.
+- **Target label.** Formal runs label the target `staging` or `production` explicitly (EXE53: staging).
+- **Provider probes.** Providers are probed before, between and after the runs.
+- **Scope note.** The ungated `--immediate-runs` series (≥ 5 in a formal run) is a deliberate addition (EXE53), not a gate.
