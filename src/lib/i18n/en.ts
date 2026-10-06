@@ -22,6 +22,7 @@ export const en = {
   'notFound.home': 'Go to your home screen',
   'notFound.toReview': 'Back to Review',
   'notFound.toBatches': 'Back to Batches',
+  'notFound.toPlots': 'Back to Plots',
   'notFound.toHome': 'Back to Home',
   // The admin review's photo marker (DES-102)
   'review.photoUsedBefore': 'Same photo as the {date} picking',
