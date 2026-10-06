@@ -20,6 +20,10 @@ resolve() {
 last() { eval "echo \${$#}"; }
 
 case "$1" in
+  compose)
+    # deploy/compose.sh's hand-off: report what it exported (test values only)
+    echo "domain=${UDGAM_DOMAIN:-} profiles=${COMPOSE_PROFILES:-} args=${*:2}"
+    ;;
   image)
     # docker image inspect --format '{{.Id}}' <ref>
     resolve "$(last "$@")" || exit 1
