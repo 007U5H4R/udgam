@@ -1,0 +1,13 @@
+{
+  "healthy": { "config": "ok", "db": "ok", "ledger": { "lastSeq": 42, "lastCheckpointAgeSec": 3600, "keyPresent": true, "keyMismatch": false }, "providers": { "gfw": "ok", "sentinelHub": "ok" }, "disk": "ok", "version": "0.1.0", "commit": "abc1234" },
+  "emptyLedger": { "config": "ok", "db": "ok", "ledger": { "lastSeq": 0, "lastCheckpointAgeSec": null, "keyPresent": true, "keyMismatch": false }, "providers": { "gfw": "ok", "sentinelHub": "ok" }, "disk": "ok", "version": "0.1.0", "commit": "abc1234" },
+  "entriesNoCheckpointYet": { "config": "ok", "db": "ok", "ledger": { "lastSeq": 3, "lastCheckpointAgeSec": null, "keyPresent": true, "keyMismatch": false }, "providers": { "gfw": "ok", "sentinelHub": "ok" }, "disk": "ok", "version": "0.1.0", "commit": "abc1234" },
+  "checkpointExactly24h": { "config": "ok", "db": "ok", "ledger": { "lastSeq": 42, "lastCheckpointAgeSec": 86400, "keyPresent": true, "keyMismatch": false }, "providers": { "gfw": "ok", "sentinelHub": "ok" }, "disk": "ok", "version": "0.1.0", "commit": "abc1234" },
+  "checkpointStale": { "config": "ok", "db": "ok", "ledger": { "lastSeq": 42, "lastCheckpointAgeSec": 86401, "keyPresent": true, "keyMismatch": false }, "providers": { "gfw": "ok", "sentinelHub": "ok" }, "disk": "ok", "version": "0.1.0", "commit": "abc1234" },
+  "staleButNoEntries": { "config": "ok", "db": "ok", "ledger": { "lastSeq": 0, "lastCheckpointAgeSec": 999999, "keyPresent": true, "keyMismatch": false }, "providers": { "gfw": "ok", "sentinelHub": "ok" }, "disk": "ok", "version": "0.1.0", "commit": "abc1234" },
+  "diskLow": { "config": "ok", "db": "ok", "ledger": { "lastSeq": 42, "lastCheckpointAgeSec": 3600, "keyPresent": true, "keyMismatch": false }, "providers": { "gfw": "ok", "sentinelHub": "ok" }, "disk": "low", "version": "0.1.0", "commit": "abc1234" },
+  "diskUnknown": { "config": "ok", "db": "ok", "ledger": { "lastSeq": 42, "lastCheckpointAgeSec": 3600, "keyPresent": true, "keyMismatch": false }, "providers": { "gfw": "ok", "sentinelHub": "ok" }, "disk": "unknown", "version": "0.1.0", "commit": "abc1234" },
+  "diskNotReported": { "config": "ok", "db": "ok", "ledger": { "lastSeq": 42, "lastCheckpointAgeSec": 3600, "keyPresent": true, "keyMismatch": false }, "providers": { "gfw": "ok", "sentinelHub": "ok" }, "version": "0.1.0", "commit": "abc1234" },
+  "configError": { "config": "error", "db": "unchecked", "providers": { "gfw": "unprobed", "sentinelHub": "unprobed" }, "version": "0.1.0", "commit": "abc1234" },
+  "providersDown": { "config": "ok", "db": "ok", "ledger": { "lastSeq": 42, "lastCheckpointAgeSec": 3600, "keyPresent": true, "keyMismatch": false }, "providers": { "gfw": "error", "sentinelHub": "error" }, "disk": "ok", "version": "0.1.0", "commit": "abc1234" }
+}
