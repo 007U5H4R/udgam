@@ -3,7 +3,8 @@
 #   - the request fails or answers non-2xx after two retries (down, 503 config/db/ledger key, TLS);
 #   - db or config is not "ok";
 #   - disk is not "ok" (free space on DATA_DIR below HEALTH_MIN_FREE_DISK_BYTES, or unreadable);
-#   - the last ledger checkpoint is over 24 h old while the ledger has entries.
+#   - the oldest unsealed ledger entry is over 24 h old, or that field is missing (EXE55: entries are
+#     not being sealed; a quiet day with everything sealed stays green).
 # A failed run emails the owner through GitHub's notifications for failed workflow runs (scheduled runs
 # notify the user who last changed the schedule). docs/ops/monitoring.md has the alert drill.
 #
@@ -73,8 +74,10 @@ jobs:
             (if .db != "ok" then "db is \(.db | safe)" else empty end),
             (if has("config") and .config != "ok" then "config is \(.config | safe)" else empty end),
             (if .disk != "ok" then "disk is \(.disk // "not reported" | safe): free space on DATA_DIR is below HEALTH_MIN_FREE_DISK_BYTES or unreadable" else empty end),
-            (if ((.ledger.lastSeq // 0) > 0) and (.ledger.lastCheckpointAgeSec != null) and (.ledger.lastCheckpointAgeSec > 86400)
-             then "ledger: the last checkpoint is \(.ledger.lastCheckpointAgeSec | safe) s old (over 24 h) with \(.ledger.lastSeq | safe) entries"
+            (if (.ledger.oldestUnsealedAgeSec | type) != "number"
+             then "ledger.oldestUnsealedAgeSec is missing from /api/health, so sealing cannot be checked"
+             elif .ledger.oldestUnsealedAgeSec > 86400
+             then "ledger: the oldest unsealed entry is \(.ledger.oldestUnsealedAgeSec | safe) s old (over 24 h): entries are not being sealed"
              else empty end)
           ] | .[]
           JQ
@@ -87,4 +90,4 @@ jobs:
           # not an alert. Captures still verify, with the provider marked unavailable.
           providers=$(jq -r 'def safe: tostring | gsub("[^A-Za-z0-9 _.:-]"; "?"); select(.providers.gfw != "ok" or .providers.sentinelHub != "ok") | "gfw=\(.providers.gfw | safe) sentinelHub=\(.providers.sentinelHub | safe)"' "$body")
           if [ -n "$providers" ]; then echo "::warning title=Remote-sensing provider check::$providers"; fi
-          echo "Healthy: $(jq -c '{db, disk, lastSeq: .ledger.lastSeq, lastCheckpointAgeSec: .ledger.lastCheckpointAgeSec, version, commit}' "$body")"
+          echo "Healthy: $(jq -c '{db, disk, lastSeq: .ledger.lastSeq, oldestUnsealedAgeSec: .ledger.oldestUnsealedAgeSec, lastCheckpointAgeSec: .ledger.lastCheckpointAgeSec, version, commit}' "$body")"

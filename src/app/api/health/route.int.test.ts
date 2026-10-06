@@ -33,7 +33,7 @@ describe('GET /api/health (TC-001)', () => {
     expect(body).toMatchObject({
       config: 'ok',
       db: 'ok',
-      ledger: { lastSeq: 0, lastCheckpointAgeSec: null, keyPresent: true, keyMismatch: false },
+      ledger: { lastSeq: 0, lastCheckpointAgeSec: null, oldestUnsealedAgeSec: 0, keyPresent: true, keyMismatch: false },
       providers: { gfw: 'fixture', sentinelHub: 'fixture' },
     });
     expect(typeof body.version).toBe('string');

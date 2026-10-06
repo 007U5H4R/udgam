@@ -109,14 +109,28 @@ describe('uptime.yml: the probe script', () => {
     expect(r.out).toMatch(/^Healthy: \{"db":"ok","disk":"ok","lastSeq":42/m);
   });
 
-  it('passes with an empty ledger, entries not yet checkpointed, and a checkpoint exactly 24 h old', () => {
-    for (const name of ['emptyLedger', 'entriesNoCheckpointYet', 'checkpointExactly24h', 'staleButNoEntries']) expect(probe({ body: body(name) }).code, name).toBe(0);
+  it('passes with an empty ledger, fresh unsealed entries, and an unsealed entry exactly 24 h old', () => {
+    for (const name of ['emptyLedger', 'entriesNoCheckpointYet', 'unsealedExactly24h']) expect(probe({ body: body(name) }).code, name).toBe(0);
   });
 
-  it('fails when the last checkpoint is over 24 h old while the ledger has entries (TC-090)', () => {
-    const r = probe({ body: body('checkpointStale') });
+  it('a quiet ledger (everything sealed, the last checkpoint days old) is green (EXE55)', () => {
+    const r = probe({ body: body('quietLedger') });
+    expect(r.out).not.toContain('::error');
+    expect(r.code).toBe(0);
+  });
+
+  it('fails when the oldest unsealed entry is over 24 h old: entries are not being sealed (TC-090, EXE55)', () => {
+    const r = probe({ body: body('unsealedStale') });
     expect(r.code).toBe(1);
-    expect(r.out).toContain('::error title=Production degraded::ledger: the last checkpoint is 86401 s old (over 24 h) with 42 entries');
+    expect(r.out).toContain('::error title=Production degraded::ledger: the oldest unsealed entry is 90000 s old (over 24 h): entries are not being sealed');
+  });
+
+  it('fails closed when ledger.oldestUnsealedAgeSec is missing (an older build, or no ledger block)', () => {
+    for (const name of ['unsealedMissing', 'ledgerMissing']) {
+      const r = probe({ body: body(name) });
+      expect(r.code, name).toBe(1);
+      expect(r.out).toContain('::error title=Production degraded::ledger.oldestUnsealedAgeSec is missing from /api/health, so sealing cannot be checked');
+    }
   });
 
   it('fails when disk is low, unknown or not reported (SEC-003)', () => {

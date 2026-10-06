@@ -30,7 +30,7 @@ describe('health (TC-001 core)', () => {
     const r = await health({
       ...base,
       ping: async () => {},
-      ledger: { lastSeq: 3, lastCheckpointAgeSec: 10, keyPresent: false, keyMismatch: false },
+      ledger: { lastSeq: 3, lastCheckpointAgeSec: 10, oldestUnsealedAgeSec: 0, keyPresent: false, keyMismatch: false },
     });
     expect(r.status).toBe(503);
     expect(r.body.ledger?.keyPresent).toBe(false);
@@ -40,11 +40,11 @@ describe('health (TC-001 core)', () => {
     const r = await health({
       ...base,
       ping: async () => {},
-      ledger: { lastSeq: 3, lastCheckpointAgeSec: 10, keyPresent: true, keyMismatch: true },
+      ledger: { lastSeq: 3, lastCheckpointAgeSec: 10, oldestUnsealedAgeSec: 0, keyPresent: true, keyMismatch: true },
     });
     expect(r.status).toBe(503);
     expect(r.body.ledger?.keyMismatch).toBe(true);
-    const ok = await health({ ...base, ping: async () => {}, ledger: { lastSeq: 3, lastCheckpointAgeSec: 10, keyPresent: true, keyMismatch: false } });
+    const ok = await health({ ...base, ping: async () => {}, ledger: { lastSeq: 3, lastCheckpointAgeSec: 10, oldestUnsealedAgeSec: 0, keyPresent: true, keyMismatch: false } });
     expect(ok.status).toBe(200);
   });
 

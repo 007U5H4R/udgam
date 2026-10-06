@@ -17,7 +17,7 @@ jl() { dc logs --no-log-prefix "$@" | grep '^{'; }   # bare JSON log lines, for 
 |---|---|---|
 | `config` | `ok`, `error` | `error` → **503**. The environment failed validation (QA-P1-1, QA-P5-4). |
 | `db` | `ok`, `error`, `unchecked` | `error` → 503. `unchecked` means the config is invalid, so the database cannot be located. |
-| `ledger` | `{ lastSeq, lastCheckpointAgeSec, keyPresent, keyMismatch }` | `keyPresent:false` or `keyMismatch:true` → 503. |
+| `ledger` | `{ lastSeq, lastCheckpointAgeSec, oldestUnsealedAgeSec, keyPresent, keyMismatch }`; `oldestUnsealedAgeSec` is the age of the oldest entry after the last checkpoint, 0 when all are sealed (EXE55) | `keyPresent:false` or `keyMismatch:true` → 503. |
 | `providers` | `gfw` and `sentinelHub`: `ok`, `error`, `fixture`, `unprobed` | none; probed at most every 60 s |
 | `disk` | `ok`, `low`, `unknown` | **none** (a degraded component, SEC-003); the uptime probe alerts on anything but `ok` |
 | `version`, `commit` | the package version and the build's commit | none |
@@ -36,9 +36,9 @@ jl() { dc logs --no-log-prefix "$@" | grep '^{'; }   # bare JSON log lines, for 
 - the request fails or answers non-2xx after two retries (the app is down, a 503, a TLS or DNS error);
 - `db` or `config` is not `ok`;
 - `disk` is not `ok`;
-- the ledger has entries (`lastSeq > 0`) and the last checkpoint is over 24 h old (`lastCheckpointAgeSec > 86400`).
+- the oldest unsealed ledger entry is over 24 h old (`ledger.oldestUnsealedAgeSec > 86400`): entries are not being sealed (EXE55). A body without that field fails too, closed.
 
-Checkpoints are made on demand (a certificate's proof feed), every 100th entry, and by a background timer that seals any unsealed entries every `LEDGER_CHECKPOINT_INTERVAL_SEC` (default 3600 s; real deployments only, EXE54; logs `ledger.checkpoint_sealed`). So while captures arrive, the last checkpoint is never much more than an hour behind the last entry. A checkpoint only seals new entries, so after 24 h with **no new entries at all** the age still passes 86400 s and the rule fires; that is an open item for the owner (see §8).
+Checkpoints are made on demand (a certificate's proof feed), every 100th entry, and by a background timer that seals any unsealed entries every `LEDGER_CHECKPOINT_INTERVAL_SEC` (default 3600 s; real deployments only, EXE54; logs `ledger.checkpoint_sealed`). While that works, `oldestUnsealedAgeSec` stays under about one interval. On a quiet day with everything sealed it is 0, however old the last checkpoint is, so quiet days never alert (EXE55). `lastCheckpointAgeSec` and `lastSeq` stay in the body for information only.
 
 A provider outage (`gfw`/`sentinelHub` not `ok`) adds a warning to the run, but it is not an alert. It is external, captures still verify with the provider marked unavailable, and nothing can be done about it at 3 AM.
 
@@ -184,5 +184,4 @@ That advisory is GHSA-67mh-4wv8-2f99 (esbuild ≤ 0.24.2, its dev server), reach
 | TC-091 link unfurl (TSK-28.2, EVAL-090) | the domain, one production certificate |
 | TC-092 live providers, image inspection and the audit of the deployed lockfile | provider keys in `/etc/udgam/app.env`, the deployed image |
 | SEC-101 confirmation before the first production anchor | the owner (`docs/proof-feed.md` §9.2a) |
-| The 24 h checkpoint rule on a day with no captures | an owner decision: keep it, or alert only while unsealed entries are older than 24 h (needs a health field) |
 | First production accounts | the instance; `pnpm accounts:create` in the image (TKT-27) |

@@ -5,6 +5,8 @@ export type ProviderStatus = 'ok' | 'error' | 'fixture' | 'unprobed';
 export interface LedgerHealth {
   lastSeq: number | null;
   lastCheckpointAgeSec: number | null;
+  /** Age of the oldest entry after the last checkpoint, 0 if none (EXE55); null when the database is down. */
+  oldestUnsealedAgeSec: number | null;
   keyPresent: boolean;
   /** A checkpoint carries a kid that is not published (lost or replaced ledger key): 503. */
   keyMismatch: boolean;
