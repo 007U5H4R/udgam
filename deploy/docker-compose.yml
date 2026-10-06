@@ -27,6 +27,16 @@ services:
     pull_policy: never # built on the instance by scripts/deploy.sh; there is no registry
     restart: unless-stopped
     init: true
+    # Least privilege (fix round 1, Q12): no Linux capabilities, no privilege escalation, and a read-only
+    # root filesystem. Writable: the /data volume, /tmp and Next's own cache (tmpfs, lost on restart).
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:mode=1777,size=64m
+      - /app/.next/cache:uid=10001,gid=10001,mode=0700,size=256m
     env_file:
       - path: ${UDGAM_ENV_FILE:-/etc/udgam/app.env}
         required: true
@@ -88,6 +98,13 @@ services:
     restart: unless-stopped
     init: true
     user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:mode=1777,size=16m
     # The app reaches it as ANVIL_RPC_URL=http://anvil:8545 on the stack's network; no host port.
     command: ["--host", "0.0.0.0", "--port", "8545", "--chain-id", "31337", "--state", "/data/anvil/state.json", "--state-interval", "60"]
     volumes:

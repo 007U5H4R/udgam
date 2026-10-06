@@ -23,6 +23,18 @@ describe('deploy/docker-compose.yml', () => {
     expect(app).toMatch(/^\s+DATA_DIR: \/data$/m);
   });
 
+  it.each(['app', 'anvil'])('runs %s read-only, without capabilities or privilege escalation (Q12)', (name) => {
+    const s = service(name);
+    expect(s).toMatch(/^\s+read_only: true$/m);
+    expect(s).toMatch(/^\s+cap_drop:\n\s+- ALL$/m);
+    expect(s).toMatch(/^\s+security_opt:\n\s+- no-new-privileges:true$/m);
+    expect(s).toMatch(/^\s+tmpfs:\n\s+- \/tmp:/m);
+  });
+
+  it("gives the app's Next cache a tmpfs owned by the app user", () => {
+    expect(service('app')).toMatch(/^\s+- \/app\/\.next\/cache:uid=10001,gid=10001,mode=0700,size=\d+m$/m);
+  });
+
   it('publishes ports only from Caddy (EXE14, SEC-203)', () => {
     expect(service('app')).not.toMatch(/^\s+ports:/m);
     expect(service('anvil')).not.toMatch(/^\s+ports:/m);
