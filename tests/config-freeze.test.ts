@@ -98,12 +98,31 @@ describe('the frozen verification config (TSK-21.2, EV13, CF-13)', () => {
 
   it('a decision heading inside a fenced code block or an HTML comment is not a recorded decision', () => {
     const changes = row(`${CONFIG_HASH} | EV17 | 1 | EVAL-150, EVAL-151`);
-    for (const decisions of ['# Decisions\n\n```\n## EV17 · accepted\n```\n', '# Decisions\n\n<!--\n## EV17 · accepted\n-->\n']) {
-      expect(freeze(world({ baselineHash: OTHER_HASH, changes, decisions }))).toMatchObject({ ok: false, reason: expect.stringMatching(/EV17 is not recorded in decisions\.md/) });
+    for (const decisions of ['# Decisions\n\n```\n## EV17 · X — accepted\n```\n', '# Decisions\n\n<!--\n## EV17 · X — accepted\n-->\n']) {
+      expect(freeze(world({ baselineHash: OTHER_HASH, changes, decisions }))).toMatchObject({ ok: false, reason: expect.stringMatching(/EV17 is not recorded as accepted in decisions\.md/) });
     }
     // a real heading after a closed block still counts, and a table row after a closed comment still counts
     const after = `<!-- draft -->\n\`\`\`\nx\n\`\`\`\n${changes}`;
-    expect(freeze(world({ baselineHash: OTHER_HASH, changes: after, decisions: '```\nx\n```\n## EV17 · accepted\n' })).ok).toBe(true);
+    expect(freeze(world({ baselineHash: OTHER_HASH, changes: after, decisions: '```\nx\n```\n## EV17 · X — accepted\n' })).ok).toBe(true);
+  });
+
+  // Stage 9 CR-205 (EXE36 R-6): only a decision whose heading reads "— accepted" authorises a change.
+  it.each([
+    ['rejected', '## EV17 · Widen the geofence buffer — rejected (owner, 2026-11-01)\n'],
+    ['proposed', '## EV17 · Widen the geofence buffer — proposed (owner decision)\n'],
+    ['no verdict at all', '## EV17 · Widen the geofence buffer\n'],
+    ['"accepted" only in the title, the verdict rejected', '## EV17 · Keep the accepted buffer — rejected\n'],
+    ['"accepted" only in the body', '## EV17 · Widen the geofence buffer\nThis was accepted by nobody.\n'],
+  ])('a decision heading that is %s does not authorise a drift', (_why, decisions) => {
+    const r = freeze(world({ baselineHash: OTHER_HASH, changes: row(`${CONFIG_HASH} | EV17 | 1, 3 | EVAL-150, EVAL-151, EVAL-152, EVAL-153`), decisions: `# Decisions\n\n${decisions}` }));
+    expect(r).toMatchObject({ ok: false, reason: expect.stringMatching(/decision EV17 is not recorded as accepted in decisions\.md/) });
+  });
+
+  it('an accepted heading authorises whatever follows the verdict, in any case', () => {
+    const changes = row(`${CONFIG_HASH} | EV17 | 1, 3 | EVAL-150, EVAL-151, EVAL-152, EVAL-153`);
+    for (const h of ['## EV17 · Widen the buffer — accepted (owner, 2026-11-01; amends EV7)', '## EV17 · Widen the buffer — Accepted']) {
+      expect(freeze(world({ baselineHash: OTHER_HASH, changes, decisions: `# Decisions\n\n${h}\n` }))).toMatchObject({ ok: true });
+    }
   });
 
   it('passes a drift that config-changes.md authorises: a recorded EV decision and two new attack cases per affected scenario', () => {
@@ -114,7 +133,7 @@ describe('the frozen verification config (TSK-21.2, EV13, CF-13)', () => {
   it.each([
     ['the hash is not listed', row(`${'e'.repeat(64)} | EV17 | 1 | EVAL-150, EVAL-151`), /does not list/],
     ['no TP/EV decision', row(`${CONFIG_HASH} | — | 1 | EVAL-150, EVAL-151`), /names no TP\/EV decision/],
-    ['a decision missing from decisions.md', row(`${CONFIG_HASH} | TP99 | 1 | EVAL-150, EVAL-151`), /TP99 is not recorded in decisions\.md/],
+    ['a decision missing from decisions.md', row(`${CONFIG_HASH} | TP99 | 1 | EVAL-150, EVAL-151`), /TP99 is not recorded as accepted in decisions\.md/],
     ['no affected scenario', row(`${CONFIG_HASH} | EV17 | — | EVAL-150, EVAL-151`), /names no affected scenario/],
     ['only one new case for scenario 1', row(`${CONFIG_HASH} | EV17 | 1 | EVAL-150`), /scenario 1 needs ≥ 2 new attack cases.*found EVAL-150$/],
     ['a "new" case that was already in baseline-v1', row(`${CONFIG_HASH} | EV17 | 1 | EVAL-022, EVAL-150`), /scenario 1 needs ≥ 2/],

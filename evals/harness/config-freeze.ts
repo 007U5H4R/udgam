@@ -9,7 +9,8 @@ import { REPO_ROOT } from './provenance';
 //
 // Once evals/results/baseline-v1.json exists, CONFIG_HASH must equal its provenance.config.hash, unless
 // evals/config-changes.md has a table row whose FIRST cell is the new hash, naming a TP/EV decision that
-// is recorded as `## <ID> ` in decisions.md and, for every scenario the change affects, at least two NEW
+// is recorded as ACCEPTED in decisions.md (a `## <ID> ` heading whose verdict, after its last " — ", reads
+// "accepted"; a rejected, proposed or verdict-less heading authorises nothing: Stage 9 CR-205, EXE36 R-6) and, for every scenario the change affects, at least two NEW
 // attack-case IDs (absent from baseline-v1) that exist in the dataset as ACTIVE attack cases of that
 // scenario (evaluation-plan §10; a retired or pending_decision case runs in no gate, so it measures
 // nothing). Rows and headings inside HTML comments or fenced code blocks do not count. A bare mention of the hash anywhere in decisions.md authorises nothing. Before
@@ -57,6 +58,13 @@ export function visibleMarkdown(text: string): string {
     })
     .join('\n');
 }
+
+/**
+ * `## <ID> … — accepted…` on one line: the heading's verdict, the text after its LAST " — ", starts with
+ * "accepted" (any case), as every decision heading in decisions.md is written. "accepted" in the title
+ * or the body does not count.
+ */
+const acceptedHeading = (id: string): RegExp => new RegExp(`^## ${id} [^\\n]*— accepted\\b[^—\\n]*$`, 'im');
 
 const readOrNull = (path: string): string | null => {
   try {
@@ -113,7 +121,7 @@ export function checkConfigFreeze(i: FreezeInput): Freeze {
   } catch {
     decisions = ''; // unreadable: nothing is recorded (fails closed below)
   }
-  if (!new RegExp(`^## ${decision} `, 'm').test(visibleMarkdown(decisions))) return { ok: false, reason: `${drift}: decision ${decision} is not recorded in decisions.md` };
+  if (!acceptedHeading(decision).test(visibleMarkdown(decisions))) return { ok: false, reason: `${drift}: decision ${decision} is not recorded as accepted in decisions.md` };
 
   const scenarios = [...scenarioCell.matchAll(/\d+/g)].map((m) => Number(m[0]));
   if (scenarios.length === 0) return { ok: false, reason: `${drift}: the row names no affected scenario` };

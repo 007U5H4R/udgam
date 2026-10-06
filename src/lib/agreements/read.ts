@@ -4,8 +4,8 @@ import { agreements, batches, custodyTransfers, organisations, qualityAttestatio
 import { t, type MessageKey } from '../i18n';
 import { formatKg1, formatInr, istDayLong } from './format';
 import { isGrade, type Grade } from './grades';
-import { deliveredBatchIds, type AgreementRow } from './service';
-import { judge, settlementFacts, type Condition, type ConditionResult, type Reason } from './settle';
+import { deliveredBatchIdsFor, type AgreementRow } from './service';
+import { factsKey, judge, settlementFactsFor, type Condition, type ConditionResult, type Reason } from './settle';
 
 // What the agreement screens show (Design.md §28.1, §28.7). SERVER-ONLY. Org scope always comes from the
 // caller's session: buyer reads filter by buyer_org, FPO reads by fpo_org. Status words and marks follow
@@ -133,46 +133,59 @@ async function names(db: Db, ids: string[]): Promise<Map<string, string>> {
   return new Map(rows.map((r) => [r.id, r.name]));
 }
 
-async function view(db: Db, a: AgreementRow, orgNames: Map<string, string>, now: Date): Promise<AgreementView> {
-  const ids = await deliveredBatchIds(db, a);
-  const delivered: DeliveredBatch[] = [];
-  if (ids.length > 0) {
-    const meta = await db.select({ id: batches.id, shortHash: batches.shortHash }).from(batches).where(inArray(batches.id, ids));
-    const transfers = await db
-      .select({ batchId: custodyTransfers.batchId, at: custodyTransfers.transferredAt })
-      .from(custodyTransfers)
-      .where(and(inArray(custodyTransfers.batchId, ids), eq(custodyTransfers.toOrg, a.buyerOrg)))
-      .orderBy(asc(custodyTransfers.transferredAt));
-    for (const id of ids) {
-      const f = await settlementFacts(db, a.id, id);
-      delivered.push({
+/**
+ * The views of a page of agreements in a fixed number of statements, however many agreements and
+ * delivered batches it holds (Stage 9 CR-204): organisation names, delivered batch ids, batch hashes,
+ * delivery transfers, settlement facts (three) and settlements, each read once for the whole page.
+ */
+async function views(db: Db, rows: AgreementRow[], now: Date): Promise<AgreementView[]> {
+  if (rows.length === 0) return [];
+  const orgNames = await names(db, rows.flatMap((r) => [r.buyerOrg, r.fpoOrg]));
+  const deliveredBy = await deliveredBatchIdsFor(db, rows);
+  const allIds = [...new Set([...deliveredBy.values()].flat())];
+  const meta = allIds.length ? await db.select({ id: batches.id, shortHash: batches.shortHash }).from(batches).where(inArray(batches.id, allIds)) : [];
+  const transfers = allIds.length
+    ? await db
+        .select({ batchId: custodyTransfers.batchId, toOrg: custodyTransfers.toOrg, at: custodyTransfers.transferredAt })
+        .from(custodyTransfers)
+        .where(and(inArray(custodyTransfers.batchId, allIds), inArray(custodyTransfers.toOrg, [...new Set(rows.map((r) => r.buyerOrg))])))
+        .orderBy(asc(custodyTransfers.transferredAt))
+    : [];
+  const facts = await settlementFactsFor(
+    db,
+    rows.flatMap((a) => deliveredBy.get(a.id)!.map((batchId) => ({ agreementId: a.id, batchId }))),
+  );
+  const allSettlements = await db
+    .select()
+    .from(settlements)
+    .where(inArray(settlements.agreementId, rows.map((r) => r.id)))
+    .orderBy(desc(settlements.createdAt), desc(settlements.anchorSeq));
+
+  return rows.map((a) => {
+    const delivered: DeliveredBatch[] = deliveredBy.get(a.id)!.map((id) => {
+      const f = facts.get(factsKey(a.id, id))!;
+      return {
         batchId: id,
         shortHash: meta.find((m) => m.id === id)?.shortHash ?? '',
         deliveredKg: f.deliveredKg,
         pickings: f.pickings,
         verifiedPickings: f.verifiedPickings,
-        deliveredAt: transfers.find((t) => t.batchId === id)?.at ?? '',
+        deliveredAt: transfers.find((t) => t.batchId === id && t.toOrg === a.buyerOrg)?.at ?? '',
         grade: f.grade,
         conditions: judge(f, a),
-      });
-    }
-  }
-  const rows = await db.select().from(settlements).where(eq(settlements.agreementId, a.id)).orderBy(desc(settlements.createdAt), desc(settlements.anchorSeq));
-  return {
-    row: a,
-    buyerName: orgNames.get(a.buyerOrg) ?? '',
-    fpoName: orgNames.get(a.fpoOrg) ?? '',
-    delivered,
-    settlements: rows.map((s) => ({ id: s.id, batchId: s.batchId, outcome: s.outcome, reasons: reasonsOf(s, a), createdAt: s.createdAt, txHash: s.txHash, blockNumber: s.blockNumber, deliveredKg: s.deliveredKg, grade: s.grade, pickings: s.pickings, verifiedPickings: s.verifiedPickings })),
-    deadlinePassed: now.getTime() > Date.parse(a.deadline),
-  };
-}
-
-async function views(db: Db, rows: AgreementRow[], now: Date): Promise<AgreementView[]> {
-  const n = await names(db, rows.flatMap((r) => [r.buyerOrg, r.fpoOrg]));
-  const out: AgreementView[] = [];
-  for (const r of rows) out.push(await view(db, r, n, now));
-  return out;
+      };
+    });
+    return {
+      row: a,
+      buyerName: orgNames.get(a.buyerOrg) ?? '',
+      fpoName: orgNames.get(a.fpoOrg) ?? '',
+      delivered,
+      settlements: allSettlements
+        .filter((s) => s.agreementId === a.id)
+        .map((s) => ({ id: s.id, batchId: s.batchId, outcome: s.outcome, reasons: reasonsOf(s, a), createdAt: s.createdAt, txHash: s.txHash, blockNumber: s.blockNumber, deliveredKg: s.deliveredKg, grade: s.grade, pickings: s.pickings, verifiedPickings: s.verifiedPickings })),
+      deadlinePassed: now.getTime() > Date.parse(a.deadline),
+    };
+  });
 }
 
 /** The buyer organisation's agreements, newest first. */

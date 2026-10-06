@@ -2,6 +2,7 @@ import { createPublicClient, createWalletClient, decodeEventLog, defineChain, ht
 import { privateKeyToAccount } from 'viem/accounts';
 import abiJson from './abi/BatchRegistry.json';
 import type { Deployment } from './deployment';
+import { blockWindows, LOG_RANGE_BLOCKS } from './log-range';
 
 // A viem client for BatchRegistry (technical-plan TSK-24.4). SERVER-ONLY. Ledger hashes are 64 lowercase
 // hex without a prefix (§8.1); on chain they are bytes32. The operator key is optional: without it the
@@ -47,7 +48,7 @@ export type RegistryClientOptions = {
   onFetchRequest?: (request: Request) => void | Promise<void>;
 };
 
-export const LOG_RANGE_BLOCKS = 5_000;
+export { LOG_RANGE_BLOCKS };
 /** A generous block time for the receipt wait: about 12 s on Ethereum-like chains, with slack. */
 export const RECEIPT_MS_PER_CONFIRMATION = 15_000;
 
@@ -123,8 +124,7 @@ export function createRegistryClient(o: RegistryClientOptions): RegistryClient {
     async anchoredLog(seq, fromBlock) {
       const head = await pub.getBlockNumber({ cacheTime: 0 });
       const start = BigInt(Math.max(deployment.deployedAtBlock, fromBlock ?? 0));
-      for (let from = start; from <= head; from += logRange) {
-        const to = from + logRange - BigInt(1) < head ? from + logRange - BigInt(1) : head;
+      for (const [from, to] of blockWindows(start, head, logRange)) {
         const logs = await pub.getContractEvents({
           address: registry,
           abi: BATCH_REGISTRY_ABI,

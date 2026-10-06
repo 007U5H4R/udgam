@@ -146,6 +146,51 @@ describe('settle recovery (review MAJOR 1)', () => {
   });
 });
 
+describe('a judgement that does not release is recorded once (Stage 9 CR-203)', () => {
+  /** 600 kg agreed against the 512 kg batch: the quantity condition fails, so settle answers not_released. */
+  async function shortAgreement(): Promise<string> {
+    const { agreementId } = await createAgreement(
+      t.db,
+      { buyerOrg, userId: buyerUser, values: { fpoOrg: w.orgId, crop: 'arabica', agreedKg: 600, minGrade: 80, amountPaise: 5_000_000, deadlineDate: '2099-12-31' } },
+      o(),
+    );
+    await fundAgreement(t.db, { buyerOrg, userId: buyerUser, agreementId }, o());
+    await gradeBatch(t.db, { buyerOrg, userId: buyerUser, agreementId, batchId, grade: 90 }, o());
+    return agreementId;
+  }
+  const rowsOf = (id: string) => t.db.$count(settlements, and(eq(settlements.agreementId, id), eq(settlements.batchId, batchId)));
+  const anchoredFor = async (id: string) =>
+    (await t.client.execute({ sql: `SELECT payload FROM ledger_entries WHERE kind = 'settlement'`, args: [] })).rows.filter((r) => (JSON.parse(String(r.payload)) as { agreementId?: string }).agreementId === id).length;
+
+  // The reviewer's probe: two overlapping settles of one agreement and batch whose conditions are not met.
+  it('two concurrent settles record one row and one anchored entry, and both requests see it', async () => {
+    const id = await shortAgreement();
+    const [a, b] = await Promise.all([settle(id), settle(id)]);
+    expect(a.outcome).toBe('not_released');
+    expect(b.outcome).toBe('not_released');
+    expect(b.settlementId).toBe(a.settlementId);
+    expect(b.txHash).toBe(a.txHash);
+    expect(a.reasons.map((r) => r.condition)).toEqual(['quantity']);
+    expect(b.reasons).toEqual(a.reasons);
+    expect(await rowsOf(id)).toBe(1);
+    expect(await anchoredFor(id)).toBe(1);
+    expect(await statusOf(id)).toBe('funded');
+  });
+
+  it('a repeated settle with nothing new to judge returns the recorded judgement and sends nothing', async () => {
+    const id = await shortAgreement();
+    const first = await settle(id);
+    expect(first.outcome).toBe('not_released');
+    expect(chain.sends.settle).toBe(1);
+    const again = await settle(id);
+    expect(again).toEqual(first);
+    expect(chain.sends.settle).toBe(1);
+    expect(chain.events.filter((e) => e.name === 'SettlementRejected')).toHaveLength(1);
+    expect(await rowsOf(id)).toBe(1);
+    expect(await anchoredFor(id)).toBe(1);
+  });
+});
+
 describe('one batch, one payout (review MAJOR 2)', () => {
   it('settling two agreements on one batch concurrently gives exactly one release', async () => {
     const a = await fundedAndGraded();
