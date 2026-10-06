@@ -22,11 +22,16 @@ export const MAX_PART_HEADER_BYTES = 2 * 1024;
 /**
  * Capture requests buffered and processed at once, per process (TASK-20 fix round 1): each may hold a
  * body of up to MAX_BODY_BYTES in memory. Past it the route answers 503 with Retry-After, unread.
+ * Eight (SEC-004, was 4), so one agent's share is a quarter of the pool: it takes four accounts trickling
+ * bodies, not two, to hold every slot. At most 8 × 30 MB of bodies, held about three times over while
+ * read and parsed: well under 1 GB of the 12 GB A1 instance.
  */
-export const MAX_CAPTURES_IN_FLIGHT = 4;
+export const MAX_CAPTURES_IN_FLIGHT = 8;
 /**
  * Of those, the most one signed-in agent may hold (TASK-20 fix round 2, N2): one agent's slow uploads,
- * or a stolen phone session, can never take every slot. A phone sends one capture at a time.
+ * or a stolen phone session, can never take every slot. Not 1: a phone's outbox sends its next capture
+ * as soon as one is answered, while the server still holds that slot for the staging sweep after the
+ * answer (pipeline.ts), so a share of one turned the next send into 503 busy (e2e TSK-11.3).
  */
 export const MAX_CAPTURES_PER_AGENT = 2;
 /**
