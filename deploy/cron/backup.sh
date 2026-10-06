@@ -126,7 +126,9 @@ bucket_put "$archive" "$object"
 log "backup: uploaded $object$([ "${OCI_DRY_RUN:-0}" = 1 ] && echo " (OCI_DRY_RUN: to $DRY_DIR)") in $(($(date +%s) - t2))s"
 
 # Retention. Names are matched strictly, so nothing else in the bucket or the folder is ever removed.
-own_object="^${OCI_PREFIX//./\\.}udgam-[0-9]{8}T[0-9]{6}Z-[a-z0-9-]+\.tar\.gz\.age$"
+# OCI_PREFIX is literal text: every ERE metacharacter in it is escaped, not only the dot.
+prefix_re="$(printf '%s' "$OCI_PREFIX" | sed 's/[][\\.*^$+?(){}|]/\\&/g')"
+own_object="^${prefix_re}udgam-[0-9]{8}T[0-9]{6}Z-[a-z0-9-]+\.tar\.gz\.age$"
 # Captured first (not a process substitution), so a failed listing fails the run.
 listing="$(bucket_list)" || die "listing the bucket failed; nothing pruned"
 mapfile -t remote_old < <(grep -E "$own_object" <<<"$listing" | prunable "$RETENTION_DAYS" "$KEEP_NEWEST" "$object")

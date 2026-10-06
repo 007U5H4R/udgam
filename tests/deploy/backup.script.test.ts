@@ -33,6 +33,20 @@ beforeEach(() => {
 afterEach(() => sb.cleanup());
 
 describe('backup.sh retention (Q1)', () => {
+  it('treats OCI_PREFIX as literal text: a prefix with regex metacharacters still prunes its own old objects', () => {
+    const prefix = 'bk+1(x)[y]/';
+    const old = [backupName(20), backupName(30)].map((n) => `${prefix}${n}`);
+    const recent = [backupName(1), backupName(2)].map((n) => `${prefix}${n}`);
+    for (const n of [...old, ...recent]) putObject(n);
+    const r = backup({ RETENTION_DAYS: '14', OCI_PREFIX: prefix });
+    expect(r.stderr).toBe('');
+    expect(r.status).toBe(0);
+    const left = bucket();
+    for (const n of old) expect(left).not.toContain(n);
+    for (const n of recent) expect(left).toContain(n);
+    expect(left.filter((n) => n.startsWith(prefix))).toHaveLength(3);
+  });
+
   it.each([['0'], ['abc'], ['-3'], ['14d'], ['1.5']])('refuses RETENTION_DAYS=%s before doing anything', (days) => {
     const r = backup({ RETENTION_DAYS: days });
     expect(r.status).not.toBe(0);
@@ -160,5 +174,18 @@ describe('backup.sh scope (S2)', () => {
     const r = backup();
     expect(r.status).not.toBe(0);
     expect(existsSync(join(sb.data, 'backups'))).toBe(false);
+  });
+});
+
+describe('the root check (deploy/lib.sh require_root)', () => {
+  it('UDGAM_TEST_NONROOT=1 alone does not turn it off: only with the sandbox marker UDGAM_TEST_SANDBOX=1', () => {
+    const asUser = { STUB_UID: '1000', AGE_RECIPIENT: 'age1stubrecipient', OCI_BUCKET: 'udgam-backups' };
+    const refused = sb.run(SCRIPT, [], { ...asUser, UDGAM_TEST_SANDBOX: '' });
+    expect(refused.status).not.toBe(0);
+    expect(refused.stderr).toContain('run as root');
+    expect(sb.calls().filter((c) => c.startsWith('docker run'))).toEqual([]);
+    const sandboxed = sb.run(SCRIPT, [], asUser);
+    expect(sandboxed.stderr).not.toContain('run as root');
+    expect(sandboxed.status).toBe(0);
   });
 });

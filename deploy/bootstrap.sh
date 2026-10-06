@@ -81,8 +81,16 @@ if [ -n "$CHECK_KEY" ]; then
   exit 0
 fi
 
+# The Oracle A1 instance is aarch64. Anything else is refused before the root check and before any
+# change: this script reformats volumes and rewrites the firewall, and must never run on a developer's or
+# a CI machine by mistake. UDGAM_ALLOW_NON_ARM=1 is for the throwaway test container only
+# (tests/deploy/bootstrap/inner.sh).
+arch="$(uname -m)"
+if [ "$arch" != aarch64 ]; then
+  [ "${UDGAM_ALLOW_NON_ARM:-0}" = 1 ] || die "this host is $arch, not aarch64 (the Oracle A1 instance); refusing. UDGAM_ALLOW_NON_ARM=1 is for the bootstrap test container only"
+  echo "warn: $arch, not aarch64; continuing (UDGAM_ALLOW_NON_ARM=1)" >&2
+fi
 [ "$(id -u)" = 0 ] || die "run as root (sudo)"
-if [ "$(uname -m)" != aarch64 ]; then echo "warn: $(uname -m), not aarch64; continuing" >&2; fi
 
 # 1. Base packages ------------------------------------------------------------------------------------
 missing=()

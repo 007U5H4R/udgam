@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Test stub for `id`: `id -u` prints STUB_UID when it is set (a non-root caller, though the tests run as
+# root here); everything else, and `id -u` without STUB_UID, runs the real id.
+if [ -n "${STUB_UID:-}" ] && [ "${1:-}" = -u ] && [ "$#" = 1 ]; then
+  echo "$STUB_UID"
+  exit 0
+fi
+for d in /usr/bin /bin; do
+  [ -x "$d/id" ] && exec "$d/id" "$@"
+done
+exit 127

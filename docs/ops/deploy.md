@@ -74,6 +74,7 @@ lsblk                                                         # find the block v
 UDGAM_VOLUME_DEVICE=/dev/oracleoci/oraclevdb /opt/udgam/deploy/bootstrap.sh --dry-run
 UDGAM_VOLUME_DEVICE=/dev/oracleoci/oraclevdb UDGAM_FORMAT_VOLUME=1 /opt/udgam/deploy/bootstrap.sh   # formats only an empty volume
 /opt/udgam/deploy/bootstrap.sh                                # again: must print no "did:" line
+# bootstrap.sh refuses any host that is not aarch64 (it formats volumes and rewrites the firewall).
 df -h /mnt/udgam-data
 editor /etc/udgam/app.env      # fill the values (deploy/app.env.example names them; UDGAM_DOMAIN included)
 editor /etc/udgam/backup.env   # AGE_RECIPIENT, OCI_BUCKET (deploy/backup.env.example)
@@ -109,7 +110,9 @@ A deploy runs these steps:
 The failed image keeps its `<sha>` tag for inspection. `--rollback` swaps the images only, and the
 checkout stays where it is. It refuses when both tags name the same image. `--restore-db` checks
 that a pre-deploy snapshot is recorded before anything moves, and it loses every write made since
-that deploy. The replaced files are kept in `/mnt/udgam-data/pre-restore-<time>/`.
+that deploy. The replaced files are kept in `/mnt/udgam-data/pre-restore-<time>/`. If `restore.sh`
+fails, both tags go back to where they were, the image that was running is brought up again through
+the gate, and the command exits 1. `restore.sh`'s own lines say what happened to the files.
 
 During the health gate, Caddy serves the new version as it is. A version that boots but answers 503
 is visible to users until the rollback. Measured locally: about 94 s. That is the price of one
@@ -301,9 +304,15 @@ docker run -d --name udgam-drill --network none --read-only --tmpfs /tmp --tmpfs
   -e LEDGER_ADAPTER=hashchain -v "$drill:/data" udgam-app:current
 # --network none and no -p: never published, and it can never reach production's Anvil or the
 # providers. Its provider status reads "error", which doesn't affect /api/health's 200.
-until [ "$(docker inspect -f '{{.State.Health.Status}}' udgam-drill)" = healthy ]; do sleep 2; done
+# Wait at most 3 minutes for healthy; if it never gets there, the last log lines say why.
+timeout 180 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" udgam-drill)" = healthy ]; do sleep 2; done' ||
+  { echo "drill app not healthy within 180 s"; docker logs --tail 50 udgam-drill; }
 docker exec udgam-drill node -e "fetch('http://127.0.0.1:3000/api/verify/<batchId>?h=<shortHash>').then(r=>r.text()).then(t=>require('fs').writeFileSync('/tmp/feed.json',t))"
-docker exec udgam-drill node -e "fetch('http://127.0.0.1:3000/.well-known/udgam-ledger-key').then(r=>r.text()).then(console.log)"   # same kid as https://<domain>/.well-known/udgam-ledger-key
+docker exec udgam-drill node -e "fetch('http://127.0.0.1:3000/.well-known/udgam-ledger-key').then(r=>r.text()).then(t=>require('fs').writeFileSync('/tmp/keys.json',t))"
+# Copy both out BEFORE removing the container: its /tmp is a tmpfs and goes with it.
+docker cp udgam-drill:/tmp/feed.json "/root/drill-$ts-feed.json"
+docker cp udgam-drill:/tmp/keys.json "/root/drill-$ts-keys.json"
+grep -o '"kid":"[^"]*"' "/root/drill-$ts-keys.json"     # same kid as https://<domain>/.well-known/udgam-ledger-key
 # Verify that feed with the clean-room checker (evals/scorers/independent-verifier/cli.ts <feed.json>
 # <keys.json>) in a node container, or open the production certificate in a browser and compare its kid.
 docker rm -f udgam-drill && rm -rf "$drill"                                              # clean up

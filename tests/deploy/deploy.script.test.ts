@@ -136,6 +136,14 @@ describe('deploy.sh deploy', () => {
   });
 });
 
+describe('deploy.sh itself', () => {
+  it('calls main and exits on ONE line: bash reads the file as it runs, and a checkout may rewrite it', () => {
+    const lines = readFileSync(SCRIPT, 'utf8').trimEnd().split('\n');
+    expect(lines.at(-1)).toBe('main "$@"; exit $?');
+    expect(lines.filter((l) => /^main "/.test(l))).toHaveLength(1);
+  });
+});
+
 describe('deploy.sh --rollback', () => {
   it('swaps :current and :previous and passes the gate on the swapped image', () => {
     sb.setContainer(`${OLD} running healthy`);
@@ -171,6 +179,34 @@ describe('deploy.sh --rollback', () => {
     expect(readFileSync(join(sb.data, 'udgam.db'), 'utf8')).toBe('before-the-deploy');
     expect(sb.tag('udgam-app:current')).toBe(OLDER);
     expect(sb.container()).toBe(`${OLDER} running healthy`);
+  });
+
+  const recordSnapshot = () => {
+    mkdirSync(join(sb.data, 'backups'));
+    const snap = join(sb.data, 'backups', 'udgam-20261001T000000Z-predeploy.db');
+    writeFileSync(snap, 'before-the-deploy');
+    writeFileSync(join(sb.data, 'backups', 'last-predeploy'), `${snap}\n`);
+  };
+
+  it('--restore-db: a restore that fails after the swap puts both tags back and brings the running image up again', () => {
+    recordSnapshot();
+    const r = deploy(['--rollback', '--restore-db'], { STUB_UNHEALTHY: '0ld3r' }); // the older image never gets healthy
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain('the restore failed; udgam-app:current is the image that was running again');
+    expect(r.stderr).toContain('rollback with --restore-db failed');
+    expect(sb.tag('udgam-app:current')).toBe(OLD);
+    expect(sb.tag('udgam-app:previous')).toBe(OLDER);
+    expect(sb.container()).toBe(`${OLD} running healthy`);
+  });
+
+  it('--restore-db: a restore that fails before any file moves leaves the database and puts both tags back', () => {
+    recordSnapshot();
+    const r = deploy(['--rollback', '--restore-db'], { STUB_MV_FAIL: '*/stage/udgam.db' });
+    expect(r.status).not.toBe(0);
+    expect(readFileSync(join(sb.data, 'udgam.db'), 'utf8')).toBe('live');
+    expect(sb.tag('udgam-app:current')).toBe(OLD);
+    expect(sb.tag('udgam-app:previous')).toBe(OLDER);
+    expect(sb.container()).toBe(`${OLD} running healthy`);
   });
 
   it('Q6: --restore-db checks the recorded snapshot before swapping any tag', () => {

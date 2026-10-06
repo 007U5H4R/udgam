@@ -1,4 +1,5 @@
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { sandbox, type Sandbox } from './helpers/script-sandbox';
 
@@ -31,6 +32,22 @@ describe('deploy/compose.sh', () => {
   it('turns on the evm profile for LEDGER_ADAPTER="evm"', () => {
     expect(run('UDGAM_DOMAIN=d.example\nLEDGER_ADAPTER="evm"\n').stdout).toContain('profiles=evm');
     expect(run('UDGAM_DOMAIN=d.example\nLEDGER_ADAPTER=hashchain\n').stdout).toContain('profiles= ');
+  });
+
+  it('names a missing app.env plainly and runs no compose command', () => {
+    const r = sb.run('deploy/compose.sh', ['ps'], { UDGAM_ENV_FILE: join(sb.root, 'missing.env') });
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toMatch(/missing\.env not found: create it from deploy\/app\.env\.example/);
+    expect(sb.calls().some((c) => c.startsWith('docker'))).toBe(false);
+  });
+
+  it('names an app.env that is not a readable file', () => {
+    const dir = join(sb.root, 'app.env.d');
+    mkdirSync(dir);
+    const r = sb.run('deploy/compose.sh', ['ps'], { UDGAM_ENV_FILE: dir });
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain('is not a readable file');
+    expect(sb.calls().some((c) => c.startsWith('docker'))).toBe(false);
   });
 
   it('lets an exported UDGAM_DOMAIN win', () => {

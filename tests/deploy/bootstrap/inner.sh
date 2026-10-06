@@ -52,6 +52,8 @@ printf 'BETTER_AUTH_SECRET=\nBETTER_AUTH_URL=\nUDGAM_DOMAIN=\n' >/opt/udgam/depl
 truncate -s 64M /var/tmp/volume.img
 dev="$(losetup -f --show /var/tmp/volume.img)"
 export UDGAM_VOLUME_DEVICE="$dev" UDGAM_FORMAT_VOLUME=1
+# This throwaway container may be x86_64; bootstrap.sh refuses a non-aarch64 host without this.
+export UDGAM_ALLOW_NON_ARM=1
 B=/opt/udgam/deploy/bootstrap.sh
 
 snapshot() { { cat /etc/fstab; iptables -S INPUT; cat /etc/iptables/rules.v4; ls -la /etc/udgam /etc/cron.d 2>&1; findmnt /mnt/udgam-data 2>&1 || true; } | sha256sum; }

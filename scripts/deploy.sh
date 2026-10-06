@@ -160,7 +160,19 @@ rollback() {
 
   if [ -n "$restore" ]; then
     log "deploy.sh: restoring $(basename "$snap"); writes since that deploy are lost"
-    "$RESTORE" --snapshot "$snap" --data-dir "$DATA" --health-timeout "$timeout"
+    if ! "$RESTORE" --snapshot "$snap" --data-dir "$DATA" --health-timeout "$timeout"; then
+      # restore.sh has said what it did to the files. The tags go back to the image that was running,
+      # so :current names it again and a later --rollback starts from where this one did.
+      docker tag "$cur" udgam-app:current
+      docker tag "$prev" udgam-app:previous
+      log "deploy.sh: the restore failed; udgam-app:current is the image that was running again" >&2
+      if up_and_wait "$timeout"; then
+        log "deploy.sh: that image is healthy ${UP_SECS}s after up" >&2
+      else
+        log "deploy.sh: that image is not healthy either (deploy/compose.sh logs app)" >&2
+      fi
+      die "rollback with --restore-db failed"
+    fi
     log "deploy.sh: rolled back with the pre-deploy database"
     return 0
   fi
@@ -168,5 +180,6 @@ rollback() {
   log "deploy.sh: rolled back, healthy ${UP_SECS}s after up"
 }
 
-main "$@"
-exit $?
+# One line: bash reads this script as it runs, and the checkout may have rewritten the file by the time
+# main returns. Read together with the call, the exit never comes from the new file's text.
+main "$@"; exit $?
