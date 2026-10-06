@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { Pill } from '../../../../components/ui/Pill';
 import { rerunRegistrationChecksAction } from './actions';
-import { REASON_TEXT } from './copy';
+import { FAILED_TEXT, REASON_TEXT } from './copy';
 import s from './plots.module.css';
 
 // "Check again" for a plot's registration checks (TKT-07): runs forest loss and the NDVI history again
@@ -23,7 +23,13 @@ export function RerunChecks({ plotId }: { plotId: string }) {
         aria-busy={pending}
         onClick={() =>
           start(async () => {
-            const r = await rerunRegistrationChecksAction(plotId);
+            let r: Awaited<ReturnType<typeof rerunRegistrationChecksAction>>;
+            try {
+              r = await rerunRegistrationChecksAction(plotId);
+            } catch {
+              setError(FAILED_TEXT); // CR-100: never the bare error page
+              return;
+            }
             if (!r.ok) {
               setError(REASON_TEXT[r.reason]);
               return;

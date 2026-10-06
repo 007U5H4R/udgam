@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import { RailShell } from '../../../../components/ui/Rail';
-import { env } from '../../../../lib/config/env';
+import { forcedState as pickState, throwIfForced } from '../../../../lib/config/test-surfaces';
 import { getDbReady } from '../../../../lib/db/client';
 import { formatIst, listPhones, userName, type PhonesView, type PlotOption } from '../../../../lib/enrolment/phones';
 import { t } from '../../../../lib/i18n';
 import { log } from '../../../../lib/log';
+import { errFields } from '../../../_log/err-fields';
 import { requireSession } from '../../../_auth/require';
 import { PhonesClient, type AgentView, type Option } from './PhonesClient';
 import { PhonesEmpty, PhonesError, PhonesSkeleton } from './states';
@@ -20,8 +21,7 @@ export const metadata: Metadata = { title: 'Phones · Udgam' };
 type Forced = 'loading' | 'empty' | 'error' | null;
 
 function forcedState(v: unknown): Forced {
-  if (env.NODE_ENV === 'production' && env.E2E !== '1') return null;
-  return v === 'loading' || v === 'empty' || v === 'error' ? v : null;
+  return pickState(v, ['loading', 'empty', 'error']);
 }
 
 const plotLabel = (p: PlotOption) => t('phones.plotLabel', { plot: p.id, farmer: p.farmerName, crop: p.crop, area: p.areaHa.toFixed(2) });
@@ -48,7 +48,9 @@ function toView(v: PhonesView): AgentView[] {
 
 export default async function PhonesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const admin = await requireSession('admin');
-  const forced = forcedState((await searchParams).state);
+  const { state: param } = await searchParams;
+  throwIfForced(param); // dev and e2e only: shows the /admin error boundary (CR-100)
+  const forced = forcedState(param);
 
   let name: string | null = null;
   let agents: AgentView[] | null = null; // null: failed to load
@@ -58,7 +60,7 @@ export default async function PhonesPage({ searchParams }: { searchParams: Promi
       name = await userName(db, admin.userId);
       agents = toView(await listPhones(db, admin.orgId));
     } catch (err) {
-      log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'phones.load_failed');
+      log.error(errFields(err), 'phones.load_failed');
     }
   }
   const state = forced ?? (agents === null ? 'error' : agents.length === 0 ? 'empty' : 'working');

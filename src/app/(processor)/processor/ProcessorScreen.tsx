@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { Icon, NaMark } from '../../../components/admin/QueueList';
 import { RailShell } from '../../../components/ui/Rail';
 import { VerdictMark } from '../../../components/ui/VerdictChip';
-import { env } from '../../../lib/config/env';
+import { forcedState as forced } from '../../../lib/config/test-surfaces';
 import { COPY, cropName, istShort, rowStatus, type RowStatus } from '../../../lib/processing/copy';
 import type { ProcessorBatch } from '../../../lib/processing/read';
 import { ErrorCard } from './ErrorCard';
@@ -21,8 +21,7 @@ export type ScreenState = 'working' | 'loading' | 'empty' | 'error';
 
 /** `?state=loading|empty|error` renders that state in dev and e2e builds only (technical-plan §11). */
 export function forcedState(v: unknown): Exclude<ScreenState, 'working'> | null {
-  if (env.NODE_ENV === 'production' && env.E2E !== '1') return null;
-  return v === 'loading' || v === 'empty' || v === 'error' ? v : null;
+  return forced(v, ['loading', 'empty', 'error']);
 }
 
 /** A status mark: ok (circle ✓), check (diamond !) or the neutral dashed mk-na (§28.7). */

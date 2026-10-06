@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { ReviewDetail } from '../../../../../../components/admin/ReviewDetail';
 import { getDbReady } from '../../../../../../lib/db/client';
 import { log } from '../../../../../../lib/log';
+import { errFields } from '../../../../../_log/err-fields';
 import { getReviewDetail, type ReviewDetail as Detail } from '../../../../../../lib/review/detail';
 import { listReviewQueue, reviewHeader, type ReviewQueue } from '../../../../../../lib/review/queue';
 import { requireSession } from '../../../../../_auth/require';
@@ -35,7 +36,7 @@ export default async function ReviewRunPage(props: Props) {
       [queue, detail, names] = await Promise.all([listReviewQueue(db, admin.orgId), getReviewDetail(db, admin.orgId, runId), reviewHeader(db, admin.orgId, admin.userId)]);
     } catch (err) {
       failed = true;
-      log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'review.detail_load_failed');
+      log.error(errFields(err), 'review.detail_load_failed');
     }
     if (!failed && !detail) notFound();
   }

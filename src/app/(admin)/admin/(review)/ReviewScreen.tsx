@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { QueueList, type QueueState } from '../../../../components/admin/QueueList';
 import { RailShell } from '../../../../components/ui/Rail';
-import { env } from '../../../../lib/config/env';
+import { forcedState as forced } from '../../../../lib/config/test-surfaces';
 import type { ReviewQueue } from '../../../../lib/review/queue';
 import '../../../../styles/admin.css';
 
@@ -12,8 +12,7 @@ import '../../../../styles/admin.css';
 
 /** `?state=loading|empty|error` renders that state in dev and e2e builds only (technical-plan §11). */
 export function forcedState(v: unknown): Exclude<QueueState, 'working'> | null {
-  if (env.NODE_ENV === 'production' && env.E2E !== '1') return null;
-  return v === 'loading' || v === 'empty' || v === 'error' ? v : null;
+  return forced(v, ['loading', 'empty', 'error']);
 }
 
 export function ReviewScreen({

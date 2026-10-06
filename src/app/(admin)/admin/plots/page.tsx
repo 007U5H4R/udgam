@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { GlassCard } from '../../../../components/ui/GlassCard';
+import { throwIfForced } from '../../../../lib/config/test-surfaces';
 import { getDbReady } from '../../../../lib/db/client';
 import { userName } from '../../../../lib/enrolment/phones';
 import { listPlots } from '../../../../lib/plots/plots';
@@ -15,7 +16,9 @@ export const metadata: Metadata = { title: 'Plots · Udgam' };
 
 export default async function PlotsPage({ searchParams }: { searchParams: Promise<{ state?: string | string[] }> }) {
   const { orgId, userId } = await requireSession('admin');
-  const forced = forcedState((await searchParams).state);
+  const { state } = await searchParams;
+  throwIfForced(state); // dev and e2e only: shows the /admin error boundary (CR-100)
+  const forced = forcedState(state);
   const list = await loadList(forced, async () => listPlots(await getDbReady(), orgId));
   const me = await adminName(async () => userName(await getDbReady(), userId));
   return (

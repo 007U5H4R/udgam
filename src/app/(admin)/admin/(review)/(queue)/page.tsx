@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getDbReady } from '../../../../../lib/db/client';
 import { log } from '../../../../../lib/log';
+import { errFields } from '../../../../_log/err-fields';
 import { listReviewQueue, reviewHeader, type ReviewQueue } from '../../../../../lib/review/queue';
 import { requireSession } from '../../../../_auth/require';
 import { forcedState, PickAnItem, ReviewScreen } from '../ReviewScreen';
@@ -24,7 +25,7 @@ export default async function ReviewPage(props: Props = {}) {
       const db = await getDbReady();
       [queue, names] = await Promise.all([listReviewQueue(db, admin.orgId), reviewHeader(db, admin.orgId, admin.userId)]);
     } catch (err) {
-      log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'review.queue_load_failed');
+      log.error(errFields(err), 'review.queue_load_failed');
     }
   }
   const state = forced ?? (queue === null ? 'error' : queue.waiting.length === 0 && queue.final.length === 0 ? 'empty' : 'working');

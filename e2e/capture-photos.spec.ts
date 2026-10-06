@@ -100,3 +100,26 @@ test('a plot that is not assigned to the agent goes back to Home', async ({ page
   await page.goto('/field/record?plot=PL-NOTMINE1');
   await expect(page).toHaveURL(/\/field$/);
 });
+
+// CR-101 = DES-030 (Stage 8 re-run): in ಕನ್ನಡ at 320 px the slot names ("ತಕ್ಕಡಿಯ ಮೇಲಿನ ಬುಟ್ಟಿ") made the
+// third slot wider than its track, so the grid reached x 323 on a 320 px screen. The tracks are
+// minmax(0, 1fr) and the names wrap: no horizontal overflow, every slot inside the screen.
+test.describe('photos step at 320 px in Kannada (CR-101, DES-030)', () => {
+  test.use({ viewport: { width: 320, height: 568 } });
+
+  test('no horizontal overflow; all three slots and their names inside the screen', async ({ page, context }) => {
+    const seed = seedCaptureWorld();
+    await openField(page, context, seed);
+    await context.addCookies([{ name: 'udgam_lang', value: 'kn', url: page.url() }]);
+    await page.goto(`/field/record?plot=${seed.plots[0]!.id}`);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'kn');
+    await expect(page.locator('.slot')).toHaveCount(3);
+    await expect(page.locator('.slot .s-name').nth(1)).toHaveText('ತಕ್ಕಡಿಯ ಮೇಲಿನ ಬುಟ್ಟಿ');
+    const m = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      right: Array.from(document.querySelectorAll('.slot, .slot .s-name'), (el) => Math.ceil(el.getBoundingClientRect().right)),
+    }));
+    expect(m.scrollWidth).toBeLessThanOrEqual(320);
+    expect(m.right.filter((r) => r > 320)).toEqual([]);
+  });
+});

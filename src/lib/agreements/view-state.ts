@@ -1,4 +1,4 @@
-import { env } from '../config/env';
+import { forcedState } from '../config/test-surfaces';
 
 // Forced view states for the agreement screens (technical-plan §11, Design.md §28.6). Server-only:
 // reads env. `?state=loading|empty|error` reaches the view states, `?state=working` the action in
@@ -9,6 +9,5 @@ const STATES = ['loading', 'empty', 'error', 'working', 'turned-away'] as const;
 export type AgreementViewState = (typeof STATES)[number];
 
 export function forcedAgreementState(param: unknown): AgreementViewState | null {
-  if (env.NODE_ENV === 'production' && env.E2E !== '1') return null;
-  return STATES.find((s) => s === param) ?? null;
+  return forcedState(param, STATES);
 }

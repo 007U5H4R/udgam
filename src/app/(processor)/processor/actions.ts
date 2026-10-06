@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDbReady } from '../../../lib/db/client';
 import { log } from '../../../lib/log';
+import { errFields } from '../../_log/err-fields';
 import { handOnBatch, ProcessingError, recordProcessingStep, type ProcessingErrorCode } from '../../../lib/processing/actions';
 import { checkStepFields, FIELD_MESSAGES, type StepFieldErrors } from '../../../lib/processing/validate';
 import { requireSession } from '../../_auth/require';
@@ -25,7 +26,7 @@ const str = (v: unknown): string => (typeof v === 'string' ? v.slice(0, 64) : ''
 
 function refusal(err: unknown, what: string): { ok: false; reason: ActionRefusal } {
   if (err instanceof ProcessingError) return { ok: false, reason: err.code };
-  log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, `processor.${what}_failed`);
+  log.error(errFields(err), `processor.${what}_failed`);
   return { ok: false, reason: 'failed' };
 }
 

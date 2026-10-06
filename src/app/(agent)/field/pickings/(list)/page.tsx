@@ -8,6 +8,7 @@ import { getHelpInfo, type HelpInfo } from '../../../../../lib/db/queries/field-
 import { listPickings, type PickingMonth } from '../../../../../lib/db/queries/pickings';
 import { t, type Lang } from '../../../../../lib/i18n';
 import { log } from '../../../../../lib/log';
+import { errFields } from '../../../../_log/err-fields';
 import { requireSession } from '../../../../_auth/require';
 import { forcedState, langFromCookies, throwIfForced } from '../../route-state';
 import { PickingsFrame } from '../PickingsFrame';
@@ -43,7 +44,7 @@ export default async function Pickings({ searchParams }: { searchParams: Promise
       const db = await getDbReady();
       [months, help] = await Promise.all([forced === 'empty' ? [] : listPickings(db, agent.userId, agent.orgId, lang), getHelpInfo(db, agent.userId, agent.orgId)]);
     } catch (err) {
-      log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'field.pickings_failed');
+      log.error(errFields(err), 'field.pickings_failed');
     }
   }
   if (!months || !help) return <PickingsError lang={lang} />;

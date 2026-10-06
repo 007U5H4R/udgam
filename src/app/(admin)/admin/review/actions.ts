@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { env } from '../../../../lib/config/env';
 import { getDbReady } from '../../../../lib/db/client';
 import { log } from '../../../../lib/log';
+import { errFields } from '../../../_log/err-fields';
 import { appRemoteSensing } from '../../../../lib/remote-sensing';
 import { REVIEW_STATUS, ReviewError, type ReviewErrorCode } from '../../../../lib/review/errors';
 import { OVERRIDE_VERDICTS, overrideRun as overrideService } from '../../../../lib/review/override';
@@ -23,11 +24,10 @@ export type OverrideActionResult = { ok: true; overrideId: string; reason: strin
 
 const MAX_ID = 64;
 const refusal = (code: ReviewErrorCode): Refusal => ({ ok: false, reason: code, status: REVIEW_STATUS[code] });
-const errClass = (err: unknown) => (err instanceof Error ? err.constructor.name : typeof err);
 
 function refused(err: unknown, event: string): Refusal {
   if (err instanceof ReviewError) return refusal(err.code);
-  log.error({ errClass: errClass(err) }, event);
+  log.error(errFields(err), event);
   return { ok: false, reason: 'failed', status: 500 };
 }
 

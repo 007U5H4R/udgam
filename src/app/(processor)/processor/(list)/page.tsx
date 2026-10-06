@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getDbReady } from '../../../../lib/db/client';
 import { log } from '../../../../lib/log';
+import { errFields } from '../../../_log/err-fields';
 import { COPY } from '../../../../lib/processing/copy';
 import { listProcessorBatches, processorHeader, type ProcessorBatch } from '../../../../lib/processing/read';
 import { requireSession } from '../../../_auth/require';
@@ -25,7 +26,7 @@ export default async function ProcessorListPage(props: Props = {}) {
       const db = await getDbReady();
       [batches, names] = await Promise.all([listProcessorBatches(db, me.orgId), processorHeader(db, me.orgId, me.userId)]);
     } catch (err) {
-      log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'processor.list_load_failed');
+      log.error(errFields(err), 'processor.list_load_failed');
     }
   }
   const state = forced ?? (batches === null ? 'error' : batches.length === 0 ? 'empty' : 'working');

@@ -591,9 +591,11 @@ html[lang='kn'] body {
   font-size: 17px;
   font-variant-numeric: tabular-nums;
 }
+/* CR-101 = DES-030: minmax(0, 1fr), so a long (Kannada) slot name wraps instead of widening its track
+   past a 320 px screen. */
 .slots {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 .slot {
@@ -630,6 +632,7 @@ html[lang='kn'] body {
   font-weight: 600;
   line-height: 1.3;
   padding: 0 4px;
+  overflow-wrap: anywhere;
 }
 .slot .s-state {
   display: flex;

@@ -1,9 +1,10 @@
 import { readFile } from 'node:fs/promises';
-import { isAbsolute, relative, resolve } from 'node:path';
+import { isAbsolute, relative } from 'node:path';
 import { z } from 'zod';
 import { getAttestation } from '../../../../../../../lib/attestations/attach';
 import { AuthError, authErrorResponse } from '../../../../../../../lib/auth/guards';
 import { env } from '../../../../../../../lib/config/env';
+import { runtimePath } from '../../../../../../../lib/config/runtime-path';
 import { sha256Hex } from '../../../../../../../lib/crypto';
 import { getDbReady } from '../../../../../../../lib/db/client';
 import { log } from '../../../../../../../lib/log';
@@ -38,8 +39,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ plotId: string;
   const row = await getAttestation(db, admin.orgId, plotId, attestationId);
   if (!row) return notFound();
 
-  const root = resolve(env.DATA_DIR);
-  const abs = resolve(root, row.filePath);
+  const root = runtimePath(env.DATA_DIR); // EXE39, CR-102: a run-time path, never traced
+  const abs = runtimePath(root, row.filePath);
   const rel = relative(root, abs);
   if (rel.startsWith('..') || isAbsolute(rel)) return notFound();
 

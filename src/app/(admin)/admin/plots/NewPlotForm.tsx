@@ -8,7 +8,7 @@ import { Pill } from '../../../../components/ui/Pill';
 import type { TileLayerConfig } from '../../../../lib/geo/tiles';
 import type { FarmerOption } from '../../../../lib/plots/farmers';
 import { createPlotAction, uploadPlotFileAction, type PlotActionResult } from './actions';
-import { REASON_TEXT } from './copy';
+import { FAILED_TEXT, REASON_TEXT } from './copy';
 import s from './plots.module.css';
 
 // The new-plot form (TKT-06): farmer (existing or new), crop, then the boundary — drawn on the map or
@@ -38,7 +38,13 @@ export function NewPlotForm({ farmers, tiles }: { farmers: FarmerOption[]; tiles
     }
     setError('');
     startTransition(async () => {
-      const r: PlotActionResult = hasFile ? await uploadPlotFileAction(form) : await createPlotAction(form);
+      let r: PlotActionResult;
+      try {
+        r = hasFile ? await uploadPlotFileAction(form) : await createPlotAction(form);
+      } catch {
+        setError(FAILED_TEXT); // CR-100: never the bare error page
+        return;
+      }
       if (r.ok) router.push(`/admin/plots/${r.plotId}`);
       else setError(REASON_TEXT[r.reason]);
     });

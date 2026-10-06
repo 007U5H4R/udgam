@@ -25,6 +25,9 @@ export const REASON_TEXT: Record<PlotActionReason, string> = {
   not_found: 'That plot was not found.',
 };
 
+/** A Server Action that never answered (the network dropped, the server failed): CR-100, Design.md §18. */
+export const FAILED_TEXT = 'That did not work. Nothing was changed. Check the connection and try again.';
+
 export const STATUS_TEXT: Record<RegistrationStatus, string> = {
   pending: 'Registration checks pending',
   stale: 'Boundary changed · checks pending',

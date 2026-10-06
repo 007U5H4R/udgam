@@ -26,6 +26,9 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'signIn.unavailable': 'ಈಗ ಸೈನ್ ಇನ್ ಮಾಡಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', // REVIEW: native speaker
   'signIn.errorHelp': 'ಮರೆತಿದ್ದರೆ, ನಿಮ್ಮ ಖಾತೆ ಮಾಡಿದ ಕಚೇರಿಯನ್ನು ಕೇಳಿ.', // REVIEW: native speaker
   'signIn.certificateHint': 'ಕಾಫಿ ಪ್ರಮಾಣಪತ್ರ ಹುಡುಕುತ್ತಿದ್ದೀರಾ? ನಿಮಗೆ ನೀಡಿದ ಲಿಂಕ್ ಅಥವಾ QR ಕೋಡ್ ತೆರೆಯಿರಿ.', // REVIEW: native speaker
+  'signIn.crash.title': 'ಸೈನ್ ಇನ್ ತೆರೆಯಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'signIn.crash.body': 'ಏನೂ ಬದಲಾಗಿಲ್ಲ. ಸಂಪರ್ಕ ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', // REVIEW: native speaker
+  'signIn.crash.retry': 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ', // REVIEW: native speaker
   'signOut':'ಸೈನ್ ಔಟ್', // REVIEW: native speaker
 
   'notFound.title': 'ಆ ಪುಟ ಸಿಗುತ್ತಿಲ್ಲ.', // REVIEW: native speaker
@@ -329,6 +332,9 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'enrol.error.other': 'ಈ ಫೋನ್ ಸಿದ್ಧಪಡಿಸಲಾಗಲಿಲ್ಲ. ಹೊಸ ಕೋಡ್‌ಗಾಗಿ ಕಚೇರಿಗೆ ಕೇಳಿ.', // REVIEW: native speaker
   'enrol.error.unsupported': 'ಈ ಬ್ರೌಸರ್ ಸುರಕ್ಷಿತ ಕೀ ಇಟ್ಟುಕೊಳ್ಳಲಾರದು. Udgam ಅನ್ನು Chrome ಅಥವಾ Safari ಯಲ್ಲಿ ತೆರೆಯಿರಿ.', // REVIEW: native speaker
   'enrol.error.saveFailed': 'ಫೋನ್ ಸರ್ವರ್‌ನಲ್ಲಿ ನೋಂದಣಿಯಾಗಿದೆ ಆದರೆ ಇಲ್ಲಿ ಉಳಿಸಲಾಗಿಲ್ಲ — ಹೊಸ ಕೋಡ್‌ಗಾಗಿ ಕಚೇರಿಗೆ ಕೇಳಿ.', // REVIEW: native speaker
+  'enrol.crash.title': 'ಫೋನ್ ಸಿದ್ಧಪಡಿಸುವಿಕೆಯನ್ನು ತೆರೆಯಲಾಗಲಿಲ್ಲ.', // REVIEW: native speaker
+  'enrol.crash.body': 'ಏನೂ ಬದಲಾಗಿಲ್ಲ. ಸಿಗ್ನಲ್ ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', // REVIEW: native speaker
+  'enrol.crash.retry': 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ', // REVIEW: native speaker
   'enrol.done.title': 'ಈ ಫೋನ್ {word}', // REVIEW: native speaker
   'enrol.done.titleWord': 'ಸಿದ್ಧವಾಗಿದೆ', // REVIEW: native speaker
   'enrol.done.lede': 'ನೀವು ಇಲ್ಲಿ ದಾಖಲಿಸುವ ಕೊಯ್ಲುಗಳಿಗೆ ಈ ಫೋನ್‌ನ ಸ್ವಂತ ಕೀಯಿಂದ ಸಹಿ ಹಾಕಲಾಗುತ್ತದೆ.', // REVIEW: native speaker

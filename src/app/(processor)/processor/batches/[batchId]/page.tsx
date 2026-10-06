@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getDbReady } from '../../../../../lib/db/client';
 import { log } from '../../../../../lib/log';
+import { errFields } from '../../../../_log/err-fields';
 import { getProcessorBatch, listBuyers, listProcessorBatches, processorHeader, type ProcessorBatch } from '../../../../../lib/processing/read';
 import { requireSession } from '../../../../_auth/require';
 import { BatchDetail } from '../../BatchDetail';
@@ -34,7 +35,7 @@ export default async function ProcessorBatchPage(props: Props) {
       [batches, batch, buyers, names] = await Promise.all([listProcessorBatches(db, me.orgId), getProcessorBatch(db, me.orgId, batchId), listBuyers(db), processorHeader(db, me.orgId, me.userId)]);
     } catch (err) {
       failed = true;
-      log.error({ errClass: err instanceof Error ? err.constructor.name : typeof err }, 'processor.detail_load_failed');
+      log.error(errFields(err), 'processor.detail_load_failed');
     }
     if (!failed && !batch) notFound();
   }
