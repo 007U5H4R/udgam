@@ -252,6 +252,8 @@ export const harvestEvents = sqliteTable(
     check('harvest_events_device_check', sql`${t.deviceId} IS NOT NULL OR ${t.boundaryStatus} = 'rejected'`),
     index('harvest_events_device_idx').on(t.deviceId),
     index('harvest_events_plot_idx').on(t.plotId),
+    // An agent's accepted captures by day: the SEC-003 daily budget (src/lib/capture/budget.ts).
+    index('harvest_events_agent_day_idx').on(t.agentId, t.boundaryStatus, t.serverReceivedAt),
     uniqueIndex('harvest_events_accepted_payload_hash_unique').on(t.payloadHash).where(sql`boundary_status = 'accepted'`),
     // One anchored refusal per (payload, reason): after X, Y, X the third answer is the original X rejection.
     uniqueIndex('harvest_events_rejected_payload_reason_unique').on(t.payloadHash, t.boundaryReason).where(sql`boundary_status = 'rejected'`),

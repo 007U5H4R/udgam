@@ -1,4 +1,4 @@
-import { and, count, eq, gte, lt, sum } from 'drizzle-orm';
+import { and, eq, gte, lt, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { harvestEvents, media } from '../db/schema';
 
@@ -37,13 +37,27 @@ export function budgetDay(now: Date): { start: string; end: string } {
   return { start: new Date(start).toISOString(), end: new Date(start + DAY_MS).toISOString() };
 }
 
+/**
+ * The one query behind agentUsageToday: this agent's accepted events received in the India day, with
+ * their media rows (LEFT JOIN, so a capture without photos still counts). It reads through
+ * harvest_events_agent_day_idx (agent_id, boundary_status, server_received_at), migration 0036.
+ */
+export function usageQuery(db: Db, agentId: string, now: Date) {
+  const { start, end } = budgetDay(now);
+  return db
+    .select({
+      captures: sql<number>`count(DISTINCT ${harvestEvents.id})`,
+      bytes: sql<number>`coalesce(sum(${media.size}), 0)`,
+    })
+    .from(harvestEvents)
+    .leftJoin(media, eq(media.eventId, harvestEvents.id))
+    .where(and(eq(harvestEvents.agentId, agentId), eq(harvestEvents.boundaryStatus, 'accepted'), gte(harvestEvents.serverReceivedAt, start), lt(harvestEvents.serverReceivedAt, end)));
+}
+
 /** This agent's accepted captures received today (India day) and the bytes of their photos. */
 export async function agentUsageToday(db: Db, agentId: string, now: Date): Promise<CaptureUsage> {
-  const { start, end } = budgetDay(now);
-  const today = and(eq(harvestEvents.agentId, agentId), eq(harvestEvents.boundaryStatus, 'accepted'), gte(harvestEvents.serverReceivedAt, start), lt(harvestEvents.serverReceivedAt, end));
-  const [c] = await db.select({ n: count() }).from(harvestEvents).where(today);
-  const [b] = await db.select({ bytes: sum(media.size) }).from(media).innerJoin(harvestEvents, eq(media.eventId, harvestEvents.id)).where(today);
-  return { captures: Number(c?.n ?? 0), bytes: Number(b?.bytes ?? 0) };
+  const [row] = await usageQuery(db, agentId, now);
+  return { captures: Number(row?.captures ?? 0), bytes: Number(row?.bytes ?? 0) };
 }
 
 /**

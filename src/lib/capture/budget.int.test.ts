@@ -7,7 +7,7 @@ import { writeTx } from '../db/client';
 import { harvestEvents, media } from '../db/schema';
 import { newId } from '../ids';
 import { append } from '../ledger/hashchain';
-import { agentUsageToday } from './budget';
+import { agentUsageToday, usageQuery } from './budget';
 
 // SEC-003: the usage the daily budget counts comes from what was actually stored: accepted harvest
 // events of this agent, received today (India calendar day), and the bytes of their media rows.
@@ -56,5 +56,13 @@ describe('agentUsageToday (SEC-003)', () => {
   it('counts a capture with no media row once, at zero bytes', async () => {
     await event('A', '2026-10-06T08:00:00.000Z', []);
     expect(await agentUsageToday(t.db, agents.A.agentId, now)).toEqual({ captures: 1, bytes: 0 });
+  });
+
+  it('reads through the (agent_id, boundary_status, server_received_at) index, in one query', async () => {
+    await event('A', '2026-10-06T08:00:00.000Z', [10, 20]);
+    const q = usageQuery(t.db, agents.A.agentId, now).toSQL();
+    const plan = (await t.client.execute({ sql: `EXPLAIN QUERY PLAN ${q.sql}`, args: q.params as never })).rows.map((r) => String(r.detail));
+    expect(plan.join('\n')).toMatch(/SEARCH \w+ USING (COVERING )?INDEX harvest_events_agent_day_idx \(agent_id=\? AND boundary_status=\? AND server_received_at>\? AND server_received_at<\?\)/);
+    expect(plan.join('\n')).not.toMatch(/SCAN harvest_events\b/);
   });
 });
