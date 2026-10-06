@@ -11,3 +11,16 @@
     margin-top: 28px;
   }
 }
+
+/* DES-117: an admin review or processor detail (a rail screen) on a phone, where the open detail hides the
+   tab bar and RailShell's `.phoneOut`; from 700 px the rail foot carries Sign out, so this hides. */
+.railDetailEnd {
+  display: none;
+}
+@media (max-width: 699.98px) {
+  .railDetailEnd {
+    display: block;
+    max-width: 360px;
+    margin-top: 28px;
+  }
+}

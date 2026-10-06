@@ -9,6 +9,7 @@ import { CHECK_NAME, istClock, istDay, istDayMonth, waited, whyLine } from '../.
 import { formatScore, kg1 } from '../../lib/format';
 import type { ReviewDetail as Detail } from '../../lib/review/detail';
 import { GlassCard } from '../ui/GlassCard';
+import { DetailSignOut } from '../ui/SignOut';
 import { VerdictChip, VerdictMark, verdictWord } from '../ui/VerdictChip';
 import { ChecksCard } from './ChecksCard';
 import { DecideForm } from './DecideForm';
@@ -245,6 +246,8 @@ export function ReviewDetail({ d, next, adminName, now = new Date() }: { d: Deta
         </div>
 
         <ChecksCard checks={d.checks} />
+        {/* phones: the open detail hides the tab bar and its Sign out, so it ends here, above the sticky decision bar (DES-117) */}
+        <DetailSignOut rail />
       </div>
 
       <div className="d-actions">

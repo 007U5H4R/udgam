@@ -25,8 +25,21 @@ describe('documentLang (DES-221)', () => {
     expect(documentLang('/verifyx', 'kn')).toBe('kn');
   });
 
+  it('the English-only office (admin, buyer, processor) is English under a Kannada choice (DES-118)', () => {
+    for (const path of ['/admin', '/admin/', '/admin/batches/B-NOPE0000', '/admin/demo', '/buyer', '/buyer/agreements/AG-1', '/processor', '/processor/batches/B-1']) {
+      expect(documentLang(path, 'kn'), path).toBe('en');
+    }
+  });
+
+  it('a path that only starts with an office prefix is not the office', () => {
+    for (const path of ['/adminx', '/buyers', '/processors', '/field/admin']) {
+      expect(documentLang(path, 'kn'), path).toBe('kn');
+    }
+  });
+
   it('English stays English everywhere', () => {
     expect(documentLang('/field', 'en')).toBe('en');
     expect(documentLang('/verify/B-1', 'en')).toBe('en');
+    expect(documentLang('/admin', 'en')).toBe('en');
   });
 });

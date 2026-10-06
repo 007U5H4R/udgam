@@ -6,6 +6,7 @@ import { openField, seedCaptureWorld } from './helpers/capture';
 import { seedEnrolment } from './helpers/enrolment';
 import type { SeededAgreements } from './helpers/seed-agreements';
 import type { SeededBatches } from './helpers/seed-batches';
+import type { SeededProcessing } from './helpers/seed-processing';
 import type { SeededReview } from './helpers/seed-review';
 import { stubTiles } from './helpers/stubs';
 import { E2E_DATA_DIR } from './helpers/tracer';
@@ -120,6 +121,53 @@ test.describe('DES-105 Sign out on every office screen', () => {
     await expect(page).toHaveURL(/\/sign-in$/);
   });
 
+  // DES-117: an open review or processor detail hides the phone tab bar and its pill (so the sticky
+  // decision bar sits at the bottom edge); below 700 px the detail ends with its own Sign out instead, clear
+  // of that bar. From 700 px the rail foot carries the one Sign out.
+  test('admin review and processor details end with Sign out on phones', async ({ page }) => {
+    const r = runSeed<SeededReview>('e2e/helpers/seed-review.ts');
+    const p = runSeed<SeededProcessing>('e2e/helpers/seed-processing.ts', ['--to-processor', DEMO_ACCOUNTS.processorA.orgId]);
+    const atEnd = async (where: string) => {
+      await oneSignOut(page, where);
+      if (!phone(page)) return;
+      const out = page.getByRole('button', { name: 'Sign out' });
+      await expect(page.locator('section.detail').getByRole('button', { name: 'Sign out' }), where).toHaveCount(1);
+      // nothing in the detail's body comes after it, and the sticky bar never covers it
+      const below = await out.evaluate((btn) => {
+        const end = btn.getBoundingClientRect().bottom;
+        return [...btn.closest('.d-body')!.querySelectorAll('h2, h3, p, a, button, li')].filter((el) => el !== btn && el.getBoundingClientRect().top >= end).length;
+      });
+      expect(below, where).toBe(0);
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await expect(out, where).toBeInViewport();
+      const hit = await out.evaluate((btn) => {
+        const b = btn.getBoundingClientRect();
+        const at = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+        return at === btn || btn.contains(at);
+      });
+      expect(hit, where).toBe(true);
+    };
+
+    await signIn(page, r.adminEmail, r.testOnlyAdminPassword);
+    for (const id of [r.outside, r.final]) {
+      await page.goto(`/admin/review/${id}`);
+      await expect(page.getByRole('heading', { level: 2 }).first()).toBeVisible();
+      await atEnd(`review ${id}`);
+    }
+    await page.goto('/admin');
+    await oneSignOut(page, 'queue'); // the queue alone still has exactly one
+    await axeClean(page);
+
+    await page.context().clearCookies();
+    await signIn(page, DEMO_ACCOUNTS.processorA.email, SEED_PASSWORD);
+    await page.goto(`/processor/batches/${p.batchId}`);
+    await expect(page.getByRole('heading', { level: 2, name: p.batchId })).toBeVisible();
+    await atEnd('processor batch detail');
+    await axeClean(page);
+    await page.getByRole('button', { name: 'Sign out' }).click();
+    await expect(page).toHaveURL(/\/sign-in$/);
+  });
+
   test('processor: the batch list', async ({ page }) => {
     await signIn(page, DEMO_ACCOUNTS.processorA.email, SEED_PASSWORD);
     for (const path of ['/processor', '/processor?state=empty']) {
@@ -155,12 +203,22 @@ async function styledNotFound(page: Page, url: string, o: { title: string; back:
 const PAGE = 'We can’t find that page.';
 
 test.describe('DES-104 / DES-011 one styled not-found', () => {
-  test('admin: unknown batch, run and plot inside the shell, back to Review; any unknown URL', async ({ page }) => {
+  // DES-115: a bad batch, plot or review link goes back to its own list, and the rail marks that section.
+  test('admin: unknown batch, run and plot inside the shell, back to their own list; any unknown URL', async ({ page }) => {
     await signIn(page, DEMO_ACCOUNTS.adminA.email, SEED_PASSWORD);
-    for (const url of ['/admin/batches/B-NOPE0000', '/admin/review/VR-NOPE00000000', '/admin/plots/PL-NOPE0000']) {
-      await styledNotFound(page, url, { title: PAGE, back: 'Back to Review', href: '/admin' });
+    for (const [url, back, href, section] of [
+      ['/admin/batches/B-NOPE0000', 'Back to Batches', '/admin/batches', 'Batches'],
+      ['/admin/review/VR-NOPE00000000', 'Back to Review', '/admin', 'Review'],
+      ['/admin/plots/PL-NOPE0000', 'Back to Plots', '/admin/plots', 'Plots'],
+    ] as const) {
+      await styledNotFound(page, url, { title: PAGE, back, href });
       await expect(page.getByRole('button', { name: 'Sign out' })).toHaveCount(1);
+      const rail = page.getByRole('navigation', { name: 'Admin sections' });
+      await expect(rail.locator('a[aria-current="page"]'), url).toHaveCount(1);
+      await expect(rail.locator('a[aria-current="page"]'), url).toHaveText(section);
     }
+    await page.getByRole('link', { name: 'Back to Plots' }).click();
+    await expect(page).toHaveURL(/\/admin\/plots$/);
     await styledNotFound(page, '/no-such-page', { title: PAGE, back: 'Go to your home screen', href: '/' });
     await page.getByRole('link', { name: 'Go to your home screen' }).click();
     await expect(page).toHaveURL(/\/admin$/);

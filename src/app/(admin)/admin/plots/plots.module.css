@@ -420,7 +420,12 @@
 }
 /* A text link inside a note (the certificate download, TKT-13): the mockup's `a` rule (admin.html),
    underlined so it reads as a link without relying on colour (WCAG 1.4.1). */
+/* the certificate download (DES-116, Design.md §17): a 48 px target inside its note line */
 .link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  vertical-align: middle;
   color: #b9f5d2;
   font-weight: 600;
   text-decoration: underline;

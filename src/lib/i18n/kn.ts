@@ -33,6 +33,7 @@ export const kn: Partial<Record<MessageKey, string>> = {
   'notFound.home': 'ನಿಮ್ಮ ಮುಖಪುಟಕ್ಕೆ ಹೋಗಿ', // REVIEW: native speaker
   'notFound.toReview': 'ಪರಿಶೀಲನೆಗೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
   'notFound.toBatches': 'ಬ್ಯಾಚ್‌ಗಳಿಗೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
+  'notFound.toPlots': 'ಪ್ಲಾಟ್‌ಗಳಿಗೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
   'notFound.toHome': 'ಮುಖಪುಟಕ್ಕೆ ಹಿಂತಿರುಗಿ', // REVIEW: native speaker
   'review.photoUsedBefore': '{date} ರ ಕೊಯ್ಲಿನ ಅದೇ ಫೋಟೋ', // REVIEW: native speaker
   'review.photoSeenBefore': 'ಈ ಫೋಟೋ ಬೇರೆ ಕೊಯ್ಲಿನಲ್ಲಿ ಮೊದಲೇ ಕಂಡಿದೆ', // REVIEW: native speaker

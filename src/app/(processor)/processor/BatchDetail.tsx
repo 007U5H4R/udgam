@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Icon } from '../../../components/admin/QueueList';
+import { DetailSignOut } from '../../../components/ui/SignOut';
 import { t } from '../../../lib/i18n';
 import { MB_CONFIG } from '../../../lib/processing/config';
 import { COPY, cropName, detailChip, istWhen, pickingsText, PROCESS_LABEL } from '../../../lib/processing/copy';
@@ -87,6 +88,8 @@ export function BatchDetail({ b, orgName, buyers }: { b: ProcessorBatch; orgName
         ) : b.held ? (
           <StepForm batchId={b.batchId} crop={b.crop} />
         ) : null}
+        {/* phones: the processor's rail and the open detail's pill are hidden, so the detail ends with Sign out (DES-117) */}
+        <DetailSignOut rail />
       </div>
     </section>
   );
