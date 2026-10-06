@@ -8,8 +8,9 @@ import type { CertificateWorld } from '../../../../lib/certificate/__fixtures__/
 
 // TSK-17.5 · TC-072 · EVAL-090 (tags; the live unfurl is TC-091 in TKT-28) · web-deliverables §4: the
 // certificate's generateMetadata gives a valid batch its title, description, canonical URL, Open Graph and
-// Twitter tags, with og/verify.png at 1200 × 630, every URL absolute from PUBLIC_BASE_URL (https in a
-// production configuration), and noindex, nofollow. An unknown batch, a missing h and a wrong h get the
+// Twitter tags, with the link-preview image for its own district and crop at 1200 × 630 (DES-202, EXE43:
+// og/verify-<district>-<crop>.png, its alt saying the image's words), every URL absolute from PUBLIC_BASE_URL
+// (https in a production configuration), and noindex, nofollow. An unknown batch, a missing h and a wrong h get the
 // generic title and noindex, with no batch data. The served HTML is checked in e2e/certificate-metadata.spec.ts.
 
 const BASE = 'https://udgam.test';
@@ -19,6 +20,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..');
 
 let t: TempDb;
 let w: CertificateWorld;
+/** A second world whose plots lie in Chikkamagaluru (around 75.64 E, 13.13 N; district.test.ts). */
+let chikka: CertificateWorld;
 
 beforeAll(async () => {
   t = await tempDb();
@@ -36,6 +39,7 @@ beforeAll(async () => {
     farmer: () => ({ name: SENTINELS.name, identifier: SENTINELS.identifier }),
     officePhone: SENTINELS.phone,
   });
+  chikka = await seedCertificateWorld(t.db, { events: 2, plots: 1, plotShift: { lng: -0.0992, lat: 0.7089 } });
 }, 120_000);
 
 afterAll(async () => {
@@ -54,7 +58,7 @@ async function metadataFor(batchId: string, h: string | undefined) {
 const abs = (u: unknown, base: URL | null | undefined) => new URL(String(u instanceof URL ? u.href : u), base ?? undefined).href;
 
 describe('certificate link-preview metadata (TC-072, EVAL-090)', () => {
-  it('a valid batch: title, description, canonical, OG and Twitter tags with og/verify.png, absolute https URLs, noindex', async () => {
+  it('a valid batch: title, description, canonical, OG and Twitter tags with its own og image, absolute https URLs, noindex', async () => {
     const meta = await metadataFor(w.batchId, w.shortHash);
     const base = meta.metadataBase as URL;
     expect(base.href).toBe('https://udgam.test/');
@@ -69,13 +73,29 @@ describe('certificate link-preview metadata (TC-072, EVAL-090)', () => {
     expect(og).toMatchObject({ type: 'website', siteName: 'Udgam', title, description: meta.description });
     expect(abs(og.url, base)).toBe(page);
     expect(og.images).toHaveLength(1);
-    expect(abs(og.images[0]!.url, base)).toBe('https://udgam.test/og/verify.png');
+    expect(abs(og.images[0]!.url, base)).toBe('https://udgam.test/og/verify-kodagu-arabica.png');
     expect(og.images[0]).toMatchObject({ width: 1200, height: 630 });
-    expect(og.images[0]!.alt.length).toBeGreaterThan(0);
+    expect(og.images[0]!.alt).toBe('The Udgam coffee-cherry mark beside the words “Kodagu Arabica, verified at origin”');
 
-    const tw = meta.twitter as { card: string; title: string; description: string; images: { url: string }[] };
+    const tw = meta.twitter as { card: string; title: string; description: string; images: { url: string; alt: string }[] };
     expect(tw).toMatchObject({ card: 'summary_large_image', title, description: meta.description });
-    expect(abs(tw.images[0]!.url, base)).toBe('https://udgam.test/og/verify.png');
+    expect(abs(tw.images[0]!.url, base)).toBe('https://udgam.test/og/verify-kodagu-arabica.png');
+    expect(tw.images[0]!.alt).toBe(og.images[0]!.alt);
+  });
+
+  it('a Chikkamagaluru batch: its own title, and the Chikkamagaluru image with matching alt text (DES-202)', async () => {
+    const meta = await metadataFor(chikka.batchId, chikka.shortHash);
+    const base = meta.metadataBase as URL;
+    const title = 'Chikkamagaluru Arabica, verified at origin — Udgam';
+    expect(meta.title).toEqual({ absolute: title });
+    const og = meta.openGraph as { title: string; images: { url: string; width: number; height: number; alt: string }[] };
+    expect(og.title).toBe(title);
+    expect(og.images).toHaveLength(1);
+    expect(abs(og.images[0]!.url, base)).toBe('https://udgam.test/og/verify-chikkamagaluru-arabica.png');
+    expect(og.images[0]).toMatchObject({ width: 1200, height: 630, alt: 'The Udgam coffee-cherry mark beside the words “Chikkamagaluru Arabica, verified at origin”' });
+    const tw = meta.twitter as { images: { url: string; alt: string }[] };
+    expect(tw.images).toEqual([{ url: '/og/verify-chikkamagaluru-arabica.png', alt: og.images[0]!.alt }]);
+    expect(JSON.stringify(meta)).not.toMatch(/Kodagu/);
   });
 
   it('a valid batch: no farmer name, identifier, office phone or producer ID in any tag (EV16)', async () => {
@@ -96,8 +116,12 @@ describe('certificate link-preview metadata (TC-072, EVAL-090)', () => {
     }
   });
 
-  it('public/og/verify.png is a 1200 × 630 PNG (TC-WEB-OG-ASSET)', async () => {
-    const m = await sharp(join(ROOT, 'public/og/verify.png')).metadata();
-    expect({ format: m.format, width: m.width, height: m.height }).toEqual({ format: 'png', width: 1200, height: 630 });
+  it('each batch’s og image is a 1200 × 630 PNG in public/ (TC-WEB-OG-ASSET)', async () => {
+    for (const world of [w, chikka]) {
+      const meta = await metadataFor(world.batchId, world.shortHash);
+      const url = (meta.openGraph as { images: { url: string }[] }).images[0]!.url;
+      const m = await sharp(join(ROOT, 'public', url)).metadata();
+      expect({ url, format: m.format, width: m.width, height: m.height }).toEqual({ url, format: 'png', width: 1200, height: 630 });
+    }
   });
 });

@@ -1,20 +1,23 @@
 import type { Metadata } from 'next';
 import { certCopy, kgShort } from '../../../../lib/certificate/copy';
+import { OG_SIZE, ogVariant } from '../../../../lib/certificate/og-image';
 import type { CertificateView } from '../../../../lib/certificate/view-model';
 
 // The certificate's link-preview metadata (TSK-17.5, TC-072, EVAL-090; technical-plan §12, Design.md §25,
 // web-deliverables §4): title, description, canonical URL, Open Graph and Twitter tags with the approved
-// og/verify.png (1200 × 630), every URL absolute from PUBLIC_BASE_URL (metadataBase). Public per batch but
+// link-preview artwork in the batch's own words (1200 × 630, DES-202), every URL absolute from PUBLIC_BASE_URL (metadataBase). Public per batch but
 // not for search: noindex, nofollow (§8.4). The words come from the view model, which comes from the
 // proof feed (TP16). A link that resolves to no batch gets the generic metadata, with no batch data in it.
 
-/** The approved link-preview image (Design.md freeze: .design/exploration/og/verify.png, copied to public/og/). */
-export const OG_IMAGE = {
-  url: '/og/verify.png',
-  width: 1200,
-  height: 630,
-  alt: 'The Udgam coffee-cherry mark beside the words “Kodagu Arabica, verified at origin”',
-} as const;
+/**
+ * The batch's link-preview image (DES-202, EXE43): the approved artwork (.design/exploration/og/) with its
+ * words for the headline's district and crop, or the neutral "Coffee, verified at origin" variant; only the
+ * district and crop reach it. The alt text says the image's words.
+ */
+export function ogImage(view: CertificateView): { url: string; width: number; height: number; alt: string } {
+  const v = ogVariant(view.headline.district, view.headline.crop);
+  return { url: v.url, ...OG_SIZE, alt: v.alt };
+}
 
 export const SITE_NAME = 'Udgam';
 
@@ -31,13 +34,14 @@ export function certificateMetadata(view: CertificateView, baseUrl: string): Met
   const h = view.headline;
   const description = `${certCopy.headline(kgShort(h.quantityKg), h.crop || 'coffee', h.farmCount, h.district)}. Every picking checked at the plot, and checked again in your browser.`;
   const url = `/verify/${encodeURIComponent(view.batchId)}?h=${encodeURIComponent(view.shortHash)}`;
+  const image = ogImage(view);
   return {
     metadataBase: new URL(baseUrl),
     title: { absolute: title },
     description,
     alternates: { canonical: url },
     robots: { index: false, follow: false },
-    openGraph: { type: 'website', siteName: SITE_NAME, title, description, url, images: [OG_IMAGE] },
-    twitter: { card: 'summary_large_image', title, description, images: [{ url: OG_IMAGE.url, alt: OG_IMAGE.alt }] },
+    openGraph: { type: 'website', siteName: SITE_NAME, title, description, url, images: [image] },
+    twitter: { card: 'summary_large_image', title, description, images: [{ url: image.url, alt: image.alt }] },
   };
 }
