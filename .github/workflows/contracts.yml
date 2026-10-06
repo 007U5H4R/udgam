@@ -15,6 +15,16 @@ on:
       - 'src/lib/crypto/**'
       - 'src/lib/config/**'
       - 'src/lib/verification/**'
+      # Stage 9 CR-200: the EV14 paths, and the M-002 code the EVM cases exercise (EVAL-093–102).
+      - 'src/lib/remote-sensing/**'
+      - 'src/lib/media/**'
+      - 'src/lib/eudr/**'
+      - 'src/lib/capture/**'
+      - 'src/app/api/capture/**'
+      - 'src/lib/processing/**'
+      - 'src/lib/batches/**'
+      - 'src/lib/custody/**'
+      - 'src/lib/auth/signing-keys.ts'
       - 'src/lib/log.ts'
       - 'src/instrumentation.ts'
       - 'evals/**'
@@ -38,6 +48,16 @@ on:
       - 'src/lib/crypto/**'
       - 'src/lib/config/**'
       - 'src/lib/verification/**'
+      # Stage 9 CR-200: the EV14 paths, and the M-002 code the EVM cases exercise (EVAL-093–102).
+      - 'src/lib/remote-sensing/**'
+      - 'src/lib/media/**'
+      - 'src/lib/eudr/**'
+      - 'src/lib/capture/**'
+      - 'src/app/api/capture/**'
+      - 'src/lib/processing/**'
+      - 'src/lib/batches/**'
+      - 'src/lib/custody/**'
+      - 'src/lib/auth/signing-keys.ts'
       - 'src/lib/log.ts'
       - 'src/instrumentation.ts'
       - 'evals/**'
@@ -100,5 +120,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: EVM adapter and settlement tests against Anvil (TC-083, EVAL-104, EVAL-093–099)
         run: pnpm test:evm
+      - name: Readiness for the M2 run on the EVM ledger (Stage 9 CR-202)
+        run: pnpm eval:ready --milestone=M2 --ledger=evm
       - name: Proof suite on the EVM adapter (EVAL-103)
         run: pnpm eval --ledger=evm --milestone=M2

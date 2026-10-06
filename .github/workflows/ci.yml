@@ -28,6 +28,69 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
 
+  test-tz:
+    # Stage 9 CR-200 (ledger.md: "CI does not run pnpm test:tz"): unit + integration again under
+    # America/Los_Angeles and Asia/Kolkata, so a test that only passes in UTC fails here.
+    name: test-tz (unit + integration in Los Angeles and Kolkata)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:tz
+
+  eval:
+    # Stage 9 CR-200, EV14: "a regression on a critical case, or any CF, blocks merge". The pre-gate
+    # readiness check, then the M1 hash-chain harness (S1, S1-floor, S2, S6-lib, S7, CF): `pnpm eval` exits
+    # 1 when a gate fails or a critical condition fires, which fails this job. Then the run's comparison
+    # with the latest committed formal run must name no regressed critical case. The M2 run on the EVM
+    # ledger is contracts.yml.
+    name: eval (harness gates, CF, critical regressions)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm eval:ready
+      - run: pnpm eval
+      - run: node scripts/ci/check-eval-regressions.mjs
+
+  e2e:
+    # Stage 9 CR-200 (technical-plan §CI, EV14): the full Playwright suite on its four viewport projects.
+    # The config builds and starts the app itself (webServer, E2E=1, a throwaway auth secret per run).
+    # Chromium is installed here, on the GitHub runner; the cloud VM never runs `playwright install`.
+    name: e2e (Playwright, Chromium, all projects)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium for Playwright
+        run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - name: Keep the Playwright report of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
   secrets:
     name: secrets (gitleaks, full history)
     runs-on: ubuntu-latest
