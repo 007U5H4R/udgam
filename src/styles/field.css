@@ -1323,6 +1323,21 @@ html[lang='kn'] body {
   padding-bottom: 4px;
 }
 
+/* DES-027: on the picking detail the "See all checks" card stands alone: 16 px under the card above, and no
+   divider or empty band above its summary (the divider belongs to the Pickings row, where a verdict sits
+   above it). */
+.row.all-checks {
+  margin-top: 16px;
+}
+.row.all-checks .r-why {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.row.all-checks .r-why details {
+  margin-top: 0;
+}
+
 /* The date and kg open the picking's detail: a link that keeps the row's type (TSK-11.4). */
 .row .r-open {
   display: block;

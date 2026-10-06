@@ -337,6 +337,32 @@ test('DES-016: "What can I do?" and "See all checks" carry a chevron that turns 
   await expect(page.getByTestId('all-checks').locator('summary svg.chev')).toHaveCount(1);
 });
 
+test('DES-027: the picking detail\'s "See all checks" card opens with its summary (no empty section, no divider) and sits 16 px under the card above', async ({ page, context }) => {
+  const seed = seedCaptureWorld({ events: ['29:Rejected:outside'] });
+  await openField(page, context, seed);
+  await page.goto(`/field/pickings/${seed.events[0]!.eventId}`);
+  const card = page.getByTestId('all-checks-card');
+  const m = await card.evaluate((el) => {
+    const prev = el.previousElementSibling!.getBoundingClientRect();
+    const box = el.getBoundingClientRect();
+    const summary = el.querySelector('summary')!.getBoundingClientRect();
+    const why = getComputedStyle(el.querySelector('.r-why')!);
+    return {
+      gap: Math.round(box.top - prev.bottom),
+      lead: Math.round(summary.top - box.top),
+      tail: Math.round(box.bottom - summary.bottom),
+      border: why.borderTopStyle,
+      padTop: why.paddingTop,
+    };
+  });
+  expect(m.gap).toBe(16);
+  expect(m.border).toBe('none');
+  expect(m.padTop).toBe('0px');
+  // closed, the summary sits centred in the card: as much space above it as below, no empty band on top
+  expect(m.lead).toBeLessThanOrEqual(16);
+  expect(Math.abs(m.lead - m.tail)).toBeLessThanOrEqual(1);
+});
+
 /** Every axe rule that fails on the page (any impact). */
 const axeIds = async (page: Page) => (await new AxeBuilder({ page }).analyze()).violations.map((v) => v.id);
 
