@@ -1,6 +1,7 @@
 import { and, eq, gte, lt, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { harvestEvents, media } from '../db/schema';
+import type { CaptureBudget } from './budget-defaults';
 
 // Per-agent daily storage budget (SEC-003, TKT-28). Rate limits count requests, not bytes: an enrolled
 // phone could commit 30 captures × 30 MB every 10 minutes, kept for ever. So each agent may have at most
@@ -18,10 +19,8 @@ import { harvestEvents, media } from '../db/schema';
 // so an honest agent stays far below both caps; the worst a stolen phone can store is 1.2 GiB a day,
 // against ~130 GB a day without a budget.
 
-export type CaptureBudget = { maxCaptures: number; maxBytes: number };
+export { DEFAULT_CAPTURE_BUDGET, type CaptureBudget } from './budget-defaults';
 export type CaptureUsage = { captures: number; bytes: number };
-
-export const DEFAULT_CAPTURE_BUDGET: CaptureBudget = { maxCaptures: 100, maxBytes: 100 * 3 * 4 * 1024 * 1024 };
 
 export function budgetFromEnv(e: { CAPTURE_DAILY_MAX_CAPTURES: number; CAPTURE_DAILY_MAX_BYTES: number }): CaptureBudget {
   return { maxCaptures: e.CAPTURE_DAILY_MAX_CAPTURES, maxBytes: e.CAPTURE_DAILY_MAX_BYTES };

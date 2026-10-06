@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_CAPTURE_BUDGET } from '../capture/budget-defaults';
 import { loadEnv } from './env';
 
 /** Placeholder live-provider keys (not real values). */
@@ -158,6 +159,7 @@ describe('loadEnv', () => {
     const d = loadEnv({});
     expect(d.CAPTURE_DAILY_MAX_CAPTURES).toBe(100);
     expect(d.CAPTURE_DAILY_MAX_BYTES).toBe(100 * 3 * 4 * 1024 * 1024); // EV9: 3 photos × 4 MB placeholder
+    expect({ maxCaptures: d.CAPTURE_DAILY_MAX_CAPTURES, maxBytes: d.CAPTURE_DAILY_MAX_BYTES }).toEqual(DEFAULT_CAPTURE_BUDGET); // one source, no drift
     expect(d.HEALTH_MIN_FREE_DISK_BYTES).toBe(10 * 1024 ** 3);
     const set = loadEnv({ CAPTURE_DAILY_MAX_CAPTURES: '40', CAPTURE_DAILY_MAX_BYTES: '500000000', HEALTH_MIN_FREE_DISK_BYTES: '0' });
     expect([set.CAPTURE_DAILY_MAX_CAPTURES, set.CAPTURE_DAILY_MAX_BYTES, set.HEALTH_MIN_FREE_DISK_BYTES]).toEqual([40, 500000000, 0]);

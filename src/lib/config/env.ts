@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DEFAULT_CAPTURE_BUDGET } from '../capture/budget-defaults';
 import { realDeployment } from './deployment';
 
 // Secrets and configuration are read only through this module (technical-plan §1, N6/S11).
@@ -32,8 +33,8 @@ const base = z.object({
   DEMO_MODE: z.enum(['0', '1']).default('0'),
   // SEC-003 (TKT-28): each agent's daily budget of accepted captures and of their photo bytes
   // (src/lib/capture/budget.ts). Defaults sized from EV9's 3 × 4 MB placeholder: 100 captures, 1.2 GiB.
-  CAPTURE_DAILY_MAX_CAPTURES: z.coerce.number().int().positive().default(100),
-  CAPTURE_DAILY_MAX_BYTES: z.coerce.number().int().positive().default(100 * 3 * 4 * 1024 * 1024),
+  CAPTURE_DAILY_MAX_CAPTURES: z.coerce.number().int().positive().default(DEFAULT_CAPTURE_BUDGET.maxCaptures),
+  CAPTURE_DAILY_MAX_BYTES: z.coerce.number().int().positive().default(DEFAULT_CAPTURE_BUDGET.maxBytes),
   // SEC-003: /api/health reports disk:"low" below this many free bytes on DATA_DIR's filesystem (10 GiB:
   // over a day of every pilot agent at the full budget). 0 turns the check's threshold off.
   HEALTH_MIN_FREE_DISK_BYTES: z.coerce.number().int().nonnegative().default(10 * 1024 ** 3),
