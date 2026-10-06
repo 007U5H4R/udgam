@@ -6,6 +6,19 @@ export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 export const MAX_PHOTOS = 3;
 export const MAX_BODY_BYTES = 3 * MAX_PHOTO_BYTES + 256 * 1024;
 
+// The shape of the multipart body, checked on the raw bytes before it is parsed (SEC-002): the parser
+// builds every part before parse.ts can refuse a duplicate or unknown one, so a body of many tiny parts
+// cost seconds of event-loop time. Past any of these the body is refused as bad_form, unparsed.
+/**
+ * Parts in a capture form: payload, signature and staged, once each, and up to MAX_PHOTOS photos. One
+ * photo too many still reaches parse.ts, which answers media_count as before.
+ */
+export const MAX_FORM_PARTS = 3 + MAX_PHOTOS;
+/** Bytes of one non-file field: the signed payload is under 2 KB, the signature and staged list smaller. */
+export const MAX_FIELD_BYTES = 16 * 1024;
+/** Bytes of one part's header block (Content-Disposition with the photo's file name, Content-Type). */
+export const MAX_PART_HEADER_BYTES = 2 * 1024;
+
 /**
  * Capture requests buffered and processed at once, per process (TASK-20 fix round 1): each may hold a
  * body of up to MAX_BODY_BYTES in memory. Past it the route answers 503 with Retry-After, unread.
