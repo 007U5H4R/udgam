@@ -1163,3 +1163,11 @@ baseline-v1 is frozen (EV13, EXE34).
   - `og:image:alt` equals the image's words.
 - **"Verified" in the title.** The server-rendered title says "verified at origin" for every real batch, because the server's own records were verified at capture. A tampered copy of the feed can't change the server-rendered metadata, and the page itself shows the mismatch. Accepted.
 - **Docs.** Design.md's freeze line and §24 gate line now name the per-batch variants.
+
+## EXE46 · Owner waiver: go straight from Stage 9 into Stage 10 — accepted (owner, 2026-10-06)
+**Decision (owner).** "Once Stage 9 is done, move to Stage 10." Stage 9 closes when its exit criteria are met:
+- `/code-review` is clean, with any open findings parked with a reason;
+- the planned suite has been executed;
+- the critical test and eval cases pass.
+
+Then HANDOFF.md is rewritten and Stage 10 (`bw-security-review`) starts in the same session without waiting for owner approval. The owner's open review items stay listed and are not treated as approved.
