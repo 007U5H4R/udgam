@@ -21,14 +21,37 @@ const bodyRatios = (page: Page) =>
       }),
   );
 
-/** Elements with their own text whose content is wider than their box (clipped). */
+/**
+ * Elements with their own text whose content is wider than their box (clipped). Visually hidden text
+ * (the `.vh` idiom: a 1 px box with `clip-path: inset(50%)`, for screen readers only) is clipped by
+ * design and skipped; every element that is drawn on screen is still checked.
+ */
 const clipped = (page: Page) =>
-  page.evaluate(() =>
-    [...document.querySelectorAll('main *')]
+  page.evaluate(() => {
+    const visuallyHidden = (el: Element) => {
+      for (let e: Element | null = el; e && e.tagName !== 'MAIN'; e = e.parentElement) {
+        const cs = getComputedStyle(e);
+        if (cs.clipPath === 'inset(50%)' || cs.clip === 'rect(0px, 0px, 0px, 0px)') return true;
+      }
+      return false;
+    };
+    return [...document.querySelectorAll('main *')]
       .filter((el) => [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim() !== ''))
+      .filter((el) => !visuallyHidden(el))
       .filter((el) => el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 1)
-      .map((el) => `${el.tagName.toLowerCase()}.${el.className}: ${(el.textContent ?? '').slice(0, 30)}`),
-  );
+      .map((el) => `${el.tagName.toLowerCase()}.${el.className}: ${(el.textContent ?? '').slice(0, 30)}`);
+  });
+
+/**
+ * The page has replaced its streaming fallback. /field and /field/pickings first stream a loading.tsx
+ * skeleton (a `main` with aria-busy="true" and a visually hidden "loading" line) and, under load, the
+ * page into a hidden segment React swaps in a moment later, even after `load`. Wait for exactly one
+ * `main` that is no longer busy (a CSS locator counts hidden elements, unlike a role locator).
+ */
+async function settled(page: Page) {
+  await expect(page.locator('main')).toHaveCount(1);
+  await expect(page.locator('main')).not.toHaveAttribute('aria-busy', 'true');
+}
 
 test('TSK-11.7: ಕನ್ನಡ from the header chip changes the heading and tabs, sets <html lang="kn"> and persists; English switches back', async ({ page, context }) => {
   const seed = seedCaptureWorld({ events: ['38.5:Verified'] });
@@ -77,6 +100,11 @@ test('TC-052: Kannada body text has line-height ≥ 1.6 and nothing is clipped a
   for (const path of ['/field', '/field/pickings', '/field/help']) {
     await page.goto(path);
     await expect(page.locator('html')).toHaveAttribute('lang', 'kn');
+    await settled(page);
+    if (path === '/field/pickings') {
+      await expect(page.getByTestId('pickings-skeleton')).toHaveCount(0);
+      await expect(page.locator('section[data-month] li.row').first()).toBeVisible();
+    }
     const ratios = await bodyRatios(page);
     expect(ratios.length, path).toBeGreaterThan(0);
     for (const r of ratios) expect(r.ratio, `${path}: ${r.text}`).toBeGreaterThanOrEqual(1.6);
