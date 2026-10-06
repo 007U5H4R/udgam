@@ -38,3 +38,13 @@
 
 ## Shared files touched
 `src/lib/i18n/en.ts` and `kn.ts` (additive: 6 keys each).
+
+## Follow-ups (on build/stage7 1fae46e)
+| Item | Commit | Test | Status |
+|---|---|---|---|
+| CR-107 (duplicate photo) | `b5584a1` Keep one photo out of two slots in the record flow (CR-107) (TASK-11) | record-flow.test.ts "the same photo twice" (failed first); e2e capture-photos "CR-107" | FIXED |
+| CR-106 one helper | `ccb0e84` Use core's single errFields helper on the web failure logs (CR-106) (TASK-13) | tests/err-fields.test.ts (failed first: the web copy still existed) | FIXED; the log field is core's `code`/`rawCode` |
+| CR-100 buyer/processor retry | `4d2b106` Refresh server data on Try again in the buyer and processor boundaries (CR-100) (TASK-26) | buyer/error.test.tsx and processor/error.test.tsx (failed first) | FIXED |
+| CR-008 | `46be176` Use errFields on the remaining API failure logs (CR-008) (TASK-13) | tests/err-fields.test.ts covers all of src/app (failed first: 12 sites) | FIXED |
+
+Gates: typecheck 0, lint 0. The full unit + integration suite passed under both UTC and America/Los_Angeles: 276 files, 2650 tests. e2e on port 4480 with fresh data, all 4 projects (capture-photos, field-errors, office-errors, m2-agreements, m2-processing): 136 passed, run before CR-008, which touches only API logging.

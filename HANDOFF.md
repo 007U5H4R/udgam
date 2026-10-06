@@ -1,63 +1,60 @@
 # HANDOFF — Udgam
 
-**Stage just completed:** Stage 8 · Design Critique, **clean 2026-10-06** (`docs/exec/stage8/README.md`). Stage 7 · Execution completed 2026-10-05 (`docs/exec/stage7-report.md`).
-**Next stage:** Stage 9 · Code Review + Test & Evaluation Execution (`bw-code-review-test-eval`, **Fable 5.1 / Low**). It starts directly in the same cloud session (EXE44, owner: "don't wait for my approval"). Then Stage 10 · Security Review.
+**Stage just completed:** Stage 9 · Code Review + Test & Evaluation, **complete 2026-10-06** (`docs/exec/stage9/README.md`). Earlier: Stage 8 · Design Critique was clean on 2026-10-06 (`docs/exec/stage8/README.md`), and Stage 7 · Execution completed 2026-10-05 (`docs/exec/stage7-report.md`).
+**Current stage:** Stage 10 · Security Review + consolidated QA gate (`bw-security-review`, **Fable 5.1 / Low**). It started directly in the same cloud session (EXE46, where the owner said "without my approval"). Then Stage 11 · Deployment, but only if the QA gate approves.
 
 ## Read first
-1. `docs/exec/stage8/README.md`: the DES register, the parked items and the done-gates.
-2. `docs/exec/stage7-report.md`: scope, gates, the M-001 formal result, decisions and carry-overs (§8 lists the Stage 9 inputs).
-3. `docs/exec/ledger.md`: task rows, phase gates (P1–P8, M-002, M-001), the Stage 7 completion and the Stage 8 summary.
-4. `decisions.md`: EXE1–EXE45 and D9/D10 (append-only).
+1. `docs/exec/stage9/README.md`: the CR register, the TC and eval results, and QA-S9-001/002.
+2. `docs/exec/stage8/README.md`: the DES register and the parked items.
+3. `docs/exec/stage7-report.md` and `docs/exec/ledger.md`: scope, gates and the M-001 formal result.
+4. `decisions.md`: EXE1–EXE48 and D9/D10. The file is append-only.
 
 ## State of the branch
-- **Branch:** `build/stage7`. Tracking PR 007U5H4R/udgam#1. Never merge to `main` before Stages 9–10 clear.
-- **Scope:** M-001 (TKT-01..21 + TKT-30) and M-002 (TKT-22..26) are built, reviewed and QA'd. M-003 (TKT-27..29) has not started; it runs after the Stage 10 gate.
-- **At 5e1a390 / 8d83b8b:** 2578 unit + integration tests, `test:evm` 41, `contracts:test` 47, `pnpm build` with 0 warnings, the trace check and bundle-secrets clean, the production audit clean (`source-map-js` override, GHSA-68fv-2mgg-jv7q), and CI green.
-- **M-001 formal evaluation** (eb321a1, formal commit d7124cb):
+- **Branch:** `build/stage7`, tracked by PR 007U5H4R/udgam#1. Never merge to `main` before Stage 10 clears.
+- **Scope:** M-001 (TKT-01..21 + TKT-30) and M-002 (TKT-22..26) are built, reviewed, critiqued and tested. M-003 (TKT-27..29) has not started; it comes after the Stage 10 gate.
+- **At 46be176 (Stage 9B):**
+  - unit + integration 2650, int 773, tz 2650 × 2, evm 42, contracts 47;
+  - e2e 952 passed, 0 failed;
+  - demo 6/6;
+  - TC: 88 PASS, 0 FAIL, 6 BLOCKED (M-003).
+- **dd7b0c1** adds the QA-S9 fixes (EXE48). The CI result is in the ledger.
+- **Eval:** every gate is identical to baseline-v1, with no regressions:
   - S1 97.7 %, S1-floor 91.7 %;
-  - S2 0/40;
-  - S4 10/10 under 3 s;
+  - S2 0 %;
   - S6-lib 100 %;
-  - S7 and S7-release Yes;
-  - CF 0.
+  - S7 Yes;
+  - CF 0;
+  - S4 max 2473 ms.
 
-  **baseline-v1 is frozen.** A config change needs an `evals/config-changes.md` row (EXE34).
+  **baseline-v1 is frozen.** A config change needs an `evals/config-changes.md` row whose decision heading ends "— accepted" (EXE34, CR-205).
 
-## Stage 9 — start here
-- **9A Code review.** Run `/code-review` over `git diff b397c08..build/stage7`; it's large, so delegate to code-reviewer subagents by area. Record findings as **`CR-###`**.
-  - The Stage 7 final whole-branch review already covered:
-    - the cross-ticket integration;
-    - the trace and key leak (EXE39);
-    - production gating;
-    - guard coverage.
+## Stage 10 — in progress
+1. **`/security-review`:** three Fable reviewers, by area:
+   - auth and capture: SEC-001–099;
+   - public and admin, plus the hash-chain ledger: SEC-100–199;
+   - M-002, EVM and infrastructure: SEC-200–299.
 
-    Don't redo them; look for what remains.
-  - **Inputs to fold in:**
-    - DES-030: the Kannada photo slot is 3 px too wide at 320 px (`.slots` → `minmax(0, 1fr)`);
-    - EVAL-086 N7: scale/zoom is not caught by the evidence-text check;
-    - the remaining bare `resolve`/`join` DATA_DIR paths: attestation route, `media/store`, `media/thumbs`, `capture/staging`, `demo/attacks`. Move them to `runtimePath`;
-    - the EXE36 residuals: R-6, a "Rejected" EV heading still authorises a config change;
-    - CI does not run `pnpm test:tz`;
-    - the review nits marked "later" in `docs/exec/stage7-report.md` §8.
-- **9B Test & eval.** Run the whole planned suite from real output, with one top-level command where possible:
-  - `test-cases.md`: every TC- gets PASS / FAIL / BLOCKED / NA;
-  - `pnpm test`, `test:int`, `test:tz`, `test:evm`, `contracts:test` and the full `test:e2e`;
-  - `pnpm demo`;
-  - the eval harness for M1 (`pnpm eval`), and for M2 (`--ledger=evm --milestone=M2`);
-  - the release reconciliation (`eval:release`, non-formal, into the git-ignored `local/`).
+   Their brief is the scratchpad `briefs/stage10-sec.md`. Triage → fix (TDD, reviews) or park with a reason → re-run until clean. Reports go to `docs/exec/stage10/`.
+2. **Assemble `QA-report.md`** at the repo root. It collates and dedupes the DES (Stage 8), CR and TC/EVAL (Stage 9) and SEC findings into one Unified Findings Register, gives one overall recommendation, and states the release gates. Also generate `evals/reports/eval-report-<version>.md` from the real outputs.
+3. **Never weaken a threshold.** The recommendation must not contradict an unresolved Critical.
 
-  baseline-v1 is never rewritten. A Stage 9 eval run is a new, non-formal run, compared against baseline-v1.
-  - **On FAIL:** root cause → ticket → `QA-###` → fix → retest. Never hide a failing case.
-  - **Owner-held misses** (EVAL-122 EXE27; EVAL-055/056 stretch) stay reported.
-- **Environment notes:**
-  - Never run `pnpm dev`; it rewrites CLAUDE.md.
-  - The sandbox may refuse command lines containing "eval"; call `tsx evals/harness/*.ts` directly.
-  - A production server needs a throwaway `BETTER_AUTH_SECRET` generated in the shell (EXE38).
-  - Keep the disk footprint small: the disk filled once, so clean up `.next`, `.e2e-data` and clones.
+## Environment notes
+- Never run `pnpm dev`; it rewrites CLAUDE.md.
+- The sandbox may refuse command lines containing "eval"; call `tsx evals/harness/*.ts` directly.
+- A production server needs a throwaway `BETTER_AUTH_SECRET` generated in the shell (EXE38).
+- The OG images render with a pinned rasteriser (`scripts/og/fonts.conf`, EXE48). Regenerate them only with `pnpm og:render`.
+- Every e2e axe check goes through `e2e/helpers/axe.ts` (an ESLint rule enforces this).
+- Keep the disk footprint small: clean up `.next`, `.e2e-data` and clones.
 
 ## Owner items (not blocking)
 - **Kannada native review:** 617+ strings marked `REVIEW: native speaker`. This can't be delegated.
-- **Delegated decisions to review whenever convenient:** EXE24–EXE45, including D9/D10, DES-202's per-batch OG words and the buyer graded status in Design.md §28.7.
+- **Make the new CI jobs required checks on main:**
+  - `eval (harness gates, CF, critical regressions)`;
+  - `test-tz (unit + integration in Los Angeles and Kolkata)`;
+  - `e2e (Playwright, Chromium, all projects)`.
+
+  See EXE47.
+- **Delegated decisions to review whenever convenient:** EXE24–EXE48, including D9/D10, DES-202's per-batch OG words and the buyer graded status in Design.md §28.7.
 - **Pre-pilot:**
   - official district boundaries (EXE28);
   - pulping and drying bands (EXE29);
@@ -68,18 +65,23 @@
 - **M-003 (TKT-27..29):**
   - migrate with `pnpm db:migrate` (EXE29);
   - keep the trace check on the standalone build (EXE39);
-  - require an https `PUBLIC_BASE_URL` (DES-219 / QA-P6-8-3);
+  - require an https `PUBLIC_BASE_URL` (DES-219);
   - the rehearsal runs on a staging copy (EXE33);
   - S4 on the Oracle A1 host;
   - the owner accounts (Oracle A1, domain, GFW, Copernicus, ArcGIS).
 
 ## To sync locally (cloud can't)
-- **Campfire:** `docs/exec/campfire-sync.md` §3c–5 (P6–P9, M-002), plus a note that Stage 8 is complete.
-- **Obsidian vault and auto-memory:** mirror this HANDOFF, `docs/exec/stage7-report.md` and `docs/exec/stage8/README.md`.
+- **Campfire:**
+  - `docs/exec/campfire-sync.md` §3c–5 (P6–P9, M-002);
+  - Stage 8 complete;
+  - Stage 9 complete, with the QA-S9-001/002 fixes on TASK-18 and TASK-26.
+- **Obsidian vault and auto-memory:** mirror this HANDOFF and the three stage READMEs (`docs/exec/stage7-report.md`, `stage8/README.md`, `stage9/README.md`).
 
 ## Preserve
-- All DISC#, S#, EV#, D#, TP#, EXE#, M-, TKT-, TC-, EVAL-, DES- and native TASK- IDs.
-- The Design Freeze (the OG words changed under EXE43/EXE45 only).
+- All DISC#, S#, EV#, D#, TP#, EXE#, M-, TKT-, TC-, EVAL-, DES-, CR-, QA- and SEC- IDs, and the native TASK- IDs.
+- The Design Freeze (the OG words changed under EXE43/EXE45 only; EXE48 changed the rasteriser, not the design).
 - cfg-1 and baseline-v1 (EV13, EXE34).
 - `decisions.md` is append-only.
 - The required CI job names: `audit (production dependencies)` and `bundle-secrets (no server secret in the client bundle)`.
+
+Recommend `/clear` before Stage 11.

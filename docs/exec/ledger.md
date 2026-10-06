@@ -318,3 +318,22 @@ Formal commit `d7124cb` records the run at gate commit `eb321a1`. The harness, p
 - **CI:** green on 5e1a390.
 - **Also fixed along the way:** the GHSA-68fv-2mgg-jv7q audit failure (`source-map-js` override, 3e1b9be) and the flaky TC-052 (5e1a390).
 - **Next:** Stage 9, started directly (EXE44).
+
+## Stage 9 · Code Review + Test & Evaluation · COMPLETE · 2026-10-06
+- **9A code review:**
+  - 23 findings (CR-001–008, CR-100–107, CR-200–206); 1 major (CR-200, CI ran no eval or e2e).
+  - 22 fixed and verified; CR-105 skipped and accepted (EXE47).
+  - Fresh re-run: CLEAN (`docs/exec/stage9/stage9-cr-rerun.md`).
+  - Merges: 9a8a18e core, fd0513e web, 618ee07 m2-tooling, 46be176 web follow-ups (CR-107, CR-106 unification, CR-100 retry, CR-008).
+- **9B test and eval** at 46be176 (`docs/exec/stage9/stage9-run.md`):
+  - every command exited 0;
+  - unit + integration 2650, int 773, tz 2650 × 2, evm 42, contracts 47;
+  - e2e 952 passed, 0 failed, 20 skipped;
+  - demo 6/6.
+- **TC results:** 88 PASS, 0 FAIL, 6 BLOCKED (TC-087–092, M-003), 0 NA.
+- **Eval vs baseline-v1:** M1, M2/EVM and the local release are identical on every gate (S1 97.7 %, S1-floor 91.7 %, S2 0 %, S6-lib 100 %, S7 Yes, CF 0, S4 max 2473 ms). No regressions; one improvement (EVAL-103 on evm).
+- **QA-S9 findings** (CI-only; both fixed, EXE48):
+  - QA-S9-001: OG pixel test (TKT-17 · TASK-18) → bdf8469;
+  - QA-S9-002: axe `document-title` flake (TKT-25/26) → 97a08a4.
+- **CI:** the new `eval`, `test-tz` and `e2e` jobs (CR-200) run on every push; the owner still needs to make them required checks on main (EXE47).
+- **Next:** Stage 10 · Security Review, started directly (EXE46).

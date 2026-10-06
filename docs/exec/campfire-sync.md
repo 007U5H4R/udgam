@@ -108,6 +108,16 @@ Gate P6–P8 PASS 2026-10-05 and Gate M-002 PASS 2026-10-05, both from independe
 "$CF" task edit TASK-9  --append-notes "QA-P5-5 fixed: time-gap evidence stays on the right side of its limit (14ba2a9, in a9660b1)."
 ```
 
+## 3d · Stages 8 and 9 complete (2026-10-06)
+- **Stage 8 · Design Critique:** clean (`docs/exec/stage8/README.md`). Its fixes landed on the existing TASK cards (see the commit subjects); no new cards.
+- **Stage 9 · Code Review + Test & Eval:** complete (`docs/exec/stage9/README.md`). Add a comment to each touched card with the CR/QA ID and the commit:
+  - TASK-3, TASK-10, TASK-11, TASK-13, TASK-20, TASK-31: CR-001–008, CR-107;
+  - TASK-5, TASK-7, TASK-12, TASK-14, TASK-21: CR-100–104;
+  - TASK-2, TASK-4, TASK-19, TASK-22, TASK-25, TASK-26: CR-200–206, CR-100 retry;
+  - TASK-18: QA-S9-001, bdf8469;
+  - TASK-26 and TASK-27: QA-S9-002, 97a08a4.
+- Stage 10 is in progress; no card changes until its gate.
+
 ## 4 · Not touched
 - M-003 (TASK-28, 29, 30) stays To Do. It is out of scope for this Stage 7 run.
 - There are no BUG rows in the ledger, so there are no Campfire bugs to create.
