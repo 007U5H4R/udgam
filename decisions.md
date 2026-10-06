@@ -1241,3 +1241,17 @@ Then HANDOFF.md is rewritten and Stage 10 (`bw-security-review`) starts in the s
 - **Observations kept without an ID**, because the reviewer could not show them reachable:
   1. `sender.ts` treats "already known" as a nonce collision. That would double-send only if a transport retried a broadcast, and both transports use `retryCount: 0`.
   2. `tests/helpers/db.ts` registers a Vitest `afterAll` at import time, and its one non-test importer runs only under Vitest.
+
+## EXE52 · Stage 10 gate approved; Stage 11 (M-003) starts in the cloud (owner, 2026-10-06)
+- **Approval.** The owner replied "go ahead" to the Stage 10 summary, which asked them to approve the QA gate and start Stage 11. `QA-report.md` (READY WITH ACCEPTED RISKS) is approved. Under the standing delegation, the SEC-101 acceptance (EXE49) stands until the owner says otherwise.
+- **What runs in the cloud now.** M-003 runs with the Stage 7 rules: TDD, two reviews per task, the ledger, at most 3 implementers, and disjoint file ownership. Everything that can be built and verified without the owner's infrastructure gets built:
+  - TKT-27: the image, Compose, Caddy with the forged-header test, the bootstrap, backup and restore, and deploy and rollback. These are verified locally with Docker and Caddy on x86_64.
+  - TKT-28: the env template, the uptime workflow, the monitoring docs, plus the Stage 10 carry-ins SEC-001, SEC-003 and DES-219.
+  - TSK-29.1: the S3 perf runner.
+- **Blocked on the owner.** The steps that need the owner's preconditions wait: the Oracle A1 instance and block volume, the domain, SSH, the OCI bucket, an `age` key, the provider keys, and the demo phone.
+  - TKT-27: the on-instance arm64 build and TC-087/088/089 on the real host.
+  - TKT-28: TC-090/091/092 on production.
+  - TKT-29: TSK-29.2–29.4.
+
+  The ledger marks each of these BLOCKED (owner precondition), never passed.
+- **Never without an explicit owner instruction:** merging to `main`, and any externally visible deploy.
