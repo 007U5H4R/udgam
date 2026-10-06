@@ -52,7 +52,7 @@ const first = (v: string | string[] | undefined): string | null => (Array.isArra
 const genuineFeed = cache(async (batchId: string, h: string | null) => resolveFeed(await getDbReady(), batchId, h));
 
 // TSK-17.5 (TC-072, EVAL-090): the link-preview metadata — title, description, canonical, OG and Twitter
-// tags with og/verify.png, absolute from PUBLIC_BASE_URL — from the genuine feed's view model (TP16).
+// tags with the batch's og image (DES-202), absolute from PUBLIC_BASE_URL — from the genuine feed's view model (TP16).
 // Public per batch, not for search: noindex, nofollow (§8.4). A link that resolves to no batch gets the
 // same generic metadata whatever the reason, so the not-found answers stay identical (TP8).
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {

@@ -1154,3 +1154,12 @@ baseline-v1 is frozen (EV13, EXE34).
 
 ## EXE44 · Owner waiver: go straight from Stage 8 into Stage 9 — accepted (owner, 2026-10-06)
 **Decision (owner).** "Once Stage 8 is done, move to Stage 9. Don't wait for my approval." Stage 8 closes on a clean re-run, every DES resolved or parked with a reason. Then HANDOFF.md is rewritten and Stage 9 (`bw-code-review-test-eval`) starts in the same session. The owner's review items stay listed in HANDOFF and are not treated as approved, except where EXE43 decided them.
+
+## EXE45 · DES-202 implemented: per-batch link-preview images — accepted (orchestrator, under the owner's delegation, 2026-10-06; implements EXE43)
+- **Rendering.** `scripts/og/render.ts` (`pnpm og:render`) renders the frozen `.design/exploration/og/index.html` in headless Chromium with self-hosted Figtree, changing only the headline words. The output is deterministic and byte-identical on re-render. Images are committed as `public/og/verify-<district>-<crop>.png` for Kodagu, Chikkamagaluru, Hassan, Dakshina Kannada and Karnataka × Arabica and Robusta, plus the neutral `verify-coffee.png`. All are 1200×630 and 335–350 KB. The Kodagu Arabica image differs from the frozen `verify.png` only at anti-aliased edges (mean 1.37/255).
+- **Accepted deviations:**
+  - long district names wrap to 3 lines, and Dakshina Kannada drops from 74 to 70 px (the only typographic change);
+  - a batch with an unrecognised crop, or spanning two districts, gets the neutral image, while its title still names the district;
+  - `og:image:alt` equals the image's words.
+- **"Verified" in the title.** The server-rendered title says "verified at origin" for every real batch, because the server's own records were verified at capture. A tampered copy of the feed can't change the server-rendered metadata, and the page itself shows the mismatch. Accepted.
+- **Docs.** Design.md's freeze line and §24 gate line now name the per-batch variants.

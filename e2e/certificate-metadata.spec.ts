@@ -4,8 +4,9 @@ import { certificateUrl, seedCertificate, type SeededCertificate } from './helpe
 
 // TSK-17.5 · TC-072 · @eval EVAL-090 (tags; the live unfurl is TC-091 in TKT-28) · web-deliverables §4: the
 // certificate's link-preview tags are in the server-rendered HTML, fetched without JavaScript, both as a
-// browser gets it and as a link-preview crawler does (in <head>); og:image is absolute and is served as a
-// 1200 × 630 PNG. An unknown batch gets the generic title and noindex, with no batch data.
+// browser gets it and as a link-preview crawler does (in <head>); og:image is the batch's own variant
+// (DES-202: a Kodagu Arabica batch gets og/verify-kodagu-arabica.png, its alt saying those words), absolute,
+// and is served as a 1200 × 630 PNG. An unknown batch gets the generic title and noindex, with no batch data.
 
 let seeded: SeededCertificate;
 test.beforeAll(() => {
@@ -43,12 +44,13 @@ test.describe('certificate link-preview tags (TC-072, @eval EVAL-090)', () => {
       expect(t.get('og:site_name')).toBe('Udgam');
       expect(t.get('og:image:width')).toBe('1200');
       expect(t.get('og:image:height')).toBe('630');
-      expect(t.get('og:image:alt')?.length).toBeGreaterThan(0);
+      expect(unescape(t.get('og:image:alt') ?? '')).toBe('The Udgam coffee-cherry mark beside the words “Kodagu Arabica, verified at origin”');
+      expect(t.get('twitter:image:alt')).toBe(t.get('og:image:alt'));
       expect(t.get('twitter:card')).toBe('summary_large_image');
       expect(t.get('robots')).toBe('noindex, nofollow');
       // absolute URLs (PUBLIC_BASE_URL; https in production, TKT-27/28)
       const image = t.get('og:image')!;
-      expect(image).toMatch(/^https?:\/\/[^/]+\/og\/verify\.png$/);
+      expect(image).toMatch(/^https?:\/\/[^/]+\/og\/verify-kodagu-arabica\.png$/);
       expect(t.get('twitter:image')).toBe(image);
       const page = unescape(t.get('og:url')!);
       expect(page).toMatch(new RegExp(`^https?://[^/]+/verify/${seeded.batchId}\\?h=${seeded.shortHash}$`));
@@ -62,7 +64,7 @@ test.describe('certificate link-preview tags (TC-072, @eval EVAL-090)', () => {
   }
 
   test('og:image is served as a 1200 × 630 PNG', async ({ request }) => {
-    const res = await request.get('/og/verify.png');
+    const res = await request.get('/og/verify-kodagu-arabica.png');
     expect(res.status()).toBe(200);
     expect(res.headers()['content-type']).toBe('image/png');
     const m = await sharp(await res.body()).metadata();

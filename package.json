@@ -29,6 +29,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/lib/db/migrate.ts",
     "seed": "tsx scripts/seed.ts",
+    "og:render": "tsx scripts/og/render.ts",
     "test:evm": "vitest run --project evm",
     "contracts:build": "cd contracts && \"$HOME/.foundry/bin/forge\" build",
     "contracts:test": "cd contracts && \"$HOME/.foundry/bin/forge\" test -vv",

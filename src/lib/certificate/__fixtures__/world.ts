@@ -39,11 +39,14 @@ const P01_CENTRE = { lat: 12.4211, lng: 75.7392 };
 /** Neighbouring plots: each 0.0024° (about 260 m) east and 0.0009° north of the last, so they never overlap. */
 const STEP = { lng: 0.0024, lat: 0.0009 };
 
-export function fixturePlot(i: number): { polygon: Polygon; inside: { lat: number; lng: number } } {
+/** Plot `i` of a world, optionally moved by `shift` degrees (another district: DES-202). */
+export function fixturePlot(i: number, shift: { lng: number; lat: number } = { lng: 0, lat: 0 }): { polygon: Polygon; inside: { lat: number; lng: number } } {
   const r7 = (n: number) => Math.round(n * 1e7) / 1e7;
+  const dLng = shift.lng + i * STEP.lng;
+  const dLat = shift.lat + i * STEP.lat;
   return {
-    polygon: { type: 'Polygon', coordinates: [P01_RING.map(([lng, lat]) => [r7(lng! + i * STEP.lng), r7(lat! + i * STEP.lat)])] },
-    inside: { lat: r7(P01_CENTRE.lat + i * STEP.lat), lng: r7(P01_CENTRE.lng + i * STEP.lng) },
+    polygon: { type: 'Polygon', coordinates: [P01_RING.map(([lng, lat]) => [r7(lng! + dLng), r7(lat! + dLat)])] },
+    inside: { lat: r7(P01_CENTRE.lat + dLat), lng: r7(P01_CENTRE.lng + dLng) },
   };
 }
 
@@ -92,6 +95,10 @@ export type CertificateWorldOptions = {
    * (TP15). Test data for the certificate's override line only: no admin_overrides row is written.
    */
   overrideReason?: string;
+  /** Move every plot by this many degrees (default: none, so the plots lie in Kodagu). */
+  plotShift?: { lng: number; lat: number };
+  /** The plots' and the batch's crop (default arabica). */
+  crop?: 'arabica' | 'robusta';
 };
 
 export type CertificateWorld = {
@@ -124,9 +131,9 @@ export async function seedCertificateWorld(db: Db, o: CertificateWorldOptions): 
   const plotIds: string[] = [];
   const insides: { lat: number; lng: number }[] = [];
   for (let i = 0; i < o.plots; i++) {
-    const { polygon, inside } = fixturePlot(i);
+    const { polygon, inside } = fixturePlot(i, o.plotShift);
     const farmer = o.farmer?.(i) ?? { name: `Fixture farmer ${i + 1}`, identifier: null };
-    const { plotId } = await registerPlot(db, orgId, { crop: 'arabica', geometry: polygon, newFarmer: farmer });
+    const { plotId } = await registerPlot(db, orgId, { crop: o.crop ?? 'arabica', geometry: polygon, newFarmer: farmer });
     plotIds.push(plotId);
     insides.push(inside);
   }
@@ -183,7 +190,7 @@ export async function seedCertificateWorld(db: Db, o: CertificateWorldOptions): 
     await attachAttestation(db, { orgId, plotId: plotIds[0]!, file: PDF, issuer: 'INDOCERT', validFrom: '2026-01-01', validTo: '2027-12-31' });
   }
 
-  const batch = await createBatch(db, { orgId, adminId, crop: 'arabica', eventIds });
+  const batch = await createBatch(db, { orgId, adminId, crop: o.crop ?? 'arabica', eventIds });
   if (o.overrideReason) {
     const [run] = await db.select({ id: verificationRuns.id }).from(verificationRuns).where(eq(verificationRuns.eventId, eventIds[0]!));
     const statement = { v: 1, runId: run!.id, eventId: eventIds[0]!, newVerdict: 'Verified', reason: o.overrideReason, adminId, ts: new Date().toISOString() };
