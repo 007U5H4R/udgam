@@ -311,3 +311,10 @@ Formal commit `d7124cb` records the run at gate commit `eb321a1`. The harness, p
 - Every phase QA passed (P1–P8, M-002), and the M-001 formal evaluation passed.
 - The final whole-branch review is clean.
 - Next: Stage 8 (EXE22).
+
+## Stage 8 · Design Critique · CLEAN · 2026-10-06
+- **Findings:** 70 raised (0 P0 · 7 P1 · 31 P2 · 32 P3). 64 were fixed and verified on the running app; 6 are parked with reasons, and DES-030 (P3) goes to the Stage 9 fix wave. Details are in `docs/exec/stage8/README.md` and the reports beside it.
+- **Final re-run (`stage8-rerun-final.md`):** RE-RUN: CLEAN.
+- **CI:** green on 5e1a390.
+- **Also fixed along the way:** the GHSA-68fv-2mgg-jv7q audit failure (`source-map-js` override, 3e1b9be) and the flaky TC-052 (5e1a390).
+- **Next:** Stage 9, started directly (EXE44).
