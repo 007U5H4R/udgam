@@ -49,7 +49,9 @@ const base = z.object({
   SEED_PASSWORD: z.string().min(8).optional(),
 });
 
-const VARIABLE_NAMES = Object.keys(base.shape);
+/** Every variable the schema reads (deploy/app.env.example accounts for each, TSK-28.1). */
+export const ENV_VARIABLE_NAMES: readonly string[] = Object.keys(base.shape);
+const VARIABLE_NAMES = ENV_VARIABLE_NAMES;
 
 /** An absolute https:// URL with a host and no user or password in it (DES-219). */
 function absoluteHttps(v: string | undefined): boolean {
