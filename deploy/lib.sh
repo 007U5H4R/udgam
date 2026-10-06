@@ -51,17 +51,23 @@ app_container() { compose ps -a -q app 2>/dev/null | head -n 1; }
 
 image_id() { docker image inspect --format '{{.Id}}' "$1" 2>/dev/null || true; }
 
-# Wait up to $1 seconds for the app container to report healthy (its /api/health check). Returns 1 on
-# timeout, or at once when the container has exited.
+# Wait up to $1 seconds for the app container to run udgam-app:current's image AND report healthy (its
+# /api/health check). Fails at once when the container has exited, died or is restarting (a crash loop),
+# and at the timeout when it still runs another image (compose did not recreate it) or is not healthy.
 wait_healthy() {
-  local limit="$1" start id status
+  local limit="$1" start want id state img status health
+  want="$(image_id udgam-app:current)"
+  [ -n "$want" ] || return 1
   start="$(date +%s)"
   while [ $(($(date +%s) - start)) -lt "$limit" ]; do
     id="$(app_container)"
     if [ -n "$id" ]; then
-      status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$id" 2>/dev/null || true)"
-      [ "$status" = healthy ] && return 0
-      [ "$(docker inspect --format '{{.State.Status}}' "$id" 2>/dev/null || true)" = exited ] && return 1
+      state="$(docker inspect --format '{{.Image}} {{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$id" 2>/dev/null || true)"
+      read -r img status health <<<"$state"
+      case "$status" in
+        exited | dead | restarting) return 1 ;;
+      esac
+      [ "$img" = "$want" ] && [ "$status" = running ] && [ "$health" = healthy ] && return 0
     fi
     sleep 1
   done
