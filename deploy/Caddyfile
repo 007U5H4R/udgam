@@ -1,0 +1,4 @@
+# Udgam reverse proxy (TKT-27). HTTPS on {$UDGAM_DOMAIN} with an automatic certificate.
+{$UDGAM_DOMAIN} {
+	reverse_proxy app:3000
+}
