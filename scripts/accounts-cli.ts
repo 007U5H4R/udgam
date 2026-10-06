@@ -15,14 +15,15 @@ import { AccountError, generatePassword } from '../src/lib/auth/accounts';
 /** A mistake in how the command was called (exit 2). Its message never contains a value. */
 export class UsageError extends Error {}
 
-const PASSWORD_FLAG = /^-{1,2}(p|pw|pass|passwd|password)(=.*)?$/i;
+/** Any spelling of a password option: `-p`, `-p<value>`, `--pw…`, `--pass…`, `--password…` (not --password-stdin). */
+const isPasswordFlag = (a: string) => a !== '--password-stdin' && (/^-p/i.test(a) || /^--(pw|pass)/i.test(a));
 
 /**
  * `--key value` / `--key=value` for the `known` keys, plus the `--password-stdin` flag. Any spelling of a
  * password option is refused outright, before anything else is read.
  */
 export function parseCliArgs(argv: readonly string[], known: readonly string[]): Record<string, string | true> {
-  if (argv.some((a) => PASSWORD_FLAG.test(a))) {
+  if (argv.some(isPasswordFlag)) {
     throw new UsageError('a password goes on stdin (--password-stdin) or is generated: never on the command line');
   }
   const out: Record<string, string | true> = {};
@@ -32,8 +33,11 @@ export function parseCliArgs(argv: readonly string[], known: readonly string[]):
       out['password-stdin'] = true;
       continue;
     }
+    // An argument it does not know is never echoed (it may be a password pasted in the wrong place):
+    // an unknown --option by its name only, anything else not at all.
     const m = /^--([a-z][a-z-]*)(?:=(.*))?$/.exec(a);
-    if (!m || !known.includes(m[1]!)) throw new UsageError(`unknown option ${a.split('=')[0]}`);
+    if (!m) throw new UsageError('unexpected argument (not shown)');
+    if (!known.includes(m[1]!)) throw new UsageError(`unknown option --${m[1]}`);
     const value = m[2] ?? argv[++i];
     if (value === undefined || (m[2] === undefined && value.startsWith('--'))) throw new UsageError(`--${m[1]} needs a value`);
     out[m[1]!] = value;

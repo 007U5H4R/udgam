@@ -104,6 +104,17 @@ describe('pnpm accounts:create (SEC-001)', () => {
   );
 
   it(
+    'a stray positional argument (a password pasted in the wrong place) is refused and never echoed',
+    () => {
+      const r = cli('create', ['--name', 'Z', '--email', 'z@fpo1.example', '--role', 'agent', '--org', 'ORG-FPO1', 'pasted-secret-value-123']);
+      expect(r.code).toBe(2);
+      expect(r.err).toContain('unexpected argument (not shown)');
+      expect(r.out + r.err).not.toContain('pasted-secret-value-123');
+    },
+    BUDGET,
+  );
+
+  it(
     'a refusal (a reused password) exits 1 with the code, writes no account and leaves no credentials file',
     async () => {
       const before = readdirSync(join(DIR, 'credentials')).length;

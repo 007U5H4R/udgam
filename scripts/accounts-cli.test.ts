@@ -21,10 +21,27 @@ describe('parseCliArgs', () => {
   });
 
   it('refuses a password in argv, naming no value', () => {
-    for (const a of [['--password', 'x'], ['--password=x'], ['-p', 'x'], ['--pass=x'], ['--pw', 'x']]) {
+    for (const a of [['--password', 'x'], ['--password=x'], ['-p', 'x'], ['-px'], ['-Px'], ['--pass=x'], ['--pw', 'x'], ['--passwd=x']]) {
       expect(() => parseCliArgs(a, ['email'])).toThrow(UsageError);
       expect(() => parseCliArgs(a, ['email'])).toThrow(/never on the command line/);
     }
+  });
+
+  it('never echoes an argument it does not know: an unknown --option by name only, anything else not at all', () => {
+    const secret = 'hunter2-positional-secret';
+    for (const argv of [[secret], ['--email', 'a@b.example', secret], [`-x${secret}`], [`--colour=${secret}`]]) {
+      let message = '';
+      try {
+        parseCliArgs(argv, ['email']);
+      } catch (e) {
+        expect(e).toBeInstanceOf(UsageError);
+        message = (e as Error).message;
+      }
+      expect(message, argv.join(' ')).not.toBe('');
+      expect(message).not.toContain(secret);
+    }
+    expect(() => parseCliArgs([secret], ['email'])).toThrow('unexpected argument (not shown)');
+    expect(() => parseCliArgs([`--colour=${secret}`], ['email'])).toThrow('unknown option --colour');
   });
 
   it('refuses unknown options and a missing value', () => {
