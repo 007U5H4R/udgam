@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process';
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { DEMO_ACCOUNTS, SEED_PASSWORD, seedAccounts, signIn } from './helpers/auth';
 import type { SeededAgreements } from './helpers/seed-agreements';
 import { E2E_DATA_DIR } from './helpers/tracer';
+import { axeOn } from './helpers/axe';
 
 // @eval EVAL-105 · TC-085 (TKT-25, TSK-25.8): the agreement and settlement screens of the M-002
 // addendum (Design.md §28, final/contract.html) at every viewport project (320, 375, 768, 1440): no
@@ -34,7 +34,7 @@ test.beforeAll(() => {
 async function checkSurface(page: Page) {
   const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(scrollWidth).toBeLessThanOrEqual(page.viewportSize()!.width);
-  const { violations } = await new AxeBuilder({ page }).analyze();
+  const { violations } = await (await axeOn(page)).analyze();
   expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(' ')}`)).toEqual([]);
 }
 
@@ -61,6 +61,7 @@ test.describe('buyer agreements (Design.md §28.1 screens 1–4)', () => {
     await page.getByTestId('agreements-link').click();
     await expect(page).toHaveURL(/\/buyer\/agreements$/);
     await expect(page.getByRole('heading', { level: 1, name: /Agreements/ })).toBeVisible();
+    await expect(page).toHaveTitle('Agreements · Udgam');
     const list = page.getByRole('list', { name: 'Your agreements' });
     await expect(list.getByRole('link')).toHaveCount(7);
     await expect(list.locator(`[data-agreement="${seeded.created.id}"]`)).toContainText('Not funded yet');
@@ -236,12 +237,14 @@ test.describe('FPO admin agreements and settlement (Design.md §28.1 screen 5)',
     await page.getByTestId('agreements-link').click();
     await expect(page).toHaveURL(/\/admin\/agreements$/);
     await expect(page.getByRole('heading', { level: 1, name: /Agreements with buyers/ })).toBeVisible();
+    await expect(page).toHaveTitle('Agreements · Udgam');
     await expect(page.locator(`[data-agreement="${seeded.ready.id}"]`)).toContainText('Ready to settle');
     await expect(page.getByRole('navigation', { name: 'Admin sections' }).getByRole('link', { name: 'Batches' })).toHaveAttribute('aria-current', 'page');
     await checkSurface(page);
     for (const state of ['loading', 'empty', 'error'] as const) {
       await page.goto(`/admin/agreements?state=${state}`);
       await expect(page.locator(`[data-state="${state}"]`).first()).toBeVisible();
+      await expect(page).toHaveTitle('Agreements · Udgam');
       await checkSurface(page);
     }
   });

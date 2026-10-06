@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process';
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { DEMO_ACCOUNTS, SEED_PASSWORD, seedAccounts, signIn } from './helpers/auth';
 import type { SeededReview } from './helpers/seed-review';
 import { E2E_DATA_DIR } from './helpers/tracer';
+import { axeOn } from './helpers/axe';
 
 // TKT-12 (TASK-13): the admin review queue and detail ported from final/admin.html — TC-054 (queue,
 // detail, four states, 768 px list → detail, ≥ 1100 px side by side), TC-055/EVAL-075 (the reasoned,
@@ -23,7 +23,7 @@ function seedReview(): SeededReview {
 async function checkSurface(page: Page) {
   const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(scrollWidth).toBeLessThanOrEqual(page.viewportSize()!.width);
-  const { violations } = await new AxeBuilder({ page }).analyze();
+  const { violations } = await (await axeOn(page)).analyze();
   expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(' ')}`)).toEqual([]);
 }
 

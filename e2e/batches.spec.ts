@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process';
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import type { SeededBatches } from './helpers/seed-batches';
 import { DEMO_ACCOUNTS, SEED_PASSWORD, seedAccounts, signIn } from './helpers/auth';
 import { E2E_DATA_DIR } from './helpers/tracer';
+import { axeOn } from './helpers/axe';
 
 // TKT-14 (TC-059/TC-060 through the screens, EVAL-080) with TC-080 (no horizontal scroll) and TC-081
 // (axe) on every batch screen in its four states. Each Playwright project is one viewport (320, 375,
@@ -26,7 +26,7 @@ async function noHorizontalScroll(page: Page) {
 }
 
 async function noSeriousAxeViolations(page: Page) {
-  const { violations } = await new AxeBuilder({ page }).analyze();
+  const { violations } = await (await axeOn(page)).analyze();
   expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(' ')}`)).toEqual([]);
 }
 

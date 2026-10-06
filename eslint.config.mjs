@@ -79,6 +79,20 @@ const eslintConfig = defineConfig([
     },
   },
   {
+    // axe runs only on a page that has its <title>: Next streams metadata, so right after a client
+    // navigation or a revalidating Server Action the document briefly has none (e2e/helpers/axe.ts).
+    files: ["e2e/**/*.ts"],
+    ignores: ["e2e/helpers/axe.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [{ name: "@axe-core/playwright", message: "Use axeOn(page) from e2e/helpers/axe.ts: it waits for the page's <title> first." }],
+        },
+      ],
+    },
+  },
+  {
     files: ["evals/scorers/independent-verifier/**/*.test.ts"],
     rules: {
       "no-restricted-imports": [

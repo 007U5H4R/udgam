@@ -1,9 +1,9 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { signIn } from './helpers/auth';
 import { choosePhoto, openField, seedCaptureWorld } from './helpers/capture';
 import { ownClientAddress } from './helpers/enrolment';
 import { typePicking } from './helpers/field';
+import { axeOn } from './helpers/axe';
 
 // Stage 8 design critique, surface `field` (docs/exec/stage8/stage8-field.md): the fixes for the DES-
 // findings, each checked in the running app at the phone viewport the finding was measured at.
@@ -396,7 +396,7 @@ test('DES-027: the picking detail\'s "See all checks" card opens with its summar
 });
 
 /** Every axe rule that fails on the page (any impact). */
-const axeIds = async (page: Page) => (await new AxeBuilder({ page }).analyze()).violations.map((v) => v.id);
+const axeIds = async (page: Page) => (await (await axeOn(page)).analyze()).violations.map((v) => v.id);
 
 test('DES-017, DES-020: a thumbnail that does not load is a "Photo not available" tile with alt=""; record steps, detail and error cards pass axe region, alt and role rules', async ({ page, context }) => {
   const seed = seedCaptureWorld({ events: ['40:Verified'] });
@@ -457,7 +457,7 @@ for (const vp of [
     const seed = seedCaptureWorld({ events: ['38.5:Verified', '44:Needs Review:cloud', '29:Rejected:outside'], phone: '+91 8272 000 111' });
     await openField(page, context, seed);
     const serious = async (where: string) => {
-      const { violations } = await new AxeBuilder({ page }).analyze();
+      const { violations } = await (await axeOn(page)).analyze();
       expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`), where).toEqual([]);
     };
     await serious('home');

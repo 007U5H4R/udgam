@@ -1,7 +1,7 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoHorizontalScroll, openField, seedCaptureWorld, type SeededCapture } from './helpers/capture';
 import { typePicking } from './helpers/field';
+import { axeOn } from './helpers/axe';
 
 // TKT-11 · TC-051 and EVAL-088 (capture views): the Pickings tab (final/index.html #s8, lines 642–659)
 // in all four states. Working: "Your pickings", a month header with its count and plot, rows with
@@ -13,7 +13,7 @@ import { typePicking } from './helpers/field';
 test.describe.configure({ timeout: 120_000 });
 
 async function axeClean(page: Page) {
-  const { violations } = await new AxeBuilder({ page }).analyze();
+  const { violations } = await (await axeOn(page)).analyze();
   expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
 }
 

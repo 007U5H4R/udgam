@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { SEED_PASSWORD, signIn } from './helpers/auth';
 import { seedEnrolment } from './helpers/enrolment';
 import { query } from './helpers/tracer';
+import { axeOn } from './helpers/axe';
 
 // TSK-05.7: the admin Phones page. Issue a code (visible once, not retrievable after a reload), revoke a
 // phone behind a confirm sheet (the revocation is anchored), assign a plot; no horizontal scroll at any
@@ -18,7 +18,7 @@ async function noHorizontalScroll(page: Page) {
 }
 
 async function noSeriousAxeViolations(page: Page) {
-  const { violations } = await new AxeBuilder({ page }).analyze();
+  const { violations } = await (await axeOn(page)).analyze();
   expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
 }
 

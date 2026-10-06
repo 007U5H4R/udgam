@@ -1,6 +1,6 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { expectNoHorizontalScroll, openField, seedCaptureWorld } from './helpers/capture';
+import { axeOn } from './helpers/axe';
 
 // TKT-11 · TC-053 (TC-UI-MOBILE-NAV): Home · Pickings · Help are each reachable by tap and by keyboard
 // (Tab + Enter), with aria-current="page" on the current tab; the bar floats above the safe area; the
@@ -89,7 +89,7 @@ test('TC-053: the Help sheet explains the verdicts, photos and the gallery, call
   await expect(sheet.getByRole('button', { name: 'ಕನ್ನಡ' })).toBeVisible();
   await expect(sheet.getByTestId('this-phone')).toHaveText(new RegExp(`^${seed.deviceId}, set up on \\d{1,2} [A-Z][a-z]{2}$`));
   await expectNoHorizontalScroll(page);
-  const { violations } = await new AxeBuilder({ page }).analyze();
+  const { violations } = await (await axeOn(page)).analyze();
   expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
 
   // the language row opens the language sheet

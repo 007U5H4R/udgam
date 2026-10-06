@@ -1,9 +1,9 @@
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { DEMO_ACCOUNTS, SEED_PASSWORD, seedAccounts, signIn } from './helpers/auth';
 import { stubTiles } from './helpers/stubs';
+import { axeOn } from './helpers/axe';
 
 // TKT-13 / TC-058 (e2e half), EVAL-079, DISC4: an admin attaches an organic certificate (a PDF) to a plot
 // and the plot page shows "Certified by <issuer> — certificate on record" with its validity and a download
@@ -28,7 +28,7 @@ async function noHorizontalScroll(page: Page) {
 }
 
 async function noSeriousAxeViolations(page: Page) {
-  const { violations } = await new AxeBuilder({ page }).analyze();
+  const { violations } = await (await axeOn(page)).analyze();
   expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
 }
 

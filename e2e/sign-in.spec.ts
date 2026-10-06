@@ -1,6 +1,6 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { DEMO_ACCOUNTS, SEED_PASSWORD, seedAccounts, signIn } from './helpers/auth';
+import { axeOn } from './helpers/axe';
 
 // TC-020 (sign-in and sign-out; /verify stays public), with TC-080 (no horizontal scroll) and TC-081
 // (axe) for the sign-in screen and the signed-in shells. Each Playwright project is one viewport
@@ -15,7 +15,7 @@ async function noHorizontalScroll(page: Page) {
 }
 
 async function noSeriousAxeViolations(page: Page) {
-  const { violations } = await new AxeBuilder({ page }).analyze();
+  const { violations } = await (await axeOn(page)).analyze();
   expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
 }
 

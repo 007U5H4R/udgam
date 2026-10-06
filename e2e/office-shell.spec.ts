@@ -1,5 +1,4 @@
 import { execFileSync } from 'node:child_process';
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { DEMO_ACCOUNTS, SEED_PASSWORD, seedAccounts, signIn } from './helpers/auth';
 import { openField, seedCaptureWorld } from './helpers/capture';
@@ -10,6 +9,7 @@ import type { SeededProcessing } from './helpers/seed-processing';
 import type { SeededReview } from './helpers/seed-review';
 import { stubTiles } from './helpers/stubs';
 import { E2E_DATA_DIR } from './helpers/tracer';
+import { axeOn } from './helpers/axe';
 
 // Stage 8 office fixes (docs/exec/stage8/stage8-office.md): the office shell around every admin, buyer and
 // processor screen. DES-105: Sign out on every office screen (the rail foot on tablet and desktop, the end
@@ -30,7 +30,7 @@ function runSeed<T>(script: string, args: string[] = []): T {
 const phone = (page: Page) => (page.viewportSize()?.width ?? 0) < 700;
 
 async function axeClean(page: Page) {
-  const { violations } = await new AxeBuilder({ page }).analyze();
+  const { violations } = await (await axeOn(page)).analyze();
   expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(' ')}`)).toEqual([]);
 }
 
@@ -192,7 +192,7 @@ async function styledNotFound(page: Page, url: string, o: { title: string; back:
   if (url === '/no-such-page') await expect(page, url).toHaveTitle('Not found · Udgam');
   const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(scrollWidth, url).toBeLessThanOrEqual(page.viewportSize()!.width);
-  const { violations } = await new AxeBuilder({ page }).analyze();
+  const { violations } = await (await axeOn(page)).analyze();
   // serious/critical, plus the moderate landmark and heading rules Next's default 404 failed
   expect(
     violations.filter((v) => v.impact === 'serious' || v.impact === 'critical' || ['landmark-one-main', 'region', 'page-has-heading-one'].includes(v.id)).map((v) => v.id),
@@ -252,7 +252,7 @@ test.describe('DES-104 / DES-011 one styled not-found', () => {
 /** DES-103: the page has an h1 at every width (axe page-has-heading-one), and only one is exposed. */
 async function oneH1(page: Page, where: string) {
   await expect(page.getByRole('heading', { level: 1 }), where).toHaveCount(1);
-  const { violations } = await new AxeBuilder({ page }).withRules(['page-has-heading-one']).analyze();
+  const { violations } = await (await axeOn(page)).withRules(['page-has-heading-one']).analyze();
   expect(violations.map((v) => v.id), where).toEqual([]);
 }
 
@@ -367,7 +367,7 @@ test.describe('DES-108 each agent’s Phones and Plots sections are distinct lan
     const card = page.getByTestId(`agent-${seed.agentId}`);
     await expect(card.getByRole('region', { name: `${seed.agentName} Phones`, exact: true })).toBeVisible();
     await expect(card.getByRole('region', { name: `${seed.agentName} Plots this agent records`, exact: true })).toBeVisible();
-    const { violations } = await new AxeBuilder({ page }).withRules(['landmark-unique']).analyze();
+    const { violations } = await (await axeOn(page)).withRules(['landmark-unique']).analyze();
     expect(violations.map((v) => v.id)).toEqual([]);
   });
 });

@@ -1,10 +1,10 @@
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { DEMO_ACCOUNTS, SEED_PASSWORD, seedAccounts, signIn } from './helpers/auth';
 import { stubTiles } from './helpers/stubs';
 import { query } from './helpers/tracer';
+import { axeOn } from './helpers/axe';
 
 // TKT-06 admin plot screens: the list (farmer, producer ID, crop, area, registration status) and its
 // four states, the new-plot form (upload path), the detail (area in ha, the registration checks that
@@ -51,7 +51,7 @@ async function mapSettled(page: Page) {
 
 async function noSeriousAxeViolations(page: Page) {
   await mapSettled(page);
-  const { violations } = await new AxeBuilder({ page }).analyze();
+  const { violations } = await (await axeOn(page)).analyze();
   expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
 }
 
@@ -166,7 +166,7 @@ test.describe('TKT-06 admin plots', () => {
     for (const link of await links.all()) {
       expect(await link.evaluate((a) => getComputedStyle(a).textDecorationLine)).toContain('underline');
     }
-    const { violations } = await new AxeBuilder({ page }).withRules(['link-in-text-block']).analyze();
+    const { violations } = await (await axeOn(page)).withRules(['link-in-text-block']).analyze();
     expect(violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
     release();
   });

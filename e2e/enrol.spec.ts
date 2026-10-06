@@ -1,8 +1,8 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { SEED_PASSWORD, signIn } from './helpers/auth';
 import { ownClientAddress, seedEnrolment } from './helpers/enrolment';
 import { query } from './helpers/tracer';
+import { axeOn } from './helpers/axe';
 
 // TC-022: enrolment makes a non-extractable key in IndexedDB and anchors device_enrolled.
 // TC-025: the first-run language sheet (ಕನ್ನಡ / English) comes before the code screen, and the choice
@@ -10,7 +10,7 @@ import { query } from './helpers/tracer';
 
 /** axe's serious and critical violations on the page as it is now (TC-081). */
 async function seriousAxe(page: Page): Promise<string[]> {
-  return (await new AxeBuilder({ page }).analyze()).violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id);
+  return (await (await axeOn(page)).analyze()).violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id);
 }
 
 /** A preference as the phone stored it in IndexedDB `udgam`/`prefs`, or null. */

@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process';
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { DEMO_ACCOUNTS, SEED_PASSWORD, seedAccounts, signIn } from './helpers/auth';
 import { proofFinalState } from './helpers/certificate';
 import type { SeededProcessing } from './helpers/seed-processing';
 import { E2E_DATA_DIR } from './helpers/tracer';
+import { axeOn } from './helpers/axe';
 
 // TKT-26 (TSK-26.5, TC-086, @eval EVAL-100–102 through the screens, EVAL-105 processor part): the processor
 // records a step, sees the flag, hands the batch on; the certificate shows the step and still verifies.
@@ -30,7 +30,7 @@ function seed(toProcessor: boolean): SeededProcessing {
 async function checkSurface(page: Page) {
   const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(scrollWidth).toBeLessThanOrEqual(page.viewportSize()!.width);
-  const { violations } = await new AxeBuilder({ page }).analyze();
+  const { violations } = await (await axeOn(page)).analyze();
   expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(' ')}`)).toEqual([]);
 }
 

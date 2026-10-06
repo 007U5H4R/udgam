@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { demoPhoto, expectNoHorizontalScroll, openField, seedCaptureWorld, choosePhoto } from './helpers/capture';
+import { axeOn } from './helpers/axe';
 
 // TSK-10.14 · the capture flow held to every viewport (each Playwright project is one: 320 × 568,
 // 375 × 812, 768 × 1024, 1440 × 900):
@@ -14,7 +14,7 @@ import { demoPhoto, expectNoHorizontalScroll, openField, seedCaptureWorld, choos
 test.describe.configure({ timeout: 180_000 });
 
 async function seriousAxe(page: Page): Promise<string[]> {
-  const { violations } = await new AxeBuilder({ page }).analyze();
+  const { violations } = await (await axeOn(page)).analyze();
   return violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
 }
 

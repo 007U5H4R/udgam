@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page } from '@playwright/test';
 import { E2E_DATA_DIR } from './tracer';
+import { axeOn } from './axe';
 
 // Shared helpers for the certificate specs (TKT-16): seeding a batch (seed-certificate.ts), the proof
 // panel's states, and the page-wide scans (no green, no horizontal scroll, axe).
@@ -75,6 +75,6 @@ export async function noHorizontalScroll(page: Page) {
 }
 
 export async function noSeriousAxeViolations(page: Page) {
-  const { violations } = await new AxeBuilder({ page }).analyze();
+  const { violations } = await (await axeOn(page)).analyze();
   expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(' ')}`)).toEqual([]);
 }
