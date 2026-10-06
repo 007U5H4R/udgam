@@ -53,6 +53,38 @@ for (const vp of [
   { width: 360, height: 740 },
   { width: 320, height: 568 },
 ]) {
+  test(`DES-028 at ${vp.width}×${vp.height}: a refused key on an unlikely weight keeps the reason for "Yes, send" on screen; a refused key alone keeps "Send"`, async ({ page, context }) => {
+    await page.setViewportSize(vp);
+    const seed = seedCaptureWorld({ events: ['38.5:Verified', '44:Verified', '51:Needs Review'] });
+    await openField(page, context, seed);
+    await typePicking(page, seed, { photos: 1, kg: '4' });
+    const hint = page.locator('.kg-hint');
+    const send = page.locator('#send-btn');
+    await expect(hint).toHaveText('4 kg is far from your last pickings (38–51 kg). Check the number before you send.');
+    await expect(send).toHaveText('Yes, send 4 kg');
+
+    await tap(page, '.', '3'); // refused: only .0 or .5
+    await expect(page.locator('output.kg-num')).toHaveText('4.');
+    await expect(hint.locator('.kg-line')).toHaveText(['Kilos in halves (.0 or .5), up to 500 kg.', '4 kg is far from your last pickings (38–51 kg). Check the number before you send.']);
+    await expect(hint).toHaveClass(/warn/);
+    await expect(send).toHaveText('Yes, send 4 kg');
+    // both lines and the pill stay on the screen
+    const h = (await hint.boundingBox())!;
+    const b = (await send.boundingBox())!;
+    expect(h.y + h.height).toBeLessThanOrEqual(b.y);
+    expect(b.y + b.height).toBeLessThanOrEqual(vp.height);
+
+    await tap(page, '⌫', '⌫', '4', '9', '.', '3'); // 49. is a likely weight: the rule alone, the normal label
+    await expect(hint.locator('.kg-line')).toHaveText(['Kilos in halves (.0 or .5), up to 500 kg.']);
+    await expect(send).toHaveText('Send 49 kg');
+  });
+}
+
+for (const vp of [
+  { width: 375, height: 812 },
+  { width: 360, height: 740 },
+  { width: 320, height: 568 },
+]) {
   test(`DES-026 at ${vp.width}×${vp.height}: the unreadable-photo error sits in view, above the pinned pills, never under them`, async ({ page, context }) => {
     await page.setViewportSize(vp);
     const seed = seedCaptureWorld();

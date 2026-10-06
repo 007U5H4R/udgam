@@ -825,6 +825,10 @@ html[lang='kn'] body {
   color: var(--check-ink);
   font-weight: 600;
 }
+/* DES-028: a refused key on an unlikely weight shows the rule and the check line, one under the other. */
+.kg-line {
+  display: block;
+}
 .keypad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1089,6 +1093,12 @@ html[lang='kn'] body {
   .kg-hint {
     margin-bottom: 10px;
     font-size: 16px;
+  }
+  /* DES-028: the rule and the check line together stay compact, so the Send pill stays on a 568 px screen. */
+  .kg-hint:has(.kg-line + .kg-line) {
+    margin-bottom: 4px;
+    font-size: 15px;
+    line-height: 1.3;
   }
   /* Keys keep the 56 px primary-target minimum here too (Design.md §17; the mockup had 50 px). */
   .key {
