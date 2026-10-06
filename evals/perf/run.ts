@@ -8,10 +8,12 @@
 // 10) and writes evals/results/local/perf-s4-<sha>.json with provenance and the host's hardware. --out
 // writes it elsewhere instead (TSK-21.5: evals/results/baseline-perf-v1.json), never over an existing file.
 // Exits 1 when the gate fails.
-// --only=s3 (EVAL-070, the capture budget) is TKT-29's; it is refused here. Never run in CI (needs a server).
+// --suite=s3 (or --only=s3; EVAL-070, the capture budget, TSK-29.1) runs evals/harness/perf-s3.ts: see its
+// header for its flags. --suite is the same choice as --only; S4 stays the default. Never run in CI (needs a server).
 import { existsSync } from 'node:fs';
 import { arch, platform } from 'node:os';
 import { join, resolve } from 'node:path';
+import { s3Cli, suiteOf, UsageError } from '../harness/perf-s3';
 import { appVersion } from '../harness/provenance';
 import { RESULTS_DIR } from '../harness/results';
 import { treeState } from '../harness/tree-state';
@@ -25,17 +27,23 @@ function arg(name: string): string | undefined {
 }
 
 function usage(message: string): never {
-  console.error(`eval:perf: ${message}\nusage: pnpm eval:perf --target=<url> --only=s4 [--runs=<n>] [--data-dir=<dir> | --path=<certificate path>] [--out=<file>]`);
+  console.error(`eval:perf: ${message}\nusage: pnpm eval:perf --target=<url> [--only=s4 | --suite=s4] [--runs=<n>] [--data-dir=<dir> | --path=<certificate path>] [--out=<file>]`);
   process.exit(2);
 }
 
-const only = arg('only') ?? 's4';
+let only: string;
+try {
+  only = suiteOf(process.argv.slice(2));
+} catch (e) {
+  if (!(e instanceof UsageError)) throw e;
+  usage(e.message);
+}
+if (only === 's3') process.exit(await s3Cli(process.argv.slice(2)));
 const target = arg('target');
 const runs = Number(arg('runs') ?? '10');
 if (!target || !/^https?:\/\//.test(target)) usage('--target=<http(s) url> is required');
 if (!Number.isInteger(runs) || runs < 1) usage('--runs must be a positive integer');
-if (only === 's3') usage('S3 (EVAL-070) is measured by TKT-29 on the production host; only --only=s4 exists here');
-if (only !== 's4') usage(`unknown --only=${only}`);
+if (only !== 's4') usage(`unknown suite ${only} (s3 or s4)`);
 const outArg = arg('out');
 if (outArg !== undefined && outArg === '') usage('--out needs a file path');
 // Refuse before seeding or measuring: a perf result is never rewritten.
