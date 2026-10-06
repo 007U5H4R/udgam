@@ -11,20 +11,16 @@
 // --suite=s3 (or --only=s3; EVAL-070, the capture budget, TSK-29.1) runs evals/harness/perf-s3.ts: see its
 // header for its flags. --suite is the same choice as --only; S4 stays the default. Never run in CI (needs a server).
 import { existsSync } from 'node:fs';
-import { arch, platform } from 'node:os';
 import { join, resolve } from 'node:path';
 import { s3Cli, suiteOf, UsageError } from '../harness/perf-s3';
-import { appVersion } from '../harness/provenance';
 import { RESULTS_DIR } from '../harness/results';
 import { treeState } from '../harness/tree-state';
+import { argOf, perfProvenance } from './cli';
 import { seedS4Batch } from './fixtures';
-import { hostHardware, writePerfResult } from './output';
+import { writePerfResult } from './output';
 import { runS4 } from './s4-certificate';
 
-function arg(name: string): string | undefined {
-  const hit = process.argv.slice(2).find((a) => a === `--${name}` || a.startsWith(`--${name}=`));
-  return hit?.includes('=') ? hit.slice(hit.indexOf('=') + 1) : undefined;
-}
+const arg = (name: string): string | undefined => argOf(process.argv.slice(2), name);
 
 function usage(message: string): never {
   console.error(`eval:perf: ${message}\nusage: pnpm eval:perf --target=<url> [--only=s4 | --suite=s4] [--runs=<n>] [--data-dir=<dir> | --path=<certificate path>] [--out=<file>]`);
@@ -56,20 +52,7 @@ const result = await runS4({ target, path, runs });
 // so the baseline files written just before this run do not mark it dirty; the release requires
 // git.commit = its HEAD and git.dirty = false.
 const git = treeState();
-const out = {
-  ...result,
-  provenance: {
-    harness: { name: 'udgam-eval-perf', version: '0.1.0' },
-    appVersion: appVersion(),
-    git,
-    environment: process.env.CI ? 'ci' : 'local',
-    node: process.version,
-    os: { platform: platform(), arch: arch() },
-    hardware: hostHardware(),
-    timestampUtc: new Date().toISOString(),
-    durationMs: Date.now() - started,
-  },
-};
+const out = { ...result, provenance: perfProvenance(started, git) };
 // The default ad-hoc file (git-ignored) is replaced on a re-run; an --out file is never overwritten.
 const file = outArg ? writePerfResult(resolve(outArg), out) : writePerfResult(join(RESULTS_DIR, 'local', `perf-s4-${git.shortSha}.json`), out, { overwrite: true });
 const s = result.summary;

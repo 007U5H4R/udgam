@@ -1,6 +1,6 @@
-import { existsSync } from 'node:fs';
 import { chromium } from '@playwright/test';
 import { summarizeLatency, type LatencySummary } from '../scorers/latency';
+import { chromiumLaunchOptions } from './cli';
 import { applyReferenceProfile, EV9_NETWORK, S4_CPU_THROTTLE } from './network';
 
 // S4 (EVAL-071, EV10, TSK-16.10): in-browser certificate verification time. Each run is a cold load in a
@@ -17,7 +17,6 @@ import { applyReferenceProfile, EV9_NETWORK, S4_CPU_THROTTLE } from './network';
 export const S4_THRESHOLD_MS = 3000;
 /** §18 sub-budget: in-browser verification of a 50-event batch at 4× CPU. */
 export const S4_VERIFY_BUDGET_MS = 300;
-const PRE_INSTALLED = '/opt/pw-browsers/chromium';
 
 /** `errors`: page errors and console errors of the run (why a run did not end verified). */
 export type S4Run = { run: number; ms: number | null; serverMs: number | null; htmlMs: number | null; verifyMs: number | null; finalState: string; errors: string[] };
@@ -37,8 +36,7 @@ export type S4Result = {
 };
 
 export async function runS4(o: { target: string; path: string; runs: number; timeoutMs?: number }): Promise<S4Result> {
-  const executablePath = process.env.PW_CHROMIUM_PATH ?? (!process.env.CI && existsSync(PRE_INSTALLED) ? PRE_INSTALLED : undefined);
-  const browser = await chromium.launch(executablePath ? { executablePath } : {});
+  const browser = await chromium.launch(chromiumLaunchOptions());
   const runs: S4Run[] = [];
   try {
     for (let i = 1; i <= o.runs; i++) {
