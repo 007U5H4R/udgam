@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -11,8 +11,11 @@ import { runProofSuite } from './suites/proof';
 import { REPO_ROOT } from './provenance';
 import { reportPathFor, writeReport, writeResults } from './results';
 import { caseLimitMs, CASE_TIMEOUT_MS, evaluate, inMilestone, isolateDataDir, main, parseArgs, runHarness } from './run';
+import { tempDirs } from '../../tests/helpers/tmp';
 
 // TC-015 (EVAL-092, CF-12): the harness never hides a case. TC-014 (order independence).
+
+const tempDir = tempDirs(); // removed after the file (QA-S10-001)
 
 const strip = (cs: CaseResult[]) => cs.map((c) => ({ ...c, durationMs: 0 }));
 
@@ -67,7 +70,7 @@ describe('exit codes: 0 pass, 1 gate failure, 2 usage error or harness crash', (
   });
 
   it('a completed run passes its own exit code through (1 = gates failed)', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'udgam-main-'));
+    const root = tempDir('udgam-main-');
     const code = await main(['--seed=1', '--suite=harness-verifier'], (o) => runHarness({ ...o, resultsDir: join(root, 'results') }), quiet);
     expect(code).toBe(1);
   });
@@ -264,7 +267,7 @@ describe('harness-proof suite (TSK-15.8, TSK-18.6, S6-lib)', () => {
 
 describe('baseline and previous-run files fail closed (CF-13, CF-12)', () => {
   const dirWith = (files: Record<string, string | null>) => {
-    const dir = mkdtempSync(join(tmpdir(), 'udgam-results-'));
+    const dir = tempDir('udgam-results-');
     for (const [name, body] of Object.entries(files)) {
       if (body === null) mkdirSync(join(dir, name)); // exists but cannot be read as a file
       else writeFileSync(join(dir, name), body);
@@ -334,7 +337,7 @@ describe('order independence (TC-014)', () => {
 
 describe('runHarness writes results and a report derived from them', () => {
   it('exit follows the gates (0 once all twelve checks are built, TKT-09), and both files land where --out says', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'udgam-run-'));
+    const root = tempDir('udgam-run-');
     const r = await runHarness({ seed: 2, out: 'formal', resultsDir: join(root, 'results'), reportsDir: join(root, 'reports') });
     expect(r.exitCode).toBe(0);
     expect(r.resultsPath).toMatch(/results\/eval-run-\d+\.\d+\.\d+-[0-9a-f]{7,}\.json$/);
@@ -347,7 +350,7 @@ describe('runHarness writes results and a report derived from them', () => {
   it('never overwrites a report: an existing one keeps its bytes and the new report gets -rN', () => {
     // runHarness's naming sequence (writeResults → reportPathFor → writeReport) on a stub results
     // object: the assertions are about file names only, so no harness run is needed.
-    const root = mkdtempSync(join(tmpdir(), 'udgam-run-'));
+    const root = tempDir('udgam-run-');
     try {
       const reportsDir = join(root, 'reports');
       mkdirSync(reportsDir, { recursive: true });

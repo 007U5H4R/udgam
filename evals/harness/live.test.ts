@@ -1,15 +1,17 @@
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadHarnessInputs } from './context';
 import { loadDataset } from './dataset';
 import { liveAgreement, missingLiveVars, recordingName, renderAgreement } from './live-agreement';
 import { main, parseArgs } from './run';
+import { tempDirs } from '../../tests/helpers/tmp';
 
 // TSK-07.7: `pnpm eval --provider=live` compares live GFW / Sentinel Hub answers for P01–P10 with the
 // fixtures (no gate, never in CI) and `--record` saves the raw answers. Without its keys it exits 2 and
 // names the missing variables only, never a value. The dataset (0.4.0, EVAL-106–108) still validates.
+
+const tempDir = tempDirs(); // removed after the file (QA-S10-001)
 
 const io = () => {
   const out: string[] = [];
@@ -85,7 +87,7 @@ describe('liveAgreement with recorded answers (no network)', () => {
   }) as typeof globalThis.fetch;
 
   it('compares the ten legitimate plots on three kinds and records every answer except the token', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'udgam-live-'));
+    const dir = tempDir('udgam-live-');
     const inputs = loadHarnessInputs(loadDataset());
     const env = { GFW_API_KEY: 'k', CDSE_CLIENT_ID: 'i', CDSE_CLIENT_SECRET: 's' };
     const { rows, recorded } = await liveAgreement({ inputs, env, record: true, fetch, recordedDir: dir, now: () => new Date('2026-12-08T05:30:00.000Z') });

@@ -1,6 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { YIELD_REFERENCE_VERSION } from '../../src/lib/yield/reference-data';
@@ -8,9 +7,12 @@ import { loadDataset } from './dataset';
 import { renderReport } from './report';
 import { writeResults } from './results';
 import { evaluate, type ResultsFile } from './run';
+import { tempDirs } from '../../tests/helpers/tmp';
 
 // TC-016 (EVAL-091, S7): results carry every evaluation-plan §12 provenance field; the report is
 // rendered from the results file alone, byte-identically; a second formal write gets -r2.
+
+const tempDir = tempDirs(); // removed after the file (QA-S10-001)
 
 let results: ResultsFile;
 let dir: string;
@@ -18,7 +20,7 @@ let path: string;
 
 beforeAll(async () => {
   results = await evaluate({ seed: 9 });
-  dir = mkdtempSync(join(tmpdir(), 'udgam-results-'));
+  dir = tempDir('udgam-results-');
   path = writeResults(results, { out: 'formal', dir });
 }, 60_000);
 

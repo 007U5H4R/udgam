@@ -1,18 +1,20 @@
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DATASET_PATH, DatasetError, loadDataset } from './dataset';
+import { tempDirs } from '../../tests/helpers/tmp';
 
 // TC-017: the dataset loads and validates against its JSON Schema (2020-12); an unknown mutation op
 // or a duplicate ID fails naming the offending path.
+
+const tempDir = tempDirs(); // removed after the file (QA-S10-001)
 
 type Raw = { cases: { id: string; input: { mutations?: { op: string }[] } }[] };
 
 function tempCopy(mutate: (raw: Raw) => void): string {
   const raw = JSON.parse(readFileSync(DATASET_PATH, 'utf8')) as Raw;
   mutate(raw);
-  const dir = mkdtempSync(join(tmpdir(), 'udgam-dataset-'));
+  const dir = tempDir('udgam-dataset-');
   // The schema is referenced relatively; loadDataset always validates against the committed schema.
   const path = join(dir, 'eval-dataset.json');
   writeFileSync(path, JSON.stringify(raw, null, 2));
