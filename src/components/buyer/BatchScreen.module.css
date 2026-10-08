@@ -1,0 +1,421 @@
+/* The list + detail grammar of the batch screens (admin batches and the buyer list), composed from
+   .design/exploration/final/admin.html (".main", ".queue", ".q-head", ".q-list", ".detail", ".d-body",
+   ".d-title", ".score-card", ".sec-h", ".state-card", ".sk", ".back", ".decide", ".dec-note") with its
+   values unchanged (TP17: no new colours, radii, type sizes or motion). Admin screens sit inside TKT-05's
+   RailShell (these are the columns beside the rail); the buyer screens use them without a rail. */
+
+.main {
+  display: grid;
+  grid-template-columns: 400px minmax(0, 1fr);
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100svh;
+}
+.single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* ── List column ── */
+.queue {
+  min-width: 0;
+  padding: 22px 18px 28px 22px;
+  border-right: 1px solid var(--hairline);
+}
+.single .queue {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  border-right: 0;
+  padding: 22px var(--pad) 0;
+  display: flex;
+  flex-direction: column;
+}
+.eyebrow {
+  margin: 0;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--ink-2);
+  letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
+}
+.h1 {
+  margin: 4px 0 0;
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.sub {
+  margin: 6px 0 0;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+}
+.headActions {
+  margin-top: 16px;
+}
+.list {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── Detail column ── */
+.detail {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  container-type: inline-size;
+}
+.dBody {
+  flex: 1;
+  width: 100%;
+  max-width: 980px;
+  padding: 24px 32px 28px;
+}
+.back {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  margin-bottom: 12px;
+  padding: 0 16px 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 600;
+  text-decoration: none;
+  width: max-content;
+}
+.single .back {
+  display: inline-flex;
+}
+.back:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.dTitle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 4px 0 0;
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.dMeta {
+  margin: 6px 0 0;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+}
+.card {
+  margin-top: 16px;
+  padding: 18px 20px;
+}
+/* DES-111 (Design.md §12, 8-pt rhythm): the shared QR card keeps the same 16 px gap as the other cards */
+.dBody > [data-testid='batch-qr'] {
+  margin-top: 16px;
+}
+.scoreLine {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.facts {
+  margin: 6px 0 0;
+  color: var(--ink);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.secH {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.rows {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.fieldRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--hairline);
+}
+.fieldRow b {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.kg {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.meta {
+  grid-column: 1 / -1;
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  color: #b9f5d2;
+  font-weight: 700;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+.note {
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+}
+.hint {
+  max-width: 560px;
+  margin: 28px auto 0;
+  padding: 28px 26px 26px;
+  text-align: center;
+  color: var(--ink-2);
+}
+.hint p {
+  margin: 0;
+}
+
+/* ── States (loading, empty, error) ── */
+.stateCard {
+  max-width: 560px;
+  margin: 28px auto 0;
+  padding: 28px 26px 26px;
+  text-align: center;
+}
+.stateCard h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.stateCard p {
+  margin: 6px 0 0;
+}
+.stateCard .statePill {
+  margin: 20px auto 0;
+  max-width: 320px;
+}
+.err {
+  background: linear-gradient(180deg, rgba(242, 184, 75, 0.22), rgba(242, 184, 75, 0.06) 55%), rgba(24, 22, 18, 0.72);
+  border-color: rgba(255, 214, 150, 0.22);
+}
+.stIc {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 203, 107, 0.55);
+  background: rgba(242, 184, 75, 0.12);
+  color: var(--check-ink);
+  box-shadow: 0 0 30px rgba(242, 184, 75, 0.25);
+}
+.stIc svg {
+  width: 32px;
+  height: 32px;
+}
+.loadNote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 0;
+  color: var(--ink);
+  font-weight: 600;
+}
+.loadNote svg {
+  color: #b9f5d2;
+  animation: spin 1.4s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.sk {
+  display: block;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.06) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+.skRow {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 10px 14px;
+  min-height: 96px;
+  padding: 14px;
+  border-radius: var(--r-row);
+}
+.skRow .sk:first-child {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  grid-row: 1 / 4;
+}
+.skLine {
+  height: 14px;
+}
+
+/* ── The signed-action panel (admin.html ".decide", accept variant) ── */
+.decide {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 18px 20px 20px;
+  border-radius: var(--r-card);
+  border: 1px solid rgba(185, 245, 210, 0.3);
+  background: linear-gradient(180deg, rgba(127, 227, 166, 0.16), rgba(127, 227, 166, 0.04) 60%), rgba(20, 28, 24, 0.9);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+}
+.decide h2 {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 700;
+}
+.decide label {
+  font-weight: 700;
+}
+.decNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--ink);
+}
+.decNote svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  color: #b9f5d2;
+  margin-top: 1px;
+}
+.formError {
+  margin: 0;
+  min-height: 0;
+  color: var(--check-ink);
+  font-weight: 600;
+}
+.formError:empty {
+  display: none;
+}
+
+/* ── Desktop ≥ 1100: list · detail, columns scroll on their own ── */
+@media (min-width: 1100px) {
+  .main:not(.single) {
+    height: 100vh;
+  }
+  .main:not(.single) .queue,
+  .main:not(.single) .detail {
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* ── Narrow < 1100: list → detail (the detail is a full panel with Back) ── */
+@media (max-width: 1099.98px) {
+  .main {
+    display: block;
+  }
+  .queue {
+    border-right: 0;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 22px var(--pad) 32px;
+  }
+  .detail {
+    display: none;
+  }
+  .detailOpen .queue {
+    display: none;
+  }
+  .detailOpen .detail {
+    display: flex;
+  }
+  .back {
+    display: inline-flex;
+  }
+  .dBody {
+    max-width: none;
+    padding: 18px var(--pad) 20px;
+  }
+}
+
+@media (max-width: 699.98px) {
+  .h1 {
+    font-size: 28px;
+  }
+  .dTitle {
+    font-size: 26px;
+  }
+  .scoreLine {
+    font-size: 20px;
+  }
+  .card {
+    padding: 16px;
+  }
+  .stateCard {
+    margin-top: 20px;
+    padding: 24px 18px 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk,
+  .loadNote svg {
+    animation: none;
+  }
+}
+.headActions + .note {
+  margin-top: 10px;
+}
+
+/* DES-103 (Design.md §28.8): a detail that is the whole screen repeats the list's h1, visually hidden;
+   side by side (≥ 1100 px) the list's h1 is the page's one h1. */
+.narrowH1 {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  margin: 0;
+}
+@media (min-width: 1100px) {
+  .narrowH1 {
+    display: none;
+  }
+}

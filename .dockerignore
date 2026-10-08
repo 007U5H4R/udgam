@@ -1,0 +1,39 @@
+# Build context for deploy/Dockerfile (TSK-27.1). An allowlist: anything not named below never reaches the
+# build, so data, keys, env files, the git history and planning documents cannot enter an image layer.
+*
+
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!next.config.ts
+!tsconfig.json
+!postcss.config.mjs
+!src
+!public
+# Read at run time by the fixture remote-sensing provider (traced exactly as in CI's build).
+!evals/fixtures
+!scripts/ci/check-trace.mjs
+!deploy/check-standalone.mjs
+!deploy/build-tools.mjs
+# The accounts CLI's sources, bundled by build-tools.mjs into /app/accounts-*.mjs (SEC-001).
+!scripts/accounts-cli.ts
+!scripts/accounts-create.ts
+!scripts/accounts-set-password.ts
+!deploy/entrypoint.sh
+!deploy/db/backup.mjs
+
+# Never, even inside an allowed folder.
+**/*.test.ts
+**/*.test.tsx
+# Fixture generators (dev scripts that import scripts/); the fixtures themselves are data.
+evals/fixtures/**/*.ts
+**/.env
+**/.env.*
+**/*.jwk
+**/*.key
+**/*.pem
+**/*.db
+**/*.db-*
+**/keys
+**/node_modules
+**/.next

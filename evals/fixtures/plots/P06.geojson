@@ -1,0 +1,44 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "P06",
+    "role": "legitimate",
+    "area_ha": 1,
+    "shape": "convex",
+    "anchor": {
+      "place": "Gonikoppal, Kodagu",
+      "lat": 12.1832,
+      "lng": 75.9296
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 2380673281
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.9295947,
+          12.1825293
+        ],
+        [
+          75.9302191,
+          12.1834892
+        ],
+        [
+          75.9296053,
+          12.1838707
+        ],
+        [
+          75.9289809,
+          12.1829108
+        ],
+        [
+          75.9295947,
+          12.1825293
+        ]
+      ]
+    ]
+  }
+}

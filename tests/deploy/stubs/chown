@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Test stub for `chown`: fails when its last argument is exactly STUB_CHOWN_FAIL (a failure after the
+# restore's renames); otherwise runs the real chown. Unprivileged (a CI runner, where the test makes
+# own() call chown through the id stub's STUB_UID=0), any other chown is a no-op: it could only fail.
+if [ -n "${STUB_CHOWN_FAIL:-}" ] && [ "${!#}" = "$STUB_CHOWN_FAIL" ]; then
+  echo "chown: injected failure on ${!#}" >&2
+  exit 1
+fi
+[ "$(/usr/bin/id -u 2>/dev/null || /bin/id -u)" = 0 ] || exit 0
+for d in /usr/bin /bin; do
+  [ -x "$d/chown" ] && exec "$d/chown" "$@"
+done
+exit 127

@@ -1,0 +1,112 @@
+// Seeds the demo organisations and one account per role and org (technical-plan TSK-04.5):
+// two FPOs (Hosahalli FPO, and a second FPO for cross-org tests), two buyers, and `agent@` + `admin@`
+// per FPO and `buyer@` per buyer; and (M-002, TKT-26) one processor organisation with `processor@`. Idempotent: re-running keeps IDs, resets the passwords and clears
+// the accounts' sign-in failure counts (TKT-19), as a password reset would.
+//
+// Every account gets the one password SEED_PASSWORD, or the demo default; the password is never printed.
+// It runs only when NODE_ENV is explicitly `development` or `test`, or on the Playwright server (E2E=1):
+// never in production, where `pnpm accounts:create` provisions each account with its own password (SEC-001).
+//
+// Usage: NODE_ENV=development [DATA_DIR=.e2e-data] [SEED_PASSWORD=…] pnpm exec tsx scripts/seed-accounts.ts
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { hashPassword } from 'better-auth/crypto';
+import { env } from '../src/lib/config/env';
+import { clearSignInThrottles } from '../src/lib/auth/sign-in-limit';
+import { writeTx, type Db } from '../src/lib/db/client';
+import { account, organisations, user } from '../src/lib/db/schema';
+import type { Role } from '../src/lib/auth/session';
+
+/** Demo-only default for dev and test databases. Used only when NODE_ENV is explicitly development or test. */
+export const DEV_SEED_PASSWORD = 'kodagu-coffee-demo';
+
+type Org = { id: string; type: 'fpo' | 'buyer' | 'processor'; name: string };
+export type DemoAccount = { id: string; email: string; name: string; role: Role; orgId: string };
+
+export const DEMO_ORGS = {
+  fpoA: { id: 'ORG-HOSAHALLI', type: 'fpo', name: 'Hosahalli FPO' },
+  fpoB: { id: 'ORG-FPO-TEST', type: 'fpo', name: 'Second FPO (tests)' },
+  buyerA: { id: 'ORG-BUYER-A', type: 'buyer', name: 'Demo Buyer A' },
+  buyerB: { id: 'ORG-BUYER-B', type: 'buyer', name: 'Demo Buyer B' },
+  // M-002 (TKT-26, D9): a processor organisation, shown by its pseudonymous name everywhere (Design.md §28.2).
+  processorA: { id: 'ORG-PROC-C03', type: 'processor', name: 'Processor C-03' },
+} as const satisfies Record<string, Org>;
+
+// User IDs are fixed (tests stay deterministic) but opaque, like Better Auth's generated IDs: `USR-` +
+// 8 Crockford base32 characters with no meaning (EXE13). An agent's ID is anchored in `device_enrolled`,
+// so it must never carry an organisation name, role or email (EV16). A database seeded before EXE13
+// holds the old readable IDs under the same emails; recreate it (a fresh DATA_DIR) rather than re-seed.
+export const DEMO_ACCOUNTS = {
+  agentA: { id: 'USR-G59PFRQQ', email: 'agent@hosahalli.udgam.test', name: 'Hosahalli field agent', role: 'agent', orgId: DEMO_ORGS.fpoA.id },
+  adminA: { id: 'USR-7SJPMTPJ', email: 'admin@hosahalli.udgam.test', name: 'Hosahalli FPO admin', role: 'admin', orgId: DEMO_ORGS.fpoA.id },
+  agentB: { id: 'USR-JNZ02V4Y', email: 'agent@fpo-test.udgam.test', name: 'Second FPO field agent', role: 'agent', orgId: DEMO_ORGS.fpoB.id },
+  adminB: { id: 'USR-JG5Q7DYF', email: 'admin@fpo-test.udgam.test', name: 'Second FPO admin', role: 'admin', orgId: DEMO_ORGS.fpoB.id },
+  buyerA: { id: 'USR-8HACCFYE', email: 'buyer@buyer-a.udgam.test', name: 'Buyer A', role: 'buyer', orgId: DEMO_ORGS.buyerA.id },
+  buyerB: { id: 'USR-9XZPMPB7', email: 'buyer@buyer-b.udgam.test', name: 'Buyer B', role: 'buyer', orgId: DEMO_ORGS.buyerB.id },
+  processorA: { id: 'USR-4QK7ZP2M', email: 'processor@processor-c03.udgam.test', name: 'Ravi P.', role: 'processor', orgId: DEMO_ORGS.processorA.id },
+} as const satisfies Record<string, DemoAccount>;
+
+/** Why `seedPassword` refuses outside development, test and the Playwright server (SEC-001). */
+export const SEED_ACCOUNTS_REFUSED =
+  'seed-accounts: the demo accounts are seeded only with NODE_ENV=development or NODE_ENV=test, or on the Playwright server (E2E=1); production accounts come from pnpm accounts:create';
+
+/**
+ * May the demo accounts be seeded here? The rule of `pnpm seed` (EXE35, scripts/seed/run.ts seedAllowed):
+ * the RAW NODE_ENV is explicitly `development` or `test`, or E2E=1. env.ts defaults an unset NODE_ENV to
+ * `development`, so the raw variable is checked: a shell on the production host has no NODE_ENV.
+ */
+function seedAccountsAllowed(): boolean {
+  if (env.E2E === '1') return true;
+  const explicit = process.env.NODE_ENV; // not a secret; only whether it was set, and to what
+  return (explicit === 'development' || explicit === 'test') && env.NODE_ENV === explicit;
+}
+
+/**
+ * SEED_PASSWORD, or the demo default. Refused (SEC-001) unless the seed may run here at all: every demo
+ * account shares this one password, so it must never provision a production account, with or without
+ * SEED_PASSWORD. Production accounts are created one by one with `pnpm accounts:create`.
+ */
+export function seedPassword(): string {
+  if (!seedAccountsAllowed()) throw new Error(SEED_ACCOUNTS_REFUSED);
+  return env.SEED_PASSWORD ?? DEV_SEED_PASSWORD;
+}
+
+/** Write the demo organisations and accounts. Safe to re-run (and to run concurrently). */
+export async function seedAccounts(db: Db, password: string, now = new Date()): Promise<DemoAccount[]> {
+  const accounts: DemoAccount[] = Object.values(DEMO_ACCOUNTS);
+  const hashes = await Promise.all(accounts.map(() => hashPassword(password)));
+  await writeTx(db, async (tx) => {
+    await clearSignInThrottles(
+      tx,
+      accounts.map((a) => a.email),
+    );
+    for (const o of Object.values(DEMO_ORGS)) await tx.insert(organisations).values(o).onConflictDoNothing();
+    for (const [i, a] of accounts.entries()) {
+      await tx
+        .insert(user)
+        .values({ id: a.id, name: a.name, email: a.email, emailVerified: true, role: a.role, orgId: a.orgId, createdAt: now, updatedAt: now })
+        .onConflictDoUpdate({ target: user.id, set: { name: a.name, email: a.email, role: a.role, orgId: a.orgId, updatedAt: now } });
+      await tx
+        .insert(account)
+        .values({ id: `${a.id}-credential`, accountId: a.id, providerId: 'credential', userId: a.id, password: hashes[i]!, createdAt: now, updatedAt: now })
+        .onConflictDoUpdate({ target: account.id, set: { password: hashes[i]!, updatedAt: now } });
+    }
+  });
+  return accounts;
+}
+
+async function main(): Promise<void> {
+  const { closeDb, getDbReady } = await import('../src/lib/db/client');
+  const { runMigrations } = await import('../src/lib/db/migrate');
+  const password = seedPassword(); // refuses outside development, test and E2E before the database is opened
+  const db = await getDbReady();
+  try {
+    await runMigrations(db);
+    const accounts = await seedAccounts(db, password);
+    console.log(JSON.stringify({ seeded: 'accounts', accounts: accounts.map(({ email, role, orgId }) => ({ email, role, orgId })), password: env.SEED_PASSWORD ? 'password from SEED_PASSWORD' : 'password from SEED_PASSWORD (unset: the dev/test demo default)' }));
+  } finally {
+    closeDb();
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) await main();

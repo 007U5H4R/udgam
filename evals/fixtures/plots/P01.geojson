@@ -1,0 +1,44 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "P01",
+    "role": "legitimate",
+    "area_ha": 2,
+    "shape": "convex",
+    "anchor": {
+      "place": "Madikeri, Kodagu",
+      "lat": 12.4211,
+      "lng": 75.7392
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 2397450900
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.7388129,
+          12.4202301
+        ],
+        [
+          75.7401703,
+          12.4211414
+        ],
+        [
+          75.7395871,
+          12.4219699
+        ],
+        [
+          75.7382297,
+          12.4210586
+        ],
+        [
+          75.7388129,
+          12.4202301
+        ]
+      ]
+    ]
+  }
+}

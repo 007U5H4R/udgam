@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://udgam.app/schemas/eudr-geojson.schema.json",
+  "title": "Udgam EUDR geolocation file",
+  "description": "The GeoJSON file served at /api/verify/{batchId}/geojson?h= (technical-plan §12, TP24; docs/eudr-geojson.md). An RFC 7946 FeatureCollection in WGS84 with [longitude, latitude] positions, one Feature per plot of the batch, shaped to the European Commission's EUDR GeoJson File Description v1.5 (5 May 2025).",
+  "type": "object",
+  "required": ["type", "features"],
+  "additionalProperties": false,
+  "properties": {
+    "type": { "const": "FeatureCollection" },
+    "features": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/feature" } }
+  },
+  "$defs": {
+    "longitude": { "type": "number", "minimum": -180, "maximum": 180 },
+    "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+    "position": {
+      "description": "[longitude, latitude] in WGS84 (EPSG:4326), rounded to 6 decimals; no altitude.",
+      "type": "array",
+      "prefixItems": [{ "$ref": "#/$defs/longitude" }, { "$ref": "#/$defs/latitude" }],
+      "items": false,
+      "minItems": 2
+    },
+    "ring": {
+      "description": "A closed linear ring: at least 4 positions, the last equal to the first, and counter-clockwise (RFC 7946 §3.1.6, as an exterior ring). Closure and orientation are checked by the builder's tests; JSON Schema cannot compare items.",
+      "type": "array",
+      "minItems": 4,
+      "items": { "$ref": "#/$defs/position" }
+    },
+    "point": {
+      "type": "object",
+      "required": ["type", "coordinates"],
+      "additionalProperties": false,
+      "properties": { "type": { "const": "Point" }, "coordinates": { "$ref": "#/$defs/position" } }
+    },
+    "multiPoint": {
+      "description": "A plot under 4 ha anchored as several parts: one interior point per part, in part order (EXE26).",
+      "type": "object",
+      "required": ["type", "coordinates"],
+      "additionalProperties": false,
+      "properties": { "type": { "const": "MultiPoint" }, "coordinates": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/position" } } }
+    },
+    "polygon": {
+      "description": "Outer ring only: holes are rejected by the EU system.",
+      "type": "object",
+      "required": ["type", "coordinates"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "Polygon" },
+        "coordinates": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "$ref": "#/$defs/ring" } }
+      }
+    },
+    "multiPolygon": {
+      "description": "A plot anchored as several parts: each part has its outer ring only.",
+      "type": "object",
+      "required": ["type", "coordinates"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "MultiPolygon" },
+        "coordinates": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "$ref": "#/$defs/ring" } }
+        }
+      }
+    },
+    "properties": {
+      "type": "object",
+      "required": ["ProducerName", "ProducerCountry", "ProductionPlace", "commodity", "hs_code", "quantity_kg_cherry", "crop", "batch_id", "certificate_url"],
+      "additionalProperties": false,
+      "properties": {
+        "ProducerName": {
+          "description": "EU property. The pseudonymous producer ID, never a farmer's name (EV16).",
+          "type": "string",
+          "pattern": "^PR-[0-9A-Z]{8}$"
+        },
+        "ProducerCountry": { "description": "EU property. ISO 3166-1 alpha-2.", "const": "IN" },
+        "ProductionPlace": {
+          "description": "EU property. The district and state, never a village.",
+          "type": "string",
+          "pattern": "^([A-Z][A-Za-z]+( and [A-Z][A-Za-z]+)?, )?Karnataka$"
+        },
+        "Area": {
+          "description": "EU property, Points and MultiPoints only. Hectares, two decimals (the whole plot's area); a plot shown as 4.00 ha or more is a Polygon or MultiPolygon, so a Point's or MultiPoint's Area is at most 3.99.",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 3.99
+        },
+        "commodity": { "description": "Udgam property (ignored by the EU system).", "const": "coffee" },
+        "hs_code": { "description": "Udgam property. Coffee, not roasted, not decaffeinated (EUDR Annex I, heading 0901).", "const": "0901 11" },
+        "quantity_kg_cherry": { "description": "Udgam property. The whole batch's fresh-cherry kilograms (not per plot, and not the net mass of a DDS).", "type": "number", "minimum": 0 },
+        "crop": { "description": "Udgam property. The batch's crop as the certificate shows it.", "type": "string", "minLength": 1 },
+        "batch_id": { "description": "Udgam property.", "type": "string", "pattern": "^B-[0-9A-Z]+$" },
+        "certificate_url": { "description": "Udgam property. The absolute certificate URL with its h.", "type": "string", "pattern": "^https?://[^\\s]+/verify/[^\\s/?]+\\?h=[0-9a-f]{12}$" }
+      }
+    },
+    "feature": {
+      "type": "object",
+      "required": ["type", "geometry", "properties"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "Feature" },
+        "geometry": { "oneOf": [{ "$ref": "#/$defs/point" }, { "$ref": "#/$defs/multiPoint" }, { "$ref": "#/$defs/polygon" }, { "$ref": "#/$defs/multiPolygon" }] },
+        "properties": { "$ref": "#/$defs/properties" }
+      },
+      "if": { "type": "object", "properties": { "geometry": { "type": "object", "properties": { "type": { "enum": ["Point", "MultiPoint"] } } } } },
+      "then": { "type": "object", "properties": { "properties": { "type": "object", "properties": { "Area": true }, "required": ["Area"] } } },
+      "else": { "type": "object", "properties": { "properties": { "type": "object", "not": { "type": "object", "properties": { "Area": true }, "required": ["Area"] } } } }
+    }
+  }
+}

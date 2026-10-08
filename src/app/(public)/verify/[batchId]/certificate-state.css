@@ -1,0 +1,14 @@
+/* The certificate's body-level state tokens (verify.html `body[data-state="mismatch"]`): the ground glow
+   (globals.css body::before) turns from green to a muted red, so no green renders anywhere. Scoped with
+   :has(#proof-feed) to the certificate page, whose embedded feed no other page has: the admin's own
+   body[data-state] views are untouched even if this stylesheet stays loaded. Everything else the states
+   change is in certificate.module.css. */
+body[data-state='mismatch']:has(#proof-feed) {
+  --glow: radial-gradient(120% 60% at 50% -10%, rgba(150, 62, 56, 0.42), rgba(60, 24, 22, 0.22) 45%, transparent 70%);
+  --grad-text: none;
+  --pill-glow: none;
+  --focus: #ffffff;
+}
+body[data-state='loading']:has(#proof-feed) {
+  --pill-glow: none;
+}

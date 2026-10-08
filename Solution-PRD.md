@@ -107,7 +107,7 @@ Context is assembled by the caller: plot (+ polygon, registration checks), devic
 | `geofence` | 1 | point inside polygon with buffer = min(accuracy, 25 m) | outside: fail; in buffer: flag |
 | `gps_accuracy` | 1 | < 30 m ok; < 100 m flag; else fail | |
 | `exif_gps_agreement` | 1 | EXIF GPS within 50 m of browser GPS; absent → flag | |
-| `exif_time_agreement` | 6 | EXIF time within 10 min of client time; client within 24 h of server → else flag; > 7 days fail | |
+| `exif_time_agreement` | 6 | EXIF time (worst photo) within 10 min of client time; client within 24 h of server → else flag; EXIF gap > 24 h or client–server > 7 days fail (EXE10) | |
 | `movement_plausibility` | 1 | implied speed from previous event < 120 km/h | fail |
 | `deforestation_overlap` | 3 | GFW loss ≥ 2021 within polygon: any → flag; ≥ 10 % of area → hard fail | thresholds configurable |
 | `ndvi_cultivation` | 3 | 12-month NDVI history consistent with perennial canopy | fail |

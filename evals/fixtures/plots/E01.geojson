@@ -1,0 +1,44 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "E01",
+    "role": "legitimate_edge",
+    "area_ha": 1.5,
+    "shape": "convex",
+    "anchor": {
+      "place": "Ammathi, Kodagu",
+      "lat": 12.2661,
+      "lng": 75.8779
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 2281288435
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.8783385,
+          12.2653991
+        ],
+        [
+          75.8783525,
+          12.2667923
+        ],
+        [
+          75.8774615,
+          12.2668009
+        ],
+        [
+          75.8774475,
+          12.2654077
+        ],
+        [
+          75.8783385,
+          12.2653991
+        ]
+      ]
+    ]
+  }
+}

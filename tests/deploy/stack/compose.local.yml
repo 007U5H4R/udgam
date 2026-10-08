@@ -1,0 +1,7 @@
+# Local-only overlay for deploy/docker-compose.yml (tests/deploy/stack/stack.sh). Never used on the
+# instance. The app's auth secret is passed through by NAME from the shell that runs compose: stack.sh
+# generates it per run, and it is never printed or written to a file (EXE38).
+services:
+  app:
+    environment:
+      - BETTER_AUTH_SECRET

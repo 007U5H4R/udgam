@@ -1,0 +1,127 @@
+# Udgam production stack on the Oracle A1 instance (TKT-27, TSK-27.2). Run it through scripts/deploy.sh;
+# by hand:  UDGAM_DOMAIN=<domain> docker compose -f deploy/docker-compose.yml up -d
+#
+# Variables (shell or `--env-file`; none of them is a secret):
+#   UDGAM_DOMAIN       the site Caddy serves and gets a certificate for (required)
+#   UDGAM_ENV_FILE     the app's environment, secrets included (default /etc/udgam/app.env, 0600 root)
+#   UDGAM_DATA_DIR     the block volume (default /mnt/udgam-data): database, ledger and user keys,
+#                      media, backups, Anvil state. Owned by uid 10001 (deploy/bootstrap.sh).
+#   UDGAM_APP_TAG      the udgam-app image tag (default `current`; scripts/deploy.sh moves it)
+#   UDGAM_HTTP_PORT / UDGAM_HTTPS_PORT   host ports for Caddy (default 80/443; local tests use 47xx)
+#
+# One app instance only: sign-in, capture and enrolment throttles, the capture slot pool and the EVM send
+# queue live in that one process and its database (ledger note, TKT-27). Never scale `app` above 1.
+# The app port is never published: only Caddy reaches it, and Caddy sets X-Forwarded-For (EXE14).
+# Anvil (profile `evm`) is never published either (SEC-203).
+name: udgam
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "14"
+
+services:
+  app:
+    image: udgam-app:${UDGAM_APP_TAG:-current}
+    pull_policy: never # built on the instance by scripts/deploy.sh; there is no registry
+    restart: unless-stopped
+    init: true
+    # Least privilege (fix round 1, Q12): no Linux capabilities, no privilege escalation, and a read-only
+    # root filesystem. Writable: the /data volume, /tmp and Next's own cache (tmpfs, lost on restart), and
+    # /run/udgam: where `accounts-create.mjs … --out /run/udgam` writes a generated password, in memory
+    # only and never in /data's backups (SEC-001, docs/ops/monitoring.md §5).
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:mode=1777,size=64m
+      - /app/.next/cache:uid=10001,gid=10001,mode=0700,size=256m
+      - /run/udgam:uid=10001,gid=10001,mode=0700,size=1m
+    env_file:
+      - path: ${UDGAM_ENV_FILE:-/etc/udgam/app.env}
+        required: true
+    # These win over app.env (Q15): the database and every key file stay on the volume, where the
+    # backup's snapshot container (deploy/lib.sh snapshot_db) and keys/ archive find them.
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /data
+      DATABASE_URL: file:/data/udgam.db
+      LEDGER_KEY_PATH: /data/keys/ledger.jwk
+      EVM_OPERATOR_KEY_PATH: /data/keys/evm-operator.key
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+    volumes:
+      - ${UDGAM_DATA_DIR:-/mnt/udgam-data}:/data
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.status===200?0:1),()=>process.exit(1))"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+      start_interval: 2s
+    logging: *logging
+
+  caddy:
+    # Caddy 2.11, pinned by digest (docs/ops/deploy.md, "Bumping a pinned image").
+    image: caddy:2.11@sha256:f2a1290d0463aad60660d4ec134943f183ee2a5f6c3eb7bf32dd984f2f020772
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "${UDGAM_HTTP_PORT:-80}:80"
+      - "${UDGAM_HTTPS_PORT:-443}:443"
+      - "${UDGAM_HTTPS_PORT:-443}:443/udp"
+    environment:
+      UDGAM_DOMAIN: ${UDGAM_DOMAIN:?set UDGAM_DOMAIN to the site's domain}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    healthcheck:
+      # Caddy's admin API answers on localhost inside the container only.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging: *logging
+
+  anvil:
+    profiles: ["evm"]
+    build:
+      context: .
+      dockerfile: anvil.Dockerfile
+    image: udgam-anvil:1.8.3
+    pull_policy: never
+    restart: unless-stopped
+    init: true
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:mode=1777,size=16m
+    # The app reaches it as ANVIL_RPC_URL=http://anvil:8545 on the stack's network; no host port.
+    command: ["--host", "0.0.0.0", "--port", "8545", "--chain-id", "31337", "--state", "/data/anvil/state.json", "--state-interval", "60"]
+    volumes:
+      - ${UDGAM_DATA_DIR:-/mnt/udgam-data}/anvil:/data/anvil
+    expose:
+      - "8545"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8545"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging: *logging
+
+volumes:
+  caddy_data:
+  caddy_config:

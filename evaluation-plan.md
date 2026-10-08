@@ -127,7 +127,7 @@ About half the S1 attack cases are single-signal by design (tag `single-signal`)
 
 ### 4.6 S6 — Every anchored record re-verifiable from the certificate page alone: 100 %
 
-**Scope: the provenance closure of a batch.** `batch_created`; every `custody_transfer`; for each event in the batch: its `harvest_event`, every `verification_run` for it, and any `admin_override` on those runs; for each plot involved: `plot_registered` (including polygon edits) and every `attestation`; for each device involved: `device_enrolled`, and `device_revoked` if present. Records outside every batch (for example rejected captures) are anchored but cannot appear on a certificate; ledger-wide integrity for those is a functional test, not S6.
+**Scope: the provenance closure of a batch.** `batch_created`; every `custody_transfer`; from M-002, every `processing_step` (TKT-26) and every `quality_attestation` and `settlement` of the batch (TKT-25; agreement entries stay out because terms are private, EXE30); for each event in the batch: its `harvest_event`, every `verification_run` for it, and any `admin_override` on those runs; for each plot involved: `plot_registered` (including polygon edits) and every `attestation`; for each device involved: `device_enrolled`, and `device_revoked` if present. Records outside every batch (for example rejected captures) are anchored but cannot appear on a certificate; ledger-wide integrity for those is a functional test, not S6.
 
 **Method (EV11).** For every seeded batch:
 1. **In-page verifier** (Playwright): the panel verifies every in-scope entry.
@@ -210,7 +210,7 @@ An attack case is a legitimate base case (`base_case`) plus a list of `mutations
 | `prev_event` | `distance_km`, `minutes_before`, or `none` | The device's previous accepted event |
 | `reuse_media` | `from_case`, `which` (`all`, `one`), optional `transform: re-encode` | Media hashes reused from another case; `context.seen_media_from` seeds the global seen set |
 | `chain` | `seq_delta`, `prev_hash` (`correct`, `stale`, `genesis`) | Per-device chain position |
-| `season_cumulative` | `ratio_after_event`, optional `ratio_before_event`, in U | Season yield on the plot |
+| `season_cumulative` | `ratio_after_event`, optional `ratio_before_event`, in U; optional `split_kg_max` (needs `ratio_before_event`) submits the season's kg as equal pickings of at most that many kg, each a separate signed capture on the same plot, device chain and season (EXE23, EXE27) | Season yield on the plot |
 | `photos` | `count` | Number of photos (1–3) |
 | `provider_fault` | `provider`, `mode` (`timeout`, `http_500`, `malformed`), optional `cache: empty` | Provider behaviour in the fixture adapter |
 | `check_throws` | `check`, `error` | Test-only fault injection |

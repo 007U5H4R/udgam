@@ -248,12 +248,24 @@ Build order for M-001 (one phase per line): **01 → 02 → 03 | 04 → 05, 06, 
 - **Objective:** the app, Anvil and Caddy run on the owner's Oracle A1 instance with HTTPS on the product domain.
 - **Acceptance criteria:** Docker Compose for linux-aarch64; Caddy + Let's Encrypt; ledger key and database on persistent block storage with an off-instance backup; keep-busy cron against idle reclamation; one-command redeploy.
 - **EVAL:** — (enables EVAL-070, 072, 085, 090). **TC:** TC-087, TC-088, TC-089 · **Campfire:** TASK-28.
+- **Stage 10 carry-ins (EXE49, EXE50; QA-report §5):** these are acceptance items too.
+  - TSK-27.3's Caddyfile sets `X-Forwarded-For`, with the forged-header test (SEC-006).
+  - Caddy caps request bodies with `request_body`, and the admin paths get their own size cap (SEC-005).
+  - The Anvil/EVM RPC is not published (SEC-203).
+  - Caddy sends HSTS too (SEC-007 sends it from the app).
+  - Migrate with `pnpm db:migrate` (EXE29).
+  - The trace check runs on the standalone build (EXE39).
 
 ### TKT-28 · Production configuration and monitoring
 - **Type** Task · **Priority** P1 · **sp** 3 · **Depends on** TKT-27 · **Milestone** M-003
 - **Objective:** real providers, absolute-URL link previews and failure you can see at 3 AM.
 - **Acceptance criteria:** provider keys as environment secrets; OG and canonical URLs absolute HTTPS on the domain; `/api/health` monitored with an alert to the owner; structured logs retained; dependency audit clean in production.
 - **EVAL:** EVAL-085, 090. **TC:** TC-090, TC-091, TC-092 · **Campfire:** TASK-29.
+- **Stage 10 carry-ins (EXE49, EXE50, EXE51; QA-report §5):** these are acceptance items too.
+  - Production accounts are provisioned per account, with no shared password and a set-password path; the dev seed never runs in production (SEC-001, EXE35).
+  - Each agent gets a daily byte and capture budget, and a disk-space alert sits next to the `/api/health` monitor (SEC-003).
+  - `PUBLIC_BASE_URL` must be https in production (DES-219).
+  - The owner confirms the public feed's privacy shape before the first production anchor (SEC-101, `docs/proof-feed.md` §9.2a).
 
 ### TKT-29 · Production rehearsals and published evaluation report
 - **Type** Task · **Priority** P1 · **sp** 3 · **Depends on** TKT-28 · **Milestone** M-003

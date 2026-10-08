@@ -1,0 +1,10 @@
+# /etc/cron.d/udgam (TKT-27): installed by deploy/bootstrap.sh. The instance runs in UTC.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Nightly encrypted off-instance backup at 02:30 IST = 21:00 UTC (TSK-27.5).
+0 21 * * * root /opt/udgam/deploy/cron/backup.sh >>/var/log/udgam-backup.log 2>&1
+
+# OPTIONAL keep-busy (TSK-27.6): only if the owner declines Pay-As-You-Go. Read docs/ops/oracle-idle.md,
+# record the owner's choice, then uncomment. Holds ~25 % CPU at nice 19, 55 minutes of every hour.
+# 0 * * * * root /opt/udgam/deploy/cron/keep-busy.sh 55 >>/var/log/udgam-keep-busy.log 2>&1

@@ -1,0 +1,165 @@
+/* The batch builder's rows and bottom bar. Rows are admin.html ".q-item" rows holding a checkbox (the
+   selected row takes the ".q-item[aria-current]" lit border); the bar is index.html ".actions" (sticky
+   bottom, fading into the ground). Values unchanged (TP17). */
+.form {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+/* DES-107: the plot filter and select-all buttons (ghost: the create pill stays the one primary) */
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin: 18px 0 0;
+}
+.filter {
+  display: grid;
+  gap: 4px;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.filter select {
+  min-height: 48px;
+  max-width: 100%;
+  padding: 0 12px;
+  border-radius: 14px;
+  border: 1px solid var(--hairline);
+  background: var(--surface-solid);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+}
+.tool {
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--pill-line);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tool:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+.tool:disabled {
+  cursor: not-allowed;
+  color: var(--ink-2);
+}
+.shown {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+}
+.list {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 3px 14px;
+  align-items: start;
+  min-height: 72px;
+  padding: 14px 16px 14px 14px;
+  border-radius: var(--r-row);
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  cursor: pointer;
+}
+.row:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+.row:has(input:checked) {
+  background: rgba(127, 227, 193, 0.1);
+  border-color: rgba(185, 245, 210, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 24px rgba(127, 227, 193, 0.12);
+}
+.row:has(input:disabled) {
+  cursor: not-allowed;
+  color: var(--ink-2);
+}
+.row:has(input:disabled):hover {
+  background: var(--surface);
+}
+.check {
+  grid-row: 1 / 3;
+  width: 24px;
+  height: 24px;
+  margin: 10px 0 0;
+  accent-color: var(--ok);
+  cursor: inherit;
+}
+/* the reason line under a disabled row takes a third row; the checkbox spans it too */
+.row:has(.why) .check {
+  grid-row: 1 / 4;
+}
+.title {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.kg {
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.facts {
+  grid-column: 2 / 4;
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.why {
+  grid-column: 2 / 4;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--ink);
+}
+.actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: grid;
+  gap: 10px;
+  margin-top: auto;
+  padding: 20px 0 calc(20px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, var(--bg) 72%, rgba(10, 14, 12, 0));
+}
+/* Phone < 700: the admin rail is a floating tab bar at the bottom (12 px + 72 px); keep the pill above it. */
+@media (max-width: 699.98px) {
+  .actions {
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+}
+.note {
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+  text-align: center;
+}
+.error {
+  margin: 0;
+  color: var(--check-ink);
+  font-weight: 600;
+}
+.error:empty {
+  display: none;
+}

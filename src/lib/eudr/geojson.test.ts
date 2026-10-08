@@ -1,0 +1,465 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { booleanClockwise, booleanPointInPolygon } from '@turf/turf';
+import Ajv2020 from 'ajv/dist/2020.js';
+import { describe, expect, it } from 'vitest';
+import { areaHa } from '../geo/area';
+import type { MultiPolygon, Polygon, Position } from '../geo/types';
+import type { ProofFeedV1 } from '../ledger/proof';
+import { buildEudrGeoJson, EudrGeometryError, orientRings, serializeEudrGeoJson, type EudrFeature } from './geojson';
+
+// TSK-17.1 · TC-070 (builder half) · EVAL-078 · TP24: the EUDR geolocation file is built from the proof
+// feed's payloads alone (TP16). The fixture feed (evals/fixtures/feeds/batch-3-events.json, three 2.0 ha
+// plots) has its three plots' anchored polygons swapped for the harness fixtures P01 (2.0 ha), P10
+// (4.0 ha) and P03 (5.5 ha), each with the area registration computes for it, so one batch exercises both
+// sides of the 4 ha rule. Every expected value is a literal from TP24 or the fixture files.
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const FEED = JSON.parse(readFileSync(join(ROOT, 'evals/fixtures/feeds/batch-3-events.json'), 'utf8')) as ProofFeedV1;
+const SCHEMA = JSON.parse(readFileSync(join(ROOT, 'docs/eudr-geojson.schema.json'), 'utf8')) as object;
+const DOC_PATH = join(ROOT, 'docs/eudr-geojson.md');
+const BASE = 'https://udgam.test';
+
+const fixture = (id: string): Polygon => (JSON.parse(readFileSync(join(ROOT, `evals/fixtures/plots/${id}.geojson`), 'utf8')) as { geometry: Polygon }).geometry;
+
+/** The fixture feed's plots, in ledger order, with their producer IDs (read off the fixture file). */
+const PLOTS = [
+  { plotId: 'PL-QZE72CD2', producerId: 'PR-0PDMRFJ3' },
+  { plotId: 'PL-ZCPHYB19', producerId: 'PR-VVEWARBA' },
+  { plotId: 'PL-G7JGKSD0', producerId: 'PR-YQZGQHEX' },
+] as const;
+
+/** The fixture feed with plot i's anchored polygon (every plot_registered / plot_edited payload) replaced. */
+function withPolygons(polys: Polygon[]): ProofFeedV1 {
+  const f = structuredClone(FEED);
+  for (const e of f.entries) {
+    if (e.kind !== 'plot_registered' && e.kind !== 'plot_edited') continue;
+    const i = PLOTS.findIndex((p) => p.plotId === e.payload.plotId);
+    if (i < 0 || !polys[i]) continue;
+    e.payload.polygon = polys[i];
+    e.payload.areaHa = areaHa(polys[i]);
+  }
+  return f;
+}
+
+/** The fixture feed with plot 0's anchored polygon and area set (other plots unchanged). */
+function withPlot0(polygon: Polygon | MultiPolygon, area: number): ProofFeedV1 {
+  const f = structuredClone(FEED);
+  for (const e of f.entries) {
+    if ((e.kind !== 'plot_registered' && e.kind !== 'plot_edited') || e.payload.plotId !== PLOTS[0].plotId) continue;
+    e.payload.polygon = polygon as Polygon;
+    e.payload.areaHa = area;
+  }
+  return f;
+}
+
+const reversed = (p: Polygon): Polygon => ({ type: 'Polygon', coordinates: p.coordinates.map((r) => [...r].reverse()) });
+
+const MIXED = withPolygons([fixture('P01'), fixture('P10'), fixture('P03')]);
+const byProducer = (fc: { features: EudrFeature[] }, producerId: string) => fc.features.find((f) => f.properties.ProducerName === producerId)!;
+
+const TP24_KEYS = ['ProducerName', 'ProducerCountry', 'ProductionPlace', 'Area', 'commodity', 'hs_code', 'quantity_kg_cherry', 'crop', 'batch_id', 'certificate_url'];
+
+/** Every position of a geometry. */
+function positions(f: EudrFeature): number[][] {
+  const g = f.geometry;
+  if (g.type === 'Point') return [g.coordinates];
+  if (g.type === 'MultiPoint') return g.coordinates;
+  if (g.type === 'Polygon') return g.coordinates.flat();
+  return g.coordinates.flat(2);
+}
+function rings(f: EudrFeature): number[][][] {
+  const g = f.geometry;
+  if (g.type === 'Point' || g.type === 'MultiPoint') return [];
+  if (g.type === 'Polygon') return g.coordinates;
+  return g.coordinates.flat();
+}
+
+describe('buildEudrGeoJson (TSK-17.1, TC-070, EVAL-078)', () => {
+  it('a FeatureCollection with one Feature per plot of the batch', () => {
+    const fc = buildEudrGeoJson(MIXED, BASE);
+    expect(fc.type).toBe('FeatureCollection');
+    expect(fc.features).toHaveLength(3);
+    expect(fc.features.every((f) => f.type === 'Feature')).toBe(true);
+    expect(fc.features.map((f) => f.properties.ProducerName)).toEqual(['PR-0PDMRFJ3', 'PR-VVEWARBA', 'PR-YQZGQHEX']);
+  });
+
+  it('P01 (2.0 ha) is a Point inside the plot with Area 2.0 as a number; P10 (4.0 ha) and P03 (5.5 ha) are Polygons', () => {
+    const fc = buildEudrGeoJson(MIXED, BASE);
+    const p01 = byProducer(fc, 'PR-0PDMRFJ3');
+    expect(p01.geometry.type).toBe('Point');
+    expect(p01.properties.Area).toBe(2);
+    expect(typeof p01.properties.Area).toBe('number');
+    expect(booleanPointInPolygon(p01.geometry.coordinates as number[], fixture('P01'), { ignoreBoundary: true })).toBe(true);
+
+    const p10 = byProducer(fc, 'PR-VVEWARBA');
+    const p03 = byProducer(fc, 'PR-YQZGQHEX');
+    expect(p10.geometry.type).toBe('Polygon'); // exactly 4 ha: Polygon (TP24 "4 ha or more")
+    expect(p03.geometry.type).toBe('Polygon');
+    // Area is a Point property only (EU file description: Area applies to Points)
+    expect('Area' in p10.properties).toBe(false);
+    expect('Area' in p03.properties).toBe(false);
+  });
+
+  it('a concave plot (P04, L-shaped, 1.2 ha) gets a Point strictly inside it, not on its edge', () => {
+    const fc = buildEudrGeoJson(withPolygons([fixture('P04')]), BASE);
+    const p04 = byProducer(fc, 'PR-0PDMRFJ3');
+    expect(p04.geometry.type).toBe('Point');
+    expect(p04.properties.Area).toBe(1.2);
+    expect(booleanPointInPolygon(p04.geometry.coordinates as number[], fixture('P04'), { ignoreBoundary: true })).toBe(true);
+  });
+
+  it('coordinates are [longitude, latitude] (Kodagu: lon ≈ 75.7–76.0, lat ≈ 12.0–12.6)', () => {
+    const fc = buildEudrGeoJson(MIXED, BASE);
+    for (const f of fc.features) {
+      for (const [lon, lat] of positions(f)) {
+        expect(lon).toBeGreaterThan(75);
+        expect(lon).toBeLessThan(77);
+        expect(lat).toBeGreaterThan(11);
+        expect(lat).toBeLessThan(14);
+      }
+    }
+    // P03's first vertex, rounded to 6 decimals, in [lon, lat] order
+    const first = fixture('P03').coordinates[0]![0]!;
+    expect(rings(byProducer(fc, 'PR-YQZGQHEX'))[0]![0]).toEqual([Math.round(first[0]! * 1e6) / 1e6, Math.round(first[1]! * 1e6) / 1e6]);
+  });
+
+  it('every coordinate is rounded to 6 decimals, with no consecutive duplicates after rounding', () => {
+    // A ring with two vertices about 3 cm apart that round to the same 6-decimal position: one vertex after rounding
+    const dup: Polygon = structuredClone(fixture('P03'));
+    const ring = dup.coordinates[0]!;
+    const [x, y] = [Math.round(ring[1]![0]! * 1e6) / 1e6, Math.round(ring[1]![1]! * 1e6) / 1e6];
+    ring.splice(1, 1, [x - 0.0000001, y + 0.0000001], [x + 0.0000002, y - 0.0000002]);
+    const fc = buildEudrGeoJson(withPolygons([fixture('P01'), fixture('P10'), dup]), BASE);
+    for (const f of fc.features) {
+      for (const pos of positions(f)) {
+        expect(pos).toHaveLength(2);
+        for (const n of pos) expect(Number(n.toFixed(6))).toBe(n);
+      }
+      for (const r of rings(f)) {
+        for (let i = 1; i < r.length; i++) expect(r[i], `${f.properties.ProducerName} vertex ${i}`).not.toEqual(r[i - 1]);
+      }
+    }
+    expect(rings(byProducer(fc, 'PR-YQZGQHEX'))[0]).toHaveLength(fixture('P03').coordinates[0]!.length);
+  });
+
+  it('rings are closed with at least 4 positions, and only the outer ring is kept (no holes)', () => {
+    const holed: Polygon = structuredClone(fixture('P03'));
+    const [cx, cy] = [75.8497, 12.5968];
+    holed.coordinates.push([
+      [cx - 0.0002, cy - 0.0002],
+      [cx + 0.0002, cy - 0.0002],
+      [cx + 0.0002, cy + 0.0002],
+      [cx - 0.0002, cy - 0.0002],
+    ]);
+    const fc = buildEudrGeoJson(withPolygons([fixture('P01'), fixture('P10'), holed]), BASE);
+    for (const f of fc.features.filter((x) => x.geometry.type === 'Polygon')) {
+      const g = f.geometry as { coordinates: number[][][] };
+      expect(g.coordinates).toHaveLength(1);
+      const r = g.coordinates[0]!;
+      expect(r.length).toBeGreaterThanOrEqual(4);
+      expect(r.at(-1)).toEqual(r[0]);
+    }
+  });
+
+  it('properties: keys within the TP24 list with exact casing; ProducerName is the producer ID; country IN; district, Karnataka', () => {
+    const fc = buildEudrGeoJson(MIXED, BASE);
+    for (const f of fc.features) {
+      for (const k of Object.keys(f.properties)) expect(TP24_KEYS).toContain(k);
+      expect(f.properties.ProducerName).toMatch(/^PR-[0-9A-Z]{8}$/);
+      expect(f.properties.ProducerCountry).toBe('IN');
+      expect(f.properties.ProductionPlace).toBe('Kodagu, Karnataka');
+      expect(f.properties.commodity).toBe('coffee');
+      expect(f.properties.hs_code).toBe('0901 11');
+      expect(f.properties.quantity_kg_cherry).toBe(124.5); // the batch's cherry kg (38 + 41.5 + 45)
+      expect(f.properties.crop).toBe('Arabica');
+      expect(f.properties.batch_id).toBe('B-CR3G933K');
+      expect(f.properties.certificate_url).toBe('https://udgam.test/verify/B-CR3G933K?h=05d36abc389a');
+    }
+  });
+
+  it('the polygon comes from the latest plot_registered / plot_edited payload of each plot', () => {
+    const f = structuredClone(MIXED);
+    // Re-anchor plot 1 (P01) with P03's shape: a later plot_edited wins, so it becomes a Polygon
+    const last = [...f.entries].reverse().find((e) => e.kind === 'plot_edited' && e.payload.plotId === PLOTS[0].plotId)!;
+    last.payload.polygon = fixture('P03');
+    last.payload.areaHa = areaHa(fixture('P03'));
+    expect(byProducer(buildEudrGeoJson(f, BASE), 'PR-0PDMRFJ3').geometry.type).toBe('Polygon');
+  });
+
+  it('validates against docs/eudr-geojson.schema.json (ajv)', () => {
+    const ajv = new Ajv2020({ allErrors: true, strict: true });
+    const validate = ajv.compile(SCHEMA);
+    const fc = buildEudrGeoJson(MIXED, BASE);
+    expect(validate(fc), JSON.stringify(validate.errors)).toBe(true);
+    // and the schema has teeth: a name in ProducerName, lat/lon of the wrong type, a hole, an unknown key
+    const bad = structuredClone(fc) as unknown as { features: { properties: Record<string, unknown>; geometry: { coordinates: unknown } }[] };
+    bad.features[0]!.properties.ProducerName = 'Ramesh Kumar';
+    expect(validate(bad)).toBe(false);
+    const holed = structuredClone(fc) as unknown as { features: { geometry: { type: string; coordinates: number[][][] } }[] };
+    const poly = holed.features.find((x) => x.geometry.type === 'Polygon')!;
+    poly.geometry.coordinates.push(poly.geometry.coordinates[0]!);
+    expect(validate(holed)).toBe(false);
+    const extra = structuredClone(fc) as unknown as { features: { properties: Record<string, unknown> }[] };
+    extra.features[0]!.properties.farmerName = 'x';
+    expect(validate(extra)).toBe(false);
+  });
+
+  it('the real fixture feed (three 2.0 ha plots) exports three Points with Area 2', () => {
+    const fc = buildEudrGeoJson(FEED, BASE);
+    expect(fc.features.map((f) => [f.geometry.type, f.properties.Area])).toEqual([
+      ['Point', 2],
+      ['Point', 2],
+      ['Point', 2],
+    ]);
+  });
+});
+
+describe('RFC 7946 §3.1.6 ring orientation (exterior counter-clockwise, holes clockwise)', () => {
+  it('a clockwise P03 exports counter-clockwise, closed, with the same vertices', () => {
+    const cw = reversed(fixture('P03'));
+    expect(booleanClockwise(cw.coordinates[0]!)).toBe(true); // the input really is clockwise
+    const fc = buildEudrGeoJson(withPolygons([fixture('P01'), fixture('P10'), cw]), BASE);
+    const ring = rings(byProducer(fc, 'PR-YQZGQHEX'))[0]!;
+    expect(booleanClockwise(ring)).toBe(false);
+    expect(ring.at(-1)).toEqual(ring[0]);
+    expect(ring).toHaveLength(fixture('P03').coordinates[0]!.length);
+    // the counter-clockwise fixtures stay as they are
+    expect(rings(byProducer(fc, 'PR-VVEWARBA'))[0]![1]).toEqual(fixture('P10').coordinates[0]![1]!.map((n) => Math.round(n * 1e6) / 1e6));
+  });
+
+  it('orientRings: a clockwise exterior turns counter-clockwise and a counter-clockwise hole turns clockwise', () => {
+    const outer: Position[] = [
+      [75.8, 12.5],
+      [75.8, 12.51],
+      [75.81, 12.51],
+      [75.81, 12.5],
+      [75.8, 12.5],
+    ]; // clockwise
+    const hole: Position[] = [
+      [75.804, 12.504],
+      [75.806, 12.504],
+      [75.806, 12.506],
+      [75.804, 12.506],
+      [75.804, 12.504],
+    ]; // counter-clockwise
+    const [o, h] = orientRings([outer, hole]);
+    expect(o).toEqual([
+      [75.8, 12.5],
+      [75.81, 12.5],
+      [75.81, 12.51],
+      [75.8, 12.51],
+      [75.8, 12.5],
+    ]);
+    expect(h).toEqual([
+      [75.804, 12.504],
+      [75.804, 12.506],
+      [75.806, 12.506],
+      [75.806, 12.504],
+      [75.804, 12.504],
+    ]);
+    expect(booleanClockwise(o!)).toBe(false);
+    expect(booleanClockwise(h!)).toBe(true);
+    // already right: unchanged
+    expect(orientRings([o!, h!])).toEqual([o, h]);
+  });
+
+  it('a multi-part plot of 4 ha or more exports as a MultiPolygon with every part counter-clockwise (spec A2)', () => {
+    const multi: MultiPolygon = { type: 'MultiPolygon', coordinates: [reversed(fixture('P03')).coordinates, fixture('P10').coordinates] };
+    const fc = buildEudrGeoJson(withPlot0(multi, 9.5), BASE);
+    const f = byProducer(fc, 'PR-0PDMRFJ3');
+    expect(f.geometry.type).toBe('MultiPolygon');
+    expect('Area' in f.properties).toBe(false);
+    const parts = (f.geometry as { coordinates: number[][][][] }).coordinates;
+    expect(parts).toHaveLength(2);
+    for (const part of parts) {
+      expect(part).toHaveLength(1);
+      expect(booleanClockwise(part[0]!)).toBe(false);
+      expect(part[0]!.at(-1)).toEqual(part[0]![0]);
+    }
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(SCHEMA);
+    expect(validate(fc), JSON.stringify(validate.errors)).toBe(true);
+  });
+});
+
+describe('winding decided relative to the first vertex (Q8)', () => {
+  it('a tiny counter-clockwise ring far from the origin stays as it is', () => {
+    const ne: Position[] = [
+      [179.999998, 89.999998],
+      [179.999999, 89.999998],
+      [179.999999, 89.999999],
+      [179.999998, 89.999998],
+    ];
+    const sw: Position[] = [
+      [-179.999998, -89.999998],
+      [-179.999997, -89.999998],
+      [-179.999997, -89.999997],
+      [-179.999998, -89.999998],
+    ];
+    expect(orientRings([ne])).toEqual([ne]);
+    expect(orientRings([sw])).toEqual([sw]);
+    expect(orientRings([[...ne].reverse()])).toEqual([ne]);
+  });
+});
+
+describe('a multi-part plot under 4 ha exports one point per part (EXE26)', () => {
+  // Two separate squares in Kodagu; the plot is 1.5 ha in total as registered.
+  const WEST: Position[][] = [
+    [
+      [75.8, 12.5],
+      [75.802, 12.5],
+      [75.802, 12.502],
+      [75.8, 12.502],
+      [75.8, 12.5],
+    ],
+  ];
+  const EAST: Position[][] = [
+    [
+      [75.81, 12.51],
+      [75.811, 12.51],
+      [75.811, 12.511],
+      [75.81, 12.511],
+      [75.81, 12.51],
+    ],
+  ];
+  const TWO_PARTS: MultiPolygon = { type: 'MultiPolygon', coordinates: [WEST, EAST] };
+
+  it('a 2-part 1.5 ha plot gives a MultiPoint of 2 points, in part order, each strictly inside its own part, Area 1.5', () => {
+    const fc = buildEudrGeoJson(withPlot0(TWO_PARTS, 1.5), BASE);
+    const f = byProducer(fc, 'PR-0PDMRFJ3');
+    expect(f.geometry).toEqual({
+      type: 'MultiPoint',
+      coordinates: [
+        [75.801, 12.501],
+        [75.8105, 12.5105],
+      ],
+    });
+    expect(f.properties.Area).toBe(1.5);
+    const pts = (f.geometry as { coordinates: Position[] }).coordinates;
+    expect(booleanPointInPolygon(pts[0]!, { type: 'Polygon', coordinates: WEST }, { ignoreBoundary: true })).toBe(true);
+    expect(booleanPointInPolygon(pts[1]!, { type: 'Polygon', coordinates: EAST }, { ignoreBoundary: true })).toBe(true);
+    expect(booleanPointInPolygon(pts[0]!, { type: 'Polygon', coordinates: EAST }, { ignoreBoundary: true })).toBe(false);
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(SCHEMA);
+    expect(validate(fc), JSON.stringify(validate.errors)).toBe(true);
+    expect(serializeEudrGeoJson(fc)).toContain('"geometry":{"type":"MultiPoint","coordinates":[[75.801000,12.501000],[75.810500,12.510500]]}');
+  });
+
+  it('a concave part (P04, L-shaped) still gets a point strictly inside that part', () => {
+    const p04 = fixture('P04');
+    const multi: MultiPolygon = { type: 'MultiPolygon', coordinates: [EAST, p04.coordinates] };
+    const f = byProducer(buildEudrGeoJson(withPlot0(multi, 1.3), BASE), 'PR-0PDMRFJ3');
+    const pts = (f.geometry as { type: string; coordinates: Position[] }).coordinates;
+    expect(f.geometry.type).toBe('MultiPoint');
+    expect(pts).toHaveLength(2);
+    expect(booleanPointInPolygon(pts[1]!, p04, { ignoreBoundary: true })).toBe(true);
+  });
+
+  it('a single-part plot under 4 ha is still a Point', () => {
+    const one: MultiPolygon = { type: 'MultiPolygon', coordinates: [WEST] };
+    expect(byProducer(buildEudrGeoJson(withPlot0(one, 0.49), BASE), 'PR-0PDMRFJ3').geometry).toEqual({ type: 'Point', coordinates: [75.801, 12.501] });
+    expect(byProducer(buildEudrGeoJson(withPlot0({ type: 'Polygon', coordinates: WEST }, 0.49), BASE), 'PR-0PDMRFJ3').geometry).toEqual({
+      type: 'Point',
+      coordinates: [75.801, 12.501],
+    });
+  });
+
+  it('the same two parts at 4 ha or more stay a MultiPolygon with no Area', () => {
+    const f = byProducer(buildEudrGeoJson(withPlot0(TWO_PARTS, 4), BASE), 'PR-0PDMRFJ3');
+    expect(f.geometry.type).toBe('MultiPolygon');
+    expect('Area' in f.properties).toBe(false);
+  });
+
+  it('the schema refuses a MultiPoint whose Area is 4 or more, or that has no Area', () => {
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(SCHEMA);
+    const fc = buildEudrGeoJson(withPlot0(TWO_PARTS, 1.5), BASE);
+    expect(validate(fc)).toBe(true);
+    const f0 = byProducer(fc, 'PR-0PDMRFJ3');
+    f0.properties.Area = 4;
+    expect(validate(fc)).toBe(false);
+    delete f0.properties.Area;
+    expect(validate(fc)).toBe(false);
+  });
+});
+
+describe('the 4 ha line, on the area at two decimals (Q2, Q3)', () => {
+  it('3.994 ha (shown as 3.99 ha) is a Point with Area 3.99', () => {
+    const f = byProducer(buildEudrGeoJson(withPlot0(fixture('P03'), 3.994), BASE), 'PR-0PDMRFJ3');
+    expect(f.geometry.type).toBe('Point');
+    expect(f.properties.Area).toBe(3.99);
+  });
+
+  it('3.9997 ha (shown as 4.00 ha) is a Polygon with no Area', () => {
+    const f = byProducer(buildEudrGeoJson(withPlot0(fixture('P03'), 3.9997), BASE), 'PR-0PDMRFJ3');
+    expect(f.geometry.type).toBe('Polygon');
+    expect('Area' in f.properties).toBe(false);
+  });
+
+  it('a plot of 4 ha or more whose ring collapses after rounding throws, never a Point with Area of 4 or more', () => {
+    const tiny: Polygon = {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [75.8000001, 12.5000001],
+          [75.8000002, 12.5000001],
+          [75.8000002, 12.5000002],
+          [75.8000001, 12.5000001],
+        ],
+      ],
+    };
+    expect(() => buildEudrGeoJson(withPlot0(tiny, 4.5), BASE)).toThrow('EUDR export: plot PL-QZE72CD2 is 4.5 ha but a ring has fewer than 4 positions after rounding to 6 decimals');
+    // its own class, so the route's class-only log (eudr_geojson.failed) tells it apart from a DB failure (Q9)
+    let thrown: unknown;
+    try {
+      buildEudrGeoJson(withPlot0(tiny, 4.5), BASE);
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown).toBeInstanceOf(EudrGeometryError);
+    expect((thrown as Error).constructor.name).toBe('EudrGeometryError');
+    expect((thrown as Error).name).toBe('EudrGeometryError');
+  });
+
+  it('the schema refuses a Point whose Area is 4 or more', () => {
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(SCHEMA);
+    const fc = buildEudrGeoJson(FEED, BASE);
+    fc.features[0]!.properties.Area = 4;
+    expect(validate(fc)).toBe(false);
+  });
+});
+
+describe('serializeEudrGeoJson (at least 6 decimal digits on the wire)', () => {
+  it('leaves string properties alone, even ones that look like the old coordinate marker', () => {
+    const fc = buildEudrGeoJson(FEED, BASE);
+    fc.features[0]!.properties.crop = '\u000012.5\u0000';
+    expect(JSON.parse(serializeEudrGeoJson(fc))).toEqual(fc);
+  });
+
+  it('writes every coordinate with exactly 6 decimals and parses back to the builder output', () => {
+    const fc = buildEudrGeoJson(MIXED, BASE);
+    const text = serializeEudrGeoJson(fc);
+    expect(JSON.parse(text)).toEqual(fc);
+    const coords = /"coordinates":(\[[^a-z"]*\])/g;
+    let m: RegExpExecArray | null;
+    let n = 0;
+    while ((m = coords.exec(text))) {
+      for (const num of m[1]!.match(/-?\d+(?:\.\d+)?/g)!) {
+        expect(num).toMatch(/^-?\d+\.\d{6}$/);
+        n++;
+      }
+    }
+    expect(n).toBe(2 + 2 * (fixture('P10').coordinates[0]!.length + fixture('P03').coordinates[0]!.length));
+  });
+});
+
+describe('docs/eudr-geojson.md (TSK-17.3)', () => {
+  it('its property table lists exactly the keys the builder emits', () => {
+    const table = readFileSync(DOC_PATH, 'utf8')
+      .split('\n')
+      .filter((l) => /^\|\s*`[A-Za-z_]+`\s*\|/.test(l))
+      .map((l) => /^\|\s*`([A-Za-z_]+)`/.exec(l)![1]!);
+    const emitted = new Set(buildEudrGeoJson(MIXED, BASE).features.flatMap((f) => Object.keys(f.properties)));
+    expect(new Set(table)).toEqual(emitted);
+    expect([...emitted].sort()).toEqual([...TP24_KEYS].sort());
+  });
+});

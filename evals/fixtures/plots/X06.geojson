@@ -1,0 +1,44 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "X06",
+    "role": "adversarial",
+    "area_ha": 2,
+    "shape": "convex",
+    "anchor": {
+      "place": "Kalasa, Chikkamagaluru",
+      "lat": 13.236,
+      "lng": 75.354
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 3833396921
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.3540805,
+          13.2350547
+        ],
+        [
+          75.3548376,
+          13.2364847
+        ],
+        [
+          75.3539195,
+          13.2369453
+        ],
+        [
+          75.3531624,
+          13.2355153
+        ],
+        [
+          75.3540805,
+          13.2350547
+        ]
+      ]
+    ]
+  }
+}

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `settlements_one_release_per_batch_idx` ON `settlements` (`batch_id`) WHERE "settlements"."outcome" = 'released';

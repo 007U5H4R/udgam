@@ -1,0 +1,30 @@
+/* Frozen Design.md tokens: copied verbatim from .design/exploration/final/index.html :root.
+   TC-004 (tests/tokens.test.ts) asserts equality. --banner-h is prototype-only and is excluded. */
+:root{
+  --bg:#0A0E0C;
+  --glow:radial-gradient(120% 60% at 50% -10%, rgba(64,150,110,.55), rgba(20,60,45,.25) 45%, transparent 70%);
+  --surface:rgba(255,255,255,.06);
+  --surface-2:rgba(255,255,255,.10);
+  --surface-solid:#191D1B;           /* fallback when backdrop-filter is unsupported */
+  --surface-2-solid:#222724;
+  --hairline:rgba(255,255,255,.12);
+  --ink:#F3F6F4;
+  --ink-2:rgba(243,246,244,.74);
+  --ink-3:rgba(243,246,244,.58);     /* only ≥ 15 px */
+  --grad-text:linear-gradient(90deg,#B9F5D2 0%,#7FE3C1 45%,#D8F58C 100%);
+  --ok:#7FE3A6; --ok-ink:#9CF0BF; --ok-tint:rgba(127,227,166,.14);
+  --check:#F2B84B; --check-ink:#FFCB6B; --check-tint:rgba(242,184,75,.15);
+  --bad:#EF6A5B; --bad-ink:#FF8C7E; --bad-tint:rgba(239,106,91,.15);
+  --cherry:#C8322B;
+  --pill-bg:rgba(255,255,255,.08);
+  --pill-line:rgba(255,255,255,.14);
+  --pill-glow:radial-gradient(70% 120% at 50% 130%, rgba(127,227,166,.65), rgba(170,150,255,.35) 45%, transparent 72%);
+  --pill-glow-amber:radial-gradient(70% 120% at 50% 130%, rgba(242,184,75,.62), rgba(239,106,91,.30) 45%, transparent 72%);
+  --focus:#D8F58C;
+  --r-card:28px; --r-row:22px;
+  --fs-body:clamp(17px, 16.4px + .2vw, 18px);
+  --fs-h1:clamp(28px, 6.4vw + 8px, 34px);
+  --fs-small:15px;
+  --pad:20px;
+  --font:"Figtree","Noto Sans Kannada",system-ui,-apple-system,"Segoe UI",sans-serif;
+}

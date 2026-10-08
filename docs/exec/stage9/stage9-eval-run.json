@@ -1,0 +1,979 @@
+{
+ "schema": "udgam-stage9b-run/1",
+ "timestampUtc": "2026-10-06T06:38:41Z",
+ "provenance": {
+  "commit": "46be1762833429439798696bbd884c90208acda4",
+  "branch": "build/stage7",
+  "dirty": false,
+  "releaseTreeDirty": false,
+  "perfDirty": false,
+  "clone": "git clone --shared /home/user/udgam scratchpad/s9run"
+ },
+ "config": {
+  "version": "cfg-1",
+  "hash": "c91ccb2c8295cfd1b7010964ee83f41e04085a0507674d149a21397b3b3655ac",
+  "baselineHash": "c91ccb2c8295cfd1b7010964ee83f41e04085a0507674d149a21397b3b3655ac",
+  "hashMatchesBaseline": true
+ },
+ "dataset": {
+  "path": "evals/eval-dataset.json",
+  "version": "0.8.0",
+  "sha256": "930b6bab8ee5eba6891642182e6068dd05f929707881ab9a45bf9a0e54783e5f"
+ },
+ "host": {
+  "cpu": "Intel Xeon @ 2.80GHz",
+  "vcpu": 4,
+  "ramGiB": 15,
+  "os": "Linux 6.18.44",
+  "node": "v22.22.2",
+  "pnpm": "12.6.0",
+  "chromium": "141.0.7390.37 (/opt/pw-browsers)",
+  "forge": "1.8.3",
+  "load": "shared with another agent; load average 7-20 on 4 cores",
+  "perfHardware": {
+   "cpuModel": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+   "cpus": 4,
+   "arch": "x64",
+   "platform": "linux",
+   "memoryGb": 15.7,
+   "referenceHost": false,
+   "note": "Measured on this host, not the Oracle A1 reference instance (S3, and S4 on the reference host, are TKT-29 at M-003)."
+  }
+ },
+ "runtime": {
+  "start": "2026-10-06T04:42:25Z",
+  "end": "2026-10-06T06:38Z",
+  "shell": [
+   "test exit=0 secs=183",
+   "test:int exit=0 secs=113",
+   "test:tz exit=0 secs=379",
+   "test:e2e exit=0 secs=3495",
+   "demo exit=0 secs=119",
+   "release exit=0 secs=1672"
+  ]
+ },
+ "commands": {
+  "typecheck": {
+   "exit": 0
+  },
+  "lint": {
+   "exit": 0
+  },
+  "test": {
+   "log": "logs/test.log",
+   "testFiles": [
+    276
+   ],
+   "testsPassed": [
+    2650
+   ],
+   "testsTotal": [
+    2650
+   ],
+   "failedMentions": [],
+   "exit": 0
+  },
+  "test:int": {
+   "log": "logs/test-int.log",
+   "testFiles": [
+    108
+   ],
+   "testsPassed": [
+    773
+   ],
+   "testsTotal": [
+    773
+   ],
+   "failedMentions": [],
+   "exit": 0
+  },
+  "test:tz": {
+   "log": "logs/test-tz.log",
+   "testFiles": [
+    276,
+    276
+   ],
+   "testsPassed": [
+    2650,
+    2650
+   ],
+   "testsTotal": [
+    2650,
+    2650
+   ],
+   "failedMentions": [],
+   "exit": 0
+  },
+  "test:evm": {
+   "log": "logs/test-evm.log",
+   "testFiles": [
+    8
+   ],
+   "testsPassed": [
+    42
+   ],
+   "testsTotal": [
+    42
+   ],
+   "failedMentions": [],
+   "exit": 0
+  },
+  "contracts:test": {
+   "exit": 0,
+   "passed": 47,
+   "failed": 0,
+   "skipped": 0,
+   "total": 47
+  },
+  "test:e2e": {
+   "exit": 0,
+   "port": 4400,
+   "stats": {
+    "startTime": "2026-10-06T04:56:49.237Z",
+    "duration": 3492868.3959999997,
+    "expected": 952,
+    "skipped": 20,
+    "unexpected": 0,
+    "flaky": 0
+   },
+   "topLevelErrors": 0
+  },
+  "demo": {
+   "exit": 0,
+   "port": 4410,
+   "stats": {
+    "startTime": "2026-10-06T05:55:21.753Z",
+    "duration": 117045.703,
+    "expected": 6,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+   },
+   "timings": [
+    {
+     "spec": "demo-attacks",
+     "project": "phone-375",
+     "status": "passed",
+     "totalMs": 14782
+    },
+    {
+     "spec": "demo",
+     "project": "phone-375",
+     "status": "passed",
+     "totalMs": 20321
+    },
+    {
+     "spec": "demo-attacks",
+     "project": "desktop-1280",
+     "status": "passed",
+     "totalMs": 9562
+    },
+    {
+     "spec": "demo",
+     "project": "desktop-1280",
+     "status": "passed",
+     "totalMs": 22457
+    }
+   ]
+  },
+  "eval (M1)": {
+   "exit": 0,
+   "overall": "PASS",
+   "totals": {
+    "ok": true,
+    "active": 103,
+    "passed": 99,
+    "failed": 4,
+    "notYetImplemented": 1,
+    "errored": 0,
+    "skipped": 0,
+    "problems": []
+   }
+  },
+  "eval --ledger=evm --milestone=M2": {
+   "exit": 0,
+   "overall": "PASS",
+   "totals": {
+    "ok": true,
+    "active": 103,
+    "passed": 100,
+    "failed": 3,
+    "notYetImplemented": 0,
+    "errored": 0,
+    "skipped": 0,
+    "problems": []
+   }
+  },
+  "eval:ready": {
+   "exit": 0,
+   "result": "READY (M1) with HR3 WARNING (TP29)"
+  },
+  "eval:perf s4 (local)": {
+   "exit": 0,
+   "port": 4430,
+   "summary": {
+    "n": 10,
+    "p50": 1972.5,
+    "p95": 2333.5,
+    "max": 2473,
+    "thresholdMs": 3000,
+    "pass": true
+   }
+  },
+  "eval:release --milestone=M1 (local)": {
+   "exit": 0,
+   "overall": "PASS",
+   "totals": {
+    "cases": 148,
+    "gated": 130,
+    "passed": 127,
+    "failed": 3,
+    "skipped": 0,
+    "missing": 0,
+    "deferred": 4,
+    "outOfScope": 13,
+    "notGated": 1
+   },
+   "problems": [],
+   "sources": [
+    {
+     "name": "harness",
+     "file": "evals/results/local/eval-run-0.1.0-46be176-r3.json",
+     "exitCode": 0,
+     "tests": 103,
+     "evalTests": 103
+    },
+    {
+     "name": "integration",
+     "file": "evals/results/local/integration.json",
+     "exitCode": 0,
+     "tests": 2650,
+     "evalTests": 260
+    },
+    {
+     "name": "e2e",
+     "file": "evals/results/local/e2e.json",
+     "exitCode": 0,
+     "tests": 292,
+     "evalTests": 264
+    },
+    {
+     "name": "e2e-demo",
+     "file": "evals/results/local/e2e-demo.json",
+     "exitCode": 0,
+     "tests": 4,
+     "evalTests": 4
+    },
+    {
+     "name": "perf",
+     "file": "evals/results/local/perf-s4-46be176.json",
+     "exitCode": null,
+     "tests": 10,
+     "evalTests": 1
+    }
+   ]
+  },
+  "e2e probe (repeat-each=5)": {
+   "exit": 0,
+   "stats": {
+    "startTime": "2026-10-06T06:31:09.325Z",
+    "duration": 366018.91,
+    "expected": 25,
+    "skipped": 5,
+    "unexpected": 0,
+    "flaky": 0
+   }
+  }
+ },
+ "gates": {
+  "baseline-v1": {
+   "S1": {
+    "value": 0.9767441860465116,
+    "display": "97.7 % (42/43)",
+    "target": "\u2265 95.0 %",
+    "pass": true
+   },
+   "S1-floor": {
+    "value": 0.9166666666666666,
+    "display": "91.7 %",
+    "target": "\u2265 90.0 % each",
+    "pass": true
+   },
+   "S2": {
+    "value": 0,
+    "display": "0.0 % (0/40)",
+    "target": "\u2264 5.0 %",
+    "pass": true
+   },
+   "S6-lib": {
+    "value": 1,
+    "display": "100.0 % (7/7)",
+    "target": "100.0 %",
+    "pass": true
+   },
+   "S7": {
+    "value": true,
+    "display": "Yes",
+    "target": "Yes",
+    "pass": true
+   },
+   "CF": {
+    "value": 0,
+    "display": "0",
+    "target": "0",
+    "pass": true
+   }
+  },
+  "m1": {
+   "S1": {
+    "value": 0.9767441860465116,
+    "display": "97.7 % (42/43)",
+    "target": "\u2265 95.0 %",
+    "pass": true
+   },
+   "S1-floor": {
+    "value": 0.9166666666666666,
+    "display": "91.7 %",
+    "target": "\u2265 90.0 % each",
+    "pass": true
+   },
+   "S2": {
+    "value": 0,
+    "display": "0.0 % (0/40)",
+    "target": "\u2264 5.0 %",
+    "pass": true
+   },
+   "S6-lib": {
+    "value": 1,
+    "display": "100.0 % (7/7)",
+    "target": "100.0 %",
+    "pass": true
+   },
+   "S7": {
+    "value": true,
+    "display": "Yes",
+    "target": "Yes",
+    "pass": true
+   },
+   "CF": {
+    "value": 0,
+    "display": "0",
+    "target": "0",
+    "pass": true
+   }
+  },
+  "m2-evm": {
+   "S1": {
+    "value": 0.9767441860465116,
+    "display": "97.7 % (42/43)",
+    "target": "\u2265 95.0 %",
+    "pass": true
+   },
+   "S1-floor": {
+    "value": 0.9166666666666666,
+    "display": "91.7 %",
+    "target": "\u2265 90.0 % each",
+    "pass": true
+   },
+   "S2": {
+    "value": 0,
+    "display": "0.0 % (0/40)",
+    "target": "\u2264 5.0 %",
+    "pass": true
+   },
+   "S6-lib": {
+    "value": 1,
+    "display": "100.0 % (8/8)",
+    "target": "100.0 %",
+    "pass": true
+   },
+   "S7": {
+    "value": true,
+    "display": "Yes",
+    "target": "Yes",
+    "pass": true
+   },
+   "CF": {
+    "value": 0,
+    "display": "0",
+    "target": "0",
+    "pass": true
+   }
+  },
+  "release-local": {
+   "S1": {
+    "value": 0.9767441860465116,
+    "display": "97.7 % (42/43)",
+    "target": "\u2265 95.0 %",
+    "pass": true
+   },
+   "S1-floor": {
+    "value": 0.9166666666666666,
+    "display": "91.7 %",
+    "target": "\u2265 90.0 % each",
+    "pass": true
+   },
+   "S2": {
+    "value": 0,
+    "display": "0.0 % (0/40)",
+    "target": "\u2264 5.0 %",
+    "pass": true
+   },
+   "S6-lib": {
+    "value": 1,
+    "display": "100.0 % (7/7)",
+    "target": "100.0 %",
+    "pass": true
+   },
+   "S7": {
+    "value": true,
+    "display": "Yes",
+    "target": "Yes",
+    "pass": true
+   },
+   "CF": {
+    "value": 0,
+    "display": "0",
+    "target": "0",
+    "pass": true
+   },
+   "S4": {
+    "value": true,
+    "display": "Yes",
+    "target": "every load < 3 s",
+    "pass": true
+   },
+   "Cases": {
+    "value": 1,
+    "display": "28/28",
+    "target": "all",
+    "pass": true
+   },
+   "S7-release": {
+    "value": true,
+    "display": "Yes",
+    "target": "Yes",
+    "pass": true
+   }
+  },
+  "release-formal-eb321a1": {
+   "S1": {
+    "value": 0.9767441860465116,
+    "display": "97.7 % (42/43)",
+    "target": "\u2265 95.0 %",
+    "pass": true
+   },
+   "S1-floor": {
+    "value": 0.9166666666666666,
+    "display": "91.7 %",
+    "target": "\u2265 90.0 % each",
+    "pass": true
+   },
+   "S2": {
+    "value": 0,
+    "display": "0.0 % (0/40)",
+    "target": "\u2264 5.0 %",
+    "pass": true
+   },
+   "S6-lib": {
+    "value": 1,
+    "display": "100.0 % (7/7)",
+    "target": "100.0 %",
+    "pass": true
+   },
+   "S7": {
+    "value": true,
+    "display": "Yes",
+    "target": "Yes",
+    "pass": true
+   },
+   "CF": {
+    "value": 0,
+    "display": "0",
+    "target": "0",
+    "pass": true
+   },
+   "S4": {
+    "value": true,
+    "display": "Yes",
+    "target": "every load < 3 s",
+    "pass": true
+   },
+   "Cases": {
+    "value": 1,
+    "display": "28/28",
+    "target": "all",
+    "pass": true
+   },
+   "S7-release": {
+    "value": true,
+    "display": "Yes",
+    "target": "Yes",
+    "pass": true
+   }
+  },
+  "S4": {
+   "run": {
+    "n": 10,
+    "p50": 1972.5,
+    "p95": 2333.5,
+    "max": 2473,
+    "thresholdMs": 3000,
+    "pass": true
+   },
+   "baselinePerfV1": {
+    "n": 10,
+    "p50": 2451.5,
+    "p95": 2846.5,
+    "max": 2905,
+    "thresholdMs": 3000,
+    "pass": true
+   }
+  }
+ },
+ "criticalFailures": {
+  "m1": [],
+  "m2": [],
+  "baseline": []
+ },
+ "regressions": {
+  "m1VsBaseline": [],
+  "m2VsBaseline": []
+ },
+ "improvements": {
+  "m1VsBaseline": [],
+  "m2VsBaseline": [
+   {
+    "id": "EVAL-103",
+    "baseline": "not_yet_implemented",
+    "run": "passed",
+    "suite": "harness-proof",
+    "milestone": "M2"
+   }
+  ]
+ },
+ "acceptedMisses": [
+  "EVAL-055",
+  "EVAL-056",
+  "EVAL-122"
+ ],
+ "tc": {
+  "counts": {
+   "PASS": 88,
+   "FAIL": 0,
+   "BLOCKED": 6,
+   "NA": 0
+  },
+  "rows": [
+   {
+    "id": "TC-001",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-002",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-003",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-004",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-005",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-006",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-007",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-008",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-009",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-010",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-011",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-012",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-013",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-014",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-015",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-016",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-017",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-018",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-019",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-020",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-021",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-022",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-023",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-024",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-025",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-026",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-027",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-028",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-029",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-030",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-031",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-032",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-033",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-034",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-035",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-036",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-037",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-038",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-039",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-040",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-041",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-042",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-043",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-044",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-045",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-046",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-047",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-048",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-049",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-050",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-051",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-052",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-053",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-054",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-055",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-056",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-057",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-058",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-059",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-060",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-061",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-062",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-063",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-064",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-065",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-066",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-067",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-068",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-069",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-070",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-071",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-072",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-073",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-074",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-075",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-076",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-077",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-078",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-079",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-080",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-081",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-082",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-083",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-084",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-085",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-086",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-087",
+    "status": "BLOCKED"
+   },
+   {
+    "id": "TC-088",
+    "status": "BLOCKED"
+   },
+   {
+    "id": "TC-089",
+    "status": "BLOCKED"
+   },
+   {
+    "id": "TC-090",
+    "status": "BLOCKED"
+   },
+   {
+    "id": "TC-091",
+    "status": "BLOCKED"
+   },
+   {
+    "id": "TC-092",
+    "status": "BLOCKED"
+   },
+   {
+    "id": "TC-093",
+    "status": "PASS"
+   },
+   {
+    "id": "TC-094",
+    "status": "PASS"
+   }
+  ]
+ },
+ "e2e": {
+  "passed": 952,
+  "failed": 0,
+  "flaky": 0,
+  "skipped": 20
+ },
+ "ciOnSameCommit": {
+  "runs": [
+   37414924562,
+   37414927700
+  ],
+  "e2e": "failure",
+  "findings": [
+   {
+    "id": "QA-S9-001",
+    "test": "e2e/og-image.spec.ts:20 [desktop]",
+    "kind": "deterministic on CI (retry failed)",
+    "detail": "/og/verify-kodagu-arabica.png mean difference 2.9007 vs < 1",
+    "local": "passed 7/7",
+    "ticket": "TKT-17 \u00b7 TASK-18 (DES-202)"
+   },
+   {
+    "id": "QA-S9-002",
+    "test": "e2e/m2-processing.spec.ts:48 [desktop]",
+    "kind": "flaky on CI (passed on retry)",
+    "detail": "axe document-title: html",
+    "local": "passed 4/4 full run + 10/10 probe",
+    "ticket": "TKT-26 \u00b7 TASK-27 (same class as m2-agreements.spec.ts:233, TKT-25 \u00b7 TASK-26)"
+   }
+  ],
+  "otherJobs": "verify, test-tz, audit, setup-idempotent, dataset, eval, bundle-secrets, secrets: success; Contracts workflow: success"
+ },
+ "overall": "PASS (local run); CI e2e on 46be176 red: QA-S9-001 (og-image), QA-S9-002 (axe document-title flake)"
+}

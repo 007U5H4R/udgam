@@ -1,0 +1,4 @@
+# forge build output and script broadcasts (never committed)
+out/
+cache/
+broadcast/

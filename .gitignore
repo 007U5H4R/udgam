@@ -11,16 +11,25 @@ test-results/
 .env
 .env.*
 !.env.example
+# CI-only fake values for the bundle-secrets job (TKT-19); never real secrets
+!.env.ci.example
 .secrets/
 *.pem
 *.key
+# JWK key files (ledger key, users' server-bound keys) and any key directory, wherever they land
+# (LEDGER_KEY_PATH outside data/, a restored backup). Stage 10 SEC-201.
+*.jwk
+keys/
 
 # local data — libSQL database files and uploaded media
 *.db
 *.db-*
 *.sqlite
 data/
-media/
+# DATA_DIR of the CI bundle-secrets recipe (.env.ci.example), when run locally
+data-ci/
+/media/
+# (anchored: src/lib/media/ is source code; uploads live under DATA_DIR/media)
 
 # foundry
 cache/
@@ -35,3 +44,13 @@ broadcast/
 
 # third-party reference screenshots (Mobbin/Opal) — local only, never committed
 .design/exploration/ref/
+
+# next.js generated
+next-env.d.ts
+*.tsbuildinfo
+
+# e2e scratch data
+.e2e-data/
+
+# eval harness: ad-hoc runs (formal runs in evals/results/ are committed)
+evals/results/local/

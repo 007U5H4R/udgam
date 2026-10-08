@@ -1,0 +1,39 @@
+# Secret scanning config (EVAL-083, TC-003). Extends gitleaks' built-in rules; nothing is disabled.
+# Needs gitleaks >= 8.25 for [[allowlists]] with targetRules; CI pins a newer release.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Crypto test vectors hold deliberately public, non-secret test keys"
+# The only exemption: this one fixture file (added by TKT-02), for the generic-api-key rule only.
+targetRules = ["generic-api-key"]
+paths = ['''^evals/fixtures/crypto-vectors\.json$''']
+
+# Stage 10 SEC-201: the app's signing keys (ledger.jwk, users' server-bound keys) are JSON Web Keys, and
+# the default rules match PEM blocks, not a JWK. A private JWK is a JSON object with a `kty` member and a
+# private `d` member, in either order, pretty-printed or not, also as escaped JSON inside a string.
+[[rules]]
+id = "private-jwk"
+description = "Private JSON Web Key (an object with \"kty\" and a private \"d\" member)"
+regex = '''\{[^{}]*?\\?"kty\\?"\s*:\s*\\?"(?:EC|RSA|OKP)\\?"[^{}]*?\\?"d\\?"\s*:\s*\\?"[A-Za-z0-9_-]{20,}\\?"[^{}]*\}|\{[^{}]*?\\?"d\\?"\s*:\s*\\?"[A-Za-z0-9_-]{20,}\\?"[^{}]*?\\?"kty\\?"\s*:\s*\\?"(?:EC|RSA|OKP)\\?"[^{}]*\}'''
+keywords = ["kty"]
+tags = ["key", "jwk"]
+
+[[allowlists]]
+description = "Committed JWK test vectors that are deliberately not secret"
+targetRules = ["private-jwk"]
+# The published crypto test vector's testOnlyPrivateJwk (TKT-02), used by the independent verifier tests.
+paths = ['''^evals/fixtures/crypto-vectors\.json$''']
+# An all-zero scalar is not a usable key: the proof-feed negative vector "public JWK carrying d".
+regexTarget = "match"
+regexes = ['''\\?"d\\?"\s*:\s*\\?"A{43}\\?"''']
+
+[[allowlists]]
+description = "A made-up string the accounts CLI test passes to prove the CLI never echoes it (TKT-28)"
+# Only this exact literal in this one test file, for the generic-api-key rule only. It is in history
+# (2c2076d), so the full-history scan needs the exemption; it is not, and never was, a credential.
+targetRules = ["generic-api-key"]
+paths = ['''^scripts/accounts-cli\.test\.ts$''']
+regexTarget = "line"
+regexes = ['''const secret = 'hunter2-positional-secret';''']
+condition = "AND"

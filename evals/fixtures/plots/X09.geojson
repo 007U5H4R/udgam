@@ -1,0 +1,44 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "X09",
+    "role": "adversarial",
+    "area_ha": 5.5,
+    "shape": "convex",
+    "anchor": {
+      "place": "Sringeri, Chikkamagaluru",
+      "lat": 13.42,
+      "lng": 75.257
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 3984395492
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.2568341,
+          13.4184353
+        ],
+        [
+          75.2585187,
+          13.4205407
+        ],
+        [
+          75.2571659,
+          13.4215647
+        ],
+        [
+          75.2554813,
+          13.4194593
+        ],
+        [
+          75.2568341,
+          13.4184353
+        ]
+      ]
+    ]
+  }
+}

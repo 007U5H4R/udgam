@@ -1,0 +1,21 @@
+{
+  "synthetic": true,
+  "note": "Hand-written in the documented GFW Data API query/json shape until TSK-07.7 records a real answer (pnpm eval --provider=live --record). P01 has no tree-cover loss since 2021, so no rows.",
+  "provider": "gfw",
+  "kind": "loss",
+  "plotId": "P01",
+  "providerVersion": "v1.13",
+  "fetchedAt": null,
+  "request": {
+    "method": "POST",
+    "path": "/dataset/umd_tree_cover_loss/v1.13/query/json"
+  },
+  "response": {
+    "status": 200,
+    "url": "https://data-api.globalforestwatch.org/dataset/umd_tree_cover_loss/v1.13/query/json",
+    "body": {
+      "data": [],
+      "status": "success"
+    }
+  }
+}

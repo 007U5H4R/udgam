@@ -1,0 +1,265 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1790657613976,
+      "tag": "0000_next_chronomancer",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1790657618011,
+      "tag": "0001_invariants",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790660850304,
+      "tag": "0002_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790663017218,
+      "tag": "0003_ledger_checkpoints",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790663018520,
+      "tag": "0004_ledger_checkpoints_invariants",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1790663916684,
+      "tag": "0005_enrolment",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1790671879690,
+      "tag": "0006_batches",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1790671881231,
+      "tag": "0007_batch_invariants",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1790679440700,
+      "tag": "0008_batch_replace_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1790680966650,
+      "tag": "0009_agent_user_fk",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1790681488132,
+      "tag": "0010_provenance_replace_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1790682951157,
+      "tag": "0011_remote_sensing_cache",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1790683449858,
+      "tag": "0012_attestations",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1790683453484,
+      "tag": "0013_attestation_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1790689883102,
+      "tag": "0014_crop_yield_accepted_payload",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1790689884777,
+      "tag": "0015_accepted_payload_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1790697850220,
+      "tag": "0016_user_replace_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1790708039138,
+      "tag": "0017_admin_overrides",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1790708040471,
+      "tag": "0018_admin_override_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1791166608036,
+      "tag": "0019_evm_anchors",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1791166614950,
+      "tag": "0020_evm_anchors_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1791174831629,
+      "tag": "0021_admin_decision_update_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1791176115538,
+      "tag": "0022_staged_media",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1791176117418,
+      "tag": "0023_staged_media_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1791178812756,
+      "tag": "0024_evm_anchor_resolution_cols",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1791178815584,
+      "tag": "0025_evm_anchor_resolution",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1791184071065,
+      "tag": "0026_agreements",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1791184072062,
+      "tag": "0027_agreements_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1791191397736,
+      "tag": "0028_prep_processing",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1791191398664,
+      "tag": "0029_processing",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1791191399556,
+      "tag": "0030_guards_processing",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1791191884272,
+      "tag": "0031_settlement_batch_once",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1791191885681,
+      "tag": "0032_settlement_batch_once_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1791197755211,
+      "tag": "0033_reason_blanks_and_hard_fail_final",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1791202177854,
+      "tag": "0034_processing_step_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1791204752736,
+      "tag": "0035_media_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1791291791863,
+      "tag": "0036_agent_day_idx",
+      "breakpoints": true
+    }
+  ]
+}

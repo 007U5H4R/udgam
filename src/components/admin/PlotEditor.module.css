@@ -1,0 +1,151 @@
+/* The plot editor (TKT-06). No mockup: composed from admin.html's ported rules — the .plot-map frame
+   (16 px radius), the .back / .textbtn button recipe (48 px targets), .q-item's selected state for the
+   chosen point, the reason panel's note text — with the frozen tokens only (TP17). */
+.editor {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.map {
+  position: relative;
+  height: 360px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  background: var(--surface-solid);
+}
+/* Leaflet's attribution links (its own, and any a tile provider adds) differ from the attribution text by
+   colour only (#0078a8 on #333, 2.6:1; WCAG 1.4.1 asks 3:1 or a non-colour cue) and are underlined only
+   on hover and focus. Underline them always. */
+.map :global(.leaflet-control-attribution a) {
+  text-decoration: underline;
+}
+/* DES-106 (Design.md §17: targets at least 48 px, text at least 13 px): Leaflet's zoom buttons are 30 px
+   and its attribution is 12 px. The extra class beats leaflet.css's `.leaflet-touch .leaflet-bar a`. */
+.map :global(.leaflet-bar.leaflet-control-zoom a) {
+  width: 48px;
+  height: 48px;
+  line-height: 48px;
+  font-size: 24px;
+}
+.map :global(.leaflet-control-container .leaflet-control-attribution) {
+  font-size: 13px;
+  line-height: 1.4;
+}
+.mapLoading {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.note {
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+}
+.status {
+  display: grid;
+  gap: 6px;
+}
+.area {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+.error {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--bad-tint);
+  color: var(--bad-ink);
+  font-weight: 600;
+}
+.error:empty {
+  display: none;
+}
+.tools,
+.moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.btn:disabled {
+  cursor: not-allowed;
+  color: var(--ink-2);
+  background: rgba(255, 255, 255, 0.03);
+}
+.points {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 336px;
+  overflow-y: auto;
+}
+.point {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.point:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+.point[aria-pressed='true'] {
+  background: rgba(127, 227, 193, 0.1);
+  border-color: rgba(185, 245, 210, 0.55);
+}
+.pointNo {
+  font-weight: 700;
+}
+.pointAt {
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.save {
+  margin-top: 4px;
+}
+
+@media (max-width: 699.98px) {
+  .map {
+    height: 300px;
+  }
+  .btn {
+    flex: 1 1 calc(50% - 4px);
+  }
+}

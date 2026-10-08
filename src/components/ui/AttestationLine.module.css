@@ -1,0 +1,11 @@
+/* The attestation line: plain text in the page's own type (Design.md §4); the status is in the words
+   ("certificate on record", "expired"), never in a colour. */
+.line {
+  margin: 0;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  /* a full row inside a batch member's grid row (QA-P5-2); no effect outside a grid */
+  grid-column: 1 / -1;
+}

@@ -5,7 +5,7 @@
 **Surfaces (§6):** Capture app — Core, mobile PWA · FPO admin — Core, desktop · Buyer dashboard — Core, desktop · Public certificate `/verify/[batchId]` — Web (public, OG applies). Not a Product Journey: there is no marketing site in the MVP.
 
 
-> **DESIGN FROZEN — 2026-09-29, approved by user.** Frozen: information architecture · hero (plot card on Home; proof card first on the certificate) · visual direction (Opal-inspired glow, §1 and §12 tokens) · CTA hierarchy (one primary pill per screen) · motion concept (one cherry moment; progress by real checks) · scroll concept (native) · brand object (coffee-cherry cluster, `final/cherry.svg` v2) · approved mockup `.design/exploration/final/` (index.html, verify.html, admin.html) + link-preview `og/verify.png`.
+> **DESIGN FROZEN — 2026-09-29, approved by user.** Frozen: information architecture · hero (plot card on Home; proof card first on the certificate) · visual direction (Opal-inspired glow, §1 and §12 tokens) · CTA hierarchy (one primary pill per screen) · motion concept (one cherry moment; progress by real checks) · scroll concept (native) · brand object (coffee-cherry cluster, `final/cherry.svg` v2) · approved mockup `.design/exploration/final/` (index.html, verify.html, admin.html) + link-preview `og/verify.png` (artwork frozen; since EXE43/EXE45 its words are rendered per batch: `public/og/verify-<district>-<crop>.png` and the neutral `verify-coffee.png`, made by `scripts/og/render.ts` from `og/index.html`).
 > Implementation may adjust technical details, pixel-level issues, browser constraints, and accessibility fixes. Changing any frozen item goes back to design review (build-workflow scope-change rule); delegated design skills never override it.
 
 ## 1. Design Intent
@@ -178,7 +178,7 @@ Pointer to `evaluation-plan.md` (design cases EVAL-086 capture, EVAL-087–EVAL-
 **Nielsen lens:** visibility of status (checking rows, verdict, saved-on-phone) ✓ · match with the real world (farm words, kg, plot) ✓ · user control (Take again, Back, Try later) ✓ · consistency (one verdict template) ✓ · error prevention (range hint, photo check list) ✓ · recognition over recall (plot preselected) ✓ · efficiency (8–11 taps) ✓ · minimalist (one action per screen) ✓ · error recovery (every error: what happened, what next, nothing lost) ✓ · help (Help tab) ✓.
 **Anti-AI-Slop Review Gate:** Structure — grayscale test passes (hierarchy is carried by size, weight and position; glow is not load-bearing) ✓. Specificity — 20-SaaS test passes (plot card, cherry, farm vocabulary) ✓. Components — no card-everything (cards only for single objects), badges semantic, icons paired with words ✓. Visual — **gradients, glass and glow: justified by the owner's explicit choice of Opal's language**, each confined to its role (glow: ground, primary pill, cherry; glass: cards, tab bar, sheets; gradient text: one word per screen) ✓; radius intentional (28/22/999) ✓; shadows only on floating bar and sheets ✓. Copy — no AI marketing language, CTAs name the action ✓, no fake metrics ✓. AI — N/A (no AI behaviour); processing states are the real checks ✓. Responsive — mobile task model defined, tablet and desktop defined ✓. Motion — one purposeful moment, reduced motion defined ✓. Scroll — native ✓. Web (certificate) — detector run; findings fixed or justified (§ Evidence) ✓.
 **Detector (impeccable) on `final/`:** 36 static findings. Fixed: print colours on the certificate (warnings now ≥ 7.4:1 on paper, buttons hidden in print). Justified: zero-offset glows (Opal language); "cramped padding" on prototype storyboard frames (scaffolding, not product); contrast pairs computed by compositing translucent tints over white (the real page is dark; rendered-pixel contrast measured ≥ 6.2:1). 
-**Web-deliverables design gates:** Responsive ✓ (measured) · Screen states ✓ (§18, reachable by hash in the mockups) · OG ✓ (`og/verify.png`, 1200 × 630, 327 KB, brand-symbol archetype, thumbnail test on `og/index.html`) — production metadata/unfurl verification is Stage 11.
+**Web-deliverables design gates:** Responsive ✓ (measured) · Screen states ✓ (§18, reachable by hash in the mockups) · OG ✓ (`og/verify.png`, 1200 × 630, 327 KB, brand-symbol archetype, thumbnail test on `og/index.html`; per-batch word variants since EXE45) — production metadata/unfurl verification is Stage 11.
 **Ethical gate:** pass (§9). **Accessibility checklist:** semantic order ✓, keyboard path ✓, visible focus (`#D8F58C`) ✓, targets ≥ 48 px (primary 60) ✓, reflow 320 ✓, text 200 % — to verify in Stage 8, reduced motion ✓, colour independence ✓, no drag-only actions ✓ (admin polygon drag gets point-add/remove buttons in Stage 7), labelled forms ✓, tab order = visual order ✓.
 
 ## 25. Web Experience (public certificate only)
@@ -202,3 +202,212 @@ web_experience:
   analytics_intent: count certificate views and proof failures (tool chosen in Stage 6)
   assumptions: organic issuer name; public key URL; Kannada not used on this page
 ```
+
+## 28. M-002 addendum — agreements, settlement and processing
+**Stage 4 re-entry for TKT-23 (TASK-24).** **Status:** accepted as D9 and revised after review as D10, both under the owner's blanket waiver (EXE1); owner review is pending at Stage 8. **Mockup:** `.design/exploration/final/contract.html`; the reviewer's "Screens" menu reaches every screen, variant and state by hash. **Inputs:** Solution-PRD F17 and F18, tickets TKT-25 and TKT-26, technical-plan TSK-25.8 and TSK-26.5. The section is numbered §28 because technical-plan TKT-23 names it so; §26 and §27 are not used.
+
+This section adds new screens and makes four content-level additions to existing M-001 screens. No section above is edited. The tokens, components, motion, IA and copy rules of §1–§25 apply unchanged. The mockup copies the `:root` tokens, base CSS and icons of `final/admin.html` verbatim. The certificate step copies the journey CSS of `final/verify.html` verbatim. The added composition CSS uses only values already present in those two files, with no new colour, radius, type size, shadow, icon or motion (TP17).
+
+**Existing M-001 screens that gain a touch point.** Each is a content-level addition: no frozen layout, component, token, rail or IA path changes, and nothing is removed. The mockup shows each one under "M-001 screens · M-002 touch points" (screen 8).
+
+| # | Existing screen | What is added | What stays frozen |
+|---|---|---|---|
+| T1 | Buyer **Batches** list (`/buyer`), header | A ghost pill link **Agreements with FPOs** → `/buyer/agreements`, under the header's sub line | No rail and no tab bar: the buyer IA stays Batches → Batch detail → Certificate (§5). The list, batch detail and certificate are unchanged. |
+| T2 | Admin **Batches** list (`/admin/batches`), header | A ghost pill link **Agreements with buyers** → `/admin/agreements`, under the existing **New batch** pill | The four-item rail (§5), with Batches current on every agreement screen. The list is unchanged. |
+| T3 | Admin **batch detail** (`/admin/batches/[batchId]`) | An **Agreement** card when the batch is delivered under an agreement: "Delivered under AG-0007 with Buyer B-07", linking to `/admin/agreements/[id]`, and its status | The custody chain, members and every other part of the batch detail. |
+| T4 | Admin batch detail, **Transfer custody** panel | Processor organisations in the recipient list, under their own option group ("Buyers", "Processors"); the field label reads **Hand to** (was "Buyer"); the placeholder and the not-in-list message say "buyer or processor" | The panel's layout, note, pill and locking rule. Only the list content and three strings change. |
+
+The certificate journey step (screen 7) is also a content change, not a freeze change: it is one more item in the existing journey component (§28.4).
+
+### 28.1 Screen inventory
+| # | Surface · route | Screen | What the person does | States in the mockup |
+|---|---|---|---|---|
+| 1 | Buyer · `/buyer/agreements` (+ the detail of the selected agreement) | Agreement list | Sees every agreement with its FPO, crop, agreed kg, amount, deadline and a status chip, then opens one. The detail shows the terms, the latest settlement result and the three conditions, read-only. The header links back to Batches. | data · loading · empty · error · working |
+| 2 | Buyer · `/buyer/agreements/new` | New agreement | Fills in the FPO, crop, agreed kg, minimum grade, amount in mock INR and deadline. Creating it records the agreement; funding is the next step. | data · loading · empty · error (create) · field check · working |
+| 3 | Buyer · `/buyer/agreements/[id]` while the agreement is *Created* | Fund | Reads what moves where (amount, balance before and after, the three conditions, the refund date) and funds it. | data · loading · empty (not found) · error (fund) · working |
+| 3r | Buyer · `/buyer/agreements/[id]` after the deadline with nothing settled | Take the money back (refund variant) | Reads the amount and the balance after, and takes the money back from escrow. | data · loading · empty (not found) · error (refund) · working |
+| 4 | Buyer · `/buyer/agreements/[id]` while the agreement is *Funded* and a batch is delivered | Grade a delivered batch | Picks one grade label for the delivered batch (§28.3) and signs it. Grades below the agreed minimum are marked before signing. | data · loading · empty (no batch delivered yet) · error (grade) · field check · working |
+| 5 | FPO admin · `/admin/agreements` (list) + `/admin/agreements/[id]` (detail) | Agreement list and detail with the settlement panel | Sees the three conditions, each as **value vs threshold** with Met or Not met. Settles when ready. Sees *Payment released* (`--ok`) or *Not released* (`--check`), which names each condition that was not met. The list header links back to Batches. | ready: data · loading · empty · error (list) · working (settle) · action error (settle); released and not released: data · loading · empty · error |
+| 6 | Processor · `/processor` (list) + `/processor/batches/[batchId]` (detail) | Record a processing step, then hand on | Picks a process (pulping, drying, hulling parchment, hulling dry cherry), enters input kg and output kg, and signs. Sees *Within range* (`--ok`) or *Flagged* (`--check`) with the evidence sentence, then hands the batch on to a buyer. | form: data · loading · empty · error (list) · field check · working (record) · action error (record); within and flagged: data · loading · empty · error · working (hand on) · action error (hand on); handed on: data · loading · empty · error |
+| 7 | Public · `/verify/[batchId]` | Certificate journey: the processing step | Sees one more item in "How it got here", for example "Hulled · At Processor C-03 · 600.0 kg in, 480.0 kg out (80.0%)". A flagged step shows the Needs-a-check mark, the word *Flagged* and the expected range in `--check`. | data (within, flagged) · loading · empty (no step: journey unchanged) · error (does not match) |
+| 8 | Existing M-001 screens (T1–T4 above) | Touch points | Reaches the new screens from the existing ones; hands a batch to a processor. | data (the existing screens' own states are unchanged) |
+
+EVAL-105 (dataset 0.6.2) names screens 1–7 with their routes, including the refund variant, `/admin/agreements` and `/processor/batches/[batchId]`.
+
+### 28.2 Processor entry point — recommendation: a new `/processor` surface with a `processor` role
+- **Recommended.** Add a `processor` role and a `(processor)` route group at `/processor`, guarded by `requireSession('processor')` in the layout, in every Server Action and in every route handler (technical-plan §10). TSK-26.3 extends the `user.role` CHECK. The guard-coverage test (`tests/guard-coverage.test.ts`) adds `processor` to its route-group pattern.
+- **Why.**
+  - *Least privilege on a security-sensitive build.* A processor needs one task: record a step for a batch it holds, then hand it on. An admin role brings the review queue, overrides, plot editing, phones and custody transfer. A scoped admin view would need an org-type check added to every existing admin guard and query. One missed check would show FPO data to a processor: farmer pseudonyms, plots and evidence.
+  - *The guard model stays one role per route group*, as M-001 built it (EXE5, TC-018). A new role is one CHECK value, one layout and one seed account.
+  - *The frozen admin IA stays intact.* A scoped admin view would have to hide rail items, which changes the frozen four-item rail. `/processor` is a new surface, so its shell is not a frozen item.
+  - *Data rules already use the org.* The "only the current holder may record a step" trigger (TSK-26.3) works on the processor org whatever the role is called.
+- **Shell.** The admin rail component with one item (**Batches**) and the signed-in person at the foot. On phones there is no floating tab bar, because there is only one destination. The layout is list → detail, as for admin.
+- **Display name.** The processor organisation shows as its pseudonymous name, **Processor C-03**, everywhere: in its own shell and list eyebrow, in the hand-on record, in the admin's recipient list and on the public certificate. This matches how buyers show ("Buyer B-07").
+- **Rejected.** A scoped admin view: the admin guards would need an org-type filter, the leak risk is above, and the frozen rail would change. A processor screen inside the buyer surface: a buyer and a processor are different organisations with different duties, and a buyer must not be able to record processing.
+
+### 28.3 Grade scale
+The buyer picks a **label**. The app stores and signs the **number**. The contract keeps the number as a `uint8` and compares it as `grade ≥ minGrade`.
+
+| Label | Grade (0–100) |
+|---|---|
+| Excellent | 90 |
+| Very good | 80 |
+| Good | 70 |
+| Fair | 60 |
+| Low | 40 |
+
+- The buyer chooses the agreement's minimum grade from the same five labels, so the minimum and the grade always compare cleanly.
+- Grades always display as *label · number*, for example "Very good · 80", and in terms as "Good · 70 of 100".
+- The server refuses any value that is not one of the five numbers, and anything above 100. A `uint8` would allow 255.
+- The numbers leave room for a finer scale later (for example a cupping score) without migrating the contract.
+- **Rejected:**
+  - free numeric entry, which grades the same coffee inconsistently and gives false precision;
+  - the SCA cupping score, which needs roasted samples at delivery;
+  - letter grades, which are easily confused with Indian coffee grade names such as "Plantation A" that describe bean size, not quality.
+
+### 28.4 IA additions
+- **Buyer.**
+  - **No rail and no tab bar.** The frozen buyer IA (§5) is Batches (default) → Batch detail → Certificate, and stays so.
+  - **Agreements** is reached from a ghost pill link in the Batches header, "Agreements with FPOs" (T1), as admin reaches its agreements.
+  - The Agreements list header carries a **Batches** back link (the existing `.back` pill), so the buyer can return without a rail.
+  - Agreements → agreement detail. The detail carries fund, grade, refund and the read-only settlement result, depending on the agreement's status.
+  - New agreement is reached from the Agreements list.
+  - The M-001 paths Batches → Batch detail → Certificate are unchanged.
+- **FPO admin.**
+  - No new rail item: the four-item rail is frozen.
+  - Agreements live under **Batches**: rail current = Batches.
+  - `/admin/agreements` is linked from the Batches list header, "Agreements with buyers" (T2), and its own header links back to Batches.
+  - A batch delivered under an agreement links to its agreement from the batch detail (T3).
+  - `/admin/agreements/[id]` holds the settlement panel. TSK-25.8 adds `/admin/agreements/page.tsx` beside the planned `[id]` page (§28.9).
+  - The Transfer custody panel can hand a batch to a processor (T4).
+- **Processor.** `/processor` (batches the processor org holds) → `/processor/batches/[batchId]` (record a step, then hand on). See §28.2.
+- **Certificate.**
+  - One journey item is added between *Batched* and *Handed to buyer*.
+  - The page gains no new section. It reuses the existing journey component (`.tl` / `.t-dot`), so this is a content change, not a freeze change.
+  - The certificate derives the step from the proof feed only (TP16).
+  - The public page states no agreement, grade or payment: commercial terms are private. Settlement entries still count among the records the browser checks.
+
+### 28.5 Components used (existing only)
+| Need | Component (source) |
+|---|---|
+| Move between sections | Processor: the rail (`admin.html` `.rail`) with one item, hidden on phones. Admin: its frozen four-item rail. Buyer: no rail (§5); header links instead. |
+| Links from an existing header (T1, T2) | Ghost pill `.pill.ghost` as a link, in the header's actions row (`BatchList` "New batch" position). Back to Batches: the `.back` pill as a link. |
+| Lists of agreements and batches | Frosted list rows `.q-item` with the bubble, ID, kg, date line and a status line with a mark (`admin.html` queue) |
+| Status | Verdict chip `.vchip` `ok` / `check`. A neutral chip uses `--surface-2` and `--ink` with the dashed `mk-na` mark (existing tokens and mark). The status → mark mapping is in §28.7. |
+| Agreement terms, delivered batch, agreement card (T3) | Frosted card (`.glass.card`) with definition rows that use the `.chk` row rhythm (hairline, 12 px padding, 152 px label column at ≥ 720 px container width) |
+| Settlement conditions; mass balance | Check rows `.chk` + `.c-stat` + `.c-name` (+ `<code>` key) + `.c-ev` evidence (`admin.html` "All 12 checks"): *Met* = `mk-ok` / `--ok-ink`; *Not met* and *Flagged* = `mk-check` / `--check-ink`, with the row tinted as `.chk.check` |
+| Fund, grade, refund, settle, hand on | Decide panel `.decide` with `.dec-note` (seal icon) and one primary pill (`admin.html` reason panel); settle uses the sticky `.d-actions` bar |
+| Released / not released / handed on | Outcome card `.outcome` with a chip. Released uses the `.decide` green wash, not released the `.state-card.err` amber wash (both existing values). |
+| Form fields | The `.decide textarea` recipe (16 px radius, 1.5 px border, dark fill, 17 px) applied to `input` and `select`. Option rows use the `.menu-list` row recipe (52 px, 18 px radius, selected = the `aria-current` style) around a native radio. |
+| Field check (§28.7) | The field's border turns `--check`; under it, a line in `--check-ink` at `--fs-small`, weight 600, with the 18 px `mk-check` mark (the `.q-why` recipe). The hint stays below. |
+| Action working | The action's pill, disabled, with the spinning ring and its own words (`admin.html` `#again-ic` spin); fields disabled |
+| Action error | `.inline-err` (the `.state-card.err` amber wash in a row) with the wifi-off icon, above the note; the pill becomes **Try again** |
+| Empty, error, loading | `.state-card` (+ cherry), `.state-card.err` + amber "Try again" pill, `.sk` skeletons, `.load-note` (`admin.html`) |
+| Certificate step | Journey `.journey` / `.tl` / `.t-dot` / `.t-step` / `.t-when` / `.t-where` and `.unconfirmed` (`verify.html`, verbatim). A flagged dot uses `--check-tint` / `--check` with `mk-check` inside and the `.st-ic` glow value. |
+
+### 28.6 States
+Every data view implements loading, empty, error and data. *Working* here means an action in progress. In §18, "Working" names the populated view, which this table calls *Data*. All states are reachable in dev with `?state=` (technical-plan §11); the mockup also has *Field check* and *Action error*.
+
+| View | Loading | Empty | Error (the view could not load, or, for a form-only view, the action) | Data |
+|---|---|---|---|---|
+| Buyer agreement list | "Loading your agreements…" + row skeletons | "No agreements yet." + what an agreement is + **New agreement** | "Couldn't load your agreements. Nothing was changed." + Try again | rows with status chips; detail = terms + latest result + conditions. While the FPO settles: "Hosahalli FPO is settling this agreement…" |
+| New agreement | form skeleton | "No FPO to agree with yet." + what to do | see *Create* below | the form |
+| Fund / take the money back | detail skeleton | "There's no agreement AG-0009 for your account." (also for other organisations' IDs: a 404, not a 403) | see *Fund* and *Take the money back* below | terms + fund panel (balance before → after, three conditions, refund date); after the deadline, the refund panel (balance before → after) |
+| Grade a delivered batch | detail skeleton | "No batch delivered yet. When Hosahalli FPO delivers a batch under this agreement, you grade it here." | see *Grade* below | delivered batch card + five options + below-minimum note |
+| Admin agreements + settlement | list + detail skeletons | "No agreements yet. An agreement appears here when a buyer sets one up with your FPO." | "Couldn't load the agreements. Nothing was changed." + Try again | ready (conditions + **Settle**) · released · not released |
+| Processor batches + step | list + detail skeletons | "No batches with you right now. A batch appears here when an FPO hands it to you." | "Couldn't load your batches. Nothing was changed." + Try again | form · within range · flagged · handed on |
+| Certificate journey | proof "Checking 7 of 16 records…" + journey skeleton | batch with no processing step: the M-001 journey, unchanged | does not match: the existing mismatch treatment (no green, dot icons hidden, `.unconfirmed` note) | the step within range, or flagged |
+
+**Actions: working and action error.** Each action shows its own words while it runs (fields and pill disabled) and, if it does not go through, an inline error that says nothing moved and keeps what the person entered. An action error is never shown as a result: a settle that did not go through keeps the neutral *Ready to settle* chip and "Before settling" conditions, and never shows *Not released*.
+
+| Action | Working (pill, disabled) | Action error (`.inline-err`; pill becomes **Try again**) |
+|---|---|---|
+| Create (new agreement) | "Creating the agreement…" | "Couldn't create the agreement. Nothing was saved. What you typed is still here. Try again." |
+| Fund | "Moving ₹2,40,000.00 into escrow…" | "Couldn't fund the agreement. The ledger didn't answer, so nothing moved. Your balance is unchanged." |
+| Take the money back | "Moving ₹1,00,000.00 back to your balance…" | "Couldn't take the money back. The ledger didn't answer, so nothing moved. The ₹1,00,000.00 (mock INR) is still in escrow." |
+| Grade | "Signing the grade…" | "Couldn't save the grade. Nothing was signed. Your choice is still selected. Try again." |
+| Settle (admin) | "Settling…", with the line "Settling: sending the three conditions to the ledger…" | No answer: "Couldn't settle. The ledger didn't answer, so nothing moved and the conditions were not judged. The ₹1,50,000.00 (mock INR) is still in escrow." Turned away before judging (for example a grade signature that does not check out): "Couldn't settle. The ledger turned the request away before judging the conditions, so nothing moved. Try again; if it happens again, tell the Udgam team." |
+| Record step (processor) | "Recording the step…" | "Couldn't record the step. Nothing was signed or saved. What you entered is still here." |
+| Hand on (processor) | "Handing on to Buyer B-07…" | "Couldn't hand on the batch. Nothing was signed. The batch is still with you." |
+
+### 28.7 Copy
+- **Plain words.** Agreement, fund, escrow, delivered, grade, released, not released, take the money back, hand on, flagged. Avoid: oracle, attestation, bitmask, uint8, settlement transaction, mass-balance violation.
+- **Never accusation words.** Not fraud, fake, suspicious, cheat, tampered, violation, breach, penalty, failed, rejected or defaulted, for a condition, a step, a field or a party. A condition is *Met* or *Not met*. A processing step is *Within range* or *Flagged*: "Nothing is refused. The step is recorded, and the flag shows on the batch's certificate."
+- **Settlement released** (`--ok`): "Payment released · ₹1,50,000.00 (mock INR) · Paid from escrow to Hosahalli FPO on 30 Sep 2026, 4:12 pm. All three conditions were met." It also shows the ledger line (chain, block, tx).
+- **Settlement not released** (`--check`): it always names each condition that was not met, with value and threshold. Example: "2 conditions are not met: delivered quantity (598.5 kg of 600.0 kg) and Verified pickings (13 of 14)." It also says where the money is and what can still happen: "The ₹1,50,000.00 (mock INR) stays in escrow. A later delivery under this agreement can still settle it until 31 Dec 2026."
+- **Condition rows (value vs threshold).**
+  - "**598.5 kg** delivered · at least 600.0 kg agreed (1.5 kg short)"
+  - "Graded **Very good · 80** · minimum Good · 70"
+  - "**13 of 14** pickings Verified · all must be Verified. One picking (Farm F-0231, 24 Sep) still Needs a check."
+
+  The wording follows TSK-25.6 `reasons` (`Delivered 598.5 kg of 600.0 kg agreed`).
+- **Trust statement** (always under the conditions): "Delivered kg and “every picking Verified” are stated by the Udgam server, the only account allowed to settle. The grade is signed by the server on behalf of the buyer's account. The contract does the arithmetic." This is TKT-25's honest-trust wording; signatures follow TP15 ("signed by the server on behalf of your account").
+- **Mass balance.** The evidence follows TSK-26.2: "Output 420.0 kg is 70.0% of input 600.0 kg (expected 75–85% for hulling parchment)." When output exceeds input, the sentence says "a gain in weight" (EVAL-102). Pulping and drying show "placeholder range, to be confirmed" until the owner confirms the bands (TSK-26.1).
+- **Buyer status after grading (Stage 8, DES-101; EXE42, pending owner review).** List row: "Graded · waiting for the FPO to settle". Detail chip: "Waiting for the FPO to settle" (neutral). The detail shows the delivered-batch card and a read-only grade card.
+- **Money.** Indian digit grouping with paise ("₹1,50,000.00"). Every amount carries "mock INR" and, where space allows, "not real money".
+- **Input formats.**
+  - *Amount.* The field shows exactly what the person types: no grouping is inserted while typing or on blur, so the caret never jumps and a decimal keypad without a comma key works. It accepts digits, optional commas anywhere and optional paise (one or two digits), for example `150000`, `1,50,000` or `150000.5`. The hint reads it back in display form, "Reads as ₹1,50,000.00 (mock INR). No real money moves." The server stores integer paise.
+  - *Quantities.* kg fields accept digits with at most one decimal place ("600.0"), as kg are shown across M-001.
+  - *Deadline.* The native date picker is used for entry, because it is accessible and works on phones; its own display follows the browser's locale. Everywhere Udgam writes the date it uses the TKT-13 style, "31 Dec 2026": the field's hint reads the choice back as "Open until 31 Dec 2026, end of the day (IST). If nothing has settled by then, you can take the money back.", and the terms, chips and lists show "31 Dec 2026". The deadline is the end of that day in IST (23:59:59 +05:30).
+- **Field checks** (WCAG 2.2 SC 3.3.1 and 3.3.3). Fields are checked when the person submits, not while typing, and the server checks again with the same rules and words. A field that needs a change gets `aria-invalid="true"` and a message directly under it, linked by `aria-describedby` (message first, then the hint). Focus moves to the first such field. Every value is kept as typed. The message clears once the field holds an accepted value. Messages say what to do, with an example; they never say invalid, wrong, error or not allowed.
+
+  | Field | Rule | Message |
+  |---|---|---|
+  | Agreed quantity (kg) | needed | "Enter the agreed quantity in kg, for example 600.0." |
+  | | digits, above 0 | "Enter a quantity above 0 kg in digits, for example 600.0." |
+  | | at most one decimal place | "Use one decimal place at most, for example 600.5." |
+  | Minimum grade | needed (no default is assumed when none is set) | "Choose the lowest grade you accept." |
+  | Amount (mock INR) | needed | "Enter the amount in mock INR, for example 150000." |
+  | | digits (commas optional), above ₹0 | "Enter an amount above ₹0 in digits. Commas and paise are optional, for example 1,50,000.50." |
+  | | paise at most two digits | "Paise take two digits at most, for example 150000.50." |
+  | Deadline | needed | "Choose the last day for delivery." |
+  | | after today (IST) | "Choose a date after today." |
+  | Quality grade (radio group) | one chosen | "Choose one of the five grades." The message sits under the legend; the fieldset's `aria-describedby` names it, and each radio carries `aria-invalid`. |
+  | Process (radio group) | one chosen | "Choose the process you did." |
+  | Input (kg) | needed | "Enter the input weight in kg, for example 600.0." |
+  | | digits, above 0, one decimal at most | "Enter a weight above 0 kg in digits, for example 600.0." |
+  | Output (kg) | needed | "Enter the output weight in kg, for example 480.0." |
+  | | above 0, one decimal at most | "Output must be more than 0 kg." Output above input is **accepted** and flagged as a gain in weight (EVAL-102), never refused here. |
+  | Hand to / Buyer (selects) | one chosen | "Choose a buyer or processor from the list." (admin, T4) · "Choose a buyer from the list." (processor) |
+- **Statuses and their marks.** The mark carries meaning (§13, §17: word + mark + colour). `mk-ok` means done as agreed; `mk-check` means something is not as agreed; the neutral `mk-na` means waiting on someone, including an action the viewer can take. A list row and its detail chip always use the same mark.
+  - `mk-ok`: *Payment released* · *Within range* · *Handed on to Buyer B-07* · *Met*.
+  - `mk-check`: *Not released yet* (buyer) · *Not released* (admin) · *Flagged* · *Not met*.
+  - `mk-na`: *Not funded yet* · *Funded · waiting for delivery* · *Delivered · needs your grade* / *Needs your grade* · *Deadline passed · you can take it back* · *Refunded* (buyer); *Ready to settle* · *Buyer hasn't funded it yet* (admin); *Ready for a processing step* · *With you* (processor).
+
+### 28.8 Responsive and accessibility (measured on the mockup)
+- **Responsive.** Same breakpoints as admin (§16): rail + list + detail at ≥ 1100 px, list → detail with **Back** below that, and the admin's floating tab bar below 700 px. The buyer has no rail at any width; the processor's one-item rail is hidden below 700 px.
+- **Measured.** In Playwright Chromium, 529 renders of `contract.html` were checked after the review revision (D10):
+  - every screen, variant and state (76 combinations, including *Field check*, *Action error* and the touch points) at 320, 375, 768 and 1440 px with reduced motion, and again at 375 px without it;
+  - at the narrow widths, also the list view behind each full-screen detail (144);
+  - the open "Screens" dialog at each width (5).
+
+  None has horizontal scroll (`scrollWidth ≤ clientWidth`). `@axe-core/playwright` reports 0 violations of any impact. Every render has exactly one visible h1 and one `<main>` without `hidden`. A script confirms that the composition CSS, the inline styles and the generated markup add no colour, length, radius, type size, weight, shadow or motion value that is not already in `admin.html` or `verify.html` (TP17). Screenshots and per-render results are in the session scratchpad (`t24fix/`).
+- **Implementation notes kept from the mockup.**
+  - When the detail is the whole screen (< 1100 px), the list's h1 is hidden. The detail repeats it as a visually hidden h1 so that every view has one h1 and the heading order holds.
+  - The detail column scrolls on its own at ≥ 1100 px and is focusable (`tabindex="0"`) so that keyboard users can scroll it.
+  - Grade and process choices are native radios inside 52 px rows. Fields are 56 px. Pills are ≥ 56 px.
+  - Every status pairs a word with a mark shape; colour is never the only signal.
+  - Loading shows skeletons, with a `.load-note` line naming what is loading, as in `admin.html`. A spinner is never the whole loading state. An action in progress shows its own words on the disabled pill.
+  - One `<main>` per page.
+
+### 28.9 Ownership of touch points
+technical-plan §3.3 gives TKT-25 `src/app/(buyer)/buyer/agreements/**` and `src/app/(admin)/admin/agreements/**`, and TKT-26 `src/lib/processing/**` and the processor surface. The touch points below fall outside those files. Each is assigned to one ticket; the orchestrator records this in `docs/exec/ledger.md`.
+
+| Touch point | Files outside the ticket's owned set | Implemented by |
+|---|---|---|
+| T1 · Buyer Batches header link "Agreements with FPOs" | `src/app/(buyer)/buyer/BuyerList.tsx`; i18n keys in `src/lib/i18n/{en,kn}.ts` | **TKT-25** (TSK-25.8) |
+| T2 · Admin Batches header link "Agreements with buyers" | `src/app/(admin)/admin/batches/BatchList.tsx`; i18n keys | **TKT-25** (TSK-25.8) |
+| T3 · Admin batch detail: the Agreement card and link | `src/app/(admin)/admin/batches/[batchId]/page.tsx` (one card block); the read comes from `src/lib/agreements/**` (owned) | **TKT-25** (TSK-25.8) |
+| T4 · Transfer custody: processors as recipients, "Hand to" | `src/app/(admin)/admin/batches/[batchId]/page.tsx` (the panel), `src/app/(admin)/admin/batches/actions.ts`, `src/lib/batches/read.ts` (`listBuyerOrgs` → recipients), `src/lib/custody/transfer.ts` (the buyer-only recipient check), i18n keys | **TKT-26** (TSK-26.3 for the rule, TSK-26.5 for the panel) |
+| Agreements list page `/admin/agreements/page.tsx` | inside TKT-25's glob, but missing from TSK-25.8's file list | **TKT-25** (TSK-25.8) |
+| Processor sign-in home `/processor` | `src/lib/auth/session.ts` (`HOME` by role) | **TKT-26** (TSK-26.3) |
+| Certificate journey item | `src/app/(public)/verify/[batchId]/journey.tsx` (already in TSK-26.5) | **TKT-26** (TSK-26.5) |
+
+Shared files: TKT-25 and TKT-26 run in parallel and both edit `src/app/(admin)/admin/batches/[batchId]/page.tsx` (T3 and T4, separate blocks), `src/lib/i18n/{en,kn}.ts` (new keys only) and `tests/guard-coverage.test.ts`. Their §3.3 ownership is therefore not disjoint for these three files; the second branch to merge resolves them at merge (EXE21).
+
+### 28.10 Open items for the owner (not blocking TKT-25/26)
+1. Pulping and drying bands are placeholders (TSK-26.1). The UI says so until they are confirmed.
+2. The processor's input kg is what the processor weighs. It is not compared with the batch's recorded cherry kg, because the product stage differs (cherry vs parchment). Only output against input is checked.
+3. The public certificate shows no agreement or payment (§28.4). A visible "Paid under agreement" step would be a later design change.
+4. An agreement can receive more than one delivered batch. The settle action names the batch, and with several candidates the admin picks one from a select in the settlement panel (not mocked: one batch in the demo data).
+5. The four M-001 touch points (T1–T4) are content-level additions; the owner confirms at Stage 8 that none of them counts as a freeze change.

@@ -1,0 +1,38 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "P01 edited to take in cleared land (18.0 % loss, TC-028 / EVAL-044)"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              75.7387339,
+              12.4200525
+            ],
+            [
+              75.7403684,
+              12.4211499
+            ],
+            [
+              75.7396661,
+              12.4221475
+            ],
+            [
+              75.7380316,
+              12.4210501
+            ],
+            [
+              75.7387339,
+              12.4200525
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

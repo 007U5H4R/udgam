@@ -1,0 +1,44 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "X07",
+    "role": "adversarial",
+    "area_ha": 1.5,
+    "shape": "convex",
+    "anchor": {
+      "place": "Baba Budangiri foothills, Chikkamagaluru",
+      "lat": 13.42,
+      "lng": 75.75
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 3816619302
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.7493705,
+          13.4194523
+        ],
+        [
+          75.7507819,
+          13.4196896
+        ],
+        [
+          75.7506295,
+          13.4205477
+        ],
+        [
+          75.7492181,
+          13.4203104
+        ],
+        [
+          75.7493705,
+          13.4194523
+        ]
+      ]
+    ]
+  }
+}

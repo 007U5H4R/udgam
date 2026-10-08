@@ -1,0 +1,26 @@
+/* DES-105: a buyer detail that is the whole screen (< 1100 px) hides the list column and its Sign out, so
+   the detail ends with this ghost pill instead (the pattern of RailShell's phone footer, Rail.module.css
+   `.phoneOut`). Side by side (≥ 1100 px) the list column's pill shows and this one hides: one at a time. */
+.detailEnd {
+  display: none;
+}
+@media (max-width: 1099.98px) {
+  .detailEnd {
+    display: block;
+    max-width: 360px;
+    margin-top: 28px;
+  }
+}
+
+/* DES-117: an admin review or processor detail (a rail screen) on a phone, where the open detail hides the
+   tab bar and RailShell's `.phoneOut`; from 700 px the rail foot carries Sign out, so this hides. */
+.railDetailEnd {
+  display: none;
+}
+@media (max-width: 699.98px) {
+  .railDetailEnd {
+    display: block;
+    max-width: 360px;
+    margin-top: 28px;
+  }
+}

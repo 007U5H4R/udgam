@@ -1,0 +1,44 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "X03",
+    "role": "adversarial",
+    "area_ha": 1,
+    "shape": "convex",
+    "anchor": {
+      "place": "Aldur, Chikkamagaluru",
+      "lat": 13.223,
+      "lng": 75.645
+    },
+    "anchorEdge": 0,
+    "generator": "evals/harness/fixtures.ts",
+    "seed": 3883729778
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          75.6445397,
+          13.222501
+        ],
+        [
+          75.6456625,
+          13.2228158
+        ],
+        [
+          75.6454603,
+          13.223499
+        ],
+        [
+          75.6443375,
+          13.2231842
+        ],
+        [
+          75.6445397,
+          13.222501
+        ]
+      ]
+    ]
+  }
+}
