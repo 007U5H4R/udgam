@@ -1312,3 +1312,19 @@ Then HANDOFF.md is rewritten and Stage 10 (`bw-security-review`) starts in the s
   - That behaviour is kept. The deploy gate fails at once on a `restarting` container and auto-rolls back, Caddy answers 502, and the uptime probe alerts.
   - The entrypoint prints one `config.invalid` line naming the variables, never their values.
   - EXE54's "an invalid env stops the container at the migration step" and its "stays up" ruling therefore apply to different run modes, and both are documented in `docs/ops/`.
+
+## EXE56 · Hosting stays Oracle A1; Vercel considered and declined (owner, 2026-10-08)
+- **Context.** The owner asked to deploy on Vercel. The app needs a persistent disk and a single long-running process:
+  - a SQLite/libsql file database;
+  - the ledger signing key and the per-account keys as files;
+  - photos and attestations on disk;
+  - the in-process `writeTx` single writer behind the hash chain;
+  - the hourly checkpoint timer;
+  - Anvil for M-002.
+
+  On Vercel's serverless runtime, data would be lost, each instance would mint its own ledger key so certificates stop verifying, and the chain's write ordering would break. This cloud session also cannot reach `api.vercel.com` (network policy), and no Vercel token is configured.
+- **Options put to the owner:**
+  - Oracle A1 as planned;
+  - re-architect for Vercel (Turso, Blob storage, the key from a secret, a single writer, cron, no Anvil; new tickets plus a re-review);
+  - a demo-only Vercel preview with known-broken persistence.
+- **Decision.** The owner chose Oracle A1 as planned (TKT-27..29, `docs/ops/deploy.md`). No Vercel work.
